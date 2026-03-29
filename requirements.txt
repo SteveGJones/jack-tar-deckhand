@@ -1,2 +1,7 @@
 jsonschema>=4.20.0
 pytest>=8.0.0
+# Phase 4A: Image utilities
+Pillow>=10.0.0
+requests>=2.31.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
