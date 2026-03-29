@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-03-29T12:00:00Z",
+  "image_backend": "ollama",
+  "images": [
+    {
+      "image_id": "slide-01-hero",
+      "slide_number": 1,
+      "file_path": "./tmp/deck/images/slide-01-hero.png",
+      "placement_zone": "background",
+      "dimensions": {"width": 1920, "height": 1080},
+      "source_prompt": "Abstract network of connected nodes in deep blue",
+      "model_used": "x/z-image-turbo",
+      "alt_text": "Abstract network visualization",
+      "status": "generated",
+      "retry_count": 0,
+      "generation_time_seconds": 12.5
+    }
+  ],
+  "summary": {
+    "total_images": 1,
+    "generated_count": 1,
+    "cached_count": 0,
+    "placeholder_count": 0,
+    "failed_count": 0,
+    "total_generation_seconds": 12.5
+  }
+}

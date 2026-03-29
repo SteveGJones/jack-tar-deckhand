@@ -1,0 +1,24 @@
+{
+  "target_pace_wpm": 130,
+  "total_estimated_minutes": 28,
+  "notes": [
+    {
+      "slide_number": 1,
+      "text": "Welcome everyone. Today we're going to demystify AI agents. By the end of this talk, you'll see that the core loop is surprisingly simple.",
+      "estimated_seconds": 20,
+      "timing_marker": "~0:00",
+      "cues": [
+        {"type": "pause", "text": "Let the title slide breathe for 3 seconds before speaking"}
+      ]
+    },
+    {
+      "slide_number": 2,
+      "text": "Here's the thing that surprised me most when I started building agents. The loop is just: get input, call tools, return results. That's it.",
+      "estimated_seconds": 45,
+      "timing_marker": "~0:20",
+      "cues": [
+        {"type": "emphasis", "text": "Stress 'That's it' — this is the key insight"}
+      ]
+    }
+  ]
+}
