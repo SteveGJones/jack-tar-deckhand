@@ -1,5 +1,6 @@
 """Tests for provider discovery module."""
 
+import json
 import os
 import pytest
 from unittest.mock import patch, MagicMock
@@ -98,7 +99,7 @@ class TestDiscoverProviders:
             result = discover_providers()
         assert 'ollama' in result
         assert 'openai' in result
-        assert 'google_vertex' in result
+        assert 'google' in result
         assert 'fal' in result
         assert 'recraft' in result
 
@@ -108,7 +109,7 @@ class TestDiscoverProviders:
         with patch('src.provider_discovery.probe_ollama', return_value=mock_ollama), \
              patch.dict(os.environ, {
                  'OPENAI_API_KEY': 'sk-test',
-                 'GOOGLE_CLOUD_PROJECT': 'my-project',
+                 'GOOGLE_API_KEY': 'goog-test',
                  'FAL_KEY': 'fal-test',
                  'RECRAFT_API_KEY': 'rc-test',
              }):
@@ -132,3 +133,135 @@ class TestDiscoverProviders:
         assert result['fal']['available'] is True
         assert isinstance(result['fal']['models'], list)
         assert len(result['fal']['models']) > 0
+
+
+class TestProbeMultiEnv:
+    """Test probing with multiple candidate env vars (first match wins)."""
+
+    def test_first_env_var_found(self):
+        from src.provider_discovery import probe_env_provider
+        with patch.dict(os.environ, {'GOOGLE_API_KEY': 'key-1'}, clear=True):
+            result = probe_env_provider(
+                ['GOOGLE_API_KEY', 'GOOGLE_APPLICATION_CREDENTIALS'],
+                'google', 'imagen-4',
+            )
+        assert result['available'] is True
+        assert result['env_var_found'] == 'GOOGLE_API_KEY'
+
+    def test_second_env_var_found(self):
+        from src.provider_discovery import probe_env_provider
+        with patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': '/path/key.json'}, clear=True):
+            result = probe_env_provider(
+                ['GOOGLE_API_KEY', 'GOOGLE_APPLICATION_CREDENTIALS'],
+                'google', 'imagen-4',
+            )
+        assert result['available'] is True
+        assert result['env_var_found'] == 'GOOGLE_APPLICATION_CREDENTIALS'
+
+    def test_none_found(self):
+        from src.provider_discovery import probe_env_provider
+        with patch.dict(os.environ, {}, clear=True):
+            result = probe_env_provider(
+                ['GOOGLE_API_KEY', 'GOOGLE_APPLICATION_CREDENTIALS'],
+                'google', 'imagen-4',
+            )
+        assert result['available'] is False
+
+    def test_single_string_still_works(self):
+        from src.provider_discovery import probe_env_provider
+        with patch.dict(os.environ, {'OPENAI_API_KEY': 'sk-test'}, clear=True):
+            result = probe_env_provider('OPENAI_API_KEY', 'openai', 'gpt-image-1.5')
+        assert result['available'] is True
+        assert result['env_var_found'] == 'OPENAI_API_KEY'
+
+
+class TestGoogleDiscovery:
+    """Google has two auth paths: API key (Gemini) or ADC (Vertex AI)."""
+
+    def test_available_via_api_key(self):
+        from src.provider_discovery import discover_providers
+        with patch('src.provider_discovery.probe_ollama',
+                   return_value={'available': False, 'models': [], 'endpoint': 'http://localhost:11434'}), \
+             patch.dict(os.environ, {'GOOGLE_API_KEY': 'test-key'}, clear=True):
+            result = discover_providers()
+        assert result['google']['available'] is True
+        assert result['google']['env_var_found'] == 'GOOGLE_API_KEY'
+
+    def test_available_via_adc(self):
+        from src.provider_discovery import discover_providers
+        with patch('src.provider_discovery.probe_ollama',
+                   return_value={'available': False, 'models': [], 'endpoint': 'http://localhost:11434'}), \
+             patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': '/path/key.json'}, clear=True):
+            result = discover_providers()
+        assert result['google']['available'] is True
+
+    def test_not_available_without_any_key(self):
+        from src.provider_discovery import discover_providers
+        with patch('src.provider_discovery.probe_ollama',
+                   return_value={'available': False, 'models': [], 'endpoint': 'http://localhost:11434'}), \
+             patch.dict(os.environ, {}, clear=True):
+            result = discover_providers()
+        assert result['google']['available'] is False
+
+
+class TestRecraftDefault:
+    """Default env var is RECRAFT_API_KEY (matching Recraft docs)."""
+
+    def test_detects_recraft_api_key(self):
+        from src.provider_discovery import discover_providers
+        with patch('src.provider_discovery.probe_ollama',
+                   return_value={'available': False, 'models': [], 'endpoint': 'http://localhost:11434'}), \
+             patch.dict(os.environ, {'RECRAFT_API_KEY': 'rc-key'}, clear=True):
+            result = discover_providers()
+        assert result['recraft']['available'] is True
+
+
+class TestProjectConfig:
+    """Project config file overrides default env var names."""
+
+    def test_config_overrides_recraft_env_var(self, tmp_path):
+        from src.provider_discovery import discover_providers
+        config = {'recraft': {'env_var': 'RECRAFT_API'}}
+        config_path = tmp_path / 'provider_config.json'
+        config_path.write_text(json.dumps(config))
+
+        with patch('src.provider_discovery.probe_ollama',
+                   return_value={'available': False, 'models': [], 'endpoint': 'http://localhost:11434'}), \
+             patch.dict(os.environ, {'RECRAFT_API': 'my-key'}, clear=True):
+            result = discover_providers(config_path=str(config_path))
+        assert result['recraft']['available'] is True
+        assert result['recraft']['env_var_found'] == 'RECRAFT_API'
+
+    def test_config_overrides_google_env_var(self, tmp_path):
+        from src.provider_discovery import discover_providers
+        config = {'google': {'env_var': 'MY_GOOGLE_KEY'}}
+        config_path = tmp_path / 'provider_config.json'
+        config_path.write_text(json.dumps(config))
+
+        with patch('src.provider_discovery.probe_ollama',
+                   return_value={'available': False, 'models': [], 'endpoint': 'http://localhost:11434'}), \
+             patch.dict(os.environ, {'MY_GOOGLE_KEY': 'custom'}, clear=True):
+            result = discover_providers(config_path=str(config_path))
+        assert result['google']['available'] is True
+
+    def test_missing_config_file_uses_defaults(self):
+        from src.provider_discovery import discover_providers
+        with patch('src.provider_discovery.probe_ollama',
+                   return_value={'available': False, 'models': [], 'endpoint': 'http://localhost:11434'}), \
+             patch.dict(os.environ, {'RECRAFT_API_KEY': 'rc-key'}, clear=True):
+            result = discover_providers(config_path='/nonexistent/path.json')
+        assert result['recraft']['available'] is True
+
+    def test_config_adds_extra_env_vars(self, tmp_path):
+        """Config can add alternative env var names to the defaults."""
+        from src.provider_discovery import discover_providers
+        config = {'recraft': {'env_var': ['RECRAFT_API_KEY', 'RECRAFT_API']}}
+        config_path = tmp_path / 'provider_config.json'
+        config_path.write_text(json.dumps(config))
+
+        with patch('src.provider_discovery.probe_ollama',
+                   return_value={'available': False, 'models': [], 'endpoint': 'http://localhost:11434'}), \
+             patch.dict(os.environ, {'RECRAFT_API': 'alt-key'}, clear=True):
+            result = discover_providers(config_path=str(config_path))
+        assert result['recraft']['available'] is True
+        assert result['recraft']['env_var_found'] == 'RECRAFT_API'

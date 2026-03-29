@@ -1,0 +1,5 @@
+{
+  "recraft": {
+    "env_var": ["RECRAFT_API_KEY", "RECRAFT_API"]
+  }
+}

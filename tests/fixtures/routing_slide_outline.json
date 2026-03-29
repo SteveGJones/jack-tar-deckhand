@@ -1,0 +1,109 @@
+{
+  "narrative_arc": "problem-solution",
+  "estimated_duration_minutes": 30,
+  "total_slides": 10,
+  "slides": [
+    {
+      "slide_number": 1,
+      "slide_type": "title",
+      "headline": "Building Production AI Agents",
+      "body_points": [],
+      "narrative_beat": "hook",
+      "visual_direction": "Abstract network of connected nodes in deep blue, conveying interconnected intelligence",
+      "visual_type": "hero_image",
+      "layout_template": "title"
+    },
+    {
+      "slide_number": 2,
+      "slide_type": "section_divider",
+      "headline": "Understanding the Fundamentals",
+      "body_points": [],
+      "narrative_beat": "setup",
+      "visual_direction": "Soft geometric pattern in muted blue and grey tones",
+      "visual_type": "pattern_background",
+      "layout_template": "section_divider"
+    },
+    {
+      "slide_number": 3,
+      "slide_type": "content",
+      "headline": "The Three Pillars",
+      "body_points": ["Perception", "Reasoning", "Action"],
+      "narrative_beat": "evidence-1",
+      "visual_direction": "Three clean icons representing perception (eye), reasoning (brain), action (hand)",
+      "visual_type": "icon_set",
+      "layout_template": "content"
+    },
+    {
+      "slide_number": 4,
+      "slide_type": "image_feature",
+      "headline": "Real-World Impact",
+      "body_points": ["Deployed at 50+ enterprises"],
+      "narrative_beat": "evidence-2",
+      "visual_direction": "Dramatic photo of a modern data centre with blue LED lighting",
+      "visual_type": "hero_image",
+      "layout_template": "image_feature"
+    },
+    {
+      "slide_number": 5,
+      "slide_type": "data_chart",
+      "headline": "Growth Trajectory",
+      "body_points": [],
+      "narrative_beat": "evidence-3",
+      "visual_type": "chart",
+      "layout_template": "data_chart",
+      "data": {
+        "chart_type": "bar",
+        "data_source_label": "quarterly_revenue",
+        "inline_data": {"labels": ["Q1", "Q2", "Q3", "Q4"], "values": [10, 25, 45, 80]}
+      }
+    },
+    {
+      "slide_number": 6,
+      "slide_type": "diagram",
+      "headline": "System Architecture",
+      "body_points": [],
+      "narrative_beat": "evidence-4",
+      "visual_direction": "Flowchart showing agent loop: input -> process -> tool call -> output",
+      "visual_type": "diagram",
+      "layout_template": "content"
+    },
+    {
+      "slide_number": 7,
+      "slide_type": "content",
+      "headline": "Design Principles",
+      "body_points": ["Simplicity", "Reliability", "Observability"],
+      "narrative_beat": "evidence-5",
+      "visual_direction": "Subtle textured background in warm grey tones",
+      "visual_type": "pattern_background",
+      "layout_template": "content"
+    },
+    {
+      "slide_number": 8,
+      "slide_type": "icon_grid",
+      "headline": "Tool Ecosystem",
+      "body_points": [],
+      "narrative_beat": "evidence-6",
+      "visual_direction": "Six flat icons: database, API, cloud, security lock, monitoring dashboard, deployment rocket",
+      "visual_type": "icon_set",
+      "layout_template": "icon_grid"
+    },
+    {
+      "slide_number": 9,
+      "slide_type": "content",
+      "headline": "Key Insight",
+      "body_points": ["State management is the hard part"],
+      "narrative_beat": "callback",
+      "visual_type": "none",
+      "layout_template": "content"
+    },
+    {
+      "slide_number": 10,
+      "slide_type": "closing",
+      "headline": "Start Simple, Iterate Fast",
+      "body_points": ["Begin with the simplest agent that could work"],
+      "narrative_beat": "cta",
+      "visual_type": "none",
+      "layout_template": "closing"
+    }
+  ]
+}
