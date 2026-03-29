@@ -1,0 +1,25 @@
+{
+  "topic": "Building Production AI Agents with Claude",
+  "audience": "Senior software engineers familiar with LLMs but new to agent frameworks",
+  "duration_minutes": 30,
+  "tone": "technical",
+  "key_takeaways": [
+    "Agent loops are just tool-calling in a while loop",
+    "State management is the hard part, not the AI",
+    "Start with the simplest agent that could work"
+  ],
+  "branding": {
+    "company_name": "Acme Corp",
+    "primary_color": "1A365D",
+    "secondary_color": "E2E8F0"
+  },
+  "preferences": {
+    "style": "image-rich",
+    "slide_count_hint": 20,
+    "image_backend": "ollama",
+    "resolution": "1080p",
+    "include_speaker_notes": true,
+    "include_charts": false
+  },
+  "data_sources": []
+}

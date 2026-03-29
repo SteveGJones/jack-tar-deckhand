@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/talk-brief.json",
+  "title": "TalkBrief",
+  "description": "Speaker input defining the talk topic, audience, duration, and preferences.",
+  "type": "object",
+  "required": ["topic", "audience", "duration_minutes"],
+  "additionalProperties": false,
+  "properties": {
+    "topic": {
+      "type": "string",
+      "minLength": 3,
+      "description": "The talk topic or title."
+    },
+    "audience": {
+      "type": "string",
+      "description": "Description of the target audience."
+    },
+    "duration_minutes": {
+      "type": "integer",
+      "enum": [5, 10, 15, 20, 30, 45, 60, 90],
+      "description": "Talk duration in minutes."
+    },
+    "tone": {
+      "type": "string",
+      "enum": ["professional", "conversational", "technical", "inspirational", "provocative", "storytelling"],
+      "default": "professional"
+    },
+    "key_takeaways": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "maxItems": 5
+    },
+    "branding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "company_name": {"type": "string"},
+        "logo_path": {"type": "string"},
+        "primary_color": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "secondary_color": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "font_preference": {"type": "string"}
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style": {
+          "type": "string",
+          "enum": ["minimalist", "data-heavy", "image-rich", "diagram-heavy", "corporate", "creative"],
+          "default": "image-rich"
+        },
+        "slide_count_hint": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 60
+        },
+        "image_backend": {
+          "type": "string",
+          "enum": ["ollama", "dalle3", "flux-replicate", "stable-diffusion", "ideogram"],
+          "default": "ollama"
+        },
+        "resolution": {
+          "type": "string",
+          "enum": ["1080p", "1440p"],
+          "default": "1080p"
+        },
+        "include_speaker_notes": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_charts": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "data_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "type", "content"],
+        "additionalProperties": false,
+        "properties": {
+          "label": {"type": "string"},
+          "type": {
+            "type": "string",
+            "enum": ["inline_json", "csv_path", "description"]
+          },
+          "content": {"type": "string"}
+        }
+      }
+    }
+  }
+}
