@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 560" width="1120" height="560" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+<defs>
+  <filter id="shadow" x="-4%" y="-4%" width="108%" height="116%">
+    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.08"/>
+  </filter>
+  <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#64748B"/>
+  </marker>
+  <marker id="arrow-iterate" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#F59E0B"/>
+  </marker>
+  <marker id="arrow-approve" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#3B82F6"/>
+  </marker>
+</defs>
+<rect width="1120" height="560" fill="#FAFBFC"/>
+<text x="560" y="35" text-anchor="middle" font-size="20" font-weight="700" fill="#1A202C" letter-spacing="-0.4">Pipeline Execution Flow</text>
+<text x="560" y="55" text-anchor="middle" font-size="12" font-weight="500" fill="#64748B" letter-spacing="0.2">JACK-TAR DECKHAND — DRAFT / PRODUCTION LIFECYCLE</text>
+<rect x="25" y="60" width="1070" height="150" rx="12" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
+<text x="37" y="74" font-size="10" font-weight="600" fill="#CBD5E1" letter-spacing="0.3">SETUP</text>
+<rect x="25" y="60" width="1070" height="290" rx="12" fill="#FFFBEB" stroke="#F59E0B" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
+<text x="37" y="74" font-size="10" font-weight="600" fill="#F59E0B" letter-spacing="0.3">DRAFT CYCLE (iterative, reduced quality)</text>
+<rect x="25" y="340" width="1070" height="150" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
+<text x="37" y="354" font-size="10" font-weight="600" fill="#3B82F6" letter-spacing="0.3">PRODUCTION (single pass, full quality)</text>
+<line x1="260" y1="110.0" x2="300" y2="110.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="520" y1="110.0" x2="560" y2="110.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="780" y1="110.0" x2="820" y2="110.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 930.0 140 C 930.0 180.0, 150.0 180.0, 150.0 220" stroke="#64748B" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+<line x1="260" y1="250.0" x2="300" y2="250.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="520" y1="250.0" x2="560" y2="250.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="780" y1="250.0" x2="820" y2="250.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 930.0 220 C 930.0 50, 930.0 50, 930.0 140" stroke="#F59E0B" stroke-width="2" fill="none" marker-end="url(#arrow-iterate)" stroke-dasharray="6,4"/>
+<rect x="900.0" y="40" width="60" height="18" rx="3" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1"/>
+<text x="930.0" y="53" text-anchor="middle" font-size="9" font-weight="600" fill="#B45309">ITERATE</text>
+<path d="M 930.0 280 C 930.0 320.0, 150.0 320.0, 150.0 360" stroke="#3B82F6" stroke-width="2.5" fill="none" marker-end="url(#arrow-approve)"/>
+<line x1="260" y1="390.0" x2="300" y2="390.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="520" y1="390.0" x2="560" y2="390.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="780" y1="390.0" x2="820" y2="390.0" stroke="#64748B" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g filter="url(#shadow)">
+  <rect x="40" y="80" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="40" y="80" width="220" height="24" rx="8" fill="#047857"/>
+<rect x="40" y="96" width="220" height="8" fill="#047857"/>
+<text x="48" y="96" font-size="11" font-weight="600" fill="white">1. TalkBrief</text>
+<text x="48" y="120" font-size="10" font-weight="400" fill="#475569">Speaker submits brief</text>
+<text x="252" y="135" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Speaker</text>
+<g filter="url(#shadow)">
+  <rect x="300" y="80" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="300" y="80" width="220" height="24" rx="8" fill="#0369A1"/>
+<rect x="300" y="96" width="220" height="8" fill="#0369A1"/>
+<text x="308" y="96" font-size="11" font-weight="600" fill="white">2. Provider Discovery</text>
+<text x="308" y="120" font-size="10" font-weight="400" fill="#475569">Probe available image providers</text>
+<text x="512" y="135" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">[AI] Conductor</text>
+<g filter="url(#shadow)">
+  <rect x="560" y="80" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="560" y="80" width="220" height="24" rx="8" fill="#047857"/>
+<rect x="560" y="96" width="220" height="8" fill="#047857"/>
+<text x="568" y="96" font-size="11" font-weight="600" fill="white">3. Budget Confirmation</text>
+<text x="568" y="120" font-size="10" font-weight="400" fill="#475569">Present options, get approval</text>
+<text x="772" y="135" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Speaker</text>
+<g filter="url(#shadow)">
+  <rect x="820" y="80" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="820" y="80" width="220" height="24" rx="8" fill="#0369A1"/>
+<rect x="820" y="96" width="220" height="8" fill="#0369A1"/>
+<text x="828" y="96" font-size="11" font-weight="600" fill="white">4. Derive StyleGuide</text>
+<text x="828" y="120" font-size="10" font-weight="400" fill="#475569">Palette, fonts, layout rules</text>
+<text x="1032" y="135" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Design</text>
+<g filter="url(#shadow)">
+  <rect x="40" y="220" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="40" y="220" width="220" height="24" rx="8" fill="#0369A1"/>
+<rect x="40" y="236" width="220" height="8" fill="#0369A1"/>
+<text x="48" y="236" font-size="11" font-weight="600" fill="white">5. Generate Outline</text>
+<text x="48" y="260" font-size="10" font-weight="400" fill="#475569">Slide structure + speaker notes</text>
+<text x="252" y="275" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Content</text>
+<g filter="url(#shadow)">
+  <rect x="300" y="220" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="300" y="220" width="220" height="24" rx="8" fill="#0369A1"/>
+<rect x="300" y="236" width="220" height="8" fill="#0369A1"/>
+<text x="308" y="236" font-size="11" font-weight="600" fill="white">6. Draft Images</text>
+<text x="308" y="260" font-size="10" font-weight="400" fill="#475569">Ollama or cloud at reduced quality</text>
+<text x="512" y="275" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Image</text>
+<g filter="url(#shadow)">
+  <rect x="560" y="220" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="560" y="220" width="220" height="24" rx="8" fill="#0369A1"/>
+<rect x="560" y="236" width="220" height="8" fill="#0369A1"/>
+<text x="568" y="236" font-size="11" font-weight="600" fill="white">7. Build Draft PPTX</text>
+<text x="568" y="260" font-size="10" font-weight="400" fill="#475569">Assemble with draft images</text>
+<text x="772" y="275" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Assembly</text>
+<g filter="url(#shadow)">
+  <rect x="820" y="220" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="820" y="220" width="220" height="24" rx="8" fill="#B45309"/>
+<rect x="820" y="236" width="220" height="8" fill="#B45309"/>
+<text x="828" y="236" font-size="11" font-weight="600" fill="white">8. Speaker Review</text>
+<text x="828" y="260" font-size="10" font-weight="400" fill="#475569">Iterate or approve for production</text>
+<text x="1032" y="275" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Speaker</text>
+<g filter="url(#shadow)">
+  <rect x="40" y="360" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="40" y="360" width="220" height="24" rx="8" fill="#0369A1"/>
+<rect x="40" y="376" width="220" height="8" fill="#0369A1"/>
+<text x="48" y="376" font-size="11" font-weight="600" fill="white">9. Production Images</text>
+<text x="48" y="400" font-size="10" font-weight="400" fill="#475569">Full quality, best providers</text>
+<text x="252" y="415" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Image</text>
+<g filter="url(#shadow)">
+  <rect x="300" y="360" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="300" y="360" width="220" height="24" rx="8" fill="#0369A1"/>
+<rect x="300" y="376" width="220" height="8" fill="#0369A1"/>
+<text x="308" y="376" font-size="11" font-weight="600" fill="white">10. Build Final PPTX</text>
+<text x="308" y="400" font-size="10" font-weight="400" fill="#475569">Assemble + QA (25 checks)</text>
+<text x="512" y="415" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Assembly</text>
+<g filter="url(#shadow)">
+  <rect x="560" y="360" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="560" y="360" width="220" height="24" rx="8" fill="#4338CA"/>
+<rect x="560" y="376" width="220" height="8" fill="#4338CA"/>
+<text x="568" y="376" font-size="11" font-weight="600" fill="white">11. Presentation Review</text>
+<text x="568" y="400" font-size="10" font-weight="400" fill="#475569">Conference best practices</text>
+<text x="772" y="415" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">[AI] Reviewer</text>
+<g filter="url(#shadow)">
+  <rect x="820" y="360" width="220" height="60" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+</g>
+<rect x="820" y="360" width="220" height="24" rx="8" fill="#047857"/>
+<rect x="820" y="376" width="220" height="8" fill="#047857"/>
+<text x="828" y="376" font-size="11" font-weight="600" fill="white">12. Deliver</text>
+<text x="828" y="400" font-size="10" font-weight="400" fill="#475569">.pptx + Review + Cost report</text>
+<text x="1032" y="415" text-anchor="end" font-size="9" font-weight="500" fill="#64748B" letter-spacing="0.2">Speaker</text>
+<rect x="40" y="520" width="12" height="12" rx="2" fill="#047857"/>
+<text x="58" y="530" font-size="10" font-weight="500" fill="#475569">Human Actor</text>
+<rect x="160" y="520" width="12" height="12" rx="2" fill="#4338CA"/>
+<text x="178" y="530" font-size="10" font-weight="500" fill="#475569">AI Persona</text>
+<rect x="280" y="520" width="12" height="12" rx="2" fill="#0369A1"/>
+<text x="298" y="530" font-size="10" font-weight="500" fill="#475569">Service</text>
+<rect x="400" y="520" width="12" height="12" rx="2" fill="#B45309"/>
+<text x="418" y="530" font-size="10" font-weight="500" fill="#475569">Decision</text>
+</svg>

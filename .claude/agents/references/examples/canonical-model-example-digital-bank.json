@@ -1,0 +1,610 @@
+{
+  "$schema": "./canonical-service-domain-model-schema.json",
+  "modelMetadata": {
+    "organisation": "Meridian Digital Bank",
+    "domain": "Financial Services",
+    "version": "1.0.0",
+    "author": "Architecture Team",
+    "lastUpdated": "2026-02-08"
+  },
+
+  "services": [
+    {
+      "id": "retail",
+      "name": "Retail Banking",
+      "level": 0,
+      "mission": "Deliver personal banking products and services to individual customers through digital and branch channels.",
+      "serviceType": "core"
+    },
+    {
+      "id": "corporate",
+      "name": "Corporate Banking",
+      "level": 0,
+      "mission": "Provide financial solutions to business clients including lending, treasury, and trade finance.",
+      "serviceType": "core"
+    },
+    {
+      "id": "wealth",
+      "name": "Wealth Management",
+      "level": 0,
+      "mission": "Manage investment portfolios and provide financial planning for high-net-worth clients.",
+      "serviceType": "core"
+    },
+    {
+      "id": "ops-tech",
+      "name": "Operations & Technology",
+      "level": 0,
+      "mission": "Operate core banking infrastructure, ensure system reliability, and drive digital transformation.",
+      "serviceType": "core"
+    },
+    {
+      "id": "risk-compliance",
+      "name": "Risk & Compliance",
+      "level": 0,
+      "mission": "Manage enterprise risk, ensure regulatory compliance, and maintain the bank's licence to operate.",
+      "serviceType": "core"
+    },
+    {
+      "id": "ai-coe",
+      "name": "AI Centre of Excellence",
+      "level": 0,
+      "mission": "Govern AI Persona lifecycle, model validation, bias monitoring, and responsible AI practices.",
+      "serviceType": "support"
+    },
+
+    {
+      "id": "retail-onboarding",
+      "name": "Customer Onboarding",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Acquire new customers through digital and branch channels, verify identity, and activate accounts.",
+      "serviceType": "core"
+    },
+    {
+      "id": "retail-accounts",
+      "name": "Account Management",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Maintain customer accounts, process transactions, and provide self-service banking capabilities.",
+      "serviceType": "core"
+    },
+    {
+      "id": "retail-payments",
+      "name": "Payments Processing",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Execute domestic and international payments, manage direct debits, and handle payment disputes.",
+      "serviceType": "core"
+    },
+    {
+      "id": "retail-lending",
+      "name": "Lending & Credit",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Originate personal loans and mortgages, manage credit limits, and oversee collections.",
+      "serviceType": "core"
+    },
+    {
+      "id": "retail-cards",
+      "name": "Card Services",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Issue debit and credit cards, manage card lifecycle, and process card-present and card-not-present transactions.",
+      "serviceType": "core"
+    },
+    {
+      "id": "retail-compliance",
+      "name": "Compliance & Reporting",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Monitor transactions for regulatory compliance, file suspicious activity reports, and manage audit responses.",
+      "serviceType": "core"
+    },
+    {
+      "id": "retail-fraud-ai",
+      "name": "Fraud Detection AI",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Autonomously screen transactions in real time, identify fraud patterns, and block suspicious activity before funds leave the bank.",
+      "serviceType": "core",
+      "isAIPersona": true
+    },
+    {
+      "id": "retail-service-ai",
+      "name": "Customer Service AI",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Handle customer enquiries across chat and voice channels, resolve common issues, and escalate complex cases to human agents.",
+      "serviceType": "core",
+      "isAIPersona": true
+    },
+    {
+      "id": "retail-risk-ai",
+      "name": "Credit Risk AI",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Assess creditworthiness of loan applicants using financial history, behavioural data, and market signals to produce risk scores.",
+      "serviceType": "core",
+      "isAIPersona": true
+    },
+    {
+      "id": "retail-invest-ai",
+      "name": "Investment Advisory AI",
+      "parentId": "retail",
+      "level": 1,
+      "mission": "Generate personalised investment recommendations based on customer risk profiles, goals, and market conditions.",
+      "serviceType": "core",
+      "isAIPersona": true
+    }
+  ],
+
+  "aiPersonas": [
+    {
+      "id": "ap-fraud-ai",
+      "serviceId": "retail-fraud-ai",
+      "authorityModel": "autonomous",
+      "description": "Real-time transaction fraud detection with autonomous blocking authority for high-confidence cases.",
+      "capabilities": [
+        "Real-time transaction scoring",
+        "Pattern anomaly detection",
+        "Autonomous block/allow decisions",
+        "Suspicious activity flagging"
+      ],
+      "sops": [
+        {
+          "id": "sop-fraud-block",
+          "name": "Auto-Block Threshold",
+          "description": "Block transactions scoring above 0.95 fraud probability without human review."
+        },
+        {
+          "id": "sop-fraud-escalate",
+          "name": "Escalation Protocol",
+          "description": "Escalate scores 0.7–0.95 to Operations Manager with supporting evidence."
+        }
+      ]
+    },
+    {
+      "id": "ap-service-ai",
+      "serviceId": "retail-service-ai",
+      "authorityModel": "hybrid",
+      "description": "Multi-channel customer service agent handling enquiries, complaints, and account actions.",
+      "capabilities": [
+        "Natural language understanding",
+        "Account lookup and status",
+        "Common issue resolution",
+        "Sentiment-based escalation"
+      ],
+      "sops": [
+        {
+          "id": "sop-service-escalate",
+          "name": "Human Escalation",
+          "description": "Escalate to Branch Manager when customer sentiment is negative or issue requires policy override."
+        }
+      ]
+    },
+    {
+      "id": "ap-risk-ai",
+      "serviceId": "retail-risk-ai",
+      "authorityModel": "hybrid",
+      "description": "Credit risk scoring engine with hybrid authority — auto-approve low risk, escalate complex cases.",
+      "capabilities": [
+        "Credit scoring models",
+        "Income verification analysis",
+        "Debt-to-income calculation",
+        "Affordability assessment"
+      ],
+      "sops": [
+        {
+          "id": "sop-risk-threshold",
+          "name": "Auto-Approve Threshold",
+          "description": "Auto-approve applications with risk score below 0.3 and verified income."
+        },
+        {
+          "id": "sop-risk-escalate",
+          "name": "Complex Case Escalation",
+          "description": "Route applications with risk score 0.3–0.7 or unusual patterns to Credit Analyst."
+        }
+      ]
+    },
+    {
+      "id": "ap-invest-ai",
+      "serviceId": "retail-invest-ai",
+      "authorityModel": "supervised",
+      "description": "Investment recommendation engine operating under supervised authority — all recommendations reviewed by Relationship Manager.",
+      "capabilities": [
+        "Portfolio optimisation",
+        "Risk-adjusted return modelling",
+        "Market sentiment analysis",
+        "Goal-based planning"
+      ],
+      "sops": [
+        {
+          "id": "sop-invest-review",
+          "name": "Mandatory Review",
+          "description": "All investment recommendations must be reviewed by Relationship Manager before client presentation."
+        }
+      ]
+    }
+  ],
+
+  "humanActors": [
+    {
+      "id": "human-customer",
+      "name": "Customer",
+      "isExternal": true,
+      "serviceAssociations": [
+        { "serviceId": "retail-onboarding", "associationType": "consumer" },
+        { "serviceId": "retail-accounts", "associationType": "consumer" },
+        { "serviceId": "retail-service-ai", "associationType": "consumer" },
+        { "serviceId": "retail-invest-ai", "associationType": "consumer" },
+        { "serviceId": "retail-lending", "associationType": "consumer" }
+      ]
+    },
+    {
+      "id": "human-branch-mgr",
+      "name": "Branch Manager",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "retail-onboarding", "associationType": "owner" },
+        { "serviceId": "retail-accounts", "associationType": "owner" },
+        { "serviceId": "retail-service-ai", "associationType": "escalation_target" }
+      ]
+    },
+    {
+      "id": "human-compliance-officer",
+      "name": "Compliance Officer",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "retail-compliance", "associationType": "owner" },
+        { "serviceId": "retail-fraud-ai", "associationType": "consumer" }
+      ]
+    },
+    {
+      "id": "human-relationship-mgr",
+      "name": "Relationship Manager",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "retail-lending", "associationType": "consumer" },
+        { "serviceId": "retail-accounts", "associationType": "consumer" },
+        { "serviceId": "retail-invest-ai", "associationType": "escalation_target" }
+      ]
+    },
+    {
+      "id": "human-credit-analyst",
+      "name": "Credit Analyst",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "retail-risk-ai", "associationType": "escalation_target" },
+        { "serviceId": "retail-lending", "associationType": "consumer" }
+      ]
+    },
+    {
+      "id": "human-ops-mgr",
+      "name": "Operations Manager",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "retail-payments", "associationType": "owner" },
+        { "serviceId": "retail-cards", "associationType": "owner" },
+        { "serviceId": "retail-fraud-ai", "associationType": "escalation_target" }
+      ]
+    }
+  ],
+
+  "systemActors": [
+    {
+      "id": "sys-core-banking",
+      "name": "Core Banking System",
+      "serviceAssociations": [
+        { "serviceId": "retail-accounts", "associationType": "integration_target" },
+        { "serviceId": "retail-payments", "associationType": "integration_target" },
+        { "serviceId": "retail-lending", "associationType": "integration_target" }
+      ]
+    },
+    {
+      "id": "sys-payment-gw",
+      "name": "Payment Gateway",
+      "serviceAssociations": [
+        { "serviceId": "retail-payments", "associationType": "integration_target" },
+        { "serviceId": "retail-cards", "associationType": "integration_target" }
+      ]
+    },
+    {
+      "id": "sys-credit-bureau",
+      "name": "Credit Bureau API",
+      "serviceAssociations": [
+        { "serviceId": "retail-risk-ai", "associationType": "data_source" },
+        { "serviceId": "retail-lending", "associationType": "data_source" }
+      ]
+    },
+    {
+      "id": "sys-kyc",
+      "name": "KYC Verification",
+      "serviceAssociations": [
+        { "serviceId": "retail-onboarding", "associationType": "integration_target" },
+        { "serviceId": "retail-compliance", "associationType": "integration_target" }
+      ]
+    },
+    {
+      "id": "sys-trading",
+      "name": "Trading Platform",
+      "serviceAssociations": [
+        { "serviceId": "retail-invest-ai", "associationType": "data_source" }
+      ]
+    }
+  ],
+
+  "externalInteractions": [
+    {
+      "id": "ext-swift",
+      "internalServiceId": "retail-payments",
+      "externalServiceName": "SWIFT Network",
+      "externalDomain": "International Payments",
+      "direction": "bidirectional",
+      "description": "International payment messaging and settlement."
+    },
+    {
+      "id": "ext-credit-ref",
+      "internalServiceId": "retail-lending",
+      "externalServiceName": "Credit Reference Agency",
+      "externalDomain": "Equifax / Experian",
+      "direction": "outbound",
+      "description": "Credit history lookup and affordability data."
+    },
+    {
+      "id": "ext-fca",
+      "internalServiceId": "retail-compliance",
+      "externalServiceName": "FCA Regulatory Filing",
+      "externalDomain": "Financial Conduct Authority",
+      "direction": "outbound",
+      "description": "Regulatory returns, SAR filings, and compliance submissions."
+    }
+  ],
+
+  "interactions": [
+    {
+      "id": "int-b01",
+      "sourceId": "human-customer",
+      "targetId": "retail-onboarding",
+      "label": "Apply for Account",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b02",
+      "sourceId": "human-customer",
+      "targetId": "retail-service-ai",
+      "label": "Customer Enquiry",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b03",
+      "sourceId": "human-customer",
+      "targetId": "retail-invest-ai",
+      "label": "Investment Advice Request",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b04",
+      "sourceId": "human-customer",
+      "targetId": "retail-lending",
+      "label": "Loan Application",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b05",
+      "sourceId": "retail-onboarding",
+      "targetId": "retail-accounts",
+      "label": "Create Account",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b06",
+      "sourceId": "retail-onboarding",
+      "targetId": "retail-compliance",
+      "label": "KYC Check Request",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b07",
+      "sourceId": "retail-accounts",
+      "targetId": "retail-payments",
+      "label": "Initiate Payment",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b08",
+      "sourceId": "retail-accounts",
+      "targetId": "retail-cards",
+      "label": "Issue Card",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b09",
+      "sourceId": "retail-accounts",
+      "targetId": "retail-lending",
+      "label": "Loan Origination",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b10",
+      "sourceId": "retail-payments",
+      "targetId": "retail-fraud-ai",
+      "label": "Screen Transaction",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b11",
+      "sourceId": "retail-fraud-ai",
+      "targetId": "retail-payments",
+      "label": "Clear / Block",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b12",
+      "sourceId": "retail-fraud-ai",
+      "targetId": "human-ops-mgr",
+      "label": "Suspicious Activity Alert",
+      "interactionType": "escalation"
+    },
+    {
+      "id": "int-b13",
+      "sourceId": "retail-cards",
+      "targetId": "retail-fraud-ai",
+      "label": "Card Transaction Check",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b14",
+      "sourceId": "retail-lending",
+      "targetId": "retail-risk-ai",
+      "label": "Credit Assessment",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b15",
+      "sourceId": "retail-risk-ai",
+      "targetId": "retail-lending",
+      "label": "Risk Score",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b16",
+      "sourceId": "retail-risk-ai",
+      "targetId": "human-credit-analyst",
+      "label": "Complex Case Review",
+      "interactionType": "escalation"
+    },
+    {
+      "id": "int-b17",
+      "sourceId": "retail-service-ai",
+      "targetId": "retail-accounts",
+      "label": "Account Inquiry",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b18",
+      "sourceId": "retail-service-ai",
+      "targetId": "human-branch-mgr",
+      "label": "Complex Query Escalation",
+      "interactionType": "escalation"
+    },
+    {
+      "id": "int-b19",
+      "sourceId": "retail-invest-ai",
+      "targetId": "human-relationship-mgr",
+      "label": "Portfolio Review Required",
+      "interactionType": "escalation"
+    },
+    {
+      "id": "int-b20",
+      "sourceId": "retail-compliance",
+      "targetId": "retail-accounts",
+      "label": "Audit Request",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b21",
+      "sourceId": "retail-compliance",
+      "targetId": "retail-payments",
+      "label": "Transaction Report",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b22",
+      "sourceId": "retail-fraud-ai",
+      "targetId": "retail-compliance",
+      "label": "SAR Filing",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b23",
+      "sourceId": "sys-core-banking",
+      "targetId": "retail-accounts",
+      "label": "Account Data Sync",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b24",
+      "sourceId": "sys-core-banking",
+      "targetId": "retail-payments",
+      "label": "Settlement Processing",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b25",
+      "sourceId": "sys-payment-gw",
+      "targetId": "retail-payments",
+      "label": "Payment Authorisation",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b26",
+      "sourceId": "sys-payment-gw",
+      "targetId": "retail-cards",
+      "label": "Card Authorisation",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b27",
+      "sourceId": "sys-credit-bureau",
+      "targetId": "retail-risk-ai",
+      "label": "Credit History",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b28",
+      "sourceId": "sys-credit-bureau",
+      "targetId": "retail-lending",
+      "label": "Credit Report",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b29",
+      "sourceId": "sys-kyc",
+      "targetId": "retail-onboarding",
+      "label": "Identity Verification",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b30",
+      "sourceId": "sys-kyc",
+      "targetId": "retail-compliance",
+      "label": "Compliance Data Feed",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b31",
+      "sourceId": "sys-trading",
+      "targetId": "retail-invest-ai",
+      "label": "Market Data Feed",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-b32",
+      "sourceId": "human-relationship-mgr",
+      "targetId": "retail-lending",
+      "label": "Recommend Product",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b33",
+      "sourceId": "human-ops-mgr",
+      "targetId": "retail-payments",
+      "label": "Override Transaction",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b34",
+      "sourceId": "human-compliance-officer",
+      "targetId": "retail-compliance",
+      "label": "Review SAR",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-b35",
+      "sourceId": "retail-invest-ai",
+      "targetId": "retail-accounts",
+      "label": "Execute Trade",
+      "interactionType": "capability_invocation"
+    }
+  ]
+}

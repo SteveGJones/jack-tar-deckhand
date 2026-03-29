@@ -1,0 +1,836 @@
+{
+  "$schema": "https://ai-first-bsa.org/schemas/service-domain-model/v1.0.0",
+  "modelMetadata": {
+    "id": "jack-tar-deckhand",
+    "name": "Jack-Tar Deckhand — Presentation Engineering",
+    "description": "AI-First Business Service Architecture for a Claude Code skill suite that generates conference-quality PowerPoint presentations. Services are designed as independent, reusable domains orchestrated by a Deck Conductor agent.",
+    "version": "1.0.0",
+    "organisation": "Jack-Tar",
+    "createdDate": "2026-03-29",
+    "lastModifiedDate": "2026-03-29",
+    "authors": ["Steve Jones", "Claude"],
+    "status": "draft"
+  },
+
+  "services": [
+    {
+      "id": "presentation-engineering",
+      "name": "Presentation Engineering",
+      "level": 0,
+      "parentId": null,
+      "serviceType": "core",
+      "mission": "Transform ideas into conference-quality visual presentations by orchestrating content, design, image, and assembly services.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l0", "orchestration", "presentation"]
+    },
+
+    {
+      "id": "content-services",
+      "name": "Content Services",
+      "level": 1,
+      "parentId": "presentation-engineering",
+      "serviceType": "core",
+      "mission": "Transform briefs and topics into structured narratives, outlines, and speaker-ready text.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l1", "content", "narrative", "reusable"]
+    },
+    {
+      "id": "content-outline-generation",
+      "name": "Outline Generation",
+      "level": 2,
+      "parentId": "content-services",
+      "serviceType": "core",
+      "mission": "Transform a talk brief into a structured slide outline with per-slide type, headline, body points, narrative beat, and visual direction.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "narrative-architect"]
+    },
+    {
+      "id": "content-speaker-notes",
+      "name": "Speaker Notes",
+      "level": 2,
+      "parentId": "content-services",
+      "serviceType": "core",
+      "mission": "Generate timed, transition-cued speaker notes calibrated to talk duration and audience profile.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "speaker-notes-writer"]
+    },
+
+    {
+      "id": "design-services",
+      "name": "Design Services",
+      "level": 1,
+      "parentId": "presentation-engineering",
+      "serviceType": "core",
+      "mission": "Derive and enforce visual identity: palettes, typography, layout rules, and brand consistency.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l1", "design", "brand", "reusable"]
+    },
+    {
+      "id": "design-style-derivation",
+      "name": "Style Derivation",
+      "level": 2,
+      "parentId": "design-services",
+      "serviceType": "core",
+      "mission": "Derive a complete StyleGuide (palette, fonts, spacing, layout templates) from a talk brief and optional brand assets.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "slide-stylist"]
+    },
+    {
+      "id": "design-brand-extraction",
+      "name": "Brand Extraction",
+      "level": 2,
+      "parentId": "design-services",
+      "serviceType": "core",
+      "mission": "Extract palette from logo, map industry and tone to fonts, derive accessible contrast pairings from minimal brand input.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "capability", "slide-stylist"]
+    },
+    {
+      "id": "design-layout-intelligence",
+      "name": "Layout Intelligence",
+      "level": 2,
+      "parentId": "design-services",
+      "serviceType": "core",
+      "mission": "Apply machine-checkable layout rules: 12-column grid system, content zones, safe margins, visual hierarchy per slide type.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "capability", "slide-stylist"]
+    },
+
+    {
+      "id": "image-services",
+      "name": "Image Services",
+      "level": 1,
+      "parentId": "presentation-engineering",
+      "serviceType": "core",
+      "mission": "Generate, manipulate, and optimise visual assets from text prompts and data.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l1", "image", "generation", "reusable"]
+    },
+    {
+      "id": "image-routing-discovery",
+      "name": "Image Routing & Discovery",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Entry point for all image generation. Discovers available providers at runtime, routes to best model per asset type and budget, returns generated image.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "imagegen-bridge", "routing"]
+    },
+    {
+      "id": "image-ollama-generate",
+      "name": "Ollama Image Generation",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Generate raster images via local Ollama models (z-image-turbo, flux2-klein).",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "ollama-generate-image", "local"]
+    },
+    {
+      "id": "image-ollama-icon",
+      "name": "Ollama Icon Generation",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Generate icon and pictogram images via Ollama with icon-specific prompt wrapping.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "ollama-generate-icon", "local"]
+    },
+    {
+      "id": "image-ollama-pattern",
+      "name": "Ollama Pattern Generation",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Generate seamless textures and repeating patterns via Ollama.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "ollama-generate-pattern", "local"]
+    },
+    {
+      "id": "image-ollama-diagram",
+      "name": "Ollama Diagram Generation",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Generate illustrative diagrams via Ollama. Honest about text quality limitations — use for conceptual visuals, not precise technical diagrams.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "ollama-generate-diagram", "local"]
+    },
+    {
+      "id": "image-cloud-generate",
+      "name": "Cloud Image Generation",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Generate images via cloud APIs (OpenAI GPT Image 1.5, Google Imagen 4, FLUX.2 Pro) with provider routing based on availability and asset type.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "cloud-generate-image", "cloud"]
+    },
+    {
+      "id": "image-cloud-icon",
+      "name": "Cloud Icon Generation",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Generate SVG icons via Recraft V4 or raster icons via cloud models. SVG output is preferred for scalability.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "cloud-generate-icon", "cloud", "svg"]
+    },
+    {
+      "id": "image-chart-renderer",
+      "name": "Chart Rendering",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Generate publication-quality data visualisations via Matplotlib and Seaborn at 300 DPI, styled to the brand palette.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "chart-renderer", "data-viz"]
+    },
+    {
+      "id": "image-post-processing",
+      "name": "Image Post-Processing",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Background removal (rembg), resize, crop, colour correction, and file optimisation (pngquant) for generated images.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "image-processor"]
+    },
+    {
+      "id": "image-generation-expert",
+      "name": "Image Generation Expert",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Advisory AI Persona for prompt engineering, model-specific translation, image quality scoring, and iteration convergence guidance.",
+      "owner": "Steve Jones",
+      "isAIPersona": true,
+      "tags": ["l2", "agent", "ai-persona", "advisory"]
+    },
+
+    {
+      "id": "assembly-qa-services",
+      "name": "Assembly & QA Services",
+      "level": 1,
+      "parentId": "presentation-engineering",
+      "serviceType": "core",
+      "mission": "Compose content and visual assets into finished, validated presentation files.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l1", "assembly", "qa", "pptx"]
+    },
+    {
+      "id": "assembly-pptx-build",
+      "name": "PPTX Build",
+      "level": 2,
+      "parentId": "assembly-qa-services",
+      "serviceType": "core",
+      "mission": "Compose outline, style guide, image manifest, and speaker notes into a .pptx file via PptxGenJS.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "deck-assembler"]
+    },
+    {
+      "id": "assembly-visual-qa",
+      "name": "Visual QA",
+      "level": 2,
+      "parentId": "assembly-qa-services",
+      "serviceType": "core",
+      "mission": "Run 25 automated anti-pattern checks: contrast validation, margin enforcement, font size compliance, consistency audit, image quality thresholds.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "deck-qa", "automated"]
+    },
+    {
+      "id": "assembly-file-optimisation",
+      "name": "File Optimisation",
+      "level": 2,
+      "parentId": "assembly-qa-services",
+      "serviceType": "core",
+      "mission": "Image compression, font subsetting, metadata stripping, and file size management for the assembled .pptx.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "capability", "deck-assembler"]
+    },
+    {
+      "id": "assembly-presentation-reviewer",
+      "name": "Presentation Reviewer",
+      "level": 2,
+      "parentId": "assembly-qa-services",
+      "serviceType": "core",
+      "mission": "Review assembled decks against conference presentation best practices: narrative coherence, visual storytelling, pacing, speaker notes quality, audience appropriateness.",
+      "owner": "Steve Jones",
+      "isAIPersona": true,
+      "tags": ["l2", "agent", "ai-persona", "advisory", "craft-review"]
+    },
+
+    {
+      "id": "deck-conductor",
+      "name": "Deck Conductor",
+      "level": 1,
+      "parentId": "presentation-engineering",
+      "serviceType": "core",
+      "mission": "Orchestrate the full pipeline from talk brief to finished deck. Owns the DeckContext lifecycle, sequences L1 service invocations, manages budget, and handles the QA correction loop.",
+      "owner": "Steve Jones",
+      "isAIPersona": true,
+      "tags": ["l1", "agent", "ai-persona", "orchestration"]
+    }
+  ],
+
+  "aiPersonas": [
+    {
+      "id": "persona-deck-conductor",
+      "serviceId": "deck-conductor",
+      "description": "Top-level orchestration agent that sequences the presentation engineering pipeline. Receives a talk brief from the Speaker, invokes L1 services in dependency order (Design → Content → Image → Assembly → QA → Review), maintains shared state via the DeckContext file system, and manages cloud API budget.",
+      "authorityModel": "hybrid",
+      "confidenceThreshold": {
+        "autonomousMin": 0.8,
+        "escalationTarget": "actor-speaker"
+      },
+      "scope": {
+        "permitted": [
+          "Parse and validate TalkBrief input",
+          "Generate deck plan (slide count, types, narrative flow)",
+          "Invoke any L1 service capability in any order",
+          "Create and manage DeckContext state directory (./tmp/deck/)",
+          "Invoke provider discovery and adapt routing based on available providers",
+          "Track cumulative cloud API spend against budget cap",
+          "Re-invoke services when QA or Reviewer identifies issues (max 2 correction cycles)",
+          "Report progress, cost, and timing to the Speaker"
+        ],
+        "prohibited": [
+          "Must not generate content, images, or style decisions directly — always delegates to L1 services",
+          "Must not spend above the declared budget cap without Speaker approval",
+          "Must not skip the QA step",
+          "Must not modify generated images or text — only re-invoke the producing service with corrective instructions",
+          "Must not proceed past provider discovery without confirming available capabilities to the Speaker"
+        ],
+        "escalationTriggers": [
+          "Budget will be exceeded by next generation request",
+          "QA finds critical issues after 2 correction cycles",
+          "No image generation providers available",
+          "Reviewer identifies structural narrative problems requiring Speaker input on direction",
+          "Talk brief is ambiguous or missing required fields"
+        ]
+      },
+      "dataSources": [
+        {
+          "sourceId": "actor-speaker",
+          "sourceName": "Speaker Input",
+          "accessType": "read",
+          "dataDescription": "TalkBrief, creative decisions, budget approval"
+        },
+        {
+          "sourceId": "image-routing-discovery",
+          "sourceName": "Provider Discovery",
+          "accessType": "read",
+          "dataDescription": "AvailableProviders manifest"
+        },
+        {
+          "sourceId": "sys-filesystem",
+          "sourceName": "DeckContext State",
+          "accessType": "read-write",
+          "dataDescription": "All DeckContext artefacts in ./tmp/deck/: StyleGuide, SlideOutline, ImageManifest, SpeakerNotes, ChartManifest, QAReport, PipelineState"
+        }
+      ],
+      "sops": []
+    },
+    {
+      "id": "persona-image-generation-expert",
+      "serviceId": "image-generation-expert",
+      "description": "Advisory AI Persona consulted by image generation skills for prompt engineering, model-specific prompt translation, quality scoring against a 6-dimension rubric, and iteration convergence guidance. Never generates images directly.",
+      "authorityModel": "invoker",
+      "confidenceThreshold": {
+        "autonomousMin": 0.7,
+        "escalationTarget": "persona-deck-conductor"
+      },
+      "scope": {
+        "permitted": [
+          "Advise on prompt construction for any image generation model (Ollama or cloud)",
+          "Translate visual_direction prose into model-specific prompts",
+          "Score generated images against 6-dimension rubric (composition, colour, clarity, relevance, technical quality, text accuracy)",
+          "Recommend iteration strategy (accept, refine prompt, rewrite, try different model)",
+          "Advise on model selection given asset type and available providers",
+          "Provide negative space and style consistency guidance"
+        ],
+        "prohibited": [
+          "Must not invoke image generation directly — only advises, the calling skill generates",
+          "Must not make routing decisions — the imagegen-bridge routes using the expert's advice",
+          "Must not access or modify DeckContext state",
+          "Must not communicate with the Speaker directly — all communication goes through the conductor or calling skill"
+        ],
+        "escalationTriggers": [
+          "Image quality score below threshold after max iterations — recommends fallback to next option in degradation chain",
+          "Prompt produces safety filter rejections from cloud API — recommends alternative prompt framing"
+        ]
+      },
+      "dataSources": [
+        {
+          "sourceId": "design-style-derivation",
+          "sourceName": "StyleGuide",
+          "accessType": "read",
+          "dataDescription": "Palette for colour enforcement and brand consistency"
+        },
+        {
+          "sourceId": "content-outline-generation",
+          "sourceName": "SlideOutline",
+          "accessType": "read",
+          "dataDescription": "visual_direction field for prompt context"
+        }
+      ],
+      "sops": []
+    },
+    {
+      "id": "persona-presentation-reviewer",
+      "serviceId": "assembly-presentation-reviewer",
+      "description": "Advisory AI Persona that reviews assembled decks against conference presentation best practices. Assesses narrative coherence, visual storytelling, pacing, speaker notes quality, and audience appropriateness. Produces structured review with prioritised recommendations. Never modifies the deck directly.",
+      "authorityModel": "invoker",
+      "confidenceThreshold": {
+        "autonomousMin": 0.7,
+        "escalationTarget": "persona-deck-conductor"
+      },
+      "scope": {
+        "permitted": [
+          "Review assembled .pptx against conference presentation best practices",
+          "Assess narrative coherence for the stated audience and duration",
+          "Assess visual storytelling: slide transitions, image choices, visual rhythm",
+          "Assess pacing: slide density, breathing room, interaction beats",
+          "Assess speaker notes quality: specific and actionable vs generic filler",
+          "Produce structured review with per-slide feedback and overall assessment",
+          "Recommend specific improvements with priority (critical, suggested, polish)"
+        ],
+        "prohibited": [
+          "Must not modify the deck, outline, images, or notes directly",
+          "Must not re-invoke any service — only the conductor acts on review feedback",
+          "Must not override the Speaker's creative choices — flags concerns but respects stated preferences",
+          "Must not duplicate deck-qa's programmatic checks — assumes those have already passed"
+        ],
+        "escalationTriggers": [
+          "Narrative structure fundamentally incompatible with stated format (e.g., 40 content slides for a 15-min lightning talk)",
+          "Visual identity inconsistent in ways programmatic QA cannot detect"
+        ]
+      },
+      "dataSources": [
+        {
+          "sourceId": "assembly-pptx-build",
+          "sourceName": "Assembled PPTX",
+          "accessType": "read",
+          "dataDescription": "Finished .pptx file rendered to images for visual review"
+        },
+        {
+          "sourceId": "content-outline-generation",
+          "sourceName": "SlideOutline",
+          "accessType": "read",
+          "dataDescription": "Original slide plan to check build matches intent"
+        },
+        {
+          "sourceId": "design-style-derivation",
+          "sourceName": "StyleGuide",
+          "accessType": "read",
+          "dataDescription": "Brand and design parameters for consistency assessment"
+        },
+        {
+          "sourceId": "content-speaker-notes",
+          "sourceName": "SpeakerNotes",
+          "accessType": "read",
+          "dataDescription": "Speaker notes for pacing and quality review"
+        },
+        {
+          "sourceId": "actor-speaker",
+          "sourceName": "TalkBrief",
+          "accessType": "read",
+          "dataDescription": "Original talk brief for alignment checking"
+        }
+      ],
+      "sops": []
+    }
+  ],
+
+  "humanActors": [
+    {
+      "id": "actor-speaker",
+      "name": "Speaker",
+      "role": "Primary user. Provides the talk brief, makes creative decisions, reviews output, approves budget.",
+      "serviceAssociations": [
+        {
+          "serviceId": "deck-conductor",
+          "relationship": "invokes",
+          "description": "Initiates the pipeline by providing a TalkBrief"
+        },
+        {
+          "serviceId": "presentation-engineering",
+          "relationship": "consumes",
+          "description": "Receives the finished .pptx and review feedback"
+        }
+      ]
+    },
+    {
+      "id": "actor-reviewer",
+      "name": "Reviewer",
+      "role": "Optional human reviewer. Reviews finished deck for content accuracy, brand compliance, and overall quality before delivery.",
+      "serviceAssociations": [
+        {
+          "serviceId": "assembly-qa-services",
+          "relationship": "consumes",
+          "description": "Reviews QAReport and Presentation Review output"
+        }
+      ]
+    }
+  ],
+
+  "systemActors": [
+    {
+      "id": "sys-ollama",
+      "name": "Ollama",
+      "type": "Local inference runtime",
+      "description": "Local AI model server for image generation. Provides z-image-turbo (fast photorealism) and flux2-klein (precision/text). Free, sequential generation only. Requires local installation and sufficient hardware.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-ollama-generate",
+          "relationship": "provides",
+          "description": "Inference endpoint for raster image generation"
+        },
+        {
+          "serviceId": "image-ollama-icon",
+          "relationship": "provides",
+          "description": "Inference endpoint for icon generation"
+        },
+        {
+          "serviceId": "image-ollama-pattern",
+          "relationship": "provides",
+          "description": "Inference endpoint for pattern generation"
+        },
+        {
+          "serviceId": "image-ollama-diagram",
+          "relationship": "provides",
+          "description": "Inference endpoint for diagram generation"
+        }
+      ]
+    },
+    {
+      "id": "sys-openai",
+      "name": "OpenAI API",
+      "type": "Cloud image generation API",
+      "description": "GPT Image 1.5 — highest quality general-purpose image generation. Best text rendering, strong prompt adherence. $0.009-$0.133/image depending on quality tier. Requires OPENAI_API_KEY.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-cloud-generate",
+          "relationship": "provides",
+          "description": "REST API for image generation"
+        }
+      ]
+    },
+    {
+      "id": "sys-google-vertex",
+      "name": "Google Vertex AI",
+      "type": "Cloud image generation API",
+      "description": "Imagen 4 and Gemini Flash — cost-effective image generation. Imagen 4 Fast at $0.02/image is the budget workhorse for backgrounds and textures. Requires GOOGLE_CLOUD_PROJECT and service account.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-cloud-generate",
+          "relationship": "provides",
+          "description": "Vertex AI predict endpoint for image generation"
+        }
+      ]
+    },
+    {
+      "id": "sys-fal",
+      "name": "FAL.ai",
+      "type": "Cloud model aggregator API",
+      "description": "Unified access to 600+ models including FLUX.2 Pro (photorealism), Recraft V4 (SVG icons), and Ideogram 3.0 (typography). Single API key. Recommended aggregation layer. Requires FAL_KEY.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-cloud-generate",
+          "relationship": "provides",
+          "description": "Aggregated API for FLUX.2 and Ideogram models"
+        },
+        {
+          "serviceId": "image-cloud-icon",
+          "relationship": "provides",
+          "description": "Aggregated API for Recraft V4 SVG generation"
+        }
+      ]
+    },
+    {
+      "id": "sys-recraft",
+      "name": "Recraft API",
+      "type": "Cloud SVG generation API",
+      "description": "Recraft V4 — the only AI model generating production-quality native SVG. Essential for scalable icons and brand assets. $0.04-$0.30/image. Requires RECRAFT_API_KEY. Also accessible via FAL.ai.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-cloud-icon",
+          "relationship": "provides",
+          "description": "Direct API for SVG icon generation"
+        }
+      ]
+    },
+    {
+      "id": "sys-pptxgenjs",
+      "name": "PptxGenJS",
+      "type": "JavaScript library",
+      "description": "Open-source PPTX generation library (v4.0.1, MIT). The rendering engine for assembling slides. Runs via Node.js in Claude Code. Supports slides, text, images, shapes, tables, charts, masters, speaker notes.",
+      "serviceAssociations": [
+        {
+          "serviceId": "assembly-pptx-build",
+          "relationship": "provides",
+          "description": "PPTX file generation engine"
+        }
+      ]
+    },
+    {
+      "id": "sys-matplotlib",
+      "name": "Matplotlib",
+      "type": "Python library",
+      "description": "Python charting library for headless data visualisation at 300 DPI. Uses Agg backend (no display server needed). Styled via .mplstyle files for brand consistency.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-chart-renderer",
+          "relationship": "provides",
+          "description": "Chart rendering engine"
+        }
+      ]
+    },
+    {
+      "id": "sys-filesystem",
+      "name": "Filesystem",
+      "type": "Local storage",
+      "description": "Project-local ./tmp/deck/ directory for DeckContext state persistence. JSON files for contracts, image files for generated assets, .pptx for output. Per CONSTITUTION.md Article 4.6, uses ./tmp/ not /tmp/.",
+      "serviceAssociations": [
+        {
+          "serviceId": "deck-conductor",
+          "relationship": "provides",
+          "description": "State persistence for DeckContext"
+        },
+        {
+          "serviceId": "assembly-pptx-build",
+          "relationship": "provides",
+          "description": "Output directory for .pptx files"
+        }
+      ]
+    }
+  ],
+
+  "interactions": [
+    {
+      "id": "int-speaker-to-conductor",
+      "sourceId": "actor-speaker",
+      "targetId": "deck-conductor",
+      "type": "invocation",
+      "description": "Speaker provides TalkBrief to initiate the pipeline",
+      "dataFlows": ["TalkBrief", "Creative decisions", "Budget approval"]
+    },
+    {
+      "id": "int-conductor-to-design",
+      "sourceId": "deck-conductor",
+      "targetId": "design-services",
+      "type": "invocation",
+      "description": "Conductor requests StyleGuide derivation (first step in pipeline)",
+      "dataFlows": ["TalkBrief", "Brand assets (optional)"]
+    },
+    {
+      "id": "int-conductor-to-content",
+      "sourceId": "deck-conductor",
+      "targetId": "content-services",
+      "type": "invocation",
+      "description": "Conductor requests outline and speaker notes generation",
+      "dataFlows": ["TalkBrief", "StyleGuide"]
+    },
+    {
+      "id": "int-conductor-to-image",
+      "sourceId": "deck-conductor",
+      "targetId": "image-services",
+      "type": "invocation",
+      "description": "Conductor requests image generation for each slide via imagegen-bridge",
+      "dataFlows": ["SlideOutline (visual_direction)", "StyleGuide (palette)", "Budget constraints"]
+    },
+    {
+      "id": "int-conductor-to-assembly",
+      "sourceId": "deck-conductor",
+      "targetId": "assembly-qa-services",
+      "type": "invocation",
+      "description": "Conductor requests PPTX assembly, then QA, then Presentation Review",
+      "dataFlows": ["SlideOutline", "StyleGuide", "ImageManifest", "ChartManifest", "SpeakerNotes"]
+    },
+    {
+      "id": "int-conductor-to-speaker-output",
+      "sourceId": "deck-conductor",
+      "targetId": "actor-speaker",
+      "type": "delivery",
+      "description": "Conductor delivers finished .pptx, QAReport, review feedback, and cost report",
+      "dataFlows": [".pptx file", "QAReport", "Presentation Review", "Cost summary"]
+    },
+    {
+      "id": "int-bridge-discovery",
+      "sourceId": "image-routing-discovery",
+      "targetId": "sys-ollama",
+      "type": "probe",
+      "description": "imagegen-bridge probes Ollama availability at startup"
+    },
+    {
+      "id": "int-bridge-discovery-openai",
+      "sourceId": "image-routing-discovery",
+      "targetId": "sys-openai",
+      "type": "probe",
+      "description": "imagegen-bridge checks OPENAI_API_KEY environment variable"
+    },
+    {
+      "id": "int-bridge-discovery-google",
+      "sourceId": "image-routing-discovery",
+      "targetId": "sys-google-vertex",
+      "type": "probe",
+      "description": "imagegen-bridge checks GOOGLE_CLOUD_PROJECT environment variable"
+    },
+    {
+      "id": "int-bridge-discovery-fal",
+      "sourceId": "image-routing-discovery",
+      "targetId": "sys-fal",
+      "type": "probe",
+      "description": "imagegen-bridge checks FAL_KEY environment variable"
+    },
+    {
+      "id": "int-bridge-discovery-recraft",
+      "sourceId": "image-routing-discovery",
+      "targetId": "sys-recraft",
+      "type": "probe",
+      "description": "imagegen-bridge checks RECRAFT_API_KEY environment variable"
+    },
+    {
+      "id": "int-bridge-to-ollama-skills",
+      "sourceId": "image-routing-discovery",
+      "targetId": "image-ollama-generate",
+      "type": "invocation",
+      "description": "Bridge routes to Ollama generation skills for local assets"
+    },
+    {
+      "id": "int-bridge-to-cloud-skills",
+      "sourceId": "image-routing-discovery",
+      "targetId": "image-cloud-generate",
+      "type": "invocation",
+      "description": "Bridge routes to cloud generation skills for high-quality assets"
+    },
+    {
+      "id": "int-ollama-skills-to-ollama",
+      "sourceId": "image-ollama-generate",
+      "targetId": "sys-ollama",
+      "type": "invocation",
+      "description": "Ollama skills call Ollama REST API for inference"
+    },
+    {
+      "id": "int-cloud-skills-to-openai",
+      "sourceId": "image-cloud-generate",
+      "targetId": "sys-openai",
+      "type": "invocation",
+      "description": "Cloud skills call OpenAI API for GPT Image 1.5 generation"
+    },
+    {
+      "id": "int-cloud-skills-to-google",
+      "sourceId": "image-cloud-generate",
+      "targetId": "sys-google-vertex",
+      "type": "invocation",
+      "description": "Cloud skills call Google Vertex AI for Imagen 4 generation"
+    },
+    {
+      "id": "int-cloud-skills-to-fal",
+      "sourceId": "image-cloud-generate",
+      "targetId": "sys-fal",
+      "type": "invocation",
+      "description": "Cloud skills call FAL.ai for FLUX.2 and Ideogram generation"
+    },
+    {
+      "id": "int-cloud-icon-to-recraft",
+      "sourceId": "image-cloud-icon",
+      "targetId": "sys-recraft",
+      "type": "invocation",
+      "description": "Cloud icon skill calls Recraft API for SVG generation"
+    },
+    {
+      "id": "int-cloud-icon-to-fal",
+      "sourceId": "image-cloud-icon",
+      "targetId": "sys-fal",
+      "type": "invocation",
+      "description": "Cloud icon skill calls FAL.ai for Recraft V4 access"
+    },
+    {
+      "id": "int-chart-to-matplotlib",
+      "sourceId": "image-chart-renderer",
+      "targetId": "sys-matplotlib",
+      "type": "invocation",
+      "description": "Chart renderer calls Matplotlib for headless chart generation"
+    },
+    {
+      "id": "int-assembly-to-pptxgenjs",
+      "sourceId": "assembly-pptx-build",
+      "targetId": "sys-pptxgenjs",
+      "type": "invocation",
+      "description": "Assembler calls PptxGenJS to generate .pptx file"
+    },
+    {
+      "id": "int-gen-skills-to-expert",
+      "sourceId": "image-ollama-generate",
+      "targetId": "image-generation-expert",
+      "type": "consultation",
+      "description": "Generation skills consult the Image Generation Expert for prompt engineering and quality scoring"
+    },
+    {
+      "id": "int-cloud-skills-to-expert",
+      "sourceId": "image-cloud-generate",
+      "targetId": "image-generation-expert",
+      "type": "consultation",
+      "description": "Cloud generation skills consult the expert for model-specific prompt translation"
+    },
+    {
+      "id": "int-bridge-to-expert",
+      "sourceId": "image-routing-discovery",
+      "targetId": "image-generation-expert",
+      "type": "consultation",
+      "description": "Bridge consults the expert for model selection advice given available providers"
+    },
+    {
+      "id": "int-conductor-to-reviewer",
+      "sourceId": "deck-conductor",
+      "targetId": "assembly-presentation-reviewer",
+      "type": "invocation",
+      "description": "Conductor invokes the Presentation Reviewer after QA passes"
+    },
+    {
+      "id": "int-qa-correction-loop",
+      "sourceId": "assembly-visual-qa",
+      "targetId": "deck-conductor",
+      "type": "feedback",
+      "description": "QA returns findings to conductor for correction cycle (max 2 iterations)"
+    },
+    {
+      "id": "int-reviewer-feedback",
+      "sourceId": "assembly-presentation-reviewer",
+      "targetId": "deck-conductor",
+      "type": "feedback",
+      "description": "Reviewer returns structured review to conductor for Speaker decision"
+    }
+  ],
+
+  "processes": [],
+  "governance": {
+    "sopDefinitions": [],
+    "raciAssignments": [],
+    "complianceTags": []
+  },
+  "measurements": []
+}

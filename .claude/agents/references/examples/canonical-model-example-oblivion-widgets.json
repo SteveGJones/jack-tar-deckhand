@@ -1,0 +1,1038 @@
+{
+  "$schema": "./canonical-service-domain-model-schema.json",
+
+  "modelMetadata": {
+    "id": "oblivion-widgets-enterprise",
+    "name": "Oblivion Widgets Inc. - Enterprise Service Architecture",
+    "description": "Complete AI-First Business Service Architecture for Oblivion Widgets, a mid-size manufacturing company. Demonstrates L0 enterprise view and L1 drill-down into Manufacturing domain with Quality AI Persona.",
+    "version": "1.0.0",
+    "organisation": "Oblivion Widgets Inc.",
+    "createdDate": "2026-02-08",
+    "lastModifiedDate": "2026-02-08",
+    "authors": ["Architecture Team"],
+    "status": "active"
+  },
+
+  "services": [
+    {
+      "id": "mfg",
+      "name": "Manufacturing",
+      "level": 0,
+      "parentId": null,
+      "serviceType": "core",
+      "mission": "Transform raw materials into finished widgets that meet quality standards, on time and within cost targets.",
+      "owner": "Robert Garcia, VP Manufacturing",
+      "isAIPersona": false,
+      "tags": ["revenue-generating", "ai-enabled"],
+      "visualMetadata": {
+        "fillColor": "#A8D5FF",
+        "strokeColor": "#5B9BD5",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "sales",
+      "name": "Sales & Marketing",
+      "level": 0,
+      "parentId": null,
+      "serviceType": "core",
+      "mission": "Acquire customers, manage relationships, and grow revenue through effective sales and marketing activities.",
+      "owner": "Sarah Chen, VP Sales & Marketing",
+      "isAIPersona": false,
+      "tags": ["revenue-generating", "customer-facing"],
+      "visualMetadata": {
+        "fillColor": "#D7B2F2",
+        "strokeColor": "#B565A7",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "logistics",
+      "name": "Logistics & Warehouse",
+      "level": 0,
+      "parentId": null,
+      "serviceType": "core",
+      "mission": "Manage the end-to-end supply chain: inbound materials, warehouse storage, and outbound delivery to customers.",
+      "owner": "Mike Thompson, VP Logistics",
+      "isAIPersona": false,
+      "tags": ["operational"],
+      "visualMetadata": {
+        "fillColor": "#C9E4C5",
+        "strokeColor": "#6FA862",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "finance",
+      "name": "Finance & Administration",
+      "level": 0,
+      "parentId": null,
+      "serviceType": "core",
+      "mission": "Manage financial health, budgeting, accounting, and administrative operations for the enterprise.",
+      "owner": "David Park, CFO",
+      "isAIPersona": false,
+      "tags": ["compliance-critical"],
+      "visualMetadata": {
+        "fillColor": "#FFF4C5",
+        "strokeColor": "#F1C40F",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "aftermarket",
+      "name": "Aftermarket & Service",
+      "level": 0,
+      "parentId": null,
+      "serviceType": "core",
+      "mission": "Provide post-sale support, warranty management, spare parts, and service contracts to maximise customer lifetime value.",
+      "owner": "Jennifer Wu, VP Customer Success",
+      "isAIPersona": false,
+      "tags": ["revenue-generating", "customer-facing"],
+      "visualMetadata": {
+        "fillColor": "#FFD9B3",
+        "strokeColor": "#E8944C",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "ai-rm",
+      "name": "AI Resource Management",
+      "level": 0,
+      "parentId": null,
+      "serviceType": "support",
+      "mission": "Govern the lifecycle of all AI Personas: onboarding, verification, monitoring, compliance, and retirement. Peer to HR and Finance.",
+      "owner": "Dr. Aisha Patel, Chief AI Officer",
+      "isAIPersona": false,
+      "tags": ["governance", "ai-infrastructure"],
+      "visualMetadata": {
+        "fillColor": "#E6E6FA",
+        "strokeColor": "#9370DB",
+        "icon": "gear",
+        "shape": "hexagon"
+      }
+    },
+
+    {
+      "id": "mfg-rd",
+      "name": "R&D",
+      "level": 1,
+      "parentId": "mfg",
+      "serviceType": "core",
+      "mission": "Research new widget designs, develop prototypes, and advance manufacturing techniques.",
+      "owner": "Dr. James Liu, Director R&D",
+      "isAIPersona": false,
+      "tags": ["innovation"],
+      "visualMetadata": {
+        "fillColor": "#A8D5FF",
+        "strokeColor": "#5B9BD5",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "mfg-planning",
+      "name": "Production Planning",
+      "level": 1,
+      "parentId": "mfg",
+      "serviceType": "core",
+      "mission": "Schedule production runs, allocate resources, and coordinate with supply chain to meet delivery commitments.",
+      "owner": "Carlos Mendez, Production Planning Manager",
+      "isAIPersona": false,
+      "tags": ["operational"],
+      "visualMetadata": {
+        "fillColor": "#A8D5FF",
+        "strokeColor": "#5B9BD5",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "mfg-assembly",
+      "name": "Assembly",
+      "level": 1,
+      "parentId": "mfg",
+      "serviceType": "core",
+      "mission": "Assemble components into finished widgets according to engineering specifications and quality standards.",
+      "owner": "Tony Reeves, Assembly Supervisor",
+      "isAIPersona": false,
+      "tags": ["operational"],
+      "visualMetadata": {
+        "fillColor": "#A8D5FF",
+        "strokeColor": "#5B9BD5",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "mfg-quality-ai",
+      "name": "Quality AI",
+      "level": 1,
+      "parentId": "mfg",
+      "serviceType": "core",
+      "mission": "Autonomously inspect assembled widgets using computer vision, classify pass/fail, and escalate low-confidence decisions to human quality managers.",
+      "owner": "Linda Martinez, VP Quality",
+      "isAIPersona": true,
+      "tags": ["ai-persona", "quality", "autonomous"],
+      "visualMetadata": {
+        "fillColor": "#F5F0FF",
+        "strokeColor": "#9370DB",
+        "icon": "robot",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "mfg-packaging",
+      "name": "Packaging",
+      "level": 1,
+      "parentId": "mfg",
+      "serviceType": "core",
+      "mission": "Package approved widgets to customer and shipping specifications.",
+      "owner": "Maria Santos, Packaging Lead",
+      "isAIPersona": false,
+      "tags": ["operational"],
+      "visualMetadata": {
+        "fillColor": "#A8D5FF",
+        "strokeColor": "#5B9BD5",
+        "shape": "oval"
+      }
+    },
+    {
+      "id": "mfg-regulatory",
+      "name": "Regulatory Approval",
+      "level": 1,
+      "parentId": "mfg",
+      "serviceType": "core",
+      "mission": "Manage regulatory submissions, certifications, and compliance for manufactured products.",
+      "owner": "Patricia Nwosu, Regulatory Affairs Manager",
+      "isAIPersona": false,
+      "tags": ["compliance-critical"],
+      "visualMetadata": {
+        "fillColor": "#A8D5FF",
+        "strokeColor": "#5B9BD5",
+        "shape": "oval"
+      }
+    }
+  ],
+
+  "aiPersonas": [
+    {
+      "id": "ap-quality-ai",
+      "serviceId": "mfg-quality-ai",
+      "description": "Autonomous quality inspection AI Persona using computer vision (CV model v3.2) to inspect assembled widgets from 6 angles. Classifies widgets as PASS or FAIL with a confidence score. Operates with standing authority for high-confidence decisions; escalates to human Quality Manager when confidence drops below threshold.",
+      "authorityModel": "hybrid",
+      "confidenceThreshold": {
+        "autonomousMin": 0.80,
+        "escalationTarget": "human-quality-mgr"
+      },
+      "scope": {
+        "permitted": [
+          "Capture 6-angle images of assembled widgets",
+          "Analyse images using CV model v3.2",
+          "Calculate quality score (0-100)",
+          "Classify widgets as PASS or FAIL when confidence >= 80%",
+          "Route approved widgets to Packaging service",
+          "Route rejected widgets back to Assembly for rework",
+          "Log all inspection results with confidence scores",
+          "Generate daily quality summary reports"
+        ],
+        "prohibited": [
+          "Override human quality manager decisions",
+          "Modify quality thresholds without approval",
+          "Access customer or financial data",
+          "Communicate directly with external regulators",
+          "Retrain its own model without AI-RM oversight",
+          "Approve widgets when system confidence is below threshold"
+        ],
+        "escalationTriggers": [
+          "Confidence score below 80%",
+          "New defect pattern not in training data",
+          "Consecutive failure rate exceeds 15% in any 1-hour window",
+          "Camera or sensor malfunction detected",
+          "Model drift detected by AI-RM monitoring"
+        ]
+      },
+      "dataSources": [
+        {
+          "sourceId": "sys-mes",
+          "sourceName": "Manufacturing Execution System (MES)",
+          "accessType": "read",
+          "dataDescription": "Widget assembly completion events, line status, batch identifiers",
+          "qualitySLA": "99% availability, <5 second latency"
+        },
+        {
+          "sourceId": "sys-vision-cameras",
+          "sourceName": "Vision Camera Array",
+          "accessType": "read",
+          "dataDescription": "6-angle high-resolution widget images (RGB + depth)",
+          "qualitySLA": "99.5% availability, <2 second capture time"
+        }
+      ],
+      "sops": ["SOP-MFG-QI-001", "SOP-MFG-QI-002"],
+      "integrationModel": "specialist",
+      "aiResourceManagementLiaison": "Dr. Aisha Patel, Chief AI Officer",
+      "version": "3.2.1",
+      "status": "in_production"
+    }
+  ],
+
+  "humanActors": [
+    {
+      "id": "human-prod-supervisor",
+      "name": "Production Supervisor",
+      "role": "Production Line Supervisor",
+      "responsibilities": [
+        "Oversee daily production line operations",
+        "Coordinate between Assembly, Quality, and Packaging",
+        "Manage line operator workforce",
+        "Respond to production stoppages"
+      ],
+      "serviceAssociations": [
+        { "serviceId": "mfg-assembly", "associationType": "owner" },
+        { "serviceId": "mfg-planning", "associationType": "consumer" },
+        { "serviceId": "mfg-quality-ai", "associationType": "consumer" }
+      ],
+      "isExternal": false,
+      "tags": ["manufacturing"]
+    },
+    {
+      "id": "human-quality-mgr",
+      "name": "Quality Manager",
+      "role": "Quality Control Manager",
+      "responsibilities": [
+        "Accountable for product quality outcomes",
+        "Review AI-escalated inspection decisions",
+        "Set quality thresholds and standards",
+        "Approve quality SOP changes",
+        "Liaise with Regulatory Approval service"
+      ],
+      "serviceAssociations": [
+        { "serviceId": "mfg-quality-ai", "associationType": "escalation_target" },
+        { "serviceId": "mfg-quality-ai", "associationType": "owner" },
+        { "serviceId": "mfg-regulatory", "associationType": "consumer" }
+      ],
+      "isExternal": false,
+      "tags": ["manufacturing", "quality"]
+    },
+    {
+      "id": "human-line-operator",
+      "name": "Line Operator",
+      "role": "Assembly Line Operator",
+      "responsibilities": [
+        "Operate assembly equipment",
+        "Place completed widgets on inspection conveyor",
+        "Perform rework on rejected widgets"
+      ],
+      "serviceAssociations": [
+        { "serviceId": "mfg-assembly", "associationType": "provider" },
+        { "serviceId": "mfg-quality-ai", "associationType": "consumer" }
+      ],
+      "isExternal": false,
+      "tags": ["manufacturing"]
+    },
+    {
+      "id": "human-customer",
+      "name": "Customer",
+      "role": "External Customer",
+      "responsibilities": [
+        "Purchase widgets",
+        "Receive deliveries",
+        "Raise support requests"
+      ],
+      "serviceAssociations": [
+        { "serviceId": "sales", "associationType": "consumer" },
+        { "serviceId": "aftermarket", "associationType": "consumer" }
+      ],
+      "isExternal": true,
+      "tags": ["external"]
+    },
+    {
+      "id": "human-supplier",
+      "name": "Supplier",
+      "role": "Raw Materials Supplier",
+      "responsibilities": [
+        "Supply raw materials and components",
+        "Meet delivery schedules",
+        "Maintain quality certifications"
+      ],
+      "serviceAssociations": [
+        { "serviceId": "logistics", "associationType": "provider" }
+      ],
+      "isExternal": true,
+      "tags": ["external"]
+    },
+    {
+      "id": "human-regulator",
+      "name": "Regulator",
+      "role": "Industry Regulator",
+      "responsibilities": [
+        "Certify products",
+        "Conduct compliance audits",
+        "Issue regulatory guidance"
+      ],
+      "serviceAssociations": [
+        { "serviceId": "mfg-regulatory", "associationType": "consumer" }
+      ],
+      "isExternal": true,
+      "tags": ["external", "compliance"]
+    },
+    {
+      "id": "human-logistics-partner",
+      "name": "Logistics Partner",
+      "role": "Third-Party Logistics Provider",
+      "responsibilities": [
+        "Transport finished goods to customers",
+        "Manage last-mile delivery"
+      ],
+      "serviceAssociations": [
+        { "serviceId": "logistics", "associationType": "provider" }
+      ],
+      "isExternal": true,
+      "tags": ["external"]
+    }
+  ],
+
+  "systemActors": [
+    {
+      "id": "sys-mes",
+      "name": "MES",
+      "systemType": "mes",
+      "description": "Manufacturing Execution System. Tracks production orders, work-in-progress, line status, and assembly completion events.",
+      "serviceAssociations": [
+        { "serviceId": "mfg-assembly", "associationType": "provider" },
+        { "serviceId": "mfg-planning", "associationType": "provider" },
+        { "serviceId": "mfg-quality-ai", "associationType": "data_source" }
+      ],
+      "isExternal": false,
+      "tags": ["manufacturing", "critical"]
+    },
+    {
+      "id": "sys-erp",
+      "name": "ERP",
+      "systemType": "erp",
+      "description": "Enterprise Resource Planning system. Master data for products, suppliers, customers, financials, and inventory.",
+      "serviceAssociations": [
+        { "serviceId": "finance", "associationType": "provider" },
+        { "serviceId": "logistics", "associationType": "provider" },
+        { "serviceId": "mfg-planning", "associationType": "data_source" },
+        { "serviceId": "sales", "associationType": "provider" }
+      ],
+      "isExternal": false,
+      "tags": ["enterprise", "critical"]
+    },
+    {
+      "id": "sys-vision-cameras",
+      "name": "Vision Camera Array",
+      "systemType": "custom",
+      "description": "6-camera inspection station capturing RGB and depth images of widgets from multiple angles.",
+      "serviceAssociations": [
+        { "serviceId": "mfg-quality-ai", "associationType": "data_source" }
+      ],
+      "isExternal": false,
+      "tags": ["manufacturing", "ai-infrastructure"]
+    },
+    {
+      "id": "sys-production-control",
+      "name": "Production Control System",
+      "systemType": "custom",
+      "description": "Controls conveyor routing, station assignments, and real-time production line coordination.",
+      "serviceAssociations": [
+        { "serviceId": "mfg-assembly", "associationType": "provider" },
+        { "serviceId": "mfg-quality-ai", "associationType": "integration_target" },
+        { "serviceId": "mfg-packaging", "associationType": "provider" }
+      ],
+      "isExternal": false,
+      "tags": ["manufacturing"]
+    }
+  ],
+
+  "externalInteractions": [
+    {
+      "id": "ext-logistics-order-supplies",
+      "externalServiceName": "Order Supplies",
+      "externalDomain": "Logistics & Warehouse",
+      "interactionType": "capability_invocation",
+      "direction": "inbound",
+      "internalServiceId": "mfg-planning",
+      "label": "Supply Stock",
+      "isExternalOrganisation": false
+    },
+    {
+      "id": "ext-logistics-stock-mgmt",
+      "externalServiceName": "Stock Management",
+      "externalDomain": "Logistics & Warehouse",
+      "interactionType": "capability_invocation",
+      "direction": "outbound",
+      "internalServiceId": "mfg-packaging",
+      "label": "Request Stock / Add Stock",
+      "isExternalOrganisation": false
+    },
+    {
+      "id": "ext-supplier-materials",
+      "externalServiceName": "Materials Supply",
+      "externalDomain": "Supplier Network",
+      "interactionType": "data_exchange",
+      "direction": "inbound",
+      "internalServiceId": "logistics",
+      "label": "Deliver Raw Materials",
+      "isExternalOrganisation": true
+    },
+    {
+      "id": "ext-customer-orders",
+      "externalServiceName": "Customer Order Portal",
+      "externalDomain": "Customer",
+      "interactionType": "capability_invocation",
+      "direction": "inbound",
+      "internalServiceId": "sales",
+      "label": "Place Order",
+      "isExternalOrganisation": true
+    }
+  ],
+
+  "interactions": [
+    {
+      "id": "int-001",
+      "sourceId": "mfg-rd",
+      "targetId": "mfg-planning",
+      "label": "Send For Approval",
+      "interactionType": "capability_invocation",
+      "style": "solid",
+      "tags": ["manufacturing-flow"]
+    },
+    {
+      "id": "int-002",
+      "sourceId": "mfg-rd",
+      "targetId": "mfg-regulatory",
+      "label": "Request Approval",
+      "interactionType": "capability_invocation",
+      "style": "solid",
+      "tags": ["compliance"]
+    },
+    {
+      "id": "int-003",
+      "sourceId": "mfg-regulatory",
+      "targetId": "mfg-rd",
+      "label": "Manage Approval",
+      "interactionType": "approval",
+      "style": "solid",
+      "tags": ["compliance"]
+    },
+    {
+      "id": "int-004",
+      "sourceId": "mfg-planning",
+      "targetId": "mfg-assembly",
+      "label": "Manufacture",
+      "interactionType": "capability_invocation",
+      "style": "solid",
+      "tags": ["manufacturing-flow"]
+    },
+    {
+      "id": "int-005",
+      "sourceId": "mfg-assembly",
+      "targetId": "mfg-quality-ai",
+      "label": "Submit Widget for Inspection",
+      "interactionType": "capability_invocation",
+      "style": "solid",
+      "tags": ["manufacturing-flow", "ai-interaction"]
+    },
+    {
+      "id": "int-006",
+      "sourceId": "mfg-quality-ai",
+      "targetId": "mfg-packaging",
+      "label": "Approved - Package",
+      "interactionType": "capability_invocation",
+      "style": "solid",
+      "tags": ["manufacturing-flow", "ai-interaction"]
+    },
+    {
+      "id": "int-007",
+      "sourceId": "mfg-quality-ai",
+      "targetId": "mfg-assembly",
+      "label": "Rejected - Rework",
+      "interactionType": "capability_invocation",
+      "style": "dashed",
+      "tags": ["manufacturing-flow", "ai-interaction", "rejection-path"]
+    },
+    {
+      "id": "int-008",
+      "sourceId": "mfg-quality-ai",
+      "targetId": "human-quality-mgr",
+      "label": "Low Confidence - Human Review",
+      "interactionType": "escalation",
+      "style": "dashed",
+      "tags": ["ai-escalation"]
+    },
+    {
+      "id": "int-009",
+      "sourceId": "human-regulator",
+      "targetId": "mfg-regulatory",
+      "label": "Regulatory Submission",
+      "interactionType": "capability_invocation",
+      "style": "solid",
+      "tags": ["external", "compliance"]
+    },
+    {
+      "id": "int-010",
+      "sourceId": "ai-rm",
+      "targetId": "mfg-quality-ai",
+      "label": "Governance & Monitoring",
+      "interactionType": "support",
+      "style": "dashed",
+      "tags": ["ai-governance"]
+    },
+    {
+      "id": "int-011",
+      "sourceId": "human-customer",
+      "targetId": "sales",
+      "label": "Place Order",
+      "interactionType": "capability_invocation",
+      "style": "solid",
+      "tags": ["external", "customer-facing"]
+    },
+    {
+      "id": "int-012",
+      "sourceId": "human-supplier",
+      "targetId": "logistics",
+      "label": "Deliver Materials",
+      "interactionType": "data_flow",
+      "style": "solid",
+      "tags": ["external", "supply-chain"]
+    },
+    {
+      "id": "int-013",
+      "sourceId": "human-logistics-partner",
+      "targetId": "logistics",
+      "label": "Transport Finished Goods",
+      "interactionType": "capability_invocation",
+      "style": "solid",
+      "tags": ["external", "logistics"]
+    },
+    {
+      "id": "int-014",
+      "sourceId": "ai-rm",
+      "targetId": "mfg",
+      "label": "AI Support",
+      "interactionType": "support",
+      "style": "dashed",
+      "tags": ["ai-governance"]
+    },
+    {
+      "id": "int-015",
+      "sourceId": "ai-rm",
+      "targetId": "sales",
+      "label": "AI Support",
+      "interactionType": "support",
+      "style": "dashed",
+      "tags": ["ai-governance"]
+    },
+    {
+      "id": "int-016",
+      "sourceId": "sys-mes",
+      "targetId": "mfg-quality-ai",
+      "label": "Assembly Completion Events",
+      "interactionType": "data_flow",
+      "style": "solid",
+      "tags": ["data-feed", "ai-interaction"]
+    },
+    {
+      "id": "int-017",
+      "sourceId": "sys-vision-cameras",
+      "targetId": "mfg-quality-ai",
+      "label": "Widget Images (6-angle)",
+      "interactionType": "data_flow",
+      "style": "solid",
+      "tags": ["data-feed", "ai-interaction"]
+    },
+    {
+      "id": "int-018",
+      "sourceId": "mfg-quality-ai",
+      "targetId": "sys-production-control",
+      "label": "Inspection Result (PASS/FAIL)",
+      "interactionType": "data_flow",
+      "style": "solid",
+      "tags": ["ai-interaction"]
+    }
+  ],
+
+  "processes": [
+    {
+      "id": "proc-quality-inspection",
+      "name": "Widget Quality Inspection Process",
+      "description": "BPMN process for inspecting assembled widgets. Demonstrates AI Persona as peer participant with its own swimlane, alongside human and system participants.",
+      "scopeServiceIds": ["mfg-assembly", "mfg-quality-ai", "mfg-packaging"],
+      "swimlanes": [
+        {
+          "id": "lane-supervisor",
+          "name": "Production Line Supervisor",
+          "participantId": "human-prod-supervisor",
+          "participantType": "human"
+        },
+        {
+          "id": "lane-quality-ai",
+          "name": "Quality AI (AI Persona)",
+          "participantId": "mfg-quality-ai",
+          "participantType": "ai_persona"
+        },
+        {
+          "id": "lane-pcs",
+          "name": "Production Control System",
+          "participantId": "sys-production-control",
+          "participantType": "system"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task-01",
+          "name": "Place widget on inspection conveyor",
+          "swimlaneId": "lane-supervisor",
+          "taskType": "manual_task",
+          "description": "Operator places completed widget on the conveyor belt feeding the inspection station."
+        },
+        {
+          "id": "task-02",
+          "name": "Capture 6-angle images",
+          "swimlaneId": "lane-quality-ai",
+          "taskType": "ai_task",
+          "description": "AI triggers camera array to capture RGB + depth images from 6 angles."
+        },
+        {
+          "id": "task-03",
+          "name": "Analyse images using CV model v3.2",
+          "swimlaneId": "lane-quality-ai",
+          "taskType": "ai_task",
+          "description": "AI runs computer vision inference on captured images."
+        },
+        {
+          "id": "task-04",
+          "name": "Calculate quality score (0-100)",
+          "swimlaneId": "lane-quality-ai",
+          "taskType": "ai_task",
+          "description": "AI calculates composite quality score from model outputs."
+        },
+        {
+          "id": "task-05",
+          "name": "Classify as PASS/FAIL",
+          "swimlaneId": "lane-quality-ai",
+          "taskType": "ai_task",
+          "description": "Autonomous classification when confidence >= 80%."
+        },
+        {
+          "id": "task-06",
+          "name": "Escalate to Human Quality Control",
+          "swimlaneId": "lane-quality-ai",
+          "taskType": "send_task",
+          "description": "Send low-confidence inspection to human review queue."
+        },
+        {
+          "id": "task-07",
+          "name": "Log inspection result + confidence score",
+          "swimlaneId": "lane-quality-ai",
+          "taskType": "ai_task",
+          "description": "Persist all inspection data for audit trail."
+        },
+        {
+          "id": "task-08",
+          "name": "Update unit status in database",
+          "swimlaneId": "lane-pcs",
+          "taskType": "service_task",
+          "description": "Production Control System records inspection outcome."
+        },
+        {
+          "id": "task-09",
+          "name": "Route widget to next station",
+          "swimlaneId": "lane-pcs",
+          "taskType": "service_task",
+          "description": "Conveyor routing: packaging (PASS) or rework (FAIL)."
+        },
+        {
+          "id": "task-10",
+          "name": "Send to packaging line",
+          "swimlaneId": "lane-supervisor",
+          "taskType": "manual_task",
+          "description": "Supervisor confirms routing for approved widgets."
+        },
+        {
+          "id": "task-11",
+          "name": "Route to rework station",
+          "swimlaneId": "lane-supervisor",
+          "taskType": "manual_task",
+          "description": "Supervisor manages rework for rejected widgets."
+        }
+      ],
+      "gateways": [
+        {
+          "id": "gw-01",
+          "name": "Confidence >= 80%?",
+          "swimlaneId": "lane-quality-ai",
+          "gatewayType": "exclusive",
+          "condition": "AI confidence score compared against 80% autonomous threshold"
+        },
+        {
+          "id": "gw-02",
+          "name": "PASS or FAIL?",
+          "swimlaneId": "lane-supervisor",
+          "gatewayType": "exclusive",
+          "condition": "Based on AI classification result"
+        }
+      ],
+      "events": [
+        {
+          "id": "evt-start",
+          "name": "Widget completed assembly",
+          "swimlaneId": "lane-supervisor",
+          "eventType": "start"
+        },
+        {
+          "id": "evt-msg-receive",
+          "name": "Widget ready for inspection trigger",
+          "swimlaneId": "lane-quality-ai",
+          "eventType": "message_start"
+        },
+        {
+          "id": "evt-msg-result",
+          "name": "Inspection result received",
+          "swimlaneId": "lane-pcs",
+          "eventType": "intermediate_catch"
+        },
+        {
+          "id": "evt-end-pass",
+          "name": "Widget packaged",
+          "swimlaneId": "lane-supervisor",
+          "eventType": "end"
+        },
+        {
+          "id": "evt-end-rework",
+          "name": "Widget sent to rework",
+          "swimlaneId": "lane-supervisor",
+          "eventType": "end"
+        }
+      ],
+      "sequenceFlows": [
+        { "id": "sf-01", "sourceRef": "evt-start", "targetRef": "task-01" },
+        { "id": "sf-02", "sourceRef": "evt-msg-receive", "targetRef": "task-02" },
+        { "id": "sf-03", "sourceRef": "task-02", "targetRef": "task-03" },
+        { "id": "sf-04", "sourceRef": "task-03", "targetRef": "task-04" },
+        { "id": "sf-05", "sourceRef": "task-04", "targetRef": "gw-01" },
+        { "id": "sf-06", "sourceRef": "gw-01", "targetRef": "task-05", "label": "Yes (>= 80%)", "conditionExpression": "confidence >= 0.80" },
+        { "id": "sf-07", "sourceRef": "gw-01", "targetRef": "task-06", "label": "No (< 80%)", "conditionExpression": "confidence < 0.80" },
+        { "id": "sf-08", "sourceRef": "task-05", "targetRef": "task-07" },
+        { "id": "sf-09", "sourceRef": "task-07", "targetRef": "evt-msg-result" },
+        { "id": "sf-10", "sourceRef": "evt-msg-result", "targetRef": "task-08" },
+        { "id": "sf-11", "sourceRef": "task-08", "targetRef": "task-09" }
+      ],
+      "messageFlows": [
+        { "id": "mf-01", "sourceRef": "task-01", "targetRef": "evt-msg-receive", "label": "Widget ready for inspection" },
+        { "id": "mf-02", "sourceRef": "task-07", "targetRef": "evt-msg-result", "label": "Inspection result (PASS/FAIL, confidence)" },
+        { "id": "mf-03", "sourceRef": "task-06", "targetRef": "human-quality-mgr", "label": "Low confidence - human review needed" }
+      ]
+    }
+  ],
+
+  "governance": {
+    "sopDefinitions": [
+      {
+        "id": "SOP-MFG-QI-001",
+        "name": "Widget Visual Inspection Procedure",
+        "description": "Standard operating procedure for automated visual quality inspection of assembled widgets. Defines camera positioning, image capture sequence, model inference protocol, and result classification rules.",
+        "version": "3.2",
+        "ownerServiceId": "mfg-quality-ai",
+        "applicableServiceIds": ["mfg-quality-ai", "mfg-assembly"],
+        "complianceTags": ["ISO-9001", "internal-quality-policy"]
+      },
+      {
+        "id": "SOP-MFG-QI-002",
+        "name": "Quality Escalation and Human Review Procedure",
+        "description": "Procedure for handling AI-escalated inspection decisions. Defines the human review queue, response time requirements, override documentation, and feedback loop to AI-RM.",
+        "version": "2.1",
+        "ownerServiceId": "mfg-quality-ai",
+        "applicableServiceIds": ["mfg-quality-ai"],
+        "complianceTags": ["ISO-9001", "EU-AI-Act"]
+      }
+    ],
+    "raciAssignments": [
+      {
+        "id": "raci-001",
+        "activity": "Widget quality inspection decision",
+        "serviceId": "mfg-quality-ai",
+        "responsible": ["mfg-quality-ai"],
+        "accountable": "human-quality-mgr",
+        "consulted": ["human-prod-supervisor"],
+        "informed": ["human-line-operator"]
+      },
+      {
+        "id": "raci-002",
+        "activity": "Quality AI model retraining approval",
+        "serviceId": "mfg-quality-ai",
+        "responsible": ["ai-rm"],
+        "accountable": "human-quality-mgr",
+        "consulted": ["mfg-quality-ai"],
+        "informed": ["human-prod-supervisor"]
+      }
+    ],
+    "trustedAIScopes": [
+      {
+        "id": "scope-quality-ai",
+        "aiPersonaId": "ap-quality-ai",
+        "scopeElements": {
+          "dataAccess": [
+            "MES assembly completion events",
+            "Vision Camera Array images (RGB + depth)",
+            "Historical inspection results (own outputs)"
+          ],
+          "decisions": [
+            "PASS/FAIL classification at >= 80% confidence",
+            "Escalation routing for < 80% confidence"
+          ],
+          "actions": [
+            "Trigger camera image capture",
+            "Run CV model inference",
+            "Send routing instruction to Production Control System",
+            "Generate inspection log entries",
+            "Send escalation to human review queue"
+          ],
+          "exclusions": [
+            "Customer data access",
+            "Financial system access",
+            "Direct regulatory communication",
+            "Self-modification of model weights",
+            "Quality threshold parameter changes"
+          ]
+        },
+        "riskClassification": "limited"
+      }
+    ],
+    "complianceTags": [
+      {
+        "tag": "ISO-9001",
+        "framework": "ISO 9001:2015",
+        "description": "Quality management system requirements."
+      },
+      {
+        "tag": "EU-AI-Act",
+        "framework": "EU AI Act",
+        "description": "European Union Artificial Intelligence Act classification and requirements."
+      },
+      {
+        "tag": "internal-quality-policy",
+        "framework": "Oblivion Widgets Internal",
+        "description": "Internal quality management policy and standards."
+      }
+    ]
+  },
+
+  "measurements": [
+    {
+      "id": "meas-001",
+      "measureType": "OBJECTIVE",
+      "tier": 1,
+      "name": "Manufacturing Quality Excellence",
+      "definition": "Achieve industry-leading manufacturing quality through AI-augmented inspection, reducing defect escape rate while maintaining production throughput.",
+      "target": "Qualitative: industry top quartile",
+      "cadence": "annual",
+      "ownerRole": "VP Manufacturing",
+      "attachedToServiceId": "mfg",
+      "parentMeasureId": null,
+      "tags": ["strategic"]
+    },
+    {
+      "id": "meas-002",
+      "measureType": "KEY_RESULT",
+      "tier": 2,
+      "name": "Defect Escape Rate",
+      "definition": "Percentage of defective widgets that pass inspection and reach customers.",
+      "target": "< 0.5%",
+      "cadence": "monthly",
+      "ownerRole": "VP Quality",
+      "attachedToServiceId": "mfg-quality-ai",
+      "parentMeasureId": "meas-001",
+      "tags": ["ai-specific", "quality"]
+    },
+    {
+      "id": "meas-003",
+      "measureType": "KPI_OUTCOME",
+      "tier": 2,
+      "name": "Inspection Accuracy",
+      "definition": "Percentage of widgets correctly classified by Quality AI (true positives + true negatives out of total inspected).",
+      "target": ">= 97%",
+      "cadence": "weekly",
+      "ownerRole": "VP Quality",
+      "attachedToServiceId": "mfg-quality-ai",
+      "parentMeasureId": "meas-002",
+      "tags": ["ai-specific", "quality"]
+    },
+    {
+      "id": "meas-004",
+      "measureType": "XLA",
+      "tier": 3,
+      "name": "Production Supervisor Trust Score",
+      "definition": "Production supervisors' satisfaction with and trust in Quality AI decisions, measured via monthly survey.",
+      "target": ">= 4.2 / 5.0",
+      "cadence": "monthly",
+      "ownerRole": "VP Quality",
+      "attachedToServiceId": "mfg-quality-ai",
+      "parentMeasureId": "meas-003",
+      "tags": ["ai-specific", "experience"]
+    },
+    {
+      "id": "meas-005",
+      "measureType": "SLA",
+      "tier": 3,
+      "name": "Inspection Throughput Time",
+      "definition": "Time from widget arriving at inspection station to classification result available in Production Control System.",
+      "target": "< 8 seconds per widget",
+      "cadence": "continuous",
+      "ownerRole": "VP Quality",
+      "attachedToServiceId": "mfg-quality-ai",
+      "parentMeasureId": "meas-004",
+      "tags": ["ai-specific", "operational"]
+    },
+    {
+      "id": "meas-006",
+      "measureType": "SLA",
+      "tier": 3,
+      "name": "Quality AI Availability",
+      "definition": "Percentage of scheduled production hours that Quality AI is operational and accepting inspections.",
+      "target": ">= 99.5%",
+      "cadence": "daily",
+      "ownerRole": "Chief AI Officer",
+      "attachedToServiceId": "mfg-quality-ai",
+      "parentMeasureId": "meas-004",
+      "tags": ["ai-specific", "operational"]
+    },
+    {
+      "id": "meas-007",
+      "measureType": "LEADING_INDICATOR",
+      "tier": 4,
+      "name": "Escalation Rate",
+      "definition": "Percentage of inspections escalated to human review due to low confidence. Rising trend may indicate model drift or new defect patterns.",
+      "target": "< 10%",
+      "cadence": "daily",
+      "ownerRole": "Chief AI Officer",
+      "attachedToServiceId": "mfg-quality-ai",
+      "parentMeasureId": "meas-003",
+      "tags": ["ai-specific", "early-warning"]
+    },
+    {
+      "id": "meas-008",
+      "measureType": "RISK_LEVEL",
+      "tier": 5,
+      "name": "Model Drift Risk",
+      "definition": "Risk that the CV model's accuracy degrades over time as widget designs or defect patterns change.",
+      "target": "Medium (monitored)",
+      "cadence": "weekly",
+      "ownerRole": "Chief AI Officer",
+      "attachedToServiceId": "mfg-quality-ai",
+      "parentMeasureId": null,
+      "tags": ["ai-specific", "risk"]
+    },
+    {
+      "id": "meas-009",
+      "measureType": "VALUE_CONTRIBUTION",
+      "tier": 2,
+      "name": "Quality AI Cost Savings",
+      "definition": "Annual cost savings from automated inspection compared to fully manual quality inspection process.",
+      "target": "> $1.2M annually",
+      "cadence": "quarterly",
+      "ownerRole": "CFO",
+      "attachedToServiceId": "mfg-quality-ai",
+      "parentMeasureId": "meas-001",
+      "tags": ["ai-specific", "financial"]
+    }
+  ]
+}

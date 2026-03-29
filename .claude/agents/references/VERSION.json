@@ -1,0 +1,74 @@
+{
+  "version": "2.0.0",
+  "release_date": "2026-03-01",
+  "methodology_version": "1.0.0",
+  "reference_layer_version": "2.0.0",
+  "compatibility": {
+    "min_toolkit_version": "2.0.0",
+    "max_toolkit_version": "2.9.9",
+    "min_claude_code_version": "1.0.0"
+  },
+  "contents": {
+    "cliff_notes": {
+      "count": 12,
+      "chapters": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "average_lines": 50,
+      "format": "markdown"
+    },
+    "templates": {
+      "count": 10,
+      "list": [
+        "AI-Persona-Definition-Template.md",
+        "AI-Persona-Tier-Selection-Guide.md",
+        "Measurement-Blueprint-Template.md",
+        "Data-Product-Definition-Template.md",
+        "sop-schema.md",
+        "cross-domain-sop-register.md",
+        "readiness-scorecard.md",
+        "delegation-package-checklist.md",
+        "backlog-item-template.md",
+        "vanilla-agent-log.md"
+      ]
+    },
+    "schemas": {
+      "count": 2,
+      "list": [
+        "canonical-service-domain-model-schema.json",
+        "style-config.json"
+      ]
+    },
+    "examples": {
+      "count": 3,
+      "list": [
+        "canonical-model-example-oblivion-widgets.json",
+        "canonical-model-example-digital-bank.json",
+        "canonical-model-example-vmi-programme.json"
+      ]
+    },
+    "additional": {
+      "glossary": true,
+      "chapter_links": true,
+      "governance_framework": true
+    }
+  },
+  "checksums": {
+    "algorithm": "sha256",
+    "generated": false,
+    "note": "Checksums calculated during tarball creation via create-tarball.sh"
+  },
+  "usage": {
+    "cliff_notes": "Quick navigation and agent context",
+    "templates": "Practitioner artifact creation",
+    "schemas": "Validation and canonical model structure",
+    "examples": "Reference patterns and 'what good looks like'",
+    "glossary": "Terminology quick reference",
+    "chapter_links": "Deep links to full methodology chapters",
+    "governance_framework": "Versioning and release management"
+  },
+  "distribution": {
+    "bundled_in_toolkit": true,
+    "location": ".claude/agents/references/",
+    "size_estimate": "~280KB",
+    "offline_capable": true
+  }
+}

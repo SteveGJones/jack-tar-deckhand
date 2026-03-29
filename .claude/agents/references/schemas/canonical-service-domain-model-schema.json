@@ -1,0 +1,891 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-first-bsa.org/schemas/service-domain-model/v1.0.0",
+  "title": "AI-First BSA Canonical Service Domain Model",
+  "description": "Single source of truth for an AI-First Business Service Architecture. Each diagram renders ONE service level (e.g., all L1 services under L0 Manufacturing). Renderers filter this model for their specific needs: service architecture views, BPMN process diagrams, governance dashboards, and measurement hierarchies.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for validation tooling."
+    },
+    "modelMetadata": {
+      "$ref": "#/$defs/ModelMetadata"
+    },
+    "services": {
+      "type": "array",
+      "description": "All business services across all levels (L0-L6). The parent-child hierarchy is defined by parentId references, NOT by nesting. Each service exists exactly once in this flat array.",
+      "items": {
+        "$ref": "#/$defs/Service"
+      }
+    },
+    "aiPersonas": {
+      "type": "array",
+      "description": "AI Personas are services with delegated business responsibilities. Each aiPersona references a service by serviceId. The service entry defines WHERE it sits in the hierarchy; this entry defines its AI-specific contract attributes.",
+      "items": {
+        "$ref": "#/$defs/AIPersona"
+      }
+    },
+    "humanActors": {
+      "type": "array",
+      "description": "People who interact with services. Linked to services through the interactions array or through explicit serviceAssociations.",
+      "items": {
+        "$ref": "#/$defs/HumanActor"
+      }
+    },
+    "systemActors": {
+      "type": "array",
+      "description": "IT systems that interact with services. Linked to services through the interactions array or through explicit serviceAssociations.",
+      "items": {
+        "$ref": "#/$defs/SystemActor"
+      }
+    },
+    "externalInteractions": {
+      "type": "array",
+      "description": "Connections to services outside the current domain or to external organisations. Rendered with distinct visual treatment (dashed borders, different colour) per Appendix F Visual Notation Standards.",
+      "items": {
+        "$ref": "#/$defs/ExternalInteraction"
+      }
+    },
+    "interactions": {
+      "type": "array",
+      "description": "All relationships between entities: capability invocations, data flows, escalation paths, dependency relationships. Each interaction references source and target by their entity IDs.",
+      "items": {
+        "$ref": "#/$defs/Interaction"
+      }
+    },
+    "processes": {
+      "type": "array",
+      "description": "BPMN process definitions with swimlanes, tasks, gateways, and sequence flows. For future BPMN renderer. Each process is scoped to a service or set of services.",
+      "items": {
+        "$ref": "#/$defs/Process"
+      }
+    },
+    "governance": {
+      "$ref": "#/$defs/Governance",
+      "description": "SOP definitions, RACI assignments, compliance tags, and Trusted AI scope definitions. For future governance renderer."
+    },
+    "measurements": {
+      "type": "array",
+      "description": "KPIs, XLAs, SLAs, and all 5-tier measure types attached to services and AI Personas. Uses the Measure schema from Appendix H.1.",
+      "items": {
+        "$ref": "#/$defs/Measurement"
+      }
+    }
+  },
+  "required": ["modelMetadata", "services"],
+  "$defs": {
+
+    "ModelMetadata": {
+      "type": "object",
+      "description": "Identifies the model, its scope, version, and ownership.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this model instance."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for the architecture model."
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of what this model covers."
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic version of this model instance (e.g., 1.0.0)."
+        },
+        "organisation": {
+          "type": "string",
+          "description": "Organisation this architecture belongs to."
+        },
+        "createdDate": {
+          "type": "string",
+          "format": "date",
+          "description": "ISO 8601 date when this model was created."
+        },
+        "lastModifiedDate": {
+          "type": "string",
+          "format": "date",
+          "description": "ISO 8601 date when this model was last modified."
+        },
+        "authors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "People who created or maintain this model."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "in_review", "approved", "active", "deprecated"],
+          "description": "Lifecycle status of this model."
+        }
+      },
+      "required": ["id", "name", "version", "organisation"]
+    },
+
+    "Service": {
+      "type": "object",
+      "description": "A business service at any level (L0-L6). Services form a strict hierarchy: L0 services have no parent; every other service references exactly one parent. AI Personas are services with additional contract attributes defined in the aiPersonas array.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this service (e.g., 'mfg' or 'mfg-quality-ai'). Used as reference target throughout the model."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable service name as it appears on diagrams."
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Hierarchy level: 0 = enterprise, 1 = first decomposition, through 6 = most detailed."
+        },
+        "parentId": {
+          "type": ["string", "null"],
+          "description": "ID of the parent service. Null for L0 services only. This establishes the drill-down hierarchy."
+        },
+        "serviceType": {
+          "type": "string",
+          "enum": ["core", "support", "virtual", "technical"],
+          "description": "Classification per Chapter 5. Core: primary business services. Support: shared services consumed by all domains (HR, Finance, AI-RM). Virtual: cross-cutting logical groupings. Technical: IT infrastructure and platform services."
+        },
+        "mission": {
+          "type": "string",
+          "description": "The service promise: a concise statement of what this service delivers to its consumers. Answers 'Why does this service exist?'"
+        },
+        "owner": {
+          "type": "string",
+          "description": "Accountable person (name and/or role) for this service's business outcomes."
+        },
+        "isAIPersona": {
+          "type": "boolean",
+          "default": false,
+          "description": "True when this service is an AI Persona with a corresponding entry in aiPersonas. Renderers use this flag to apply AI-specific visual treatment (purple colour, robot icon)."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Free-form tags for filtering and classification (e.g., 'revenue-generating', 'compliance-critical', 'candidate-for-ai')."
+        },
+        "visualMetadata": {
+          "$ref": "#/$defs/VisualMetadata",
+          "description": "Optional rendering hints for diagram generators. If omitted, renderers apply defaults per Appendix F."
+        }
+      },
+      "required": ["id", "name", "level", "serviceType"]
+    },
+
+    "VisualMetadata": {
+      "type": "object",
+      "description": "Optional rendering hints. Renderers may override these with their own style rules.",
+      "properties": {
+        "fillColor": {
+          "type": "string",
+          "description": "Hex colour for the service fill (e.g., '#A8D5FF')."
+        },
+        "strokeColor": {
+          "type": "string",
+          "description": "Hex colour for the service border."
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon identifier or emoji to display (e.g., 'robot' for AI Personas, 'gear' for support services)."
+        },
+        "shape": {
+          "type": "string",
+          "enum": ["oval", "rectangle", "hexagon", "diamond", "cylinder"],
+          "description": "Preferred shape for this element."
+        }
+      }
+    },
+
+    "AIPersona": {
+      "type": "object",
+      "description": "AI-specific contract attributes for a service flagged as isAIPersona=true. This is the Delegation Package: the WHAT half of the contract per Chapter 5.1.4. References the AI Persona Definition Template.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this AI Persona definition."
+        },
+        "serviceId": {
+          "type": "string",
+          "description": "References the service entry in the services array. The service defines hierarchy position; this defines AI contract."
+        },
+        "description": {
+          "type": "string",
+          "description": "Overview of the delegated role and its function within the business context."
+        },
+        "authorityModel": {
+          "type": "string",
+          "enum": ["owner", "invoker", "hybrid"],
+          "description": "Per Chapter 5.1.7: 'owner' = standing authority (acts independently within scope), 'invoker' = acts under invoking human's authority, 'hybrid' = standing for low-risk with invoker for high-risk."
+        },
+        "confidenceThreshold": {
+          "type": "object",
+          "description": "Confidence-based decision boundaries. When confidence falls below threshold, AI escalates to human review.",
+          "properties": {
+            "autonomousMin": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Minimum confidence (0-1) for autonomous action. Below this, escalate."
+            },
+            "escalationTarget": {
+              "type": "string",
+              "description": "ID of the human actor or service that receives escalations."
+            }
+          },
+          "required": ["autonomousMin"]
+        },
+        "scope": {
+          "type": "object",
+          "description": "Trusted AI Scope boundary: what the AI Persona IS and IS NOT permitted to do. Per Appendix C and the Trusted AI Scope framework.",
+          "properties": {
+            "permitted": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Explicitly permitted actions. If not listed, not permitted."
+            },
+            "prohibited": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Explicitly prohibited actions. Defence-in-depth against scope creep."
+            },
+            "escalationTriggers": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Conditions that force escalation to human oversight."
+            }
+          },
+          "required": ["permitted", "prohibited"]
+        },
+        "dataSources": {
+          "type": "array",
+          "description": "Data contract: approved input sources per Collaborative Data Supply Chain framework.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "description": "ID of the system actor or service providing data."
+              },
+              "sourceName": {
+                "type": "string",
+                "description": "Human-readable name of the data source."
+              },
+              "accessType": {
+                "type": "string",
+                "enum": ["read", "read-write", "write"],
+                "description": "Level of access granted."
+              },
+              "dataDescription": {
+                "type": "string",
+                "description": "What data is accessed and any field-level restrictions."
+              },
+              "qualitySLA": {
+                "type": "string",
+                "description": "Expected data quality (e.g., '95% completeness, <1hr latency')."
+              }
+            },
+            "required": ["sourceId", "sourceName", "accessType"]
+          }
+        },
+        "sops": {
+          "type": "array",
+          "description": "Standard Operating Procedures this AI Persona follows. References governance.sopDefinitions by ID.",
+          "items": {
+            "type": "string",
+            "description": "SOP definition ID from governance.sopDefinitions."
+          }
+        },
+        "integrationModel": {
+          "type": "string",
+          "enum": ["assistant", "collaborator", "specialist"],
+          "description": "Per Three-Question Discovery (Chapter 5.1.4 / Template Section 3.3): how the AI fits into the human team."
+        },
+        "aiResourceManagementLiaison": {
+          "type": "string",
+          "description": "Named person or role from AI-RM service responsible for technical health."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of this AI Persona contract."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "in_review", "approved", "in_production", "deprecated"],
+          "description": "Lifecycle status of this AI Persona."
+        }
+      },
+      "required": ["id", "serviceId", "authorityModel", "scope"]
+    },
+
+    "HumanActor": {
+      "type": "object",
+      "description": "A person or role that interacts with services. Per Chapter 5.1.5, actors are consumers of services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this actor."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name (e.g., 'Production Supervisor')."
+        },
+        "role": {
+          "type": "string",
+          "description": "Formal role title."
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Key responsibilities of this actor."
+        },
+        "serviceAssociations": {
+          "type": "array",
+          "description": "Services this actor interacts with, and how.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "serviceId": {
+                "type": "string",
+                "description": "ID of the associated service."
+              },
+              "associationType": {
+                "type": "string",
+                "enum": ["owner", "consumer", "provider", "escalation_target", "approver"],
+                "description": "Nature of the association."
+              }
+            },
+            "required": ["serviceId", "associationType"]
+          }
+        },
+        "isExternal": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if this actor is external to the organisation (e.g., Customer, Regulator)."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Free-form tags for filtering."
+        }
+      },
+      "required": ["id", "name"]
+    },
+
+    "SystemActor": {
+      "type": "object",
+      "description": "An IT system that interacts with services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this system."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name (e.g., 'MES', 'ERP')."
+        },
+        "systemType": {
+          "type": "string",
+          "enum": ["erp", "mes", "crm", "scm", "analytics", "database", "integration", "custom", "saas", "infrastructure"],
+          "description": "Classification of the system."
+        },
+        "description": {
+          "type": "string",
+          "description": "What this system does."
+        },
+        "serviceAssociations": {
+          "type": "array",
+          "description": "Services this system supports.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "serviceId": {
+                "type": "string",
+                "description": "ID of the associated service."
+              },
+              "associationType": {
+                "type": "string",
+                "enum": ["provider", "consumer", "data_source", "integration_target"],
+                "description": "Nature of the association."
+              }
+            },
+            "required": ["serviceId", "associationType"]
+          }
+        },
+        "isExternal": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if this system is outside the organisation boundary."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Free-form tags for filtering."
+        }
+      },
+      "required": ["id", "name"]
+    },
+
+    "ExternalInteraction": {
+      "type": "object",
+      "description": "A connection to a service outside the current domain or to an external organisation. Rendered with distinct visual treatment per Appendix F (dashed borders, green colour for external services, grey box grouping).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this external interaction point."
+        },
+        "externalServiceName": {
+          "type": "string",
+          "description": "Name of the external service (e.g., 'Order Supplies', 'Stock Management')."
+        },
+        "externalDomain": {
+          "type": "string",
+          "description": "Domain or organisation the external service belongs to (e.g., 'Logistics & Warehouse', 'Supplier Corp')."
+        },
+        "interactionType": {
+          "type": "string",
+          "enum": ["capability_invocation", "data_exchange", "event_notification", "dependency", "regulatory"],
+          "description": "Nature of the external interaction."
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["inbound", "outbound", "bidirectional"],
+          "description": "Direction of the interaction relative to the current domain."
+        },
+        "internalServiceId": {
+          "type": "string",
+          "description": "ID of the internal service that connects to this external point."
+        },
+        "label": {
+          "type": "string",
+          "description": "Label for the connection arrow on diagrams."
+        },
+        "isExternalOrganisation": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if the external entity is outside the enterprise entirely (e.g., a supplier, regulator). False if it is another domain within the same enterprise."
+        }
+      },
+      "required": ["id", "externalServiceName", "externalDomain", "interactionType", "internalServiceId"]
+    },
+
+    "Interaction": {
+      "type": "object",
+      "description": "A directed relationship between any two entities in the model. Source and target reference entity IDs (services, actors, AI Personas). Renderers filter interactions by type and by the entities visible in the current view.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this interaction."
+        },
+        "sourceId": {
+          "type": "string",
+          "description": "ID of the source entity (service, humanActor, systemActor, or AI Persona service)."
+        },
+        "targetId": {
+          "type": "string",
+          "description": "ID of the target entity."
+        },
+        "label": {
+          "type": "string",
+          "description": "Text label displayed on the interaction arrow."
+        },
+        "interactionType": {
+          "type": "string",
+          "enum": [
+            "capability_invocation",
+            "data_flow",
+            "escalation",
+            "dependency",
+            "approval",
+            "notification",
+            "support"
+          ],
+          "description": "Semantic type of this interaction. Renderers use this to apply visual styles (e.g., escalation = dashed purple arrow, data_flow = solid black arrow)."
+        },
+        "style": {
+          "type": "string",
+          "enum": ["solid", "dashed", "dotted", "bold"],
+          "default": "solid",
+          "description": "Visual line style override. If omitted, renderers derive style from interactionType."
+        },
+        "bidirectional": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if this interaction flows in both directions."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tags for filtering (e.g., 'critical-path', 'ai-escalation')."
+        }
+      },
+      "required": ["id", "sourceId", "targetId", "interactionType"]
+    },
+
+    "Process": {
+      "type": "object",
+      "description": "A BPMN process definition. Scoped to one or more services. Contains swimlanes for human, AI Persona, and system participants. For future BPMN renderer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this process."
+        },
+        "name": {
+          "type": "string",
+          "description": "Process name (e.g., 'Quality Inspection Process')."
+        },
+        "description": {
+          "type": "string",
+          "description": "What this process accomplishes."
+        },
+        "scopeServiceIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Service IDs this process operates within."
+        },
+        "swimlanes": {
+          "type": "array",
+          "description": "BPMN swimlanes (pools/lanes). Each lane is owned by an actor or service.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Swimlane identifier."
+              },
+              "name": {
+                "type": "string",
+                "description": "Display label for the swimlane."
+              },
+              "participantId": {
+                "type": "string",
+                "description": "ID of the human actor, system actor, or AI Persona service that owns this lane."
+              },
+              "participantType": {
+                "type": "string",
+                "enum": ["human", "ai_persona", "system"],
+                "description": "Type of participant. Renderers use this for visual styling (e.g., purple header for ai_persona)."
+              }
+            },
+            "required": ["id", "name", "participantId", "participantType"]
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "description": "BPMN tasks within swimlanes.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "swimlaneId": {
+                "type": "string",
+                "description": "Which swimlane this task belongs to."
+              },
+              "taskType": {
+                "type": "string",
+                "enum": ["user_task", "service_task", "ai_task", "manual_task", "send_task", "receive_task"],
+                "description": "BPMN task type. 'ai_task' renders with robot icon and purple styling."
+              },
+              "description": { "type": "string" }
+            },
+            "required": ["id", "name", "swimlaneId", "taskType"]
+          }
+        },
+        "gateways": {
+          "type": "array",
+          "description": "BPMN gateways (exclusive, parallel, inclusive).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "swimlaneId": { "type": "string" },
+              "gatewayType": {
+                "type": "string",
+                "enum": ["exclusive", "parallel", "inclusive", "event_based"]
+              },
+              "condition": {
+                "type": "string",
+                "description": "Decision condition (e.g., 'Confidence >= 80%?')."
+              }
+            },
+            "required": ["id", "swimlaneId", "gatewayType"]
+          }
+        },
+        "events": {
+          "type": "array",
+          "description": "BPMN events (start, intermediate, end).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "swimlaneId": { "type": "string" },
+              "eventType": {
+                "type": "string",
+                "enum": ["start", "end", "intermediate_catch", "intermediate_throw", "message_start", "message_end", "timer", "error"]
+              }
+            },
+            "required": ["id", "swimlaneId", "eventType"]
+          }
+        },
+        "sequenceFlows": {
+          "type": "array",
+          "description": "BPMN sequence flows connecting tasks, gateways, and events.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "sourceRef": {
+                "type": "string",
+                "description": "ID of the source element (task, gateway, or event)."
+              },
+              "targetRef": {
+                "type": "string",
+                "description": "ID of the target element."
+              },
+              "label": { "type": "string" },
+              "conditionExpression": {
+                "type": "string",
+                "description": "Condition for conditional flows from gateways."
+              }
+            },
+            "required": ["id", "sourceRef", "targetRef"]
+          }
+        },
+        "messageFlows": {
+          "type": "array",
+          "description": "BPMN message flows between swimlanes (cross-lane communication).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "sourceRef": { "type": "string" },
+              "targetRef": { "type": "string" },
+              "label": { "type": "string" }
+            },
+            "required": ["id", "sourceRef", "targetRef"]
+          }
+        }
+      },
+      "required": ["id", "name", "swimlanes"]
+    },
+
+    "Governance": {
+      "type": "object",
+      "description": "Governance layer: SOPs, RACI assignments, compliance tags, and Trusted AI scope definitions. For future governance renderer.",
+      "properties": {
+        "sopDefinitions": {
+          "type": "array",
+          "description": "Standard Operating Procedure definitions. AI Personas reference these by ID.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique SOP identifier (e.g., 'SOP-MFG-QI-001')."
+              },
+              "name": {
+                "type": "string",
+                "description": "SOP title."
+              },
+              "description": {
+                "type": "string",
+                "description": "What this SOP governs."
+              },
+              "version": { "type": "string" },
+              "ownerServiceId": {
+                "type": "string",
+                "description": "Service that owns and publishes this SOP."
+              },
+              "applicableServiceIds": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Services and AI Personas that consume this SOP."
+              },
+              "complianceTags": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Regulatory and compliance tags (e.g., 'ISO-9001', 'GDPR', 'EU-AI-Act')."
+              }
+            },
+            "required": ["id", "name", "ownerServiceId"]
+          }
+        },
+        "raciAssignments": {
+          "type": "array",
+          "description": "RACI matrix entries. Each entry assigns responsibility for a capability or decision to actors.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "activity": {
+                "type": "string",
+                "description": "The activity, capability, or decision being governed."
+              },
+              "serviceId": {
+                "type": "string",
+                "description": "Service this RACI entry applies to."
+              },
+              "responsible": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Actor IDs who perform the work."
+              },
+              "accountable": {
+                "type": "string",
+                "description": "Actor ID who is ultimately accountable (one person)."
+              },
+              "consulted": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Actor IDs consulted before action."
+              },
+              "informed": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Actor IDs informed after action."
+              }
+            },
+            "required": ["id", "activity", "responsible", "accountable"]
+          }
+        },
+        "trustedAIScopes": {
+          "type": "array",
+          "description": "Trusted AI Scope boundary definitions per Appendix C. Each entry defines the scope boundary for one AI Persona.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "aiPersonaId": {
+                "type": "string",
+                "description": "References the AI Persona this scope applies to."
+              },
+              "scopeElements": {
+                "type": "object",
+                "properties": {
+                  "dataAccess": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Data sources within scope."
+                  },
+                  "decisions": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Decision types within scope."
+                  },
+                  "actions": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Actions within scope."
+                  },
+                  "exclusions": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Explicit exclusions from scope."
+                  }
+                }
+              },
+              "riskClassification": {
+                "type": "string",
+                "enum": ["minimal", "limited", "high", "unacceptable"],
+                "description": "EU AI Act risk classification."
+              }
+            },
+            "required": ["id", "aiPersonaId"]
+          }
+        },
+        "complianceTags": {
+          "type": "array",
+          "description": "Master list of compliance tags used throughout the model.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tag": { "type": "string" },
+              "framework": {
+                "type": "string",
+                "description": "Regulatory framework (e.g., 'EU AI Act', 'ISO 9001', 'GDPR')."
+              },
+              "description": { "type": "string" }
+            },
+            "required": ["tag", "framework"]
+          }
+        }
+      }
+    },
+
+    "Measurement": {
+      "type": "object",
+      "description": "A measure attached to a service or AI Persona. Uses the 5-tier hierarchy from Appendix H. Schema aligns with Appendix H.1 Measure Object Schema.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this measure."
+        },
+        "measureType": {
+          "type": "string",
+          "enum": [
+            "OBJECTIVE",
+            "KEY_RESULT",
+            "KPI_OUTCOME",
+            "XLA",
+            "SLA",
+            "LEADING_INDICATOR",
+            "VALUE_LEVER",
+            "COST_IMPACT",
+            "VALUE_CONTRIBUTION",
+            "RISK_LEVEL",
+            "DATA_QUALITY_ISSUE_IMPACT",
+            "FINANCIAL_METRIC"
+          ],
+          "description": "Type of measure from the 5-tier hierarchy (Appendix H)."
+        },
+        "tier": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Tier in the 5-tier hierarchy: 1=Strategic Direction, 2=Performance & Outcome, 3=Experiential & Operational, 4=Actionable Inputs, 5=Contextual Factors."
+        },
+        "name": {
+          "type": "string",
+          "description": "Measure name."
+        },
+        "definition": {
+          "type": "string",
+          "description": "Detailed definition of what this measure tracks."
+        },
+        "target": {
+          "type": "string",
+          "description": "Target value or threshold (e.g., '>= 80%', '< 5 minutes', '99.9% uptime')."
+        },
+        "cadence": {
+          "type": "string",
+          "description": "How often this measure is assessed (e.g., 'daily', 'weekly', 'quarterly')."
+        },
+        "ownerRole": {
+          "type": "string",
+          "description": "Role responsible for this measure."
+        },
+        "attachedToServiceId": {
+          "type": "string",
+          "description": "ID of the service this measure is attached to."
+        },
+        "parentMeasureId": {
+          "type": ["string", "null"],
+          "description": "ID of the parent measure in the hierarchy. Establishes tier relationships (e.g., SLA supports XLA supports KPI_OUTCOME)."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tags for filtering (e.g., 'ai-specific', 'customer-facing')."
+        }
+      },
+      "required": ["id", "measureType", "tier", "name", "definition", "attachedToServiceId"]
+    }
+  }
+}

@@ -1,0 +1,418 @@
+{
+  "$schema": "./canonical-service-domain-model-schema.json",
+  "modelMetadata": {
+    "organisation": "Oblivion Widgets Inc.",
+    "domain": "Vendor Managed Inventory Programme",
+    "version": "1.0.0",
+    "author": "VMI Programme Team",
+    "lastUpdated": "2026-02-08"
+  },
+
+  "services": [
+    {
+      "id": "vmi",
+      "name": "VMI Programme",
+      "level": 0,
+      "mission": "Implement vendor-managed inventory across the supply chain to reduce stockouts, lower carrying costs, and strengthen supplier partnerships.",
+      "serviceType": "core"
+    },
+
+    {
+      "id": "vmi-supplier-collab",
+      "name": "Supplier Collaboration",
+      "parentId": "vmi",
+      "level": 1,
+      "mission": "Manage supplier relationships, share real-time sell-through data, and resolve disputes using agreed protocols.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-inventory-vis",
+      "name": "Inventory Visibility",
+      "parentId": "vmi",
+      "level": 1,
+      "mission": "Provide a single view of stock levels, in-transit inventory, and demand signals across all locations.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-replenishment",
+      "name": "Replenishment Planning",
+      "parentId": "vmi",
+      "level": 1,
+      "mission": "Convert demand forecasts into replenishment orders, manage quantity bands, and coordinate delivery schedules.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-performance",
+      "name": "Performance Management",
+      "parentId": "vmi",
+      "level": 1,
+      "mission": "Track programme KPIs, monitor supplier performance against SLAs, and identify improvement opportunities.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-governance",
+      "name": "Programme Governance",
+      "parentId": "vmi",
+      "level": 1,
+      "mission": "Oversee programme delivery, manage persona guardrails, mediate authority disputes, and maintain the policy repository.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-demand-ai",
+      "name": "Demand Forecasting AI",
+      "parentId": "vmi",
+      "level": 1,
+      "mission": "Generate probabilistic demand forecasts per SKU and store, feeding replenishment proposals with confidence scores.",
+      "serviceType": "core",
+      "isAIPersona": true
+    },
+    {
+      "id": "vmi-risk-ai",
+      "name": "Inventory Risk Sentinel AI",
+      "parentId": "vmi",
+      "level": 1,
+      "mission": "Monitor inventory risk indicators, detect anomalous stock patterns, and alert teams to potential stockouts or overstock conditions.",
+      "serviceType": "core",
+      "isAIPersona": true
+    },
+
+    {
+      "id": "vmi-supplier-engage",
+      "name": "Supplier Engagement",
+      "parentId": "vmi-supplier-collab",
+      "level": 2,
+      "mission": "Onboard suppliers, manage data sharing agreements, and facilitate joint business reviews.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-demand-shaping",
+      "name": "Demand Shaping",
+      "parentId": "vmi-replenishment",
+      "level": 2,
+      "mission": "Analyse demand signals, promotional plans, and seasonal factors to shape replenishment strategies.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-allocation",
+      "name": "Allocation",
+      "parentId": "vmi-replenishment",
+      "level": 2,
+      "mission": "Distribute available inventory across stores and channels based on demand priority and service level targets.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-repl-execution",
+      "name": "Replenishment Execution",
+      "parentId": "vmi-replenishment",
+      "level": 2,
+      "mission": "Execute approved replenishment orders, manage auto-approval within quantity bands, and coordinate with logistics.",
+      "serviceType": "core"
+    },
+    {
+      "id": "vmi-perf-insight",
+      "name": "Performance & Insight",
+      "parentId": "vmi-performance",
+      "level": 2,
+      "mission": "Generate programme dashboards, analyse trends, and produce actionable insights for continuous improvement.",
+      "serviceType": "core"
+    }
+  ],
+
+  "aiPersonas": [
+    {
+      "id": "ap-demand-ai",
+      "serviceId": "vmi-demand-ai",
+      "authorityModel": "hybrid",
+      "description": "Probabilistic demand forecasting with auto-approval for high-confidence replenishment within quantity bands.",
+      "capabilities": [
+        "SKU-level demand forecasting",
+        "Promotional uplift modelling",
+        "Seasonal pattern detection",
+        "Confidence-scored recommendations"
+      ],
+      "sops": [
+        {
+          "id": "sop-vmi-05",
+          "name": "Auto-Approve Replenishment",
+          "description": "Auto-approve replenishment orders when confidence > 0.8 and within pre-set quantity bands."
+        },
+        {
+          "id": "sop-vmi-06",
+          "name": "Exception Mediation",
+          "description": "Route low-confidence items to joint review; Programme Governance mediates authority limits."
+        }
+      ]
+    },
+    {
+      "id": "ap-risk-ai",
+      "serviceId": "vmi-risk-ai",
+      "authorityModel": "supervised",
+      "description": "Inventory risk monitoring with alerting authority. All corrective actions require human approval.",
+      "capabilities": [
+        "Anomalous stock pattern detection",
+        "Stockout probability estimation",
+        "Overstock risk scoring",
+        "Supplier reliability tracking"
+      ],
+      "sops": [
+        {
+          "id": "sop-vmi-08",
+          "name": "Risk Alert Protocol",
+          "description": "Publish risk alerts when stockout probability exceeds threshold; escalate to Supply Chain Manager."
+        }
+      ]
+    }
+  ],
+
+  "humanActors": [
+    {
+      "id": "human-supplier",
+      "name": "Supplier",
+      "isExternal": true,
+      "serviceAssociations": [
+        { "serviceId": "vmi-supplier-collab", "associationType": "consumer" },
+        { "serviceId": "vmi-inventory-vis", "associationType": "consumer" }
+      ]
+    },
+    {
+      "id": "human-supply-chain-mgr",
+      "name": "Supply Chain Manager",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "vmi-replenishment", "associationType": "owner" },
+        { "serviceId": "vmi-demand-ai", "associationType": "consumer" },
+        { "serviceId": "vmi-risk-ai", "associationType": "escalation_target" }
+      ]
+    },
+    {
+      "id": "human-programme-mgr",
+      "name": "Programme Manager",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "vmi-governance", "associationType": "owner" },
+        { "serviceId": "vmi-performance", "associationType": "consumer" }
+      ]
+    },
+    {
+      "id": "human-planner",
+      "name": "Demand Planner",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "vmi-replenishment", "associationType": "consumer" },
+        { "serviceId": "vmi-demand-ai", "associationType": "escalation_target" },
+        { "serviceId": "vmi-inventory-vis", "associationType": "consumer" }
+      ]
+    },
+    {
+      "id": "human-category-mgr",
+      "name": "Category Manager",
+      "isExternal": false,
+      "serviceAssociations": [
+        { "serviceId": "vmi-supplier-collab", "associationType": "owner" },
+        { "serviceId": "vmi-performance", "associationType": "consumer" }
+      ]
+    }
+  ],
+
+  "systemActors": [
+    {
+      "id": "sys-erp",
+      "name": "ERP System",
+      "serviceAssociations": [
+        { "serviceId": "vmi-inventory-vis", "associationType": "data_source" },
+        { "serviceId": "vmi-replenishment", "associationType": "integration_target" }
+      ]
+    },
+    {
+      "id": "sys-pos",
+      "name": "POS / Sales Data",
+      "serviceAssociations": [
+        { "serviceId": "vmi-inventory-vis", "associationType": "data_source" },
+        { "serviceId": "vmi-demand-ai", "associationType": "data_source" }
+      ]
+    },
+    {
+      "id": "sys-supplier-portal",
+      "name": "Supplier Portal",
+      "serviceAssociations": [
+        { "serviceId": "vmi-supplier-collab", "associationType": "integration_target" }
+      ]
+    }
+  ],
+
+  "externalInteractions": [
+    {
+      "id": "ext-logistics-3pl",
+      "internalServiceId": "vmi-replenishment",
+      "externalServiceName": "3PL Logistics",
+      "externalDomain": "Third-Party Logistics",
+      "direction": "outbound",
+      "description": "Replenishment order fulfilment via third-party logistics partners."
+    },
+    {
+      "id": "ext-market-data",
+      "internalServiceId": "vmi-demand-ai",
+      "externalServiceName": "Market Intelligence",
+      "externalDomain": "Nielsen / IRI",
+      "direction": "inbound",
+      "description": "External market and promotional data to enhance demand forecasts."
+    }
+  ],
+
+  "interactions": [
+    {
+      "id": "int-v01",
+      "sourceId": "vmi-supplier-collab",
+      "targetId": "vmi-inventory-vis",
+      "label": "Publish Sell-Through Data",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v02",
+      "sourceId": "vmi-inventory-vis",
+      "targetId": "vmi-demand-ai",
+      "label": "Stock & Demand Signals",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v03",
+      "sourceId": "vmi-demand-ai",
+      "targetId": "vmi-replenishment",
+      "label": "Replenishment Proposal",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v04",
+      "sourceId": "vmi-replenishment",
+      "targetId": "vmi-supplier-collab",
+      "label": "Purchase Order",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v05",
+      "sourceId": "vmi-governance",
+      "targetId": "vmi-demand-ai",
+      "label": "Review Persona Telemetry",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v06",
+      "sourceId": "vmi-governance",
+      "targetId": "vmi-risk-ai",
+      "label": "Adjust Guardrails",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v07",
+      "sourceId": "vmi-risk-ai",
+      "targetId": "vmi-performance",
+      "label": "Risk Alerts",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v08",
+      "sourceId": "vmi-performance",
+      "targetId": "vmi-governance",
+      "label": "KPI Dashboard",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v09",
+      "sourceId": "vmi-risk-ai",
+      "targetId": "human-supply-chain-mgr",
+      "label": "Stockout Risk Alert",
+      "interactionType": "escalation"
+    },
+    {
+      "id": "int-v10",
+      "sourceId": "vmi-demand-ai",
+      "targetId": "human-planner",
+      "label": "Low Confidence Review",
+      "interactionType": "escalation"
+    },
+    {
+      "id": "int-v11",
+      "sourceId": "human-supplier",
+      "targetId": "vmi-supplier-collab",
+      "label": "Inventory Update",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v12",
+      "sourceId": "human-supply-chain-mgr",
+      "targetId": "vmi-replenishment",
+      "label": "Override / Approve",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v13",
+      "sourceId": "human-programme-mgr",
+      "targetId": "vmi-governance",
+      "label": "Policy Decision",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v14",
+      "sourceId": "human-planner",
+      "targetId": "vmi-inventory-vis",
+      "label": "Stock Check",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v15",
+      "sourceId": "human-category-mgr",
+      "targetId": "vmi-supplier-collab",
+      "label": "Supplier Review",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v16",
+      "sourceId": "human-category-mgr",
+      "targetId": "vmi-performance",
+      "label": "Performance Review",
+      "interactionType": "capability_invocation"
+    },
+    {
+      "id": "int-v17",
+      "sourceId": "sys-erp",
+      "targetId": "vmi-inventory-vis",
+      "label": "Warehouse Stock Levels",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v18",
+      "sourceId": "sys-pos",
+      "targetId": "vmi-inventory-vis",
+      "label": "Sales Transactions",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v19",
+      "sourceId": "sys-pos",
+      "targetId": "vmi-demand-ai",
+      "label": "Historical Sales Data",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v20",
+      "sourceId": "sys-supplier-portal",
+      "targetId": "vmi-supplier-collab",
+      "label": "Supplier Data Exchange",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v21",
+      "sourceId": "vmi-inventory-vis",
+      "targetId": "vmi-risk-ai",
+      "label": "Stock Position Feed",
+      "interactionType": "data_flow"
+    },
+    {
+      "id": "int-v22",
+      "sourceId": "vmi-supplier-collab",
+      "targetId": "vmi-governance",
+      "label": "Dispute Escalation",
+      "interactionType": "escalation"
+    }
+  ]
+}

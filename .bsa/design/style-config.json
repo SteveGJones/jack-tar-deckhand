@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "AI-First Business Service Architecture Visual Brand Identity",
+  "version": "1.0.0",
+
+  "canvas": {
+    "background": "#FAFBFC",
+    "borderColor": "#E5E7EB",
+    "borderWidth": 1,
+    "gridSize": 20,
+    "margin": 40,
+    "minWidth": 800,
+    "minHeight": 600,
+    "defaultWidth": 1200,
+    "defaultHeight": 800
+  },
+
+  "typography": {
+    "fontFamily": "Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
+    "fallbackFontFamily": "Helvetica, Arial, sans-serif",
+    "diagramTitle": { "size": 20, "weight": 700, "color": "#1A202C", "letterSpacing": -0.4 },
+    "levelIndicator": { "size": 12, "weight": 600, "color": "#64748B", "letterSpacing": 0.24, "textTransform": "uppercase" },
+    "serviceHeader": { "size": 14, "weight": 600, "color": "#FFFFFF", "letterSpacing": -0.14 },
+    "aiPersonaHeader": { "size": 15, "weight": 700, "color": "#FFFFFF", "letterSpacing": -0.15 },
+    "serviceBody": { "size": 11, "weight": 400, "color": "#475569" },
+    "serviceLevelBadge": { "size": 10, "weight": 500, "color": "#64748B", "letterSpacing": 0.2, "textTransform": "uppercase" },
+    "actorLabel": { "size": 12, "weight": 500, "letterSpacing": 0 },
+    "flowLabel": { "size": 10, "weight": 500, "letterSpacing": 0.1, "backgroundOpacity": 0.85 },
+    "extBadge": { "size": 9, "weight": 700, "color": "#64748B", "textTransform": "uppercase" },
+    "sopLabel": { "size": 9, "weight": 500, "color": "#713F12" }
+  },
+
+  "entities": {
+    "service": {
+      "width": 180,
+      "height": 72,
+      "headerHeight": 28,
+      "cornerRadius": 8,
+      "borderWidth": 2,
+      "fillColor": "#F8F9FA",
+      "headerColor": "#4A90E2",
+      "strokeColor": "#2C5282",
+      "textColor": "#1A202C"
+    },
+    "aiPersona": {
+      "width": 200,
+      "height": 82,
+      "headerHeight": 32,
+      "cornerRadius": 10,
+      "borderWidth": 2.5,
+      "fillColor": "#F3E8FF",
+      "headerColorStart": "#7C3AED",
+      "headerColorEnd": "#6B21A8",
+      "strokeColor": "#6B21A8",
+      "textColor": "#1A202C",
+      "glowColor": "rgba(107, 33, 168, 0.15)",
+      "glowBlur": 8,
+      "glowOffsetY": 2,
+      "iconSize": 18,
+      "aiLabelText": "AI PERSONA",
+      "aiLabelColor": "#7C3AED",
+      "aiLabelSize": 9,
+      "aiLabelWeight": 600
+    },
+    "humanActor": {
+      "width": 120,
+      "height": 40,
+      "cornerRadius": 20,
+      "borderWidth": 1.5,
+      "fillColor": "#FFF4E6",
+      "strokeColor": "#D97706",
+      "iconColor": "#92400E",
+      "textColor": "#1A202C",
+      "shape": "stadium"
+    },
+    "systemActor": {
+      "width": 120,
+      "height": 40,
+      "borderWidth": 1.5,
+      "fillColor": "#E0F2FE",
+      "strokeColor": "#0369A1",
+      "iconColor": "#0C4A6E",
+      "textColor": "#1A202C",
+      "shape": "hexagon"
+    },
+    "externalService": {
+      "width": 160,
+      "height": 56,
+      "headerHeight": 22,
+      "cornerRadius": 8,
+      "borderWidth": 1.5,
+      "fillColor": "#FFFFFF",
+      "headerColor": "#94A3B8",
+      "strokeColor": "#94A3B8",
+      "textColor": "#475569",
+      "borderStyle": "dashed",
+      "dashArray": "6,3",
+      "badgeFill": "#E2E8F0",
+      "badgeStroke": "#94A3B8",
+      "badgeText": "EXT"
+    },
+    "supportService": {
+      "width": 160,
+      "height": 60,
+      "headerHeight": 24,
+      "cornerRadius": 6,
+      "borderWidth": 1.5,
+      "fillColor": "#F0FDF4",
+      "headerColor": "#15803D",
+      "strokeColor": "#15803D",
+      "textColor": "#1A202C"
+    },
+    "sopMarker": {
+      "size": 20,
+      "cornerRadius": 3,
+      "fillColor": "#FEFCE8",
+      "strokeColor": "#CA8A04",
+      "iconColor": "#854D0E",
+      "borderWidth": 1
+    }
+  },
+
+  "interactions": {
+    "capability_invocation": {
+      "color": "#2C5282",
+      "width": 1.8,
+      "style": "solid",
+      "arrowSize": 8,
+      "arrowType": "filled"
+    },
+    "data_flow": {
+      "color": "#059669",
+      "width": 1.8,
+      "style": "solid",
+      "arrowSize": 8,
+      "arrowType": "open"
+    },
+    "escalation": {
+      "color": "#DC2626",
+      "width": 2.2,
+      "style": "dashed",
+      "dashArray": "6,4",
+      "arrowSize": 9,
+      "arrowType": "filled",
+      "labelBackground": "#FEE2E2"
+    },
+    "support": {
+      "color": "#15803D",
+      "width": 1.2,
+      "style": "dotted",
+      "dashArray": "2,3",
+      "arrowSize": 0,
+      "arrowType": "none"
+    },
+    "external": {
+      "color": "#94A3B8",
+      "width": 1.5,
+      "style": "dashed",
+      "dashArray": "4,3",
+      "arrowSize": 7,
+      "arrowType": "filled"
+    },
+    "approval": {
+      "color": "#2C5282",
+      "width": 1.8,
+      "style": "solid",
+      "arrowSize": 8,
+      "arrowType": "filled"
+    }
+  },
+
+  "layout": {
+    "interEntitySpacingX": 60,
+    "interEntitySpacingY": 70,
+    "actorRowY": 40,
+    "serviceRowY": 160,
+    "externalColumnX": "right",
+    "supportRowY": "bottom",
+    "flowLabelPaddingX": 4,
+    "flowLabelPaddingY": 2,
+    "flowLabelBackground": "#FFFFFF"
+  }
+}
