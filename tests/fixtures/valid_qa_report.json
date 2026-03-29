@@ -1,0 +1,40 @@
+{
+  "inspected_at": "2026-03-29T12:05:00Z",
+  "pptx_path": "./tmp/deck/output/presentation.pptx",
+  "verdict": "pass_with_warnings",
+  "summary": {
+    "total_slides": 20,
+    "errors": 0,
+    "warnings": 2,
+    "info": 1
+  },
+  "findings": [
+    {
+      "slide_number": 7,
+      "severity": "warning",
+      "category": "contrast",
+      "description": "Text contrast ratio 3.8:1 is below recommended 4.5:1 for body text",
+      "suggested_fix": "Darken text color or lighten background",
+      "affected_element": "body text",
+      "auto_fixable": false
+    },
+    {
+      "slide_number": 12,
+      "severity": "warning",
+      "category": "margin",
+      "description": "Image extends within 0.3 inches of slide edge (minimum 0.5 inches)",
+      "suggested_fix": "Resize or reposition image to respect safe margins",
+      "affected_element": "hero image",
+      "auto_fixable": true
+    },
+    {
+      "slide_number": 15,
+      "severity": "info",
+      "category": "consistency",
+      "description": "Body font size 14pt differs from deck standard 16pt",
+      "suggested_fix": "Increase font size to 16pt for consistency",
+      "affected_element": "body text",
+      "auto_fixable": true
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/pipeline-state.json",
+  "title": "PipelineState",
+  "description": "Pipeline execution metadata and step tracking.",
+  "type": "object",
+  "required": ["pipeline_id", "created_at", "steps"],
+  "properties": {
+    "pipeline_id": {"type": "string"},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "talk_brief_hash": {"type": "string"},
+    "status": {
+      "type": "string",
+      "enum": ["running", "completed", "failed", "paused"]
+    },
+    "current_step": {"type": "string"},
+    "steps": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["pending", "running", "completed", "failed", "skipped"]
+          },
+          "started_at": {"type": "string"},
+          "completed_at": {"type": "string"},
+          "output_file": {"type": "string"},
+          "error": {"type": "string"},
+          "retry_count": {"type": "integer"},
+          "checksum": {"type": "string"}
+        }
+      }
+    },
+    "step_order": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

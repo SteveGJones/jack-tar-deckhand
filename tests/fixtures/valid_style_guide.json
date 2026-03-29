@@ -1,0 +1,45 @@
+{
+  "palette": {
+    "primary": "1A365D",
+    "secondary": "2B6CB0",
+    "accent": "ED8936",
+    "background": "FFFFFF",
+    "background_alt": "1A202C",
+    "text_primary": "1A202C",
+    "text_muted": "718096",
+    "text_on_dark": "F7FAFC",
+    "chart_series": ["2B6CB0", "ED8936", "38A169", "E53E3E", "805AD5"]
+  },
+  "typography": {
+    "heading_font": "Inter",
+    "body_font": "Inter",
+    "mono_font": "JetBrains Mono",
+    "heading_sizes": {
+      "title_slide": 44,
+      "section_divider": 36,
+      "slide_heading": 28,
+      "subheading": 20
+    },
+    "body_size": 16,
+    "caption_size": 12,
+    "line_spacing": 1.4
+  },
+  "layout": {
+    "slide_width_inches": 10,
+    "slide_height_inches": 5.625,
+    "margin_inches": 0.5,
+    "templates": {
+      "content": {
+        "description": "Standard content slide with text and optional image",
+        "text_zone": {"x": 0.5, "y": 1.0, "w": 5.5, "h": 4.0},
+        "image_zone": {"x": 6.5, "y": 0.5, "w": 3.0, "h": 4.625},
+        "background_treatment": "solid_light"
+      }
+    }
+  },
+  "image_style_tokens": {
+    "mood": "professional and calm",
+    "color_direction": "predominantly deep blue and white tones",
+    "style_modifiers": ["clean lines", "minimal", "corporate photography style"]
+  }
+}

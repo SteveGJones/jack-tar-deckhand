@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/qa-report.json",
+  "title": "QAReport",
+  "description": "Automated QA findings with verdict and per-slide issues.",
+  "type": "object",
+  "required": ["verdict", "findings"],
+  "properties": {
+    "inspected_at": {"type": "string"},
+    "pptx_path": {"type": "string"},
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "pass_with_warnings", "fail"]
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_slides": {"type": "integer"},
+        "errors": {"type": "integer"},
+        "warnings": {"type": "integer"},
+        "info": {"type": "integer"}
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slide_number", "severity", "category", "description"],
+        "properties": {
+          "slide_number": {"type": "integer"},
+          "severity": {
+            "type": "string",
+            "enum": ["error", "warning", "info"]
+          },
+          "category": {
+            "type": "string",
+            "enum": ["overlap", "contrast", "margin", "text_overflow", "consistency", "image_quality", "placeholder_residue", "missing_content", "accessibility"]
+          },
+          "description": {"type": "string"},
+          "suggested_fix": {"type": "string"},
+          "affected_element": {"type": "string"},
+          "auto_fixable": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

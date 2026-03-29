@@ -1,0 +1,15 @@
+{
+  "charts": [
+    {
+      "chart_id": "slide-05-bar",
+      "slide_number": 5,
+      "file_path": "./tmp/deck/images/slide-05-chart.png",
+      "chart_type": "bar",
+      "status": "rendered",
+      "data_source_label": "quarterly_revenue",
+      "alt_text": "Bar chart showing quarterly revenue growth",
+      "dimensions": {"width": 1920, "height": 1080},
+      "content_hash": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+    }
+  ]
+}
