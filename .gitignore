@@ -208,3 +208,6 @@ __marimo__/
 
 # DeckContext working directory (CONSTITUTION Article 4.6)
 tmp/
+
+# Git worktrees
+.worktrees/
