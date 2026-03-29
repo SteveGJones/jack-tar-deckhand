@@ -65,7 +65,11 @@ def check_contrast(slide, slide_number, config=None):
         if shape.has_text_frame:
             for para in shape.text_frame.paragraphs:
                 for run in para.runs:
-                    if run.font.color and run.font.color.rgb:
+                    try:
+                        has_rgb = run.font.color and run.font.color.rgb
+                    except (AttributeError, TypeError):
+                        has_rgb = False
+                    if has_rgb:
                         fg = run.font.color.rgb
                         fg_color = (fg[0], fg[1], fg[2])
                         ratio = contrast_ratio(fg_color, bg_color)
