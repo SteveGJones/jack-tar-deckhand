@@ -5,3 +5,6 @@ Pillow>=10.0.0
 requests>=2.31.0
 matplotlib>=3.8.0
 seaborn>=0.13.0
+# Phase 5: Assembly & QA
+python-pptx>=1.0.0
+lxml>=4.9.0
