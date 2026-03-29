@@ -21,9 +21,9 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Phase 2: Design Services (slide-stylist) — planned, not started
   - Phase 3: Content Services (narrative-architect, speaker-notes-writer) — planned, not started
   - Phase 4A: Image Utilities — COMPLETE (98 tests, 136 total)
-  - Phase 4B: Cloud Generation (cloud-generate-image, cloud-generate-icon) — planned, NEXT
-  - Phase 4C: Routing & Advisory (imagegen-bridge, image-generation-expert) — planned
-  - Phase 5: Assembly & QA — planned
+  - Phase 4B: Cloud Generation — COMPLETE (89 tests, 225 total)
+  - Phase 4C: Routing & Advisory — COMPLETE (35 tests, 260 total)
+  - Phase 5: Assembly & QA — planned, NEXT
   - Phase 6: Orchestration (deck-conductor) — planned
 
 - **Existing ollama-* skills are upstream — do NOT fork or modify them.** The imagegen-bridge handles all DeckContext integration.
@@ -35,11 +35,14 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | DeckContext management | `src/deckcontext.py` | 10 | Done |
 | JSON Schemas (8 contracts) | `src/schemas/` | 27 | Done |
 | Image processing | `src/process_image.py` | 19 | Done |
-| Provider discovery | `src/provider_discovery.py` | 12 | Done |
+| Provider discovery | `src/provider_discovery.py` | 24 | Done |
 | Budget tracker | `src/budget_tracker.py` | 17 | Done |
 | Chart renderer | `src/render_chart.py` | 15 | Done |
 | Cache manager | `src/cache_manager.py` | 15 | Done |
 | Prompt translator | `src/prompt_translator.py` | 20 | Done |
+| Cloud image gen | `src/generate_cloud_image.py` | 49 | Done |
+| Cloud icon gen | `src/generate_cloud_icon.py` | 28 | Done |
+| Image router | `src/image_router.py` | 35 | Done |
 | Integration test | `tests/test_integration.py` | 1 | Done |
 
 ### Architecture Summary
