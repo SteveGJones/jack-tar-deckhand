@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/render-log.json",
+  "title": "RenderLog",
+  "description": "Append-only log of render attempts for cost and convergence analysis.",
+  "type": "object",
+  "required": ["entries"],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slide_number", "strategy", "funnel_stage", "prompt_hash", "model", "resolution", "iteration", "cost_usd", "timestamp"],
+        "properties": {
+          "slide_number": {"type": "integer", "minimum": 1},
+          "strategy": {"type": "string", "enum": ["full_render", "backdrop_render"]},
+          "funnel_stage": {"type": "string", "enum": ["ollama", "cloud_low", "cloud_full"]},
+          "prompt_hash": {"type": "string"},
+          "model": {"type": "string"},
+          "resolution": {"type": "string"},
+          "vision_score": {"type": ["number", "null"]},
+          "iteration": {"type": "integer", "minimum": 1},
+          "cost_usd": {"type": "number", "minimum": 0},
+          "timestamp": {"type": "string"}
+        }
+      }
+    }
+  }
+}
