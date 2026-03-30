@@ -121,3 +121,25 @@ def replace_image_in_manifest(deck_dir, slide_number, new_file_path, model_used,
 
     save_manifest(deck_dir, manifest)
     return entry
+
+
+def rebuild_manifest_hashes(deck_dir):
+    """Recompute dimensions and content_hash for every image in the manifest.
+
+    Useful after bulk image replacement (e.g., production re-render).
+
+    Args:
+        deck_dir: Path to the deck working directory.
+
+    Returns:
+        dict: The full updated manifest.
+    """
+    manifest = load_manifest(deck_dir)
+    for entry in manifest.get('images', []):
+        file_path = entry.get('file_path', '')
+        if os.path.exists(file_path):
+            w, h = get_dimensions(file_path)
+            entry['dimensions'] = {'width': w, 'height': h}
+            entry['content_hash'] = compute_content_hash(file_path)
+    save_manifest(deck_dir, manifest)
+    return manifest

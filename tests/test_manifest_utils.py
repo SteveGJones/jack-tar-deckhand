@@ -119,3 +119,19 @@ def test_replace_image_unknown_slide(deck_dir, sample_manifest):
     from src.manifest_utils import replace_image_in_manifest
     with pytest.raises(KeyError, match='slide 99'):
         replace_image_in_manifest(deck_dir, slide_number=99, new_file_path='/x', model_used='test')
+
+
+def test_rebuild_manifest_hashes(deck_dir, sample_manifest, sample_image):
+    from src.manifest_utils import load_manifest, rebuild_manifest_hashes
+    from src.process_image import compute_content_hash
+
+    result = rebuild_manifest_hashes(deck_dir)
+    assert len(result['images']) == 1
+
+    expected_hash = compute_content_hash(sample_image)
+    assert result['images'][0]['content_hash'] == expected_hash
+    assert result['images'][0]['dimensions'] == {'width': 200, 'height': 100}
+
+    # Verify persisted
+    manifest = load_manifest(deck_dir)
+    assert manifest['images'][0]['content_hash'] == expected_hash
