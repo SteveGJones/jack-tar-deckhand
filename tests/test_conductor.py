@@ -169,3 +169,13 @@ class TestSummary:
     def test_get_nonexistent_returns_none(self):
         result = get_pipeline_state('/nonexistent/path')
         assert result is None
+
+
+def test_default_step_order_includes_strategy_map():
+    from src.deckcontext import DEFAULT_STEP_ORDER
+    assert 'strategy-map' in DEFAULT_STEP_ORDER
+    # Strategy map should come after narrative-architect and before speaker-notes-writer
+    arch_idx = DEFAULT_STEP_ORDER.index('narrative-architect')
+    strat_idx = DEFAULT_STEP_ORDER.index('strategy-map')
+    notes_idx = DEFAULT_STEP_ORDER.index('speaker-notes-writer')
+    assert arch_idx < strat_idx < notes_idx
