@@ -15,7 +15,7 @@
 | `content-speaker-notes` | Speaker Notes | L2 | content-services | core | No | `speaker-notes-writer` |
 | `design-services` | Design Services | L1 | presentation-engineering | core | No | -- |
 | `design-style-derivation` | Style Derivation | L2 | design-services | core | No | `slide-stylist` |
-| `design-brand-extraction` | Brand Extraction | L2 | design-services | core | No | `slide-stylist` (capability) |
+| `design-brand-profile-management` | Brand Profile Management | L2 | design-services | core | No | `brand-manager` |
 | `design-layout-intelligence` | Layout Intelligence | L2 | design-services | core | No | `slide-stylist` (capability) |
 | `image-services` | Image Services | L1 | presentation-engineering | core | No | -- |
 | `image-routing-discovery` | Image Routing & Discovery | L2 | image-services | core | No | `imagegen-bridge` |
@@ -37,8 +37,8 @@
 
 **Total services:** 25 (1 L0, 5 L1, 19 L2)
 **AI Personas:** 3 (Deck Conductor, Image Generation Expert, Presentation Reviewer)
-**Skills (L2 invocable):** 13
-**Capabilities (L2 internal):** 3
+**Skills (L2 invocable):** 14
+**Capabilities (L2 internal):** 2
 
 ---
 
@@ -142,23 +142,23 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 |---|---|
 | **Level** | L2 |
 | **Parent** | design-services |
-| **Mission** | Derive a complete StyleGuide (palette, fonts, spacing, layout templates) from a talk brief and optional brand assets. |
+| **Mission** | Derive a complete StyleGuide from a TalkBrief and BrandProfile. When no BrandProfile is provided, derive minimal brand defaults. Proposes design options within brand compliance mode (strict or guided) and collaborates with the Speaker to select a direction. Produces palette, typography, layout templates, and image style tokens. |
 | **Service Type** | core |
 | **Tags** | l2, skill, slide-stylist |
 | **AI Persona** | No |
 | **Skill Name** | `slide-stylist` |
 
-#### `design-brand-extraction` -- Brand Extraction
+#### `design-brand-profile-management` -- Brand Profile Management
 
 | Field | Value |
 |---|---|
 | **Level** | L2 |
 | **Parent** | design-services |
-| **Mission** | Extract palette from logo, map industry and tone to fonts, derive accessible contrast pairings from minimal brand input. |
+| **Mission** | Create, store, and serve reusable BrandProfile artefacts from multiple input formats (brand guidelines PDF, corporate .pptx template, logo image, manual hex/font input, briefing document). BrandProfiles persist beyond a single deck session and are shared across multiple presentations for the same brand. |
 | **Service Type** | core |
-| **Tags** | l2, capability, slide-stylist |
+| **Tags** | l2, skill, brand-manager |
 | **AI Persona** | No |
-| **Capability of** | `slide-stylist` |
+| **Skill Name** | `brand-manager` |
 
 #### `design-layout-intelligence` -- Layout Intelligence
 
@@ -382,15 +382,15 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 |---|---|---|
 | L0 | 1 | Root domain |
 | L1 | 5 | Service domains (Content, Design, Image, Assembly & QA, Deck Conductor) |
-| L2 | 19 | Skills (13), Capabilities (3), AI Persona Agents (3) |
+| L2 | 19 | Skills (14), Capabilities (2), AI Persona Agents (3) |
 | **Total** | **25** | |
 
 ## Service Counts by Tag Type
 
 | Tag | Count | Services |
 |---|---|---|
-| `skill` | 13 | Invocable L2 services that map to Claude Code skills |
-| `capability` | 3 | Internal capabilities of a parent skill (not independently invocable) |
+| `skill` | 14 | Invocable L2 services that map to Claude Code skills |
+| `capability` | 2 | Internal capabilities of a parent skill (not independently invocable) |
 | `agent` / `ai-persona` | 3 | AI Personas with authority models and scope boundaries |
 | `local` | 4 | Services that use local Ollama for inference |
 | `cloud` | 3 | Services that use cloud APIs for generation |

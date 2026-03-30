@@ -74,7 +74,9 @@ The hybrid authority model means the Deck Conductor acts autonomously for routin
 | Direction | Target | Type | Data |
 |---|---|---|---|
 | Receives from | Speaker | invocation | TalkBrief, creative decisions, budget approval |
-| Invokes | Design Services | invocation | TalkBrief, brand assets |
+| Invokes | Brand Profile Management | invocation | TalkBrief, brand assets |
+| Invokes | Design Services | invocation | TalkBrief, BrandProfile |
+| Consults | Speaker | consultation | Design options, BrandProfile summary, compliance mode |
 | Invokes | Content Services | invocation | TalkBrief, StyleGuide |
 | Invokes | Image Services | invocation | SlideOutline, StyleGuide, budget constraints |
 | Invokes | Assembly & QA Services | invocation | SlideOutline, StyleGuide, ImageManifest, ChartManifest, SpeakerNotes |
@@ -139,6 +141,7 @@ The invoker authority model means this persona acts on behalf of the skill that 
 |---|---|---|---|
 | `design-style-derivation` | StyleGuide | read | Palette for colour enforcement and brand consistency |
 | `content-outline-generation` | SlideOutline | read | visual_direction field for prompt context |
+| `design-brand-profile-management` | BrandProfile | read | Brand image style constraints: approved_image_styles and prohibited_image_styles for prompt compliance |
 
 ### Key Interactions
 
@@ -147,6 +150,7 @@ The invoker authority model means this persona acts on behalf of the skill that 
 | Consulted by | Ollama Image Generation | consultation | Prompt engineering, quality scoring |
 | Consulted by | Cloud Image Generation | consultation | Model-specific prompt translation |
 | Consulted by | Image Routing & Discovery | consultation | Model selection advice |
+| Reads from | Brand Profile Management | data-provision | approved_image_styles and prohibited_image_styles for prompt compliance |
 
 ---
 
@@ -229,5 +233,5 @@ The invoker authority model means this persona acts within the bounds set by the
 | **Generates Content?** | No (delegates) | No (advises) | No (reviews) |
 | **Modifies Artefacts?** | No (re-invokes) | No | No |
 | **Data Write Access** | DeckContext (read-write) | None | None |
-| **Data Read Access** | All DeckContext + Speaker + Providers | StyleGuide + SlideOutline | PPTX + Outline + StyleGuide + Notes + Brief |
+| **Data Read Access** | All DeckContext + Speaker + Providers | StyleGuide + SlideOutline + BrandProfile | PPTX + Outline + StyleGuide + Notes + Brief |
 | **Pipeline Phase** | All phases | Image generation | Post-assembly |

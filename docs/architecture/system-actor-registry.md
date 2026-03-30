@@ -19,6 +19,7 @@ This document catalogues all system actors (external systems, APIs, libraries, a
 | `sys-pptxgenjs` | PptxGenJS | JavaScript library | PPTX Build | Always available (npm) |
 | `sys-matplotlib` | Matplotlib | Python library | Chart Rendering | Always available (pip) |
 | `sys-filesystem` | Filesystem | Local storage | Deck Conductor, PPTX Build | Always available |
+| `actor-speaker` | Speaker | Human actor | Deck Conductor, Brand Profile Management, Presentation Engineering | N/A (human) |
 
 ---
 
@@ -294,6 +295,29 @@ Project-local `./tmp/deck/` directory for DeckContext state persistence. JSON fi
 ### Availability Detection
 
 The filesystem is always available. The Deck Conductor creates the `./tmp/deck/` directory structure at pipeline startup if it does not already exist.
+
+---
+
+## 9. Speaker
+
+**Actor ID:** `actor-speaker`
+**Type:** Human actor
+
+### Description
+
+Primary user of the Jack-Tar Deckhand pipeline. Provides the talk brief, makes creative decisions, reviews output, and approves budget. The Speaker is the ultimate authority for all escalation decisions.
+
+### Services That Use It
+
+| Service | Relationship | Description |
+|---|---|---|
+| `deck-conductor` (Deck Conductor) | invokes | Initiates the pipeline by providing a TalkBrief |
+| `design-brand-profile-management` (Brand Profile Management) | reviews-and-approves | Reviews extracted BrandProfile before pipeline continues |
+| `presentation-engineering` (Presentation Engineering) | consumes | Receives the finished .pptx and review feedback |
+
+### Availability Detection
+
+The Speaker is always available as a human actor in the Claude Code conversation context. No runtime discovery is needed.
 
 ---
 

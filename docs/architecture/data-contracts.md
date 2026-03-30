@@ -12,9 +12,10 @@ This document summarises all data contracts that flow between services in the Ja
 
 | Contract | File | Producer | Consumer(s) | Frozen After Creation |
 |---|---|---|---|---|
+| BrandProfile | `./brands/{brand-id}/brand-profile.json` | brand-manager | slide-stylist, Image Generation Expert, Deck Conductor | Yes |
 | TalkBrief | `talk-brief.json` | Speaker (via Deck Conductor) | All services | Yes |
 | PipelineState | `pipeline-state.json` | Deck Conductor | Deck Conductor | No (continuously updated) |
-| StyleGuide | `style-guide.json` | slide-stylist | imagegen-bridge, chart-renderer, deck-assembler, Image Generation Expert, Presentation Reviewer | Yes |
+| StyleGuide | `style-guide.json` | slide-stylist (from TalkBrief + BrandProfile) | imagegen-bridge, chart-renderer, deck-assembler, Image Generation Expert, Presentation Reviewer | Yes |
 | SlideOutline | `outline.json` | narrative-architect | speaker-notes-writer, imagegen-bridge, deck-assembler, Image Generation Expert, Presentation Reviewer | Yes (unless correction cycle) |
 | SpeakerNotes | `speaker-notes.json` | speaker-notes-writer | deck-assembler, Presentation Reviewer | Yes |
 | ImageManifest | `image-manifest.json` | imagegen-bridge | deck-assembler | Yes |
@@ -25,7 +26,48 @@ This document summarises all data contracts that flow between services in the Ja
 
 ---
 
-## 1. TalkBrief
+## 1. BrandProfile
+
+**File:** `./brands/{brand-id}/brand-profile.json` (persists beyond single deck sessions)
+**Producer:** `brand-manager` (design-brand-profile-management service)
+**Consumers:** slide-stylist, Image Generation Expert, Deck Conductor
+
+### Description
+
+A reusable brand identity artefact that persists across deck sessions. Extracted from brand guidelines PDFs, corporate .pptx templates, logo images, manual hex/font input, or briefing documents. Consumed by the slide-stylist for StyleGuide derivation and by the Image Generation Expert for image style constraints. BrandProfiles are shared across multiple presentations for the same brand.
+
+### Key Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `brand_id` | string | Yes | Unique identifier for the brand profile |
+| `company_name` | string | Yes | Company or organisation name |
+| `source_inputs` | string[] | No | List of input sources used to create this profile (e.g., 'logo.png', 'brand-guide.pdf', 'template.pptx') |
+| `palette` | object | Yes | Brand colour palette with primary, secondary, accent, and neutral colours |
+| `typography` | object | Yes | Brand fonts with heading, body, and monospace families plus weights |
+| `approved_image_styles` | string[] | No | Image styles approved for brand use (e.g., 'flat illustration', 'corporate photography') |
+| `prohibited_image_styles` | string[] | No | Image styles prohibited by brand guidelines (e.g., 'cartoon', 'stock photo cliches') |
+| `compliance_mode` | string | No | Brand compliance enforcement level: 'strict' (exact colours/fonts only) or 'guided' (brand-inspired with creative latitude) |
+| `extracted_at` | string | Yes | ISO 8601 timestamp of when the profile was created or last updated |
+| `source_hash` | string | No | SHA-256 hash of the source inputs for change detection and cache invalidation |
+
+### Related Contract Extensions
+
+- **TalkBrief** gains a `brand_id` field (optional) to reference an existing BrandProfile by ID, avoiding re-extraction for repeat presentations.
+- **StyleGuide** gains a `brand_profile_id` field to record which BrandProfile was used during derivation.
+
+### Lifecycle
+
+1. Speaker provides brand assets (logo, guidelines PDF, template .pptx, or manual input)
+2. brand-manager extracts brand identity and creates a BrandProfile
+3. Speaker reviews and approves the BrandProfile
+4. Written to `./brands/{brand-id}/brand-profile.json`
+5. Frozen after Speaker approval -- reused across multiple deck sessions for the same brand
+6. If the TalkBrief includes a `brand_id`, brand-manager loads the existing profile instead of extracting a new one
+
+---
+
+## 2. TalkBrief
 
 **File:** `./tmp/deck/talk-brief.json`
 **Producer:** Speaker (input validated and frozen by Deck Conductor at pipeline start)
@@ -47,6 +89,10 @@ The user's input describing what presentation to create. This is the immutable s
 | `branding` | object | No | Corporate branding: company_name, logo_path, primary_color, secondary_color, font_preference |
 | `preferences` | object | No | Style preferences: style, slide_count_hint, image_backend, resolution, include_speaker_notes, include_charts |
 | `data_sources` | object[] | No | Data for chart slides: label, type (inline_json, csv_path, description), content |
+| `brand_id` | string | No | Reference to an existing BrandProfile by ID (skips extraction if profile exists) |
+| `brand_guidelines_path` | string | No | Path to a brand guidelines PDF for brand-manager extraction |
+| `template_pptx_path` | string | No | Path to a corporate .pptx template for brand-manager extraction |
+| `compliance_mode` | string | No | Brand compliance enforcement: 'strict' (exact brand colours/fonts) or 'guided' (brand-inspired with creative latitude) |
 
 ### Lifecycle
 
@@ -58,7 +104,7 @@ The user's input describing what presentation to create. This is the immutable s
 
 ---
 
-## 2. PipelineState
+## 3. PipelineState
 
 **File:** `./tmp/deck/pipeline-state.json`
 **Producer:** Deck Conductor
@@ -84,13 +130,14 @@ The Conductor's control file. Tracks which pipeline steps have executed, their s
 ### Default Step Order
 
 1. `validate-brief`
-2. `slide-stylist`
-3. `narrative-architect`
-4. `speaker-notes-writer`
-5. `imagegen-bridge`
-6. `chart-renderer`
-7. `deck-assembler`
-8. `deck-qa`
+2. `brand-manager`
+3. `slide-stylist`
+4. `narrative-architect`
+5. `speaker-notes-writer`
+6. `imagegen-bridge`
+7. `chart-renderer`
+8. `deck-assembler`
+9. `deck-qa`
 
 ### Lifecycle
 
@@ -98,7 +145,7 @@ Continuously updated by the Deck Conductor as each step starts, completes, or fa
 
 ---
 
-## 3. StyleGuide
+## 4. StyleGuide
 
 **File:** `./tmp/deck/style-guide.json`
 **Producer:** `slide-stylist` (design-style-derivation service)
@@ -119,14 +166,14 @@ The complete visual design system for the deck. Defines palette, typography, lay
 
 ### Lifecycle
 
-1. Produced by slide-stylist from TalkBrief + optional brand assets
+1. Produced by slide-stylist from TalkBrief + BrandProfile (if available)
 2. Written to `./tmp/deck/style-guide.json`
 3. Frozen after creation -- all services read but do not modify
-4. If brand assets are provided, the brand-extraction capability runs first to derive palette
+4. If a BrandProfile is provided, the slide-stylist uses it for palette and typography derivation; otherwise derives minimal brand defaults
 
 ---
 
-## 4. SlideOutline
+## 5. SlideOutline
 
 **File:** `./tmp/deck/outline.json`
 **Producer:** `narrative-architect` (content-outline-generation service)
@@ -169,7 +216,7 @@ The backbone of the deck. An ordered array of slide definitions forming the comp
 
 ---
 
-## 5. SpeakerNotes
+## 6. SpeakerNotes
 
 **File:** `./tmp/deck/speaker-notes.json`
 **Producer:** `speaker-notes-writer` (content-speaker-notes service)
@@ -205,7 +252,7 @@ Per-slide speaker notes with timing markers, cumulative time marks, and interact
 
 ---
 
-## 6. ImageManifest
+## 7. ImageManifest
 
 **File:** `./tmp/deck/image-manifest.json`
 **Producer:** `imagegen-bridge` (image-routing-discovery service)
@@ -251,7 +298,7 @@ Registry of all generated image assets with metadata: file paths, dimensions, so
 
 ---
 
-## 7. ChartManifest
+## 8. ChartManifest
 
 **File:** `./tmp/deck/chart-manifest.json`
 **Producer:** `chart-renderer` (image-chart-renderer service)
@@ -290,7 +337,7 @@ Registry of all rendered chart assets. Same pattern as ImageManifest but specifi
 
 ---
 
-## 8. QAReport
+## 9. QAReport
 
 **File:** `./tmp/deck/qa-report.json`
 **Producer:** `deck-qa` (assembly-visual-qa service)
@@ -334,7 +381,7 @@ Quality assurance findings from automated anti-pattern checks. The Deck Conducto
 
 ---
 
-## 9. AvailableProviders
+## 10. AvailableProviders
 
 **File:** Not persisted to disk (held in conversation context and optionally echoed to pipeline-state.json)
 **Producer:** `imagegen-bridge` (image-routing-discovery service)
@@ -363,7 +410,7 @@ The runtime manifest of which image generation providers are available for this 
 
 ---
 
-## 10. DeckContext (Aggregate)
+## 11. DeckContext (Aggregate)
 
 **Directory:** `./tmp/deck/`
 **Owner:** Deck Conductor
@@ -376,6 +423,10 @@ DeckContext is not a single contract but the aggregate of all contracts above, p
 ### Directory Layout
 
 ```
+./brands/                        # Reusable brand profiles (persist across sessions)
+  {brand-id}/
+    brand-profile.json
+
 ./tmp/deck/
   pipeline-state.json          # Pipeline metadata (continuous update)
   talk-brief.json              # Speaker input (frozen)
@@ -414,7 +465,11 @@ Speaker
 Deck Conductor ----> [talk-brief.json] (frozen)
   |                   [pipeline-state.json] (continuous)
   |
+  |---> brand-manager ----> [./brands/{brand-id}/brand-profile.json]
+  |       reads: talk-brief, brand assets
+  |
   |---> slide-stylist ----> [style-guide.json]
+  |       reads: talk-brief, brand-profile
   |
   |---> narrative-architect ----> [outline.json]
   |

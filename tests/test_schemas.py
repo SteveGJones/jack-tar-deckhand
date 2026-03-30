@@ -237,3 +237,41 @@ class TestPipelineStateSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=state, schema=schema)
+
+
+class TestBrandProfileSchema:
+    def test_valid_profile(self):
+        profile = load_fixture('valid_brand_profile')
+        schema = load_schema('brand_profile')
+        validate(instance=profile, schema=schema)
+
+    def test_missing_brand_id_fails(self):
+        schema = load_schema('brand_profile')
+        profile = {"company_name": "Test", "palette": {"primary": "FF0000"},
+                    "typography": {}, "compliance_mode": "strict",
+                    "extracted_at": "2026-03-29T12:00:00Z"}
+        with pytest.raises(ValidationError):
+            validate(instance=profile, schema=schema)
+
+    def test_invalid_compliance_mode_fails(self):
+        profile = load_fixture('valid_brand_profile')
+        profile['compliance_mode'] = 'invalid'
+        schema = load_schema('brand_profile')
+        with pytest.raises(ValidationError):
+            validate(instance=profile, schema=schema)
+
+
+class TestTalkBriefBrandingExtensions:
+    def test_branded_brief_validates(self):
+        with open(os.path.join(FIXTURE_DIR, 'branded_talk_brief.json')) as f:
+            brief = json.load(f)
+        schema = load_schema('talk_brief')
+        validate(instance=brief, schema=schema)
+
+    def test_brand_id_pattern_enforced(self):
+        with open(os.path.join(FIXTURE_DIR, 'branded_talk_brief.json')) as f:
+            brief = json.load(f)
+        brief['branding']['brand_id'] = 'INVALID CAPS'
+        schema = load_schema('talk_brief')
+        with pytest.raises(ValidationError):
+            validate(instance=brief, schema=schema)

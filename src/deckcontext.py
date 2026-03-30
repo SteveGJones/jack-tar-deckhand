@@ -23,10 +23,12 @@ CONTRACT_SCHEMAS = {
     'image-manifest': 'image_manifest.schema.json',
     'chart-manifest': 'chart_manifest.schema.json',
     'qa-report': 'qa_report.schema.json',
+    'brand-profile': 'brand_profile.schema.json',
 }
 
 DEFAULT_STEP_ORDER = [
     'validate-brief',
+    'brand-manager',
     'slide-stylist',
     'narrative-architect',
     'speaker-notes-writer',
