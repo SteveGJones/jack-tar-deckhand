@@ -8,8 +8,14 @@ Does NOT use Real-ESRGAN (too slow on CPU — use Lanczos instead).
 
 import hashlib
 import os
+import shutil
+import subprocess
 
 from PIL import Image
+
+
+# Detect rsvg-convert at module load
+_RSVG_CONVERT_PATH = shutil.which('rsvg-convert')
 
 
 # ---------------------------------------------------------------------------
@@ -214,4 +220,51 @@ def optimize_png(image_path, output_path=None, quality=80):
         'original_size': original_size,
         'optimized_size': optimized_size,
         'savings_pct': savings_pct,
+    }
+
+
+def rasterize_svg(svg_path, output_path, width=2048, height=None, keep_aspect=True):
+    """Convert an SVG file to a PNG using rsvg-convert.
+
+    Args:
+        svg_path: Path to the source SVG file.
+        output_path: Where to save the PNG.
+        width: Target width in pixels.
+        height: Target height in pixels. If None and keep_aspect is True,
+                height is computed from the SVG's native aspect ratio.
+        keep_aspect: If True (default), maintain the SVG's aspect ratio.
+
+    Returns:
+        dict: {path, width, height, content_hash}
+
+    Raises:
+        FileNotFoundError: If svg_path does not exist.
+        RuntimeError: If rsvg-convert is not installed.
+    """
+    if not os.path.exists(svg_path):
+        raise FileNotFoundError(f'SVG not found: {svg_path}')
+    if _RSVG_CONVERT_PATH is None:
+        raise RuntimeError(
+            'rsvg-convert is not installed. '
+            'Install via: brew install librsvg (macOS) or apt install librsvg2-bin (Linux)'
+        )
+
+    cmd = [_RSVG_CONVERT_PATH, '-w', str(width)]
+    if height is not None:
+        cmd.extend(['-h', str(height)])
+    if keep_aspect:
+        cmd.append('--keep-aspect-ratio')
+    cmd.extend([svg_path, '-o', output_path])
+
+    os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+    subprocess.run(cmd, check=True, capture_output=True)
+
+    w, h = get_dimensions(output_path)
+    content_hash = compute_content_hash(output_path)
+
+    return {
+        'path': output_path,
+        'width': w,
+        'height': h,
+        'content_hash': content_hash,
     }
