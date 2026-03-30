@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1505 1176" width="1505" height="1176">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1518 1272" width="1518" height="1272">
   <title>Image Services — Level 2 Services</title>
   <desc>AI-First Business Service Architecture. Enterprise &gt; Presentation Engineering &gt; Image Services &gt; Level 2</desc>
 <defs>
@@ -50,223 +50,273 @@
     <path d="M 0 0 L 10 5 L 0 10 Z" fill="#2C5282"/>
   </marker>
 </defs>
-  <rect width="1505" height="1176" fill="#FAFBFC"/>
+  <rect width="1518" height="1272" fill="#FAFBFC"/>
   <text x="60" y="78" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="700" fill="#1A202C">Image Services — Level 2 Services</text>
   <text x="60" y="96" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="500" fill="#64748B" letter-spacing="0.3">Enterprise &gt; Presentation Engineering &gt; Image Services &gt; Level 2</text>
   <!-- Interactions -->
 <g class="interaction" data-id="int-bridge-discovery">
-  <path d="M 572.4,605.4 C 588.2,585.9 597.6,573.4 604.7,562.2" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 628.5,534.7 C 645.0,534.4 657.6,536.9 672.1,542.8" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-bridge-discovery-openai">
-  <path d="M 571.1,701.1 C 600.7,737.9 615.3,755.8 628.9,771.3" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 514.6,596.6 C 506.6,627.0 507.2,653.0 513.8,724.8" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-bridge-discovery-google">
-  <path d="M 530.0,701.3 C 529.0,718.1 528.2,730.0 527.3,739.7" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 432.8,595.1 C 418.7,606.1 409.1,619.4 398.1,640.2" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-bridge-discovery-fal">
-  <path d="M 468.1,701.0 C 430.3,728.6 411.4,741.4 391.7,752.0" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 432.7,529.8 C 366.6,518.2 340.3,519.0 299.5,532.5" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-bridge-discovery-recraft">
-  <path d="M 435.1,617.8 C 414.9,610.0 401.6,604.2 389.4,597.8" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 493.9,501.1 C 452.8,448.0 435.5,428.1 412.5,410.5" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-bridge-to-ollama-skills">
-  <path d="M 630.4,658.2 C 662.1,659.6 685.2,660.5 704.1,660.7" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 604.3,596.6 C 689.8,653.1 712.6,675.7 737.9,732.6" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-bridge-to-cloud-skills">
-  <path d="M 524.1,701.0 C 506.3,799.2 499.6,834.5 491.2,869.6" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 468.1,596.5 C 366.0,675.1 342.5,699.9 316.9,765.8" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-ollama-skills-to-ollama">
-  <path d="M 782.4,605.7 C 760.7,577.0 738.8,564.2 674.3,536.1" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 771.4,742.8 C 781.5,687.9 777.0,667.4 744.4,610.4" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-cloud-skills-to-openai">
-  <path d="M 573.8,903.0 C 591.2,892.5 607.1,876.3 630.8,848.5" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 394.1,821.7 C 412.9,816.8 436.2,808.3 470.7,795.1" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-cloud-skills-to-google">
-  <path d="M 495.8,880.9 C 499.0,870.9 502.5,858.5 507.3,840.4" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 307.6,776.3 C 313.5,762.0 323.0,748.6 342.2,725.5" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-cloud-skills-to-fal">
-  <path d="M 398.8,880.7 C 387.0,867.6 377.7,850.3 365.3,822.0" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 268.6,776.0 C 226.8,701.4 222.8,677.9 239.3,601.2" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-cloud-icon-to-recraft">
-  <path d="M 194.6,660.5 C 214.8,639.4 238.8,625.2 299.1,594.5" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 255.3,365.0 C 271.5,365.5 291.3,368.2 319.0,372.9" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-cloud-icon-to-fal">
-  <path d="M 234.6,756.3 C 249.3,760.3 267.7,763.5 293.9,767.3" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 172.8,442.8 C 180.7,460.3 192.6,477.1 218.8,510.3" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-chart-to-matplotlib">
-  <path d="M 1065.2,328.1 C 1081.5,330.5 1093.4,332.2 1104.0,333.9" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 307.2,186.6 C 323.5,189.0 335.4,190.8 346.0,192.4" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-gen-skills-to-expert">
-  <path d="M 840.4,701.3 C 866.0,747.3 876.8,771.0 879.7,797.0" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 737.5,838.6 C 715.7,881.3 700.7,906.3 681.2,924.6" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-cloud-skills-to-expert">
-  <path d="M 573.9,945.7 C 660.2,959.6 702.8,960.5 751.7,941.6" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 333.7,871.8 C 374.5,922.7 398.0,945.4 436.1,959.4" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
 <g class="interaction" data-id="int-bridge-to-expert">
-  <path d="M 603.9,701.3 C 678.4,751.5 721.6,780.5 755.2,802.0" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+  <path d="M 534.9,596.5 C 552.2,789.5 556.6,841.4 558.3,907.9" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-composer-to-prompt-engineer">
+  <path d="M 983.3,300.7 C 995.8,302.4 1008.8,304.3 1021.6,306.2" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-prompt-engineer-to-composer">
+  <path d="M 1032.7,321.5 C 1020.0,319.6 1006.9,317.7 994.2,315.7" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-keynote-to-ollama">
+  <path d="M 830.4,977.3 C 829.0,941.1 820.7,917.0 789.0,849.0" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-keynote-to-cloud">
+  <path d="M 732.1,1029.2 C 588.9,1032.5 544.8,1011.5 368.3,878.7" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-keynote-to-expert">
+  <path d="M 732.0,1043.1 C 716.8,1042.8 701.8,1040.1 683.4,1034.5" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
 </g>
   <!-- Services -->
 <g class="service" data-id="image-routing-discovery" filter="url(#shadow)">
-  <rect x="435.28" y="605.8399999999999" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="435.28" y="605.8399999999999" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="435.28" y="627.8399999999999" width="195" height="8" fill="#4A90E2"/>
-  <text x="532.78" y="621.8399999999999" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Image Routing &amp; Discovery</text>
-  <text x="443.28" y="649.8399999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Entry point for all image</text>
-  <text x="443.28" y="663.8399999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">generation. Discovers available</text>
-  <text x="443.28" y="677.8399999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">providers at runtime, routes to</text>
+  <rect x="433.15" y="501.36" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="433.15" y="501.36" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="433.15" y="523.36" width="195" height="8" fill="#4A90E2"/>
+  <text x="530.65" y="517.36" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Image Routing &amp; Discovery</text>
+  <text x="441.15" y="545.36" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Entry point for all image</text>
+  <text x="441.15" y="559.36" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">generation. Discovers available</text>
+  <text x="441.15" y="573.36" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">providers at runtime, routes to</text>
 </g>
 <g class="service" data-id="image-ollama-generate" filter="url(#shadow)">
-  <rect x="715.8" y="605.9200000000001" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="715.8" y="605.9200000000001" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="715.8" y="627.9200000000001" width="195" height="8" fill="#4A90E2"/>
-  <text x="813.3" y="621.9200000000001" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ollama Image Generation</text>
-  <text x="723.8" y="649.9200000000001" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate raster images via</text>
-  <text x="723.8" y="663.9200000000001" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">local Ollama models</text>
-  <text x="723.8" y="677.9200000000001" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">(z-image-turbo, flux2-klein).</text>
+  <rect x="663.96" y="743.31" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="663.96" y="743.31" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="663.96" y="765.31" width="195" height="8" fill="#4A90E2"/>
+  <text x="761.46" y="759.31" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ollama Image Generation</text>
+  <text x="671.96" y="787.31" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate raster images via</text>
+  <text x="671.96" y="801.31" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">local Ollama models</text>
+  <text x="671.96" y="815.31" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">(z-image-turbo, flux2-klein).</text>
 </g>
 <g class="service" data-id="image-ollama-icon" filter="url(#shadow)">
-  <rect x="728.96" y="422.69" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="728.96" y="422.69" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="728.96" y="444.69" width="195" height="8" fill="#4A90E2"/>
-  <text x="826.46" y="438.69" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ollama Icon Generation</text>
-  <text x="736.96" y="466.69" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate icon and pictogram</text>
-  <text x="736.96" y="480.69" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">images via Ollama with</text>
-  <text x="736.96" y="494.69" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">icon-specific prompt wrapping.</text>
+  <rect x="808.3" y="577.02" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="808.3" y="577.02" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="808.3" y="599.02" width="195" height="8" fill="#4A90E2"/>
+  <text x="905.8" y="593.02" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ollama Icon Generation</text>
+  <text x="816.3" y="621.02" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate icon and pictogram</text>
+  <text x="816.3" y="635.02" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">images via Ollama with</text>
+  <text x="816.3" y="649.02" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">icon-specific prompt wrapping.</text>
 </g>
 <g class="service" data-id="image-ollama-pattern" filter="url(#shadow)">
-  <rect x="301.73" y="347.9" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="301.73" y="347.9" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="301.73" y="369.9" width="195" height="8" fill="#4A90E2"/>
-  <text x="399.23" y="363.9" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ollama Pattern Generation</text>
-  <text x="309.73" y="391.9" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate seamless textures and</text>
-  <text x="309.73" y="405.9" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">repeating patterns via Ollama.</text>
+  <rect x="503.46000000000004" y="280.15999999999997" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="503.46000000000004" y="280.15999999999997" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="503.46000000000004" y="302.15999999999997" width="195" height="8" fill="#4A90E2"/>
+  <text x="600.96" y="296.15999999999997" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ollama Pattern Generation</text>
+  <text x="511.46000000000004" y="324.15999999999997" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate seamless textures and</text>
+  <text x="511.46000000000004" y="338.15999999999997" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">repeating patterns via Ollama.</text>
 </g>
 <g class="service" data-id="image-ollama-diagram" filter="url(#shadow)">
-  <rect x="546.98" y="277.59000000000003" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="546.98" y="277.59000000000003" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="546.98" y="299.59000000000003" width="195" height="8" fill="#4A90E2"/>
-  <text x="644.48" y="293.59000000000003" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ollama Diagram Generation</text>
-  <text x="554.98" y="321.59000000000003" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate illustrative diagrams</text>
-  <text x="554.98" y="335.59000000000003" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">via Ollama. Honest about text</text>
-  <text x="554.98" y="349.59000000000003" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">quality limitations — use for</text>
+  <rect x="756.53" y="381.0" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="756.53" y="381.0" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="756.53" y="403.0" width="195" height="8" fill="#4A90E2"/>
+  <text x="854.03" y="397.0" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ollama Diagram Generation</text>
+  <text x="764.53" y="425.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate illustrative diagrams</text>
+  <text x="764.53" y="439.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">via Ollama. Honest about text</text>
+  <text x="764.53" y="453.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">quality limitations — use for</text>
 </g>
 <g class="service" data-id="image-cloud-generate" filter="url(#shadow)">
-  <rect x="378.45" y="881.002" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="378.45" y="881.002" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="378.45" y="903.002" width="195" height="8" fill="#4A90E2"/>
-  <text x="475.95" y="897.002" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Cloud Image Generation</text>
-  <text x="386.45" y="925.002" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate images via cloud APIs</text>
-  <text x="386.45" y="939.002" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">(OpenAI GPT Image 1.5, Google</text>
-  <text x="386.45" y="953.002" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Imagen 4, FLUX.2 Pro) with</text>
+  <rect x="198.63" y="776.49" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="198.63" y="776.49" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="198.63" y="798.49" width="195" height="8" fill="#4A90E2"/>
+  <text x="296.13" y="792.49" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Cloud Image Generation</text>
+  <text x="206.63" y="820.49" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate images via cloud APIs</text>
+  <text x="206.63" y="834.49" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">(OpenAI GPT Image 1.5, Google</text>
+  <text x="206.63" y="848.49" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Imagen 4, FLUX.2 Pro) with</text>
 </g>
 <g class="service" data-id="image-cloud-icon" filter="url(#shadow)">
-  <rect x="59.998999999999995" y="660.8299999999999" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="59.998999999999995" y="660.8299999999999" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="59.998999999999995" y="682.8299999999999" width="195" height="8" fill="#4A90E2"/>
-  <text x="157.499" y="676.8299999999999" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Cloud Icon Generation</text>
-  <text x="67.999" y="704.8299999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate SVG icons via Recraft</text>
-  <text x="67.999" y="718.8299999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">V4 or raster icons via cloud</text>
-  <text x="67.999" y="732.8299999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">models. SVG output is preferred</text>
+  <rect x="59.998999999999995" y="347.62" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="59.998999999999995" y="347.62" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="59.998999999999995" y="369.62" width="195" height="8" fill="#4A90E2"/>
+  <text x="157.499" y="363.62" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Cloud Icon Generation</text>
+  <text x="67.999" y="391.62" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate SVG icons via Recraft</text>
+  <text x="67.999" y="405.62" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">V4 or raster icons via cloud</text>
+  <text x="67.999" y="419.62" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">models. SVG output is preferred</text>
 </g>
 <g class="service" data-id="image-chart-renderer" filter="url(#shadow)">
-  <rect x="870.0" y="266.46000000000004" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="870.0" y="266.46000000000004" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="870.0" y="288.46000000000004" width="195" height="8" fill="#4A90E2"/>
-  <text x="967.5" y="282.46000000000004" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Chart Rendering</text>
-  <text x="878.0" y="310.46000000000004" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate publication-quality</text>
-  <text x="878.0" y="324.46000000000004" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">data visualisations via</text>
-  <text x="878.0" y="338.46000000000004" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Matplotlib and Seaborn at 300</text>
+  <rect x="112.0" y="125.0" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="112.0" y="125.0" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="112.0" y="147.0" width="195" height="8" fill="#4A90E2"/>
+  <text x="209.5" y="141.0" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Chart Rendering</text>
+  <text x="120.0" y="169.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate publication-quality</text>
+  <text x="120.0" y="183.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">data visualisations via</text>
+  <text x="120.0" y="197.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Matplotlib and Seaborn at 300</text>
 </g>
 <g class="service" data-id="image-post-processing" filter="url(#shadow)">
-  <rect x="276.0" y="125.0" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="276.0" y="125.0" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="276.0" y="147.0" width="195" height="8" fill="#4A90E2"/>
-  <text x="373.5" y="141.0" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Image Post-Processing</text>
-  <text x="284.0" y="169.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Background removal (rembg),</text>
-  <text x="284.0" y="183.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">resize, crop, colour</text>
-  <text x="284.0" y="197.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">correction, and file</text>
+  <rect x="112.0" y="925.5419999999999" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="112.0" y="925.5419999999999" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="112.0" y="947.5419999999999" width="195" height="8" fill="#4A90E2"/>
+  <text x="209.5" y="941.5419999999999" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Image Post-Processing</text>
+  <text x="120.0" y="969.5419999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Background removal (rembg),</text>
+  <text x="120.0" y="983.5419999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">resize, crop, colour</text>
+  <text x="120.0" y="997.5419999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">correction, and file</text>
+</g>
+<g class="service" data-id="image-slide-prompt-composition" filter="url(#shadow)">
+  <rect x="788.0" y="245.18999999999994" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="788.0" y="245.18999999999994" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="788.0" y="267.18999999999994" width="195" height="8" fill="#4A90E2"/>
+  <text x="885.5" y="261.18999999999994" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Slide Prompt Composition</text>
+  <text x="796.0" y="289.18999999999994" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Assemble structured briefs from</text>
+  <text x="796.0" y="303.18999999999994" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">SlideOutline, StyleGuide,</text>
+  <text x="796.0" y="317.18999999999994" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">BrandProfile, and StrategyMap</text>
+</g>
+<g class="ai-persona" data-id="image-prompt-engineer" filter="url(#aiGlow)">
+  <rect x="1033.0" y="266.53999999999996" width="225" height="130" rx="10" fill="#F3E8FF" stroke="#6B21A8" stroke-width="2.5"/>
+  <rect x="1033.0" y="266.53999999999996" width="225" height="34" rx="10" fill="url(#aiGrad)"/>
+  <rect x="1033.0" y="290.53999999999996" width="225" height="10" fill="url(#aiGrad)"/>
+  <line x1="1055.0" y1="271.3" x2="1055.0" y2="275.9" stroke="#F3E8FF" stroke-width="1.5"/>
+<circle cx="1055.0" cy="271.3" r="2.5" fill="#F3E8FF"/>
+<rect x="1046.0" y="275.9" width="18.0" height="15.3" rx="3.6" fill="none" stroke="#F3E8FF" stroke-width="1.5"/>
+<circle cx="1051.0" cy="281.7" r="2.2" fill="#F3E8FF"/>
+<circle cx="1059.0" cy="281.7" r="2.2" fill="#F3E8FF"/>
+<line x1="1051.0" y1="286.6" x2="1059.0" y2="286.6" stroke="#F3E8FF" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="1166.5" y="284.53999999999996" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">Prompt Engineer</text>
+  <text x="1145.5" y="316.53999999999996" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="600" fill="#7C3AED" letter-spacing="1.5">AI PERSONA</text>
+  <text x="1145.5" y="330.53999999999996" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="8" font-weight="500" fill="#64748B">Authority: INVOKER</text>
+  <text x="1041.0" y="342.53999999999996" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">AI Persona that receives structured</text>
+  <text x="1041.0" y="354.53999999999996" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">briefs and produces creative image</text>
+  <text x="1041.0" y="366.53999999999996" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">generation prompts. Composes spatial</text>
+</g>
+<g class="service" data-id="image-keynote-rendering" filter="url(#shadow)">
+  <rect x="732.42" y="977.5419999999999" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="732.42" y="977.5419999999999" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="732.42" y="999.5419999999999" width="195" height="8" fill="#4A90E2"/>
+  <text x="829.92" y="993.5419999999999" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Keynote Rendering</text>
+  <text x="740.42" y="1021.5419999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Three-stage render funnel for</text>
+  <text x="740.42" y="1035.542" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">keynote-quality slide images.</text>
+  <text x="740.42" y="1049.542" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Stage 1: Ollama draft (free,</text>
 </g>
 <g class="ai-persona" data-id="image-generation-expert" filter="url(#aiGlow)">
-  <rect x="762.71" y="808.5699999999999" width="225" height="130" rx="10" fill="#F3E8FF" stroke="#6B21A8" stroke-width="2.5"/>
-  <rect x="762.71" y="808.5699999999999" width="225" height="34" rx="10" fill="url(#aiGrad)"/>
-  <rect x="762.71" y="832.5699999999999" width="225" height="10" fill="url(#aiGrad)"/>
-  <line x1="784.71" y1="813.3" x2="784.71" y2="817.9" stroke="#F3E8FF" stroke-width="1.5"/>
-<circle cx="784.71" cy="813.3" r="2.5" fill="#F3E8FF"/>
-<rect x="775.7" y="817.9" width="18.0" height="15.3" rx="3.6" fill="none" stroke="#F3E8FF" stroke-width="1.5"/>
-<circle cx="780.8" cy="823.7" r="2.2" fill="#F3E8FF"/>
-<circle cx="788.7" cy="823.7" r="2.2" fill="#F3E8FF"/>
-<line x1="780.8" y1="828.6" x2="788.7" y2="828.6" stroke="#F3E8FF" stroke-width="1.5" stroke-linecap="round"/>
-  <text x="896.21" y="826.5699999999999" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">Image Generation Expert</text>
-  <text x="875.21" y="858.5699999999999" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="600" fill="#7C3AED" letter-spacing="1.5">AI PERSONA</text>
-  <text x="875.21" y="872.5699999999999" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="8" font-weight="500" fill="#64748B">Authority: INVOKER</text>
-  <text x="770.71" y="884.5699999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">Advisory AI Persona for prompt</text>
-  <text x="770.71" y="896.5699999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">engineering, model-specific translation,</text>
-  <text x="770.71" y="908.5699999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">image quality scoring, and iteration</text>
+  <rect x="447.06999999999994" y="919.486" width="225" height="130" rx="10" fill="#F3E8FF" stroke="#6B21A8" stroke-width="2.5"/>
+  <rect x="447.06999999999994" y="919.486" width="225" height="34" rx="10" fill="url(#aiGrad)"/>
+  <rect x="447.06999999999994" y="943.486" width="225" height="10" fill="url(#aiGrad)"/>
+  <line x1="469.06999999999994" y1="924.2" x2="469.06999999999994" y2="928.8" stroke="#F3E8FF" stroke-width="1.5"/>
+<circle cx="469.06999999999994" cy="924.2" r="2.5" fill="#F3E8FF"/>
+<rect x="460.1" y="928.8" width="18.0" height="15.3" rx="3.6" fill="none" stroke="#F3E8FF" stroke-width="1.5"/>
+<circle cx="465.1" cy="934.6" r="2.2" fill="#F3E8FF"/>
+<circle cx="473.0" cy="934.6" r="2.2" fill="#F3E8FF"/>
+<line x1="465.1" y1="939.5" x2="473.0" y2="939.5" stroke="#F3E8FF" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="580.5699999999999" y="937.486" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">Image Generation Expert</text>
+  <text x="559.5699999999999" y="969.486" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="600" fill="#7C3AED" letter-spacing="1.5">AI PERSONA</text>
+  <text x="559.5699999999999" y="983.486" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="8" font-weight="500" fill="#64748B">Authority: INVOKER</text>
+  <text x="455.06999999999994" y="995.486" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">Advisory AI Persona for prompt</text>
+  <text x="455.06999999999994" y="1007.486" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">engineering, model-specific translation,</text>
+  <text x="455.06999999999994" y="1019.486" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">image quality scoring, and iteration</text>
 </g>
   <!-- Human Actors -->
   <!-- System Actors -->
 <g class="system-actor" data-id="sys-ollama">
-  <rect x="613.7" y="493.6" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
-<line x1="613.7" y1="504.4" x2="640.3" y2="504.4" stroke="#0C4A6E" stroke-width="1.1"/>
-<line x1="613.7" y1="515.1" x2="640.3" y2="515.1" stroke="#0C4A6E" stroke-width="1.1"/>
-<circle cx="620.3" cy="499.0" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="625.7" cy="499.0" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="620.3" cy="509.8" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="625.7" cy="509.8" r="1.9000000000000001" fill="#0C4A6E"/>
-  <text x="626.98" y="539.76" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">Ollama</text>
+  <rect x="705.0" y="543.9" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
+<line x1="705.0" y1="554.7" x2="731.6" y2="554.7" stroke="#0C4A6E" stroke-width="1.1"/>
+<line x1="705.0" y1="565.4" x2="731.6" y2="565.4" stroke="#0C4A6E" stroke-width="1.1"/>
+<circle cx="711.6" cy="549.3" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="716.9" cy="549.3" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="711.6" cy="560.0" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="716.9" cy="560.0" r="1.9000000000000001" fill="#0C4A6E"/>
+  <text x="718.25" y="590.04" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">Ollama</text>
 </g>
 <g class="system-actor" data-id="sys-openai">
-  <rect x="650.3" y="787.0" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
-<line x1="650.3" y1="797.8" x2="676.9" y2="797.8" stroke="#0C4A6E" stroke-width="1.1"/>
-<line x1="650.3" y1="808.5" x2="676.9" y2="808.5" stroke="#0C4A6E" stroke-width="1.1"/>
-<circle cx="657.0" cy="792.4" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="662.3" cy="792.4" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="657.0" cy="803.1" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="662.3" cy="803.1" r="1.9000000000000001" fill="#0C4A6E"/>
-  <text x="663.63" y="833.15" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">OpenAI API</text>
+  <rect x="505.4" y="754.4" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
+<line x1="505.4" y1="765.1" x2="532.0" y2="765.1" stroke="#0C4A6E" stroke-width="1.1"/>
+<line x1="505.4" y1="775.9" x2="532.0" y2="775.9" stroke="#0C4A6E" stroke-width="1.1"/>
+<circle cx="512.0" cy="759.8" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="517.3" cy="759.8" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="512.0" cy="770.5" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="517.3" cy="770.5" r="1.9000000000000001" fill="#0C4A6E"/>
+  <text x="518.6700000000001" y="800.53" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">OpenAI API</text>
 </g>
 <g class="system-actor" data-id="sys-google-vertex">
-  <rect x="506.9" y="768.8" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
-<line x1="506.9" y1="779.6" x2="533.5" y2="779.6" stroke="#0C4A6E" stroke-width="1.1"/>
-<line x1="506.9" y1="790.3" x2="533.5" y2="790.3" stroke="#0C4A6E" stroke-width="1.1"/>
-<circle cx="513.5" cy="774.2" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="518.8" cy="774.2" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="513.5" cy="784.9" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="518.8" cy="784.9" r="1.9000000000000001" fill="#0C4A6E"/>
-  <text x="520.1700000000001" y="814.94" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">Google Vertex AI</text>
+  <rect x="362.1" y="664.3" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
+<line x1="362.1" y1="675.0" x2="388.7" y2="675.0" stroke="#0C4A6E" stroke-width="1.1"/>
+<line x1="362.1" y1="685.8" x2="388.7" y2="685.8" stroke="#0C4A6E" stroke-width="1.1"/>
+<circle cx="368.7" cy="669.6" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="374.1" cy="669.6" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="368.7" cy="680.4" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="374.1" cy="680.4" r="1.9000000000000001" fill="#0C4A6E"/>
+  <text x="375.4" y="710.41" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">Google Vertex AI</text>
 </g>
 <g class="system-actor" data-id="sys-fal">
-  <rect x="331.8" y="752.2" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
-<line x1="331.8" y1="763.0" x2="358.4" y2="763.0" stroke="#0C4A6E" stroke-width="1.1"/>
-<line x1="331.8" y1="773.8" x2="358.4" y2="773.8" stroke="#0C4A6E" stroke-width="1.1"/>
-<circle cx="338.5" cy="757.6" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="343.8" cy="757.6" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="338.5" cy="768.4" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="343.8" cy="768.4" r="1.9000000000000001" fill="#0C4A6E"/>
-  <text x="345.13" y="798.39" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">FAL.ai</text>
+  <rect x="237.6" y="528.5" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
+<line x1="237.6" y1="539.3" x2="264.2" y2="539.3" stroke="#0C4A6E" stroke-width="1.1"/>
+<line x1="237.6" y1="550.0" x2="264.2" y2="550.0" stroke="#0C4A6E" stroke-width="1.1"/>
+<circle cx="244.3" cy="533.9" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="249.6" cy="533.9" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="244.3" cy="544.6" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="249.6" cy="544.6" r="1.9000000000000001" fill="#0C4A6E"/>
+  <text x="250.92" y="574.64" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">FAL.ai</text>
 </g>
 <g class="system-actor" data-id="sys-recraft">
-  <rect x="331.8" y="549.0" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
-<line x1="331.8" y1="559.7" x2="358.4" y2="559.7" stroke="#0C4A6E" stroke-width="1.1"/>
-<line x1="331.8" y1="570.5" x2="358.4" y2="570.5" stroke="#0C4A6E" stroke-width="1.1"/>
-<circle cx="338.4" cy="554.3" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="343.8" cy="554.3" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="338.4" cy="565.1" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="343.8" cy="565.1" r="1.9000000000000001" fill="#0C4A6E"/>
-  <text x="345.1" y="595.11" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">Recraft API</text>
+  <rect x="356.4" y="359.9" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
+<line x1="356.4" y1="370.6" x2="383.0" y2="370.6" stroke="#0C4A6E" stroke-width="1.1"/>
+<line x1="356.4" y1="381.4" x2="383.0" y2="381.4" stroke="#0C4A6E" stroke-width="1.1"/>
+<circle cx="363.0" cy="365.2" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="368.3" cy="365.2" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="363.0" cy="376.0" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="368.3" cy="376.0" r="1.9000000000000001" fill="#0C4A6E"/>
+  <text x="369.66" y="406.01" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">Recraft API</text>
 </g>
 <g class="system-actor" data-id="sys-matplotlib">
-  <rect x="1141.9" y="319.9" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
-<line x1="1141.9" y1="330.6" x2="1168.5" y2="330.6" stroke="#0C4A6E" stroke-width="1.1"/>
-<line x1="1141.9" y1="341.4" x2="1168.5" y2="341.4" stroke="#0C4A6E" stroke-width="1.1"/>
-<circle cx="1148.6" cy="325.2" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="1153.9" cy="325.2" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="1148.6" cy="336.0" r="1.9000000000000001" fill="#0C4A6E"/>
-<circle cx="1153.9" cy="336.0" r="1.9000000000000001" fill="#0C4A6E"/>
-  <text x="1155.2" y="366.0" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">Matplotlib</text>
+  <rect x="383.9" y="178.4" width="26.6" height="32.3" rx="3" fill="none" stroke="#0C4A6E" stroke-width="1.5"/>
+<line x1="383.9" y1="189.2" x2="410.5" y2="189.2" stroke="#0C4A6E" stroke-width="1.1"/>
+<line x1="383.9" y1="199.9" x2="410.5" y2="199.9" stroke="#0C4A6E" stroke-width="1.1"/>
+<circle cx="390.5" cy="183.8" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="395.9" cy="183.8" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="390.5" cy="194.5" r="1.9000000000000001" fill="#0C4A6E"/>
+<circle cx="395.9" cy="194.5" r="1.9000000000000001" fill="#0C4A6E"/>
+  <text x="397.18" y="224.53999999999996" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#1A202C">Matplotlib</text>
 </g>
   <!-- External Services -->
-<g class="legend" transform="translate(1135,1026)">
+<g class="legend" transform="translate(1148,1122)">
   <rect x="0" y="0" width="340" height="130" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
   <text x="12" y="18" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#1A202C">Legend</text>
   <rect x="12" y="36" width="16" height="11" rx="3" fill="#F8F9FA" stroke="#2C5282" stroke-width="1.5"/>

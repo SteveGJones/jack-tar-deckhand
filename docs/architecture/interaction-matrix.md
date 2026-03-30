@@ -42,6 +42,15 @@ This document maps all interactions between entities in the Jack-Tar Deckhand ar
 | `int-brand-manager-to-stylist` | Brand Profile Management | Style Derivation | data-provision | BrandProfile |
 | `int-brand-profile-to-image-expert` | Brand Profile Management | Image Generation Expert | data-provision | BrandProfile (approved_image_styles, prohibited_image_styles) |
 | `int-conductor-design-options-to-speaker` | Deck Conductor | Speaker | consultation | Design options, BrandProfile summary, Compliance mode |
+| `int-conductor-to-strategy-map` | Deck Conductor | Slide Prompt Composition | invocation | SlideOutline, StyleGuide, BrandProfile |
+| `int-strategy-map-to-speaker` | Deck Conductor | Speaker | consultation | StrategyMap (proposed), Speaker overrides |
+| `int-composer-to-prompt-engineer` | Slide Prompt Composition | Prompt Engineer | invocation | Structured brief per slide |
+| `int-prompt-engineer-to-composer` | Prompt Engineer | Slide Prompt Composition | feedback | Generated prompt text |
+| `int-keynote-to-ollama` | Keynote Rendering | Ollama Image Generation | invocation | Stage 1 draft renders |
+| `int-keynote-to-cloud` | Keynote Rendering | Cloud Image Generation | invocation | Stage 2/3 cloud renders |
+| `int-keynote-to-expert` | Keynote Rendering | Image Generation Expert | consultation | Vision-based quality scoring |
+| `int-strategy-map-to-assembly` | Slide Prompt Composition | PPTX Build | data-provision | StrategyMap |
+| `int-strategy-map-to-qa` | Slide Prompt Composition | Visual QA | data-provision | StrategyMap |
 
 ---
 
@@ -212,14 +221,60 @@ Deck Conductor
 
 ---
 
+## Group 5: Keynote Pipeline
+
+The keynote pipeline adds a strategy-mapping and prompt-composition layer between the Conductor and the rendering/assembly services. The Slide Prompt Composition service builds a StrategyMap that drives per-slide image prompts, and the Keynote Rendering service manages the multi-stage render lifecycle (draft → cloud → quality-scored).
+
+```
+Deck Conductor
+  |
+  |--[invocation]--> Slide Prompt Composition
+  |                  (SlideOutline, StyleGuide, BrandProfile)
+  |                  |
+  |                  |--[consultation]--> Speaker
+  |                  |                    (StrategyMap proposed, Speaker overrides)
+  |                  |
+  |                  |--[invocation]--> Prompt Engineer
+  |                  |                  (structured brief per slide)
+  |                  |                  Returns: generated prompt text
+  |                  |
+  |                  |--[data-provision]--> PPTX Build (StrategyMap)
+  |                  |--[data-provision]--> Visual QA  (StrategyMap)
+  |
+  |--[invocation]--> Keynote Rendering
+                     |
+                     |--[invocation]--> Ollama Image Generation
+                     |                  (Stage 1 draft renders)
+                     |
+                     |--[invocation]--> Cloud Image Generation
+                     |                  (Stage 2/3 cloud renders)
+                     |
+                     |--[consultation]--> Image Generation Expert
+                                          (Vision-based quality scoring)
+```
+
+| # | Source | Target | Type | Data Flows |
+|---|---|---|---|---|
+| 1 | Deck Conductor | Slide Prompt Composition | invocation | SlideOutline, StyleGuide, BrandProfile |
+| 2 | Deck Conductor | Speaker | consultation | StrategyMap (proposed), Speaker overrides |
+| 3 | Slide Prompt Composition | Prompt Engineer | invocation | Structured brief per slide |
+| 4 | Prompt Engineer | Slide Prompt Composition | feedback | Generated prompt text |
+| 5 | Keynote Rendering | Ollama Image Generation | invocation | Stage 1 draft renders |
+| 6 | Keynote Rendering | Cloud Image Generation | invocation | Stage 2/3 cloud renders |
+| 7 | Keynote Rendering | Image Generation Expert | consultation | Vision-based quality scoring |
+| 8 | Slide Prompt Composition | PPTX Build | data-provision | StrategyMap |
+| 9 | Slide Prompt Composition | Visual QA | data-provision | StrategyMap |
+
+---
+
 ## Interaction Type Summary
 
 | Type | Count | Description |
 |---|---|---|
-| invocation | 17 | One entity calls another to perform work |
+| invocation | 21 | One entity calls another to perform work |
 | probe | 5 | Runtime discovery of provider availability |
-| consultation | 4 | Advisory request to an AI Persona or human actor (no side effects) |
-| data-provision | 2 | One service provides data artefacts to another |
+| consultation | 6 | Advisory request to an AI Persona or human actor (no side effects) |
+| data-provision | 4 | One service provides data artefacts to another |
 | delivery | 1 | Final output delivered to the Speaker |
-| feedback | 2 | Quality findings returned to the Conductor for action |
-| **Total** | **31** | |
+| feedback | 3 | Quality findings returned to the Conductor for action |
+| **Total** | **40** | |

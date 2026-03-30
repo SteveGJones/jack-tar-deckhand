@@ -4,7 +4,7 @@
     "id": "jack-tar-deckhand",
     "name": "Jack-Tar Deckhand — Presentation Engineering",
     "description": "AI-First Business Service Architecture for a Claude Code skill suite that generates conference-quality PowerPoint presentations. Services are designed as independent, reusable domains orchestrated by a Deck Conductor agent.",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "organisation": "Jack-Tar",
     "createdDate": "2026-03-29",
     "lastModifiedDate": "2026-03-29",
@@ -215,6 +215,39 @@
       "tags": ["l2", "skill", "image-processor"]
     },
     {
+      "id": "image-slide-prompt-composition",
+      "name": "Slide Prompt Composition",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Assemble structured briefs from SlideOutline, StyleGuide, BrandProfile, and StrategyMap for each slide. Briefs are consumed by the Prompt Engineer agent to produce image generation prompts. Handles brand constraint injection, resolution-aware formatting, and model-specific prompt hygiene. Validates that output prompts contain required elements.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "slide-prompt-composer", "keynote"]
+    },
+    {
+      "id": "image-prompt-engineer",
+      "name": "Prompt Engineer",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "AI Persona that receives structured briefs and produces creative image generation prompts. Composes spatial relationships, visual metaphors, and scene descriptions that template-based systems cannot. Dispatched at Haiku by default for cost efficiency, escalated to Sonnet when output quality does not converge after 3 iterations.",
+      "owner": "Steve Jones",
+      "isAIPersona": true,
+      "tags": ["l2", "agent", "ai-persona", "prompt-engineering", "keynote"]
+    },
+    {
+      "id": "image-keynote-rendering",
+      "name": "Keynote Rendering",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Three-stage render funnel for keynote-quality slide images. Stage 1: Ollama draft (free, validate concept/composition). Stage 2: Cloud low-tier at 720p (cheap, validate on target model family, palette drift check). Stage 3: Cloud full-tier at 2K+ (production, single proven-prompt render). Supports full_render (complete slide as image) and backdrop_render (visual background for text overlay) strategies.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "capability", "keynote", "render-funnel"]
+    },
+    {
       "id": "image-generation-expert",
       "name": "Image Generation Expert",
       "level": 2,
@@ -349,6 +382,44 @@
           "sourceName": "DeckContext State",
           "accessType": "read-write",
           "dataDescription": "All DeckContext artefacts in ./tmp/deck/: StyleGuide, SlideOutline, ImageManifest, SpeakerNotes, ChartManifest, QAReport, PipelineState"
+        }
+      ],
+      "sops": []
+    },
+    {
+      "id": "persona-prompt-engineer",
+      "serviceId": "image-prompt-engineer",
+      "description": "AI Persona that transforms structured slide briefs into creative image generation prompts. Composes spatial relationships, visual metaphors, typography descriptions, and scene layouts that pure template systems cannot produce. Dispatched at Haiku model by default for cost efficiency (~$0.001/call); escalated to Sonnet when output quality fails to converge after 3 iterations. Single agent definition, model selected at dispatch time.",
+      "authorityModel": "invoker",
+      "confidenceThreshold": {
+        "autonomousMin": 0.6,
+        "escalationTarget": "persona-deck-conductor"
+      },
+      "scope": {
+        "permitted": [
+          "Compose full-slide image generation prompts from structured briefs",
+          "Compose backdrop-only image generation prompts (no text, safe zones for overlay)",
+          "Adapt prompts for different target models (Ollama, OpenAI, Google, FAL)",
+          "Refine prompts based on vision review feedback scores",
+          "Include brand palette hex values and prohibited style constraints in prompts"
+        ],
+        "prohibited": [
+          "Must not generate images directly — only produces text prompts",
+          "Must not modify the StrategyMap or any DeckContext contract",
+          "Must not communicate with the Speaker — receives briefs from the composer, returns prompts",
+          "Must not make routing or budget decisions"
+        ],
+        "escalationTriggers": [
+          "Vision review scores below threshold after 3 prompt iterations at Haiku — escalate to Sonnet model",
+          "Prompt produces safety filter rejections from cloud API — escalate for alternative framing"
+        ]
+      },
+      "dataSources": [
+        {
+          "sourceId": "image-slide-prompt-composition",
+          "sourceName": "Structured Brief",
+          "accessType": "read",
+          "dataDescription": "Per-slide brief containing headline, body text, visual direction, brand constraints, strategy, target resolution"
         }
       ],
       "sops": []
@@ -886,6 +957,75 @@
       "dataFlows": ["Arc options presented", "Arc selection"]
     },
     {
+      "id": "int-conductor-to-strategy-map",
+      "sourceId": "deck-conductor",
+      "targetId": "image-slide-prompt-composition",
+      "type": "invocation",
+      "description": "Conductor invokes slide prompt composer at Step 3.5 to produce the StrategyMap and structured briefs per slide",
+      "dataFlows": ["SlideOutline", "StyleGuide", "BrandProfile"]
+    },
+    {
+      "id": "int-strategy-map-to-speaker",
+      "sourceId": "deck-conductor",
+      "targetId": "actor-speaker",
+      "type": "consultation",
+      "description": "Conductor presents the StrategyMap to Speaker for approval. Speaker can override individual slide strategies or set approval_mode to one_shot.",
+      "dataFlows": ["StrategyMap (proposed)", "Speaker overrides"]
+    },
+    {
+      "id": "int-composer-to-prompt-engineer",
+      "sourceId": "image-slide-prompt-composition",
+      "targetId": "image-prompt-engineer",
+      "type": "invocation",
+      "description": "Slide prompt composer dispatches structured briefs to the Prompt Engineer agent (Haiku default, Sonnet escalation) for creative prompt generation",
+      "dataFlows": ["Structured brief per slide"]
+    },
+    {
+      "id": "int-prompt-engineer-to-composer",
+      "sourceId": "image-prompt-engineer",
+      "targetId": "image-slide-prompt-composition",
+      "type": "feedback",
+      "description": "Prompt Engineer returns generated image prompts to the composer for validation and storage in SlidePrompts contract",
+      "dataFlows": ["Generated prompt text"]
+    },
+    {
+      "id": "int-keynote-to-ollama",
+      "sourceId": "image-keynote-rendering",
+      "targetId": "image-ollama-generate",
+      "type": "invocation",
+      "description": "Keynote renderer invokes Ollama generation for Stage 1 draft renders (free, concept validation)"
+    },
+    {
+      "id": "int-keynote-to-cloud",
+      "sourceId": "image-keynote-rendering",
+      "targetId": "image-cloud-generate",
+      "type": "invocation",
+      "description": "Keynote renderer invokes cloud generation for Stage 2 (low-tier 720p) and Stage 3 (full-tier 2K+) renders"
+    },
+    {
+      "id": "int-keynote-to-expert",
+      "sourceId": "image-keynote-rendering",
+      "targetId": "image-generation-expert",
+      "type": "consultation",
+      "description": "Keynote renderer consults Image Generation Expert for vision-based quality scoring between funnel stages"
+    },
+    {
+      "id": "int-strategy-map-to-assembly",
+      "sourceId": "image-slide-prompt-composition",
+      "targetId": "assembly-pptx-build",
+      "type": "data-provision",
+      "description": "Assembler reads StrategyMap to select assembly path per slide: full-bleed image (full_render), backdrop + text overlay (backdrop_render), or programmatic (composed)",
+      "dataFlows": ["StrategyMap"]
+    },
+    {
+      "id": "int-strategy-map-to-qa",
+      "sourceId": "image-slide-prompt-composition",
+      "targetId": "assembly-visual-qa",
+      "type": "data-provision",
+      "description": "QA reads StrategyMap to select check suite per slide: vision-based checks for full_render, contrast-over-backdrop for backdrop_render, standard 25 checks for composed",
+      "dataFlows": ["StrategyMap"]
+    },
+    {
       "id": "int-speaker-to-speaker-notes-writer",
       "sourceId": "actor-speaker",
       "targetId": "content-speaker-notes",
@@ -896,6 +1036,39 @@
   ],
 
   "dataContracts": [
+    {
+      "id": "contract-strategy-map",
+      "name": "StrategyMap",
+      "description": "Per-slide rendering strategy classification. Persists in DeckContext as strategy-map.json. Determines whether each slide uses full_render (entire slide as AI image), backdrop_render (AI background + programmatic text overlay), or composed (current PptxGenJS assembly). Revised at any point during the pipeline — supports post-hoc single-slide upgrades.",
+      "producedBy": "image-slide-prompt-composition",
+      "consumedBy": ["image-keynote-rendering", "image-routing-discovery", "assembly-pptx-build", "assembly-visual-qa", "deck-conductor"],
+      "fields": [
+        { "name": "created_at", "type": "string", "description": "ISO 8601 timestamp" },
+        { "name": "approval_mode", "type": "string", "description": "Speaker approval mode: 'review' (default, approve before generation and before production) or 'one_shot' (pre-approved, skip approval gates)" },
+        { "name": "slides", "type": "array", "description": "Per-slide strategy entries with slide_number, strategy, rationale, render_funnel, speaker_override" }
+      ]
+    },
+    {
+      "id": "contract-slide-prompts",
+      "name": "SlidePrompts",
+      "description": "Generated image prompts per slide, produced by the Prompt Engineer agent from structured briefs. Stored as slide-prompts.json in DeckContext. Prompts are inspectable, editable, and reusable across decks.",
+      "producedBy": "image-prompt-engineer",
+      "consumedBy": ["image-keynote-rendering", "image-routing-discovery"],
+      "fields": [
+        { "name": "generated_at", "type": "string", "description": "ISO 8601 timestamp" },
+        { "name": "prompts", "type": "array", "description": "Per-slide prompt entries with slide_number, strategy, prompt_text, target_model, funnel_stage" }
+      ]
+    },
+    {
+      "id": "contract-render-log",
+      "name": "RenderLog",
+      "description": "Append-only log of every render attempt across the pipeline. Captures prompt, model, resolution, vision score, iteration number, and cost. Builds best-practice dataset over time — which prompt patterns converge faster, which models handle text better, where Haiku vs Sonnet made the difference.",
+      "producedBy": "image-keynote-rendering",
+      "consumedBy": ["deck-conductor"],
+      "fields": [
+        { "name": "entries", "type": "array", "description": "Per-render entries with slide_number, strategy, funnel_stage, prompt_hash, model, resolution, vision_score, iteration, cost_usd, timestamp" }
+      ]
+    },
     {
       "id": "contract-brand-profile",
       "name": "BrandProfile",
