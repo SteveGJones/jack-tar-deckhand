@@ -74,7 +74,9 @@ The hybrid authority model means the Deck Conductor acts autonomously for routin
 | Direction | Target | Type | Data |
 |---|---|---|---|
 | Receives from | Speaker | invocation | TalkBrief, creative decisions, budget approval |
-| Invokes | Design Services | invocation | TalkBrief, brand assets |
+| Invokes | Brand Profile Management | invocation | TalkBrief, brand assets |
+| Invokes | Design Services | invocation | TalkBrief, BrandProfile |
+| Consults | Speaker | consultation | Design options, BrandProfile summary, compliance mode |
 | Invokes | Content Services | invocation | TalkBrief, StyleGuide |
 | Invokes | Image Services | invocation | SlideOutline, StyleGuide, budget constraints |
 | Invokes | Assembly & QA Services | invocation | SlideOutline, StyleGuide, ImageManifest, ChartManifest, SpeakerNotes |

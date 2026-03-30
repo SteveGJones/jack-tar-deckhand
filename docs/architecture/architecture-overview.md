@@ -211,6 +211,17 @@ The Visual QA (deck-qa) runs 25 automated, machine-checkable anti-pattern checks
 
 ## Related Documentation
 
+### L1 Service Documents
+
+| Document | Path | Description |
+|---|---|---|
+| Design Services | [design-services.md](design-services.md) | Brand management, style derivation, layout intelligence, collaborative design workflow |
+| Content Services | [content-services.md](content-services.md) | Outline generation, speaker notes, narrative architecture |
+| Image Services | [image-services.md](image-services.md) | Provider discovery, routing, local/cloud generation, chart rendering, advisory persona |
+| Assembly & QA Services | [assembly-qa-services.md](assembly-qa-services.md) | PPTX build, visual QA, file optimisation, presentation review |
+
+### Reference Documents
+
 | Document | Path | Description |
 |---|---|---|
 | Service Catalogue | [service-catalogue.md](service-catalogue.md) | Full listing of all 25 services with hierarchy |
