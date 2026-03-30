@@ -3,6 +3,7 @@
 import json
 import os
 import pytest
+from src.image_router import plan_production_upgrade, UpgradeDecision
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
 
@@ -283,3 +284,99 @@ class TestPlaceholderColor:
         palette = {'primary': '1A365D', 'secondary': '2B6CB0', 'background_alt': '1A202C'}
         colour = generate_placeholder_color(palette, 'icon_set')
         assert colour in ('1A365D', '2B6CB0')
+
+
+@pytest.fixture
+def draft_manifest():
+    return {
+        'images': [
+            {
+                'image_id': 'slide-01-hero_image',
+                'slide_number': 1,
+                'file_path': '/tmp/deck/images/slide-01-hero.png',
+                'status': 'generated',
+                'model_used': 'x/z-image-turbo',
+                'source_prompt': 'Dramatic teal composition',
+                'dimensions': {'width': 1024, 'height': 576},
+            },
+            {
+                'image_id': 'slide-04-diagram',
+                'slide_number': 4,
+                'file_path': '/tmp/deck/images/slide-04-diagram.png',
+                'status': 'generated',
+                'model_used': 'svg-convert',
+                'dimensions': {'width': 1705, 'height': 1536},
+            },
+            {
+                'image_id': 'slide-05-hero_image',
+                'slide_number': 5,
+                'file_path': '/tmp/deck/images/slide-05-hero.png',
+                'status': 'generated',
+                'model_used': 'x/z-image-turbo',
+                'source_prompt': 'Abstract collaboration',
+                'dimensions': {'width': 1024, 'height': 576},
+            },
+        ],
+    }
+
+
+@pytest.fixture
+def upgrade_outline():
+    return {
+        'slides': [
+            {'slide_number': 1, 'visual_type': 'hero_image'},
+            {'slide_number': 4, 'visual_type': 'diagram'},
+            {'slide_number': 5, 'visual_type': 'hero_image'},
+        ],
+    }
+
+
+@pytest.fixture
+def all_providers():
+    return {
+        'ollama': {'available': True, 'models': ['x/z-image-turbo']},
+        'openai': {'available': True, 'model': 'gpt-image-1.5'},
+        'google': {'available': True, 'model': 'imagen-4'},
+        'fal': {'available': True, 'models': ['flux-2-pro']},
+    }
+
+
+@pytest.fixture
+def budget_allow():
+    return {'budget_state': 'allow', 'remaining_usd': 5.0}
+
+
+def test_plan_upgrade_upgrades_hero_images(draft_manifest, upgrade_outline, all_providers, budget_allow):
+    decisions = plan_production_upgrade(draft_manifest, upgrade_outline, all_providers, budget_allow)
+    heroes = [d for d in decisions if d.action == 'upgrade']
+    assert len(heroes) == 2
+    assert heroes[0].slide_number == 1
+    assert heroes[1].slide_number == 5
+
+
+def test_plan_upgrade_keeps_svg_diagrams(draft_manifest, upgrade_outline, all_providers, budget_allow):
+    decisions = plan_production_upgrade(draft_manifest, upgrade_outline, all_providers, budget_allow)
+    kept = [d for d in decisions if d.action == 'keep']
+    assert len(kept) == 1
+    assert kept[0].slide_number == 4
+    assert 'already' in kept[0].reason.lower()
+
+
+def test_plan_upgrade_respects_budget(draft_manifest, upgrade_outline, all_providers):
+    tight_budget = {'budget_state': 'allow', 'remaining_usd': 0.02}
+    decisions = plan_production_upgrade(draft_manifest, upgrade_outline, all_providers, tight_budget)
+    upgrades = [d for d in decisions if d.action == 'upgrade']
+    total_cost = sum(d.estimated_cost_usd for d in upgrades)
+    assert total_cost <= 0.02
+
+
+def test_plan_upgrade_carries_source_prompt(draft_manifest, upgrade_outline, all_providers, budget_allow):
+    decisions = plan_production_upgrade(draft_manifest, upgrade_outline, all_providers, budget_allow)
+    slide_1 = [d for d in decisions if d.slide_number == 1][0]
+    assert slide_1.draft_prompt == 'Dramatic teal composition'
+
+
+def test_plan_upgrade_returns_upgrade_decisions(draft_manifest, upgrade_outline, all_providers, budget_allow):
+    decisions = plan_production_upgrade(draft_manifest, upgrade_outline, all_providers, budget_allow)
+    assert all(isinstance(d, UpgradeDecision) for d in decisions)
+    assert len(decisions) == 3
