@@ -23,6 +23,9 @@ This document summarises all data contracts that flow between services in the Ja
 | QAReport | `qa-report.json` | deck-qa | Deck Conductor, Presentation Reviewer | Yes (per QA pass) |
 | AvailableProviders | (in-memory / conversation) | imagegen-bridge | Deck Conductor, generation skills | Yes (per pipeline run) |
 | DeckContext | `./tmp/deck/` (directory) | Deck Conductor | All services | No (directory of all above) |
+| StrategyMap | `strategy-map.json` | image-slide-prompt-composition | Keynote Rendering, Image Routing & Discovery, PPTX Build, Visual QA, Deck Conductor | Yes |
+| SlidePrompts | `slide-prompts.json` | image-prompt-engineer | Keynote Rendering, Image Routing & Discovery | Yes |
+| RenderLog | `render-log.json` | image-keynote-rendering | Deck Conductor | No (append-only) |
 
 ---
 
@@ -436,6 +439,9 @@ DeckContext is not a single contract but the aggregate of all contracts above, p
   image-manifest.json          # Generated images registry (frozen)
   chart-manifest.json          # Chart images registry (frozen)
   qa-report.json               # QA findings (overwritten per pass)
+  strategy-map.json            # Per-slide rendering strategy (frozen)
+  slide-prompts.json           # Generated image prompts (frozen)
+  render-log.json              # Append-only render attempt log
   images/                      # Generated asset files
     slide-01-hero.png
     slide-03-diagram.png
@@ -452,6 +458,84 @@ DeckContext is not a single contract but the aggregate of all contracts above, p
 3. **Human debuggability** -- `cat ./tmp/deck/style-guide.json` to inspect
 4. **Conversation context as cache, not source of truth** -- files on disk are authoritative
 5. **CONSTITUTION.md Article 4.6 compliance** -- uses `./tmp/` (project-local, gitignored)
+
+---
+
+## 12. StrategyMap (`contract-strategy-map`)
+
+**File:** `strategy-map.json`
+**Produced by:** Slide Prompt Composition (`image-slide-prompt-composition`)
+**Consumed by:** Keynote Rendering, Image Routing & Discovery, PPTX Build, Visual QA, Deck Conductor
+
+### Description
+
+Per-slide rendering strategy classification. Determines whether each slide uses full_render (entire slide as AI image), backdrop_render (AI background + programmatic text overlay), or composed (current PptxGenJS assembly). Supports post-hoc single-slide upgrades and Speaker overrides.
+
+### Key Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `created_at` | string | ISO 8601 timestamp |
+| `approval_mode` | string | 'review' (default) or 'one_shot' |
+| `slides` | array | Per-slide entries: slide_number, strategy, rationale, render_funnel, speaker_override |
+
+### Lifecycle
+
+1. Produced by Slide Prompt Composition from SlideOutline + StyleGuide
+2. Written to `./tmp/deck/strategy-map.json`
+3. Speaker reviews strategy assignments and may override individual slides
+4. Frozen after Speaker approval
+
+---
+
+## 13. SlidePrompts (`contract-slide-prompts`)
+
+**File:** `slide-prompts.json`
+**Produced by:** Prompt Engineer (`image-prompt-engineer`)
+**Consumed by:** Keynote Rendering, Image Routing & Discovery
+
+### Description
+
+Generated image prompts per slide. Prompts are inspectable, editable, and reusable across decks.
+
+### Key Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `generated_at` | string | ISO 8601 timestamp |
+| `prompts` | array | Per-slide entries: slide_number, strategy, prompt_text, target_model, funnel_stage |
+
+### Lifecycle
+
+1. Produced by Prompt Engineer from StrategyMap + SlideOutline + StyleGuide
+2. Written to `./tmp/deck/slide-prompts.json`
+3. Speaker may inspect and edit individual prompts before rendering
+4. Frozen after approval; reusable across decks with the same outline
+
+---
+
+## 14. RenderLog (`contract-render-log`)
+
+**File:** `render-log.json`
+**Produced by:** Keynote Rendering (`image-keynote-rendering`)
+**Consumed by:** Deck Conductor
+
+### Description
+
+Append-only log of every render attempt. Builds best-practice dataset over time for cost and convergence optimisation.
+
+### Key Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `entries` | array | Per-render: slide_number, strategy, funnel_stage, prompt_hash, model, resolution, vision_score, iteration, cost_usd, timestamp |
+
+### Lifecycle
+
+1. Appended to by Keynote Rendering after each render attempt (draft or production)
+2. Written to `./tmp/deck/render-log.json`
+3. Never overwritten -- new entries are appended to the existing array
+4. Deck Conductor reads for cost tracking and convergence analysis
 
 ---
 

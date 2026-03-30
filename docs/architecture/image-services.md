@@ -1,6 +1,6 @@
 # Image Services -- L1 Service Document
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.0.0
+> Generated from canonical model: `jack-tar-deckhand.json` v1.1.0
 > Date: 2026-03-29
 > Service ID: `image-services`
 > Parent: `presentation-engineering` (L0)
@@ -9,7 +9,7 @@
 
 ## Mission
 
-Generate, manipulate, and optimise visual assets from text prompts and data. Image Services is the largest L1 domain, comprising 8 skills, 1 capability, and 1 AI Persona (advisory). It handles provider discovery, intelligent routing, local and cloud image generation, chart rendering, post-processing, and advisory quality scoring.
+Generate, manipulate, and optimise visual assets from text prompts and data. Image Services is the largest L1 domain, comprising 9 skills, 2 capabilities, and 2 AI Personas (1 advisory, 1 invoker). It handles provider discovery, intelligent routing, local and cloud image generation, chart rendering, post-processing, prompt composition, keynote rendering, and advisory quality scoring.
 
 ---
 
@@ -27,6 +27,8 @@ The domain owns all image generation and routing decisions within its scope. The
 
 ## L2 Sub-Services
 
+13 L2 sub-services across generation, routing, composition, rendering, and advisory roles.
+
 | Service ID | Name | Type | Skill | System Actor |
 |---|---|---|---|---|
 | `image-routing-discovery` | Image Routing & Discovery | Skill | `imagegen-bridge` | Probes all providers |
@@ -38,6 +40,9 @@ The domain owns all image generation and routing decisions within its scope. The
 | `image-cloud-icon` | Cloud Icon Generation | Skill | `cloud-generate-icon` | Recraft, FAL.ai |
 | `image-chart-renderer` | Chart Rendering | Skill | `chart-renderer` | Matplotlib |
 | `image-post-processing` | Image Post-Processing | Skill | `image-processor` | -- |
+| `image-slide-prompt-composition` | Slide Prompt Composition | Skill | `slide-prompt-composer` | -- |
+| `image-prompt-engineer` | Prompt Engineer | AI Persona | -- (agent/invoker) | Haiku / Sonnet |
+| `image-keynote-rendering` | Keynote Rendering | Capability | -- | Cloud + Ollama providers |
 | `image-generation-expert` | Image Generation Expert | AI Persona | -- (agent/advisory) | -- |
 
 ### L2 Diagram
@@ -129,6 +134,52 @@ Background removal (rembg), resize, crop, colour correction, and file optimisati
 
 ---
 
+## Slide Prompt Composition (`slide-prompt-composer`)
+
+**Service ID:** `image-slide-prompt-composition`
+
+Assembles structured briefs from SlideOutline, StyleGuide, BrandProfile, and StrategyMap for each slide. Briefs are consumed by the Prompt Engineer agent to produce image generation prompts. Handles brand constraint injection, resolution-aware formatting, and model-specific prompt hygiene. Validates that output prompts contain required elements.
+
+### Produced Contracts
+
+| Contract | File | Description |
+|---|---|---|
+| StrategyMap | `./tmp/deck/strategy-map.json` | Per-slide rendering strategy classification (full_render, backdrop_render, or composed) with rationale and Speaker override support |
+| SlidePrompts | `./tmp/deck/slide-prompts.json` | Generated prompts per slide, inspectable and reusable |
+
+---
+
+## Prompt Engineer (AI Persona -- Invoker)
+
+**Service ID:** `image-prompt-engineer`
+**Persona ID:** `persona-prompt-engineer`
+**Authority Model:** Invoker
+**Model:** Haiku (default), Sonnet (escalation after 3 failed iterations)
+
+AI Persona that receives structured briefs and produces creative image generation prompts. Composes spatial relationships, visual metaphors, typography descriptions, and scene layouts that template-based systems cannot. Single agent definition with model selected at dispatch time.
+
+---
+
+## Keynote Rendering
+
+**Service ID:** `image-keynote-rendering`
+**Type:** Capability
+
+Three-stage render funnel for keynote-quality slide images:
+
+1. **Stage 1:** Ollama draft (free) -- validate concept and composition
+2. **Stage 2:** Cloud low-tier at 720p (cheap) -- validate on target model family, automated palette drift check
+3. **Stage 3:** Cloud full-tier at 2K+ (production) -- single proven-prompt render
+
+### Keynote Strategies
+
+| Strategy | Description |
+|---|---|
+| **full_render** | Complete slide (text + visuals) as single AI image |
+| **backdrop_render** | AI visual background for PptxGenJS text overlay |
+
+---
+
 ## Image Generation Expert (AI Persona -- Advisory)
 
 **Persona ID:** `persona-image-generation-expert`
@@ -164,6 +215,7 @@ For the full persona specification, see [AI Persona Summaries](ai-persona-summar
 | SlideOutline | Content Services (narrative-architect) | visual_direction field provides prompt context per slide |
 | StyleGuide | Design Services (slide-stylist) | Palette for colour enforcement, image_style_tokens for style consistency |
 | BrandProfile | Design Services (brand-manager) | approved_image_styles and prohibited_image_styles for prompt compliance |
+| StrategyMap | Image Services (slide-prompt-composition) | Per-slide rendering strategy (full_render, backdrop_render, composed) |
 | Budget constraints | Deck Conductor | Per-image and total budget caps |
 | TalkBrief | Speaker (via Deck Conductor) | data_sources for chart rendering |
 
@@ -173,6 +225,8 @@ For the full persona specification, see [AI Persona Summaries](ai-persona-summar
 |---|---|---|---|
 | ImageManifest | `./tmp/deck/image-manifest.json` | deck-assembler | Registry of all generated images with metadata, file paths, prompts, model used |
 | ChartManifest | `./tmp/deck/chart-manifest.json` | deck-assembler | Registry of all rendered charts with metadata |
+| SlidePrompts | `./tmp/deck/slide-prompts.json` | Prompt Engineer, imagegen-bridge | Generated prompts per slide, inspectable and reusable |
+| RenderLog | `./tmp/deck/render-log.json` | Deck Conductor, deck-qa | Per-slide render history: stage, model, cost, quality score, iteration count |
 | AvailableProviders | (in-memory / conversation) | Deck Conductor, generation skills | Runtime manifest of which providers are available |
 
 ---
@@ -183,18 +237,23 @@ For the full persona specification, see [AI Persona Summaries](ai-persona-summar
 
 | Source | Type | Data |
 |---|---|---|
-| Deck Conductor | invocation | SlideOutline (visual_direction), StyleGuide (palette), budget constraints |
+| Deck Conductor | invocation | SlideOutline (visual_direction), StyleGuide (palette), BrandProfile, budget constraints |
 
 ### Outbound
 
 | Target | Type | Data |
 |---|---|---|
 | Assembly & QA Services | data-provision | ImageManifest + ChartManifest consumed by deck-assembler |
+| Deck Conductor | data-provision | RenderLog for budget tracking and QA |
 
 ### Internal Interactions
 
 | Source | Target | Type | Description |
 |---|---|---|---|
+| Slide Prompt Composition | Prompt Engineer | invocation | Structured briefs dispatched for creative prompt generation |
+| Prompt Engineer | Slide Prompt Composition | data-provision | Returns SlidePrompts for validation and persistence |
+| Keynote Rendering | Image Routing & Discovery | invocation | Stage-gated render requests (draft → low-tier → production) |
+| Keynote Rendering | Image Generation Expert | consultation | Quality scoring at each render stage to decide promote/retry/abort |
 | Image Routing & Discovery | Image Generation Expert | consultation | Model selection advice |
 | Image Routing & Discovery | Ollama Image Generation | invocation | Routed local generation request |
 | Image Routing & Discovery | Cloud Image Generation | invocation | Routed cloud generation request |

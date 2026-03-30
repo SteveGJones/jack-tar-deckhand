@@ -1,7 +1,7 @@
 # Architecture Overview -- Jack-Tar Deckhand
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.0.0
-> Date: 2026-03-28
+> Generated from canonical model: `jack-tar-deckhand.json` v1.1.0
+> Date: 2026-03-29
 > Status: Draft -- pre-implementation review document
 
 ---
@@ -40,16 +40,19 @@ L0  Presentation Engineering
     |   +-- L2  Speaker Notes             [skill: speaker-notes-writer]
     |
     +-- L1  Image Services
-    |   +-- L2  Image Routing & Discovery [skill: imagegen-bridge]
-    |   +-- L2  Ollama Image Generation   [skill: ollama-generate-image]
-    |   +-- L2  Ollama Icon Generation    [skill: ollama-generate-icon]
-    |   +-- L2  Ollama Pattern Generation [skill: ollama-generate-pattern]
-    |   +-- L2  Ollama Diagram Generation [skill: ollama-generate-diagram]
-    |   +-- L2  Cloud Image Generation    [skill: cloud-generate-image]
-    |   +-- L2  Cloud Icon Generation     [skill: cloud-generate-icon]
-    |   +-- L2  Chart Rendering           [skill: chart-renderer]
-    |   +-- L2  Image Post-Processing     [skill: image-processor]
-    |   +-- L2  Image Generation Expert   [AI Persona - Advisory]
+    |   +-- L2  Image Routing & Discovery     [skill: imagegen-bridge]
+    |   +-- L2  Slide Prompt Composition      [skill: slide-prompt-composer]
+    |   +-- L2  Ollama Image Generation       [skill: ollama-generate-image]
+    |   +-- L2  Ollama Icon Generation        [skill: ollama-generate-icon]
+    |   +-- L2  Ollama Pattern Generation     [skill: ollama-generate-pattern]
+    |   +-- L2  Ollama Diagram Generation     [skill: ollama-generate-diagram]
+    |   +-- L2  Cloud Image Generation        [skill: cloud-generate-image]
+    |   +-- L2  Cloud Icon Generation         [skill: cloud-generate-icon]
+    |   +-- L2  Chart Rendering               [skill: chart-renderer]
+    |   +-- L2  Image Post-Processing         [skill: image-processor]
+    |   +-- L2  Keynote Rendering             [capability: render funnel]
+    |   +-- L2  Image Generation Expert       [AI Persona - Advisory]
+    |   +-- L2  Prompt Engineer               [AI Persona - Prompt Engineering]
     |
     +-- L1  Assembly & QA Services
         +-- L2  PPTX Build               [skill: deck-assembler]
@@ -58,7 +61,7 @@ L0  Presentation Engineering
         +-- L2  Presentation Reviewer     [AI Persona - Advisory]
 ```
 
-**Totals:** 1 L0, 5 L1, 19 L2 (14 skills, 2 capabilities, 3 AI Personas)
+**Totals:** 1 L0, 5 L1, 22 L2 (15 skills, 3 capabilities, 4 AI Personas)
 
 ### Architecture Diagrams
 
@@ -73,7 +76,7 @@ Drill-down diagrams for each L1 domain:
 
 ---
 
-## The Three AI Personas
+## The Four AI Personas
 
 ### 1. Deck Conductor (L1 -- Orchestrator)
 
@@ -87,7 +90,13 @@ The top-level orchestration agent. It receives the talk brief, sequences all L1 
 
 An advisory persona consulted by image generation skills for prompt engineering, model-specific prompt translation, quality scoring against a 6-dimension rubric (composition, colour, clarity, relevance, technical quality, text accuracy), and iteration convergence guidance. It never generates images directly.
 
-### 3. Presentation Reviewer (L2 -- Advisory)
+### 3. Prompt Engineer (L2 -- Prompt Engineering)
+
+**Authority:** Invoker (acts on behalf of the calling skill, escalates to Conductor)
+
+Receives structured briefs and produces creative image generation prompts. Dispatched at Haiku by default, escalated to Sonnet when quality doesn't converge.
+
+### 4. Presentation Reviewer (L2 -- Advisory)
 
 **Authority:** Invoker (acts on behalf of the Conductor, escalates to Conductor)
 
@@ -104,6 +113,7 @@ The pipeline operates in two phases: **Draft** and **Production**. The Speaker i
 Each draft cycle runs the full pipeline to produce a reviewable deck. The Speaker iterates on narrative, layout, slide structure, and visual direction across multiple cycles:
 
 - **Design + Content**: Run at full quality (LLM text generation, no cost difference between draft and production). The brand-manager runs first to obtain or create a BrandProfile, then the slide-stylist derives the StyleGuide from it
+- **Strategy Map**: The slide prompt composer classifies each slide's rendering strategy (full_render, backdrop_render, or composed), the prompt engineer generates prompts, and the Speaker approves
 - **Image**: Uses draft-quality rendering — Ollama for structural placeholders, or cloud providers at reduced size/quality for prompt refinement
 - **Assembly + QA + Review**: Build and review the draft deck
 
@@ -131,8 +141,9 @@ Once the Speaker approves the draft:
 | Brand Profile | TalkBrief, brand assets (logo, PDF, .pptx template, hex/font input) | BrandProfile |
 | Design | TalkBrief, BrandProfile | StyleGuide |
 | Content | TalkBrief, StyleGuide | SlideOutline, SpeakerNotes |
-| Image (draft) | SlideOutline, StyleGuide, AvailableProviders | ImageManifest (low-res) |
-| Image (production) | SlideOutline, StyleGuide, AvailableProviders, Speaker approval | ImageManifest (full quality) |
+| Strategy Map | SlideOutline, StyleGuide | RenderStrategy per slide, image prompts (Speaker approved) |
+| Image (draft) | SlideOutline, StyleGuide, AvailableProviders, RenderStrategy | ImageManifest (low-res) |
+| Image (production) | SlideOutline, StyleGuide, AvailableProviders, RenderStrategy, Speaker approval | ImageManifest (full quality) |
 | Assembly | SlideOutline, StyleGuide, ImageManifest, ChartManifest, SpeakerNotes | .pptx |
 | QA | .pptx | QAReport |
 | Review | .pptx, SlideOutline, StyleGuide, SpeakerNotes, TalkBrief | Structured review |
@@ -198,6 +209,10 @@ The QA correction loop is bounded at 2 iterations. After 2 failed QA cycles, the
 
 The Visual QA (deck-qa) runs 25 automated, machine-checkable anti-pattern checks (contrast, margins, overflow, consistency). The Presentation Reviewer applies human-judgement-level assessment (narrative coherence, visual storytelling, pacing). These are separate steps with different purposes and different feedback paths.
 
+### 9. Three-Stage Render Funnel
+
+Iteration happens at the cheapest stages (Ollama free, cloud low-tier cheap). Production renders use proven prompts only.
+
 ---
 
 ## Human Actors
@@ -224,7 +239,7 @@ The Visual QA (deck-qa) runs 25 automated, machine-checkable anti-pattern checks
 
 | Document | Path | Description |
 |---|---|---|
-| Service Catalogue | [service-catalogue.md](service-catalogue.md) | Full listing of all 25 services with hierarchy |
+| Service Catalogue | [service-catalogue.md](service-catalogue.md) | Full listing of all 28 services with hierarchy |
 | AI Persona Summaries | [ai-persona-summaries.md](ai-persona-summaries.md) | Detailed persona specifications |
 | Interaction Matrix | [interaction-matrix.md](interaction-matrix.md) | All 31 interactions between entities |
 | System Actor Registry | [system-actor-registry.md](system-actor-registry.md) | External systems, configuration, discovery |
