@@ -68,3 +68,127 @@ def test_load_render_log_missing(deck_dir):
     from src.render_funnel import load_render_log
     with pytest.raises(FileNotFoundError):
         load_render_log(deck_dir)
+
+
+from unittest.mock import patch, MagicMock
+from PIL import Image
+
+
+def _create_test_image(path, width=1024, height=576):
+    """Helper to create a test image at the given path."""
+    img = Image.new('RGB', (width, height), color=(0, 107, 94))
+    img.save(path)
+    return path
+
+
+def test_execute_ollama_stage(deck_dir):
+    from src.render_funnel import init_render_log, execute_funnel_stage
+    init_render_log(deck_dir)
+    output_path = os.path.join(deck_dir, 'images', 'slide-01-hero.png')
+
+    with patch('src.render_funnel.subprocess.run') as mock_run:
+        # Simulate generate_image.py writing a file
+        def side_effect(*args, **kwargs):
+            _create_test_image(output_path)
+            result = MagicMock()
+            result.stdout = output_path
+            result.returncode = 0
+            return result
+        mock_run.side_effect = side_effect
+
+        result = execute_funnel_stage(
+            deck_dir=deck_dir,
+            slide_number=1,
+            strategy='full_render',
+            prompt='Test prompt for slide 1',
+            funnel_stage='ollama',
+            model='x/z-image-turbo',
+            output_path=output_path,
+        )
+
+    assert result['status'] == 'generated'
+    assert result['file_path'] == output_path
+    assert result['cost_usd'] == 0.0
+    assert os.path.exists(output_path)
+
+
+def test_execute_cloud_stage(deck_dir):
+    from src.render_funnel import init_render_log, execute_funnel_stage
+    init_render_log(deck_dir)
+    output_path = os.path.join(deck_dir, 'images', 'slide-01-hero.png')
+
+    with patch('src.render_funnel._generate_cloud') as mock_cloud:
+        _create_test_image(output_path, 1280, 720)
+        mock_cloud.return_value = {
+            'file_path': output_path,
+            'provider': 'google',
+            'model_used': 'imagen-4-fast',
+            'cost_usd': 0.02,
+            'status': 'generated',
+        }
+
+        result = execute_funnel_stage(
+            deck_dir=deck_dir,
+            slide_number=1,
+            strategy='full_render',
+            prompt='Test prompt for slide 1',
+            funnel_stage='cloud_low',
+            model='imagen-4-fast',
+            output_path=output_path,
+            provider='google',
+        )
+
+    assert result['status'] == 'generated'
+    assert result['cost_usd'] == 0.02
+
+
+def test_execute_stage_logs_to_render_log(deck_dir):
+    from src.render_funnel import init_render_log, execute_funnel_stage, load_render_log
+    init_render_log(deck_dir)
+    output_path = os.path.join(deck_dir, 'images', 'slide-01-hero.png')
+
+    with patch('src.render_funnel.subprocess.run') as mock_run:
+        def side_effect(*args, **kwargs):
+            _create_test_image(output_path)
+            result = MagicMock()
+            result.stdout = output_path
+            result.returncode = 0
+            return result
+        mock_run.side_effect = side_effect
+
+        execute_funnel_stage(
+            deck_dir=deck_dir,
+            slide_number=1,
+            strategy='full_render',
+            prompt='Test prompt',
+            funnel_stage='ollama',
+            model='x/z-image-turbo',
+            output_path=output_path,
+        )
+
+    log = load_render_log(deck_dir)
+    assert len(log['entries']) == 1
+    assert log['entries'][0]['funnel_stage'] == 'ollama'
+    assert log['entries'][0]['slide_number'] == 1
+
+
+def test_execute_stage_failed(deck_dir):
+    from src.render_funnel import init_render_log, execute_funnel_stage
+    init_render_log(deck_dir)
+    output_path = os.path.join(deck_dir, 'images', 'slide-01-hero.png')
+
+    with patch('src.render_funnel.subprocess.run') as mock_run:
+        mock_run.side_effect = Exception('Ollama not running')
+
+        result = execute_funnel_stage(
+            deck_dir=deck_dir,
+            slide_number=1,
+            strategy='full_render',
+            prompt='Test prompt',
+            funnel_stage='ollama',
+            model='x/z-image-turbo',
+            output_path=output_path,
+        )
+
+    assert result['status'] == 'failed'
+    assert 'error' in result
