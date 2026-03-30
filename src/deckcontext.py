@@ -24,6 +24,7 @@ CONTRACT_SCHEMAS = {
     'chart-manifest': 'chart_manifest.schema.json',
     'qa-report': 'qa_report.schema.json',
     'brand-profile': 'brand_profile.schema.json',
+    'strategy-map': 'strategy_map.schema.json',
 }
 
 DEFAULT_STEP_ORDER = [
@@ -31,6 +32,7 @@ DEFAULT_STEP_ORDER = [
     'brand-manager',
     'slide-stylist',
     'narrative-architect',
+    'strategy-map',
     'speaker-notes-writer',
     'imagegen-bridge',
     'chart-renderer',

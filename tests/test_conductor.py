@@ -169,3 +169,93 @@ class TestSummary:
     def test_get_nonexistent_returns_none(self):
         result = get_pipeline_state('/nonexistent/path')
         assert result is None
+
+
+def test_default_step_order_includes_strategy_map():
+    from src.deckcontext import DEFAULT_STEP_ORDER
+    assert 'strategy-map' in DEFAULT_STEP_ORDER
+    # Strategy map should come after narrative-architect and before speaker-notes-writer
+    arch_idx = DEFAULT_STEP_ORDER.index('narrative-architect')
+    strat_idx = DEFAULT_STEP_ORDER.index('strategy-map')
+    notes_idx = DEFAULT_STEP_ORDER.index('speaker-notes-writer')
+    assert arch_idx < strat_idx < notes_idx
+
+
+def test_upgrade_slide_strategy(tmp_path):
+    import json
+    from src.conductor import init_pipeline
+    from src.slide_prompt_composer import build_strategy_map, save_strategy_map
+    from src.conductor import upgrade_slide_strategy
+
+    deck_dir = str(tmp_path)
+    init_pipeline(deck_dir, budget_usd=10.0)
+
+    # Create a minimal outline and strategy map
+    outline = {
+        'narrative_arc': 'test',
+        'estimated_duration_minutes': 10,
+        'slides': [
+            {'slide_number': 1, 'slide_type': 'title', 'headline': 'Title', 'visual_type': 'hero_image'},
+            {'slide_number': 2, 'slide_type': 'content', 'headline': 'Content',
+             'body_points': ['A', 'B', 'C', 'D'], 'visual_type': 'hero_image'},
+        ],
+    }
+    strategy_map = build_strategy_map(outline)
+    save_strategy_map(deck_dir, strategy_map)
+
+    # Slide 2 should be backdrop_render (4 bullets)
+    assert strategy_map['slides'][1]['strategy'] == 'backdrop_render'
+
+    # Upgrade slide 2 to full_render
+    updated = upgrade_slide_strategy(deck_dir, slide_number=2, new_strategy='full_render')
+    assert updated['slides'][1]['speaker_override'] == 'full_render'
+    assert updated['slides'][1]['render_funnel'] == ['ollama', 'cloud_low', 'cloud_full']
+
+
+def test_upgrade_slide_strategy_logs_approval(tmp_path):
+    import json
+    from src.conductor import init_pipeline, get_pipeline_state
+    from src.slide_prompt_composer import build_strategy_map, save_strategy_map
+    from src.conductor import upgrade_slide_strategy
+
+    deck_dir = str(tmp_path)
+    init_pipeline(deck_dir, budget_usd=10.0)
+
+    outline = {
+        'narrative_arc': 'test',
+        'estimated_duration_minutes': 10,
+        'slides': [
+            {'slide_number': 1, 'slide_type': 'title', 'headline': 'Title', 'visual_type': 'hero_image'},
+        ],
+    }
+    strategy_map = build_strategy_map(outline)
+    save_strategy_map(deck_dir, strategy_map)
+
+    upgrade_slide_strategy(deck_dir, slide_number=1, new_strategy='backdrop_render')
+    state = get_pipeline_state(deck_dir)
+    approvals = [a for a in state['speaker_approvals'] if a['decision'] == 'strategy_override']
+    assert len(approvals) == 1
+    assert 'slide 1' in approvals[0]['context'].lower()
+
+
+def test_upgrade_slide_strategy_invalid_slide(tmp_path):
+    import json
+    from src.conductor import init_pipeline
+    from src.slide_prompt_composer import build_strategy_map, save_strategy_map
+    from src.conductor import upgrade_slide_strategy
+
+    deck_dir = str(tmp_path)
+    init_pipeline(deck_dir, budget_usd=10.0)
+
+    outline = {
+        'narrative_arc': 'test',
+        'estimated_duration_minutes': 10,
+        'slides': [
+            {'slide_number': 1, 'slide_type': 'title', 'headline': 'Title', 'visual_type': 'hero_image'},
+        ],
+    }
+    strategy_map = build_strategy_map(outline)
+    save_strategy_map(deck_dir, strategy_map)
+
+    with pytest.raises(KeyError, match='slide 99'):
+        upgrade_slide_strategy(deck_dir, slide_number=99, new_strategy='full_render')

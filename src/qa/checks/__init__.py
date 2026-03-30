@@ -41,6 +41,7 @@ from .image_quality import (
 )
 from .animations import check_excessive_animations
 from .chart_quality import check_chart_junk
+from .keynote_checks import check_palette_drift
 
 # Per-slide structural checks (fast path)
 STRUCTURAL_CHECKS = [
@@ -96,4 +97,9 @@ ANIMATION_CHECKS = [
 COLOUR_CHECKS = [
     check_clashing_colours,
     check_colourblind_safety,
+]
+
+# Per-slide keynote checks (applied only to full_render/backdrop_render slides)
+KEYNOTE_CHECKS = [
+    check_palette_drift,
 ]

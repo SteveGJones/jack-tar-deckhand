@@ -24,6 +24,7 @@ from .checks import (
     VISUAL_CHECKS,
     ANIMATION_CHECKS,
     COLOUR_CHECKS,
+    KEYNOTE_CHECKS,
     check_slide_count_ratio,
 )
 from .config import QA_CONFIG
@@ -31,25 +32,68 @@ from .report import generate_report
 
 
 def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None):
-    """Run all 25 QA checks and return a QAReport dict."""
+    """Run QA checks with strategy-aware routing for keynote slides."""
     cfg = config or QA_CONFIG
     prs = Presentation(pptx_path)
     findings = []
 
-    # Step 1: Per-slide structural checks
+    # Load strategy map (optional — absent means all slides are 'composed')
+    strategy_map_path = os.path.join(deck_dir, 'strategy-map.json')
+    slide_strategies = {}
+    if os.path.exists(strategy_map_path):
+        with open(strategy_map_path) as f:
+            strategy_map = json.load(f)
+        for entry in strategy_map.get('slides', []):
+            slide_strategies[entry['slide_number']] = entry.get('speaker_override') or entry['strategy']
+
+    # Load brand palette for palette drift checks
+    brand_palette = []
+    brand_profile_path = os.path.join(deck_dir, 'brand-profile.json')
+    if os.path.exists(brand_profile_path):
+        with open(brand_profile_path) as f:
+            bp = json.load(f)
+        palette = bp.get('palette', {})
+        brand_palette = [v for v in palette.values() if isinstance(v, str) and len(v) == 6]
+
+    # Step 1: Per-slide checks (strategy-aware)
     for i, slide in enumerate(prs.slides):
         slide_number = i + 1
-        for check_fn in STRUCTURAL_CHECKS:
-            findings.extend(check_fn(slide, slide_number, config=cfg))
-        for check_fn in STRUCTURAL_CHECKS_WITH_PRESENTATION:
-            findings.extend(check_fn(slide, slide_number, prs, config=cfg))
-        for check_fn in IMAGE_QUALITY_CHECKS:
-            findings.extend(check_fn(slide, slide_number, prs, config=cfg))
-        for check_fn in VISUAL_CHECKS:
-            try:
+        strategy = slide_strategies.get(slide_number, 'composed')
+
+        if strategy == 'full_render':
+            # Full render: skip text checks, run image + keynote checks
+            for check_fn in IMAGE_QUALITY_CHECKS:
+                findings.extend(check_fn(slide, slide_number, prs, config=cfg))
+            for check_fn in KEYNOTE_CHECKS:
+                findings.extend(check_fn(slide, slide_number, brand_palette=brand_palette, config=cfg))
+        elif strategy == 'backdrop_render':
+            # Backdrop: run standard text checks + image + keynote checks
+            for check_fn in STRUCTURAL_CHECKS:
                 findings.extend(check_fn(slide, slide_number, config=cfg))
-            except Exception:
-                pass  # Visual checks may fail on minimal test decks
+            for check_fn in STRUCTURAL_CHECKS_WITH_PRESENTATION:
+                findings.extend(check_fn(slide, slide_number, prs, config=cfg))
+            for check_fn in IMAGE_QUALITY_CHECKS:
+                findings.extend(check_fn(slide, slide_number, prs, config=cfg))
+            for check_fn in KEYNOTE_CHECKS:
+                findings.extend(check_fn(slide, slide_number, brand_palette=brand_palette, config=cfg))
+            for check_fn in VISUAL_CHECKS:
+                try:
+                    findings.extend(check_fn(slide, slide_number, config=cfg))
+                except Exception:
+                    pass
+        else:
+            # Composed: standard checks (unchanged)
+            for check_fn in STRUCTURAL_CHECKS:
+                findings.extend(check_fn(slide, slide_number, config=cfg))
+            for check_fn in STRUCTURAL_CHECKS_WITH_PRESENTATION:
+                findings.extend(check_fn(slide, slide_number, prs, config=cfg))
+            for check_fn in IMAGE_QUALITY_CHECKS:
+                findings.extend(check_fn(slide, slide_number, prs, config=cfg))
+            for check_fn in VISUAL_CHECKS:
+                try:
+                    findings.extend(check_fn(slide, slide_number, config=cfg))
+                except Exception:
+                    pass
 
     # Step 2: Deck-level structural checks
     for check_fn in DECK_STRUCTURAL_CHECKS:
@@ -83,9 +127,7 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
     for check_fn in COLOUR_CHECKS:
         findings.extend(check_fn(colours_used, config=cfg))
 
-    # Generate report
-    report = generate_report(findings, pptx_path, len(prs.slides))
-    return report
+    return generate_report(findings, pptx_path, len(prs.slides))
 
 
 def main():
