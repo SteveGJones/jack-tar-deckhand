@@ -111,3 +111,59 @@ def build_strategy_map(outline, approval_mode='review', overrides=None):
         'approval_mode': approval_mode,
         'slides': slides,
     }
+
+
+# Resolution targets per funnel stage
+_RESOLUTIONS = {
+    'ollama': '1024x576',
+    'cloud_low': '1280x720',
+    'cloud_full': '1920x1080',
+}
+
+
+def assemble_brief(slide, strategy, style_guide, brand_profile, funnel_stage):
+    """Assemble a structured brief for the Prompt Engineer agent.
+
+    Args:
+        slide: dict from SlideOutline slides array.
+        strategy: 'full_render' or 'backdrop_render'.
+        style_guide: dict from StyleGuide contract.
+        brand_profile: dict from BrandProfile contract (or None).
+        funnel_stage: 'ollama', 'cloud_low', or 'cloud_full'.
+
+    Returns:
+        dict: Structured brief with all context the Prompt Engineer needs.
+    """
+    palette = style_guide.get('palette', {})
+    palette_hex = [v for v in palette.values() if isinstance(v, str) and len(v) == 6]
+
+    brand_constraints = {
+        'palette_hex': palette_hex,
+        'approved_styles': [],
+        'prohibited_styles': [],
+    }
+    if brand_profile:
+        brand_constraints['approved_styles'] = brand_profile.get('approved_image_styles', [])
+        brand_constraints['prohibited_styles'] = brand_profile.get('prohibited_image_styles', [])
+
+    style_tokens = style_guide.get('image_style_tokens', {})
+
+    brief = {
+        'slide_number': slide.get('slide_number', 0),
+        'strategy': strategy,
+        'headline': slide.get('headline', ''),
+        'body_points': slide.get('body_points', []),
+        'visual_direction': slide.get('visual_direction', ''),
+        'slide_type': slide.get('slide_type', 'content'),
+        'brand_constraints': brand_constraints,
+        'style_tokens': style_tokens,
+        'funnel_stage': funnel_stage,
+        'target_resolution': _RESOLUTIONS.get(funnel_stage, '1920x1080'),
+    }
+
+    if strategy == 'backdrop_render':
+        brief['text_instruction'] = 'NO TEXT in the image \u2014 leave clean space for text overlay'
+    elif strategy == 'full_render':
+        brief['text_instruction'] = f'Include headline text: "{slide.get("headline", "")}"'
+
+    return brief

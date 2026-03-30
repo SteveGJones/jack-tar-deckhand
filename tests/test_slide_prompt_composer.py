@@ -142,3 +142,46 @@ def test_build_strategy_map_one_shot_mode(sample_outline):
     from src.slide_prompt_composer import build_strategy_map
     result = build_strategy_map(sample_outline, approval_mode="one_shot")
     assert result["approval_mode"] == "one_shot"
+
+
+def test_assemble_brief_full_render(sample_outline, sample_style_guide, sample_brand_profile):
+    from src.slide_prompt_composer import assemble_brief
+    slide = sample_outline["slides"][0]  # title slide
+    brief = assemble_brief(slide, "full_render", sample_style_guide, sample_brand_profile, "ollama")
+    assert brief["slide_number"] == 1
+    assert brief["strategy"] == "full_render"
+    assert brief["headline"] == "Big Title"
+    assert "006B5E" in brief["brand_constraints"]["palette_hex"]
+    assert "clip art" in brief["brand_constraints"]["prohibited_styles"]
+    assert brief["funnel_stage"] == "ollama"
+    assert brief["target_resolution"] == "1024x576"
+
+
+def test_assemble_brief_backdrop_excludes_text(sample_outline, sample_style_guide, sample_brand_profile):
+    from src.slide_prompt_composer import assemble_brief
+    slide = sample_outline["slides"][1]  # content slide with 4 bullets
+    brief = assemble_brief(slide, "backdrop_render", sample_style_guide, sample_brand_profile, "cloud_full")
+    assert brief["strategy"] == "backdrop_render"
+    assert brief["text_instruction"] == "NO TEXT in the image — leave clean space for text overlay"
+    assert brief["target_resolution"] == "1920x1080"
+
+
+def test_assemble_brief_cloud_low_resolution(sample_outline, sample_style_guide, sample_brand_profile):
+    from src.slide_prompt_composer import assemble_brief
+    slide = sample_outline["slides"][0]
+    brief = assemble_brief(slide, "full_render", sample_style_guide, sample_brand_profile, "cloud_low")
+    assert brief["target_resolution"] == "1280x720"
+
+
+def test_assemble_brief_includes_visual_direction(sample_outline, sample_style_guide, sample_brand_profile):
+    from src.slide_prompt_composer import assemble_brief
+    slide = sample_outline["slides"][0]
+    brief = assemble_brief(slide, "full_render", sample_style_guide, sample_brand_profile, "ollama")
+    assert brief["visual_direction"] == "Dramatic hero image"
+
+
+def test_assemble_brief_includes_style_tokens(sample_outline, sample_style_guide, sample_brand_profile):
+    from src.slide_prompt_composer import assemble_brief
+    slide = sample_outline["slides"][0]
+    brief = assemble_brief(slide, "full_render", sample_style_guide, sample_brand_profile, "ollama")
+    assert "Professional, precise" in brief["style_tokens"]["mood"]
