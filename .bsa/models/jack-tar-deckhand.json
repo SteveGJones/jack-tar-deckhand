@@ -490,6 +490,16 @@
           "serviceId": "presentation-engineering",
           "relationship": "consumes",
           "description": "Receives the finished .pptx and review feedback"
+        },
+        {
+          "serviceId": "content-outline-generation",
+          "relationship": "reviews",
+          "description": "Selects narrative arc from options proposed by narrative-architect"
+        },
+        {
+          "serviceId": "content-speaker-notes",
+          "relationship": "consults",
+          "description": "Provides voice and style preferences to speaker-notes-writer"
         }
       ]
     },
@@ -866,6 +876,22 @@
       "type": "consultation",
       "description": "Conductor presents design options to Speaker during Design phase for direction selection",
       "dataFlows": ["Design options", "BrandProfile summary", "Compliance mode"]
+    },
+    {
+      "id": "int-speaker-to-narrative-architect",
+      "sourceId": "actor-speaker",
+      "targetId": "content-outline-generation",
+      "type": "review/approval",
+      "description": "Speaker selects narrative arc from 2-3 options proposed by narrative-architect",
+      "dataFlows": ["Arc options presented", "Arc selection"]
+    },
+    {
+      "id": "int-speaker-to-speaker-notes-writer",
+      "sourceId": "actor-speaker",
+      "targetId": "content-speaker-notes",
+      "type": "consultation",
+      "description": "Speaker provides voice and style preferences: note format, interaction style, experience level",
+      "dataFlows": ["Voice preferences", "Interaction style", "Experience level"]
     }
   ],
 

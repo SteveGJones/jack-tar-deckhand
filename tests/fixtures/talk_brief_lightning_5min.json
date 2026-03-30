@@ -1,0 +1,24 @@
+{
+  "topic": "One Weird Trick That Cut Our Deploy Time by 80%",
+  "audience": "DevOps engineers and SREs at a meetup",
+  "duration_minutes": 5,
+  "tone": "conversational",
+  "key_takeaways": [
+    "Parallel test execution was the bottleneck, not build time"
+  ],
+  "preferences": {
+    "style": "minimalist",
+    "slide_count_hint": 8,
+    "image_backend": "ollama",
+    "resolution": "1080p",
+    "include_speaker_notes": true,
+    "include_charts": true
+  },
+  "data_sources": [
+    {
+      "label": "Deploy time before/after",
+      "type": "inline_json",
+      "content": "{\"before_minutes\": 45, \"after_minutes\": 9}"
+    }
+  ]
+}
