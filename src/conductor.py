@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 
 from src.budget_tracker import BudgetTracker
 from src.deckcontext import DEFAULT_STEP_ORDER
+from src.slide_prompt_composer import load_strategy_map, save_strategy_map
 
 MAX_QA_CYCLES = 2
 
@@ -196,3 +197,44 @@ def pipeline_summary_markdown(deck_dir):
         step_data = state.get('steps', {}).get(step, {})
         lines.append(f'| {step} | {step_data.get("status", "unknown")} |')
     return '\n'.join(lines)
+
+
+def upgrade_slide_strategy(deck_dir, slide_number, new_strategy):
+    """Upgrade a single slide's rendering strategy (post-hoc).
+
+    Updates the strategy map with a speaker_override and adjusts the
+    render funnel. Logs a speaker approval entry.
+
+    Args:
+        deck_dir: Path to the deck working directory.
+        slide_number: Which slide to upgrade.
+        new_strategy: 'full_render', 'backdrop_render', or 'composed'.
+
+    Returns:
+        dict: The updated strategy map.
+
+    Raises:
+        KeyError: If slide_number is not in the strategy map.
+    """
+    strategy_map = load_strategy_map(deck_dir)
+    found = False
+    for entry in strategy_map.get('slides', []):
+        if entry['slide_number'] == slide_number:
+            entry['speaker_override'] = new_strategy
+            if new_strategy in ('full_render', 'backdrop_render'):
+                entry['render_funnel'] = ['ollama', 'cloud_low', 'cloud_full']
+            else:
+                entry['render_funnel'] = ['ollama']
+            found = True
+            break
+
+    if not found:
+        raise KeyError(f'No strategy map entry for slide {slide_number}')
+
+    save_strategy_map(deck_dir, strategy_map)
+    log_speaker_approval(
+        deck_dir,
+        'strategy_override',
+        f'Slide {slide_number} upgraded to {new_strategy}',
+    )
+    return strategy_map
