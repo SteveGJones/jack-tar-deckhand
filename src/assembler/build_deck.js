@@ -92,6 +92,20 @@ async function assembleDeck() {
     const chartManifest = loadContract('chart-manifest');
     const speakerNotes = loadContract('speaker-notes');
 
+    // Load strategy map (optional — if absent, all slides use 'composed')
+    const strategyMapPath = path.join(DECK_DIR, 'strategy-map.json');
+    const strategyMap = fs.existsSync(strategyMapPath)
+        ? JSON.parse(fs.readFileSync(strategyMapPath, 'utf-8'))
+        : null;
+
+    // Build a lookup: slide_number -> effective strategy
+    const slideStrategies = {};
+    if (strategyMap) {
+        for (const entry of strategyMap.slides || []) {
+            slideStrategies[entry.slide_number] = entry.speaker_override || entry.strategy;
+        }
+    }
+
     // Validate image assets
     const warnings = [];
     for (const img of imageManifest.images || []) {
@@ -149,7 +163,19 @@ async function assembleDeck() {
         const noteData = findNote(speakerNotes, slideData.slide_number);
         const imageData = findImage(imageManifest, slideData.slide_number);
         const chartData = findChart(chartManifest, slideData.slide_number);
+        const strategy = slideStrategies[slideData.slide_number] || 'composed';
 
+        // Strategy-first routing: keynote strategies override slide-type routing
+        if (strategy === 'full_render') {
+            buildFullRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
+            continue;
+        }
+        if (strategy === 'backdrop_render') {
+            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData });
+            continue;
+        }
+
+        // Composed strategy: use existing slide-type routing
         switch (slideData.slide_type) {
             case 'title':
                 buildTitleSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });

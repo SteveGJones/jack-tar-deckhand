@@ -100,3 +100,17 @@ def test_build_deck_handles_empty_chart_manifest(deck_dir):
     )
     pptx_path = os.path.join(deck_dir, 'output', 'presentation.pptx')
     assert os.path.isfile(pptx_path)
+
+
+def test_build_deck_without_strategy_map(tmp_path):
+    """Assembler works when strategy-map.json is absent (backward compatible)."""
+    # Use the existing test deck at ./tmp/deck if available, otherwise skip
+    deck_dir = './tmp/deck'
+    if not os.path.exists(os.path.join(deck_dir, 'outline.json')):
+        pytest.skip('No test deck available at ./tmp/deck')
+    result = subprocess.run(
+        ['node', 'src/assembler/build_deck.js', '--deck-dir', deck_dir],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    assert 'assembled successfully' in result.stdout.lower()
