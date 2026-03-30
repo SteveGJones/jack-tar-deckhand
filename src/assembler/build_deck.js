@@ -92,6 +92,20 @@ async function assembleDeck() {
     const chartManifest = loadContract('chart-manifest');
     const speakerNotes = loadContract('speaker-notes');
 
+    // Load strategy map (optional — if absent, all slides use 'composed')
+    const strategyMapPath = path.join(DECK_DIR, 'strategy-map.json');
+    const strategyMap = fs.existsSync(strategyMapPath)
+        ? JSON.parse(fs.readFileSync(strategyMapPath, 'utf-8'))
+        : null;
+
+    // Build a lookup: slide_number -> effective strategy
+    const slideStrategies = {};
+    if (strategyMap) {
+        for (const entry of strategyMap.slides || []) {
+            slideStrategies[entry.slide_number] = entry.speaker_override || entry.strategy;
+        }
+    }
+
     // Validate image assets
     const warnings = [];
     for (const img of imageManifest.images || []) {
@@ -149,7 +163,19 @@ async function assembleDeck() {
         const noteData = findNote(speakerNotes, slideData.slide_number);
         const imageData = findImage(imageManifest, slideData.slide_number);
         const chartData = findChart(chartManifest, slideData.slide_number);
+        const strategy = slideStrategies[slideData.slide_number] || 'composed';
 
+        // Strategy-first routing: keynote strategies override slide-type routing
+        if (strategy === 'full_render') {
+            buildFullRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
+            continue;
+        }
+        if (strategy === 'backdrop_render') {
+            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData });
+            continue;
+        }
+
+        // Composed strategy: use existing slide-type routing
         switch (slideData.slide_type) {
             case 'title':
                 buildTitleSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
@@ -728,6 +754,137 @@ function buildClosingSlide(pptx, slideData, ctx) {
         });
     }
 
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
+/**
+ * Full-render keynote slide: entire slide is a single AI-generated image.
+ * No text boxes, no shapes — just a full-bleed image + speaker notes.
+ * Logo overlay is optional (controlled by style guide).
+ */
+function buildFullRenderSlide(pptx, slideData, ctx) {
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData } = ctx;
+
+    const slide = pptx.addSlide();
+
+    // Full-bleed image covering the entire slide
+    if (imageData) {
+        const imgPath = resolveImagePath(imageData.file_path);
+        if (fs.existsSync(imgPath)) {
+            slide.addImage({
+                path: imgPath,
+                x: 0,
+                y: 0,
+                w: SLIDE_W,
+                h: SLIDE_H,
+                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                altText: imageData.alt_text || '',
+            });
+        }
+    }
+
+    // Optional logo overlay (bottom-left, same position as title/closing slides)
+    if (hasLogo) {
+        const logoH = 0.55;
+        const logoW = logoH * (169 / 200);
+        slide.addImage({
+            path: logoPath,
+            x: MARGIN,
+            y: SLIDE_H - MARGIN - logoH,
+            w: logoW,
+            h: logoH,
+            altText: 'Logo',
+        });
+    }
+
+    // Speaker notes
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
+/**
+ * Backdrop-render keynote slide: AI-generated background image with
+ * programmatic text overlay. Text remains editable in PowerPoint.
+ * A semi-transparent backing rectangle ensures text readability.
+ */
+function buildBackdropRenderSlide(pptx, slideData, ctx) {
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData } = ctx;
+    const textColor = slidePalette?.content_slides?.text || palette.text_primary;
+
+    const slide = pptx.addSlide();
+
+    // Full-bleed backdrop image
+    if (imageData) {
+        const imgPath = resolveImagePath(imageData.file_path);
+        if (fs.existsSync(imgPath)) {
+            slide.addImage({
+                path: imgPath,
+                x: 0,
+                y: 0,
+                w: SLIDE_W,
+                h: SLIDE_H,
+                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                altText: imageData.alt_text || '',
+            });
+        }
+    }
+
+    // Semi-transparent text backing — left third of the slide
+    const textZoneW = SLIDE_W * 0.45;
+    slide.addShape(pptx.ShapeType.rect, {
+        x: 0,
+        y: 0,
+        w: textZoneW,
+        h: SLIDE_H,
+        fill: { color: '000000', transparency: 60 },
+    });
+
+    // Heading — white text for contrast against the dark backing
+    const safeX = MARGIN;
+    const headingY = Math.max(SLIDE_H * 0.15, MARGIN);
+    const headingW = textZoneW - 2 * MARGIN;
+    slide.addText(slideData.headline, {
+        x: safeX,
+        y: headingY,
+        w: headingW,
+        h: 1.0,
+        fontSize: typo.heading_sizes?.slide_heading || 32,
+        fontFace: typo.heading_font,
+        color: 'FFFFFF',
+        bold: true,
+        valign: 'bottom',
+        wrap: true,
+    });
+
+    // Body points — white text
+    if (slideData.body_points && slideData.body_points.length > 0) {
+        const bodyY = headingY + 1.2;
+        const bodyH = SLIDE_H - bodyY - MARGIN;
+        const bodyText = slideData.body_points.map(bp => ({
+            text: bp,
+            options: {
+                fontSize: typo.body_size || 18,
+                fontFace: typo.body_font,
+                color: 'FFFFFF',
+                bullet: { type: 'bullet' },
+                lineSpacingMultiple: typo.line_spacing || 1.4,
+                breakLine: true,
+                paraSpaceAfter: 8,
+            },
+        }));
+        slide.addText(bodyText, {
+            x: safeX,
+            y: bodyY,
+            w: headingW,
+            h: bodyH,
+            valign: 'top',
+        });
+    }
+
+    // Speaker notes
     if (noteData) {
         slide.addNotes(noteData.text);
     }

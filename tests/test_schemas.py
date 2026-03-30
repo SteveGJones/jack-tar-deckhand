@@ -340,3 +340,53 @@ class TestStrategyMapSchema:
         }
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.Draft202012Validator(schema).validate(data)
+
+
+class TestRenderLogSchema:
+    @pytest.fixture
+    def schema(self):
+        with open('src/schemas/render_log.schema.json') as f:
+            return json.load(f)
+
+    def test_valid_render_log(self, schema):
+        data = {
+            "entries": [
+                {
+                    "slide_number": 1,
+                    "strategy": "full_render",
+                    "funnel_stage": "ollama",
+                    "prompt_hash": "abc123",
+                    "model": "x/z-image-turbo",
+                    "resolution": "1024x576",
+                    "vision_score": 6.5,
+                    "iteration": 1,
+                    "cost_usd": 0.0,
+                    "timestamp": "2026-03-29T12:00:00Z"
+                }
+            ]
+        }
+        jsonschema.Draft202012Validator(schema).validate(data)
+
+    def test_missing_entries_fails(self, schema):
+        data = {}
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.Draft202012Validator(schema).validate(data)
+
+    def test_invalid_funnel_stage_fails(self, schema):
+        data = {
+            "entries": [
+                {
+                    "slide_number": 1,
+                    "strategy": "full_render",
+                    "funnel_stage": "invalid",
+                    "prompt_hash": "abc",
+                    "model": "test",
+                    "resolution": "1024x576",
+                    "iteration": 1,
+                    "cost_usd": 0.0,
+                    "timestamp": "2026-03-29T12:00:00Z"
+                }
+            ]
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.Draft202012Validator(schema).validate(data)
