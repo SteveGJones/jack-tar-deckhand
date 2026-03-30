@@ -68,3 +68,54 @@ def test_load_manifest_missing_file(deck_dir):
     from src.manifest_utils import load_manifest
     with pytest.raises(FileNotFoundError):
         load_manifest(deck_dir)
+
+
+def test_update_manifest_entry(deck_dir, sample_manifest, sample_image):
+    from src.manifest_utils import load_manifest, update_manifest_entry
+    entry = update_manifest_entry(
+        deck_dir,
+        image_id='slide-01-hero_image',
+        model_used='openai/gpt-image-1.5',
+        alt_text='Updated alt text',
+    )
+    assert entry['model_used'] == 'openai/gpt-image-1.5'
+    assert entry['alt_text'] == 'Updated alt text'
+    assert entry['dimensions'] == {'width': 200, 'height': 100}
+    assert len(entry['content_hash']) == 64  # SHA-256 hex
+
+    # Verify persisted
+    manifest = load_manifest(deck_dir)
+    assert manifest['images'][0]['model_used'] == 'openai/gpt-image-1.5'
+
+
+def test_update_manifest_entry_unknown_id(deck_dir, sample_manifest):
+    from src.manifest_utils import update_manifest_entry
+    with pytest.raises(KeyError, match='no-such-id'):
+        update_manifest_entry(deck_dir, image_id='no-such-id')
+
+
+def test_replace_image_in_manifest(deck_dir, sample_manifest, sample_image):
+    from src.manifest_utils import load_manifest, replace_image_in_manifest
+    # Create a new replacement image
+    new_path = os.path.join(deck_dir, 'images', 'slide-01-hero-v2.png')
+    img = Image.new('RGB', (400, 300), color=(0, 255, 0))
+    img.save(new_path)
+
+    entry = replace_image_in_manifest(
+        deck_dir,
+        slide_number=1,
+        new_file_path=new_path,
+        model_used='svg-convert',
+    )
+    assert entry['file_path'] == new_path
+    assert entry['dimensions'] == {'width': 400, 'height': 300}
+    assert entry['model_used'] == 'svg-convert'
+
+    manifest = load_manifest(deck_dir)
+    assert manifest['images'][0]['file_path'] == new_path
+
+
+def test_replace_image_unknown_slide(deck_dir, sample_manifest):
+    from src.manifest_utils import replace_image_in_manifest
+    with pytest.raises(KeyError, match='slide 99'):
+        replace_image_in_manifest(deck_dir, slide_number=99, new_file_path='/x', model_used='test')
