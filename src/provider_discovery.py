@@ -156,7 +156,7 @@ def probe_env_provider(env_var, provider_name, model_name):
     }
 
 
-def discover_providers(config_path=None):
+def discover_providers(config_path='provider_config.json'):
     """Probe all providers and return an AvailableProviders dict.
 
     Args:
