@@ -16,17 +16,19 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
   - Create `research/synthesis-[skill-name].md` before implementing any skill
 
-- **Implementation Plans:** `docs/superpowers/plans/` (7 plans)
-  - Phase 1: Foundation — COMPLETE (38 tests)
-  - Phase 2: Design Services (slide-stylist) — planned, not started
-  - Phase 3: Content Services (narrative-architect, speaker-notes-writer) — planned, not started
-  - Phase 4A: Image Utilities — COMPLETE (98 tests, 136 total)
-  - Phase 4B: Cloud Generation — COMPLETE (89 tests, 225 total)
-  - Phase 4C: Routing & Advisory — COMPLETE (35 tests, 260 total)
-  - Phase 5: Assembly & QA — COMPLETE (67 tests, 327 total)
-  - Phase 2: Design Services — COMPLETE (27 tests, 354 total)
-  - Phase 3: Content Services — COMPLETE (12 tests, 366 total)
-  - Phase 6: Orchestration (deck-conductor) — COMPLETE (19 tests, 385 total)
+- **All Phases COMPLETE — 385 tests passing**
+  - Phase 1: Foundation — 38 tests
+  - Phase 2: Design Services (brand-manager, slide-stylist) — 27 tests
+  - Phase 3: Content Services (narrative-architect, speaker-notes-writer) — 12 tests
+  - Phase 4A: Image Utilities — 98 tests
+  - Phase 4B: Cloud Generation — 89 tests
+  - Phase 4C: Routing & Advisory — 35 tests
+  - Phase 5: Assembly & QA (deck-assembler, deck-qa, presentation-reviewer) — 67 tests
+  - Phase 6: Orchestration (deck-conductor) — 19 tests
+
+- **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → speaker-notes-writer → imagegen-bridge → deck-assembler → deck-qa → presentation-reviewer
+
+- **Architecture Docs:** `docs/architecture/` (10 docs + 7 SVG diagrams, 4 L1 service docs)
 
 - **Existing ollama-* skills are upstream — do NOT fork or modify them.** The imagegen-bridge handles all DeckContext integration.
 
