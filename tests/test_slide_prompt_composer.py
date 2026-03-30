@@ -2,6 +2,8 @@
 
 import json
 import os
+import shutil
+import tempfile
 import pytest
 
 
@@ -185,3 +187,32 @@ def test_assemble_brief_includes_style_tokens(sample_outline, sample_style_guide
     slide = sample_outline["slides"][0]
     brief = assemble_brief(slide, "full_render", sample_style_guide, sample_brand_profile, "ollama")
     assert "Professional, precise" in brief["style_tokens"]["mood"]
+
+
+@pytest.fixture
+def deck_dir():
+    d = tempfile.mkdtemp()
+    yield d
+    shutil.rmtree(d)
+
+
+def test_save_and_load_strategy_map(deck_dir, sample_outline):
+    from src.slide_prompt_composer import build_strategy_map, save_strategy_map, load_strategy_map
+    strategy_map = build_strategy_map(sample_outline)
+    save_strategy_map(deck_dir, strategy_map)
+    loaded = load_strategy_map(deck_dir)
+    assert loaded["approval_mode"] == "review"
+    assert len(loaded["slides"]) == 6
+
+
+def test_save_strategy_map_validates_schema(deck_dir):
+    from src.slide_prompt_composer import save_strategy_map
+    bad_map = {"approval_mode": "invalid", "slides": []}
+    with pytest.raises(Exception):
+        save_strategy_map(deck_dir, bad_map)
+
+
+def test_load_strategy_map_missing_file(deck_dir):
+    from src.slide_prompt_composer import load_strategy_map
+    with pytest.raises(FileNotFoundError):
+        load_strategy_map(deck_dir)

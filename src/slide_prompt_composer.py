@@ -9,7 +9,14 @@ Strategy classification is deterministic Python logic. Prompt generation
 is delegated to the Prompt Engineer agent (LLM reasoning).
 """
 
+import json
+import os
+
+import jsonschema
+
 from src.image_router import classify_visual_type
+
+_SCHEMA_DIR = os.path.join(os.path.dirname(__file__), 'schemas')
 
 
 # Slide types that work well as full AI-rendered images (short text, visual impact)
@@ -167,3 +174,60 @@ def assemble_brief(slide, strategy, style_guide, brand_profile, funnel_stage):
         brief['text_instruction'] = f'Include headline text: "{slide.get("headline", "")}"'
 
     return brief
+
+
+def _validate_strategy_map(strategy_map):
+    """Validate a strategy map against the JSON schema.
+
+    Args:
+        strategy_map: dict to validate.
+
+    Raises:
+        jsonschema.ValidationError: If the strategy map does not conform to the schema.
+    """
+    schema_path = os.path.join(_SCHEMA_DIR, 'strategy_map.schema.json')
+    with open(schema_path) as f:
+        schema = json.load(f)
+    jsonschema.Draft202012Validator(schema).validate(strategy_map)
+
+
+def save_strategy_map(deck_dir, strategy_map):
+    """Save a strategy map to the DeckContext directory.
+
+    Validates against the StrategyMap schema before writing.
+    Uses an atomic write (write to .tmp then os.replace) to avoid
+    partial writes.
+
+    Args:
+        deck_dir: Path to the deck working directory.
+        strategy_map: dict conforming to StrategyMap schema.
+
+    Raises:
+        jsonschema.ValidationError: If strategy_map is invalid.
+    """
+    _validate_strategy_map(strategy_map)
+    path = os.path.join(deck_dir, 'strategy-map.json')
+    tmp_path = path + '.tmp'
+    with open(tmp_path, 'w') as f:
+        json.dump(strategy_map, f, indent=2)
+        f.write('\n')
+    os.replace(tmp_path, path)
+
+
+def load_strategy_map(deck_dir):
+    """Load a strategy map from the DeckContext directory.
+
+    Args:
+        deck_dir: Path to the deck working directory.
+
+    Returns:
+        dict: The parsed strategy map.
+
+    Raises:
+        FileNotFoundError: If strategy-map.json does not exist in deck_dir.
+    """
+    path = os.path.join(deck_dir, 'strategy-map.json')
+    if not os.path.exists(path):
+        raise FileNotFoundError(f'No strategy-map.json in {deck_dir}')
+    with open(path) as f:
+        return json.load(f)
