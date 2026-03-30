@@ -29,6 +29,18 @@ RoutingDecision = namedtuple('RoutingDecision', [
     'is_fallback',     # whether this was a fallback choice
 ])
 
+UpgradeDecision = namedtuple('UpgradeDecision', [
+    'slide_number',
+    'image_id',
+    'action',           # 'upgrade' or 'keep'
+    'reason',
+    'draft_prompt',     # carried from draft manifest (None if absent)
+    'target_provider',  # provider for upgrade (None if keep)
+    'target_model',     # model for upgrade (None if keep)
+    'target_size',      # size string e.g. '1536x1024' (None if keep)
+    'estimated_cost_usd',
+])
+
 
 # --- Routing Matrix ---
 # Maps (visual_type, mode) -> list of RoutingTargets in priority order.
@@ -125,6 +137,12 @@ SLIDE_TYPE_TO_VISUAL_TYPE = {
 }
 
 VALID_VISUAL_TYPES = {'hero_image', 'icon_set', 'pattern_background', 'diagram', 'chart', 'none'}
+
+# Models/tools that already produce high-quality output
+_PRODUCTION_QUALITY_SOURCES = {'svg-convert', 'matplotlib', 'render_chart'}
+
+# Visual types that benefit from cloud upgrade
+_UPGRADEABLE_VISUAL_TYPES = {'hero_image', 'pattern_background', 'icon_set'}
 
 
 def classify_visual_type(slide):
@@ -316,3 +334,98 @@ def generate_placeholder_color(palette, visual_type):
     }
     key = colour_map.get(visual_type, 'primary')
     return palette.get(key, palette.get('primary', '333333'))
+
+
+def plan_production_upgrade(draft_manifest, outline, available_providers, budget_state):
+    """Plan which images to upgrade from draft to production quality.
+
+    Args:
+        draft_manifest: dict from image-manifest.json.
+        outline: dict from outline.json with 'slides' array.
+        available_providers: dict from provider_discovery.
+        budget_state: dict with 'budget_state' and 'remaining_usd'.
+
+    Returns:
+        list[UpgradeDecision]: One decision per manifest entry.
+    """
+    remaining = budget_state.get('remaining_usd', 0.0)
+    slide_types = {
+        s['slide_number']: classify_visual_type(s)
+        for s in outline.get('slides', [])
+    }
+
+    decisions = []
+    for entry in draft_manifest.get('images', []):
+        slide_num = entry.get('slide_number', 0)
+        image_id = entry.get('image_id', '')
+        model_used = entry.get('model_used', '')
+        visual_type = slide_types.get(slide_num, 'none')
+        draft_prompt = entry.get('source_prompt')
+
+        # Already production quality?
+        if model_used in _PRODUCTION_QUALITY_SOURCES:
+            decisions.append(UpgradeDecision(
+                slide_number=slide_num,
+                image_id=image_id,
+                action='keep',
+                reason=f'Already production quality ({model_used})',
+                draft_prompt=draft_prompt,
+                target_provider=None,
+                target_model=None,
+                target_size=None,
+                estimated_cost_usd=0.0,
+            ))
+            continue
+
+        # Not a type that benefits from upgrade?
+        if visual_type not in _UPGRADEABLE_VISUAL_TYPES:
+            decisions.append(UpgradeDecision(
+                slide_number=slide_num,
+                image_id=image_id,
+                action='keep',
+                reason=f'Visual type {visual_type} does not benefit from cloud upgrade',
+                draft_prompt=draft_prompt,
+                target_provider=None,
+                target_model=None,
+                target_size=None,
+                estimated_cost_usd=0.0,
+            ))
+            continue
+
+        # Find the best production route
+        route = route_slide(
+            {'slide_number': slide_num, 'visual_type': visual_type},
+            'production',
+            available_providers,
+            budget_state.get('budget_state', 'allow'),
+        )
+
+        # Budget check
+        if route.cost_per_image > remaining:
+            decisions.append(UpgradeDecision(
+                slide_number=slide_num,
+                image_id=image_id,
+                action='keep',
+                reason=f'Upgrade cost ${route.cost_per_image:.3f} exceeds remaining ${remaining:.2f}',
+                draft_prompt=draft_prompt,
+                target_provider=None,
+                target_model=None,
+                target_size=None,
+                estimated_cost_usd=0.0,
+            ))
+            continue
+
+        remaining -= route.cost_per_image
+        decisions.append(UpgradeDecision(
+            slide_number=slide_num,
+            image_id=image_id,
+            action='upgrade',
+            reason=f'{visual_type} benefits from cloud quality',
+            draft_prompt=draft_prompt,
+            target_provider=route.provider,
+            target_model=route.model,
+            target_size='1536x1024',
+            estimated_cost_usd=route.cost_per_image,
+        ))
+
+    return decisions

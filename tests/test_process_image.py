@@ -194,3 +194,49 @@ class TestOptimizePng:
         img = Image.open(result['path'])
         assert img.size[0] > 0
         assert img.size[1] > 0
+
+
+@pytest.fixture
+def test_svg(tmp_dir):
+    """Create a minimal valid SVG file."""
+    path = os.path.join(tmp_dir, 'test.svg')
+    with open(path, 'w') as f:
+        f.write(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">'
+            '<rect width="400" height="300" fill="#006B5E"/>'
+            '</svg>'
+        )
+    return path
+
+
+def test_rasterize_svg_basic(tmp_dir, test_svg):
+    from src.process_image import rasterize_svg
+    output = os.path.join(tmp_dir, 'output.png')
+    result = rasterize_svg(test_svg, output, width=800)
+    assert result['path'] == output
+    assert os.path.exists(output)
+    assert result['width'] == 800
+    assert result['height'] == 600  # maintains 4:3 aspect
+    assert len(result['content_hash']) == 64
+
+
+def test_rasterize_svg_explicit_height(tmp_dir, test_svg):
+    from src.process_image import rasterize_svg
+    output = os.path.join(tmp_dir, 'output.png')
+    result = rasterize_svg(test_svg, output, width=800, height=800, keep_aspect=False)
+    assert result['width'] == 800
+    assert result['height'] == 800
+
+
+def test_rasterize_svg_missing_file(tmp_dir):
+    from src.process_image import rasterize_svg
+    with pytest.raises(FileNotFoundError):
+        rasterize_svg('/no/such/file.svg', os.path.join(tmp_dir, 'out.png'))
+
+
+def test_rasterize_svg_no_rsvg(tmp_dir, test_svg, monkeypatch):
+    from src import process_image
+    monkeypatch.setattr(process_image, '_RSVG_CONVERT_PATH', None)
+    output = os.path.join(tmp_dir, 'output.png')
+    with pytest.raises(RuntimeError, match='rsvg-convert'):
+        process_image.rasterize_svg(test_svg, output)
