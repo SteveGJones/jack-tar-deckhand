@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://jack-tar.dev/schemas/pipeline-state.json",
   "title": "PipelineState",
-  "description": "Pipeline execution metadata and step tracking.",
+  "description": "Pipeline execution metadata, step tracking, draft/production lifecycle, and budget.",
   "type": "object",
   "required": ["pipeline_id", "created_at", "steps"],
   "properties": {
@@ -15,6 +15,58 @@
       "enum": ["running", "completed", "failed", "paused"]
     },
     "current_step": {"type": "string"},
+    "phase": {
+      "type": "string",
+      "enum": ["draft", "production"],
+      "description": "Current lifecycle phase"
+    },
+    "draft_cycle": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Current draft iteration number"
+    },
+    "qa_correction_cycle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "description": "QA correction cycle within current draft (max 2)"
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "total_budget_usd": {"type": "number"},
+        "spent_usd": {"type": "number"},
+        "remaining_usd": {"type": "number"},
+        "utilisation": {"type": "number"},
+        "budget_state": {
+          "type": "string",
+          "enum": ["allow", "allow_with_caps", "degrade", "typography_only"]
+        },
+        "api_call_count": {"type": "integer"},
+        "cache_hits": {"type": "integer"},
+        "cache_savings_usd": {"type": "number"}
+      }
+    },
+    "available_providers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "available": {"type": "boolean"}
+        }
+      }
+    },
+    "speaker_approvals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "decision": {"type": "string"},
+          "timestamp": {"type": "string"},
+          "context": {"type": "string"}
+        }
+      }
+    },
     "steps": {
       "type": "object",
       "additionalProperties": {
