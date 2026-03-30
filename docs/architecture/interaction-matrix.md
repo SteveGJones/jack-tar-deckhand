@@ -12,7 +12,7 @@ This document maps all interactions between entities in the Jack-Tar Deckhand ar
 | ID | Source | Target | Type | Data Flows |
 |---|---|---|---|---|
 | `int-speaker-to-conductor` | Speaker | Deck Conductor | invocation | TalkBrief, Creative decisions, Budget approval |
-| `int-conductor-to-design` | Deck Conductor | Design Services | invocation | TalkBrief, Brand assets (optional) |
+| `int-conductor-to-design` | Deck Conductor | Design Services | invocation | TalkBrief, BrandProfile, Brand assets (optional) |
 | `int-conductor-to-content` | Deck Conductor | Content Services | invocation | TalkBrief, StyleGuide |
 | `int-conductor-to-image` | Deck Conductor | Image Services | invocation | SlideOutline (visual_direction), StyleGuide (palette), Budget constraints |
 | `int-conductor-to-assembly` | Deck Conductor | Assembly & QA Services | invocation | SlideOutline, StyleGuide, ImageManifest, ChartManifest, SpeakerNotes |
@@ -38,6 +38,10 @@ This document maps all interactions between entities in the Jack-Tar Deckhand ar
 | `int-bridge-to-expert` | Image Routing & Discovery | Image Generation Expert | consultation | Model selection advice |
 | `int-qa-correction-loop` | Visual QA | Deck Conductor | feedback | QA findings for correction cycle (max 2) |
 | `int-reviewer-feedback` | Presentation Reviewer | Deck Conductor | feedback | Structured review for Speaker decision |
+| `int-conductor-to-brand-manager` | Deck Conductor | Brand Profile Management | invocation | TalkBrief, Brand assets (logo, PDF, .pptx template, hex/font input) |
+| `int-brand-manager-to-stylist` | Brand Profile Management | Style Derivation | data-provision | BrandProfile |
+| `int-brand-profile-to-image-expert` | Brand Profile Management | Image Generation Expert | data-provision | BrandProfile (approved_image_styles, prohibited_image_styles) |
+| `int-conductor-design-options-to-speaker` | Deck Conductor | Speaker | consultation | Design options, BrandProfile summary, Compliance mode |
 
 ---
 
@@ -52,9 +56,13 @@ Speaker
   v
 Deck Conductor
   |
-  |--[1. invocation]--> Design Services
-  |                     (TalkBrief, brand assets)
-  |                     Returns: StyleGuide
+  |--[1a. invocation]--> Brand Profile Management
+  |                      (TalkBrief, brand assets)
+  |                      Returns: BrandProfile
+  |
+  |--[1b. invocation]--> Design Services
+  |                      (TalkBrief, BrandProfile)
+  |                      Returns: StyleGuide
   |
   |--[2. invocation]--> Content Services
   |                     (TalkBrief, StyleGuide)
@@ -77,11 +85,13 @@ Speaker
 | # | Source | Target | Type | Data Flows |
 |---|---|---|---|---|
 | 1 | Speaker | Deck Conductor | invocation | TalkBrief, Creative decisions, Budget approval |
-| 2 | Deck Conductor | Design Services | invocation | TalkBrief, Brand assets (optional) |
-| 3 | Deck Conductor | Content Services | invocation | TalkBrief, StyleGuide |
-| 4 | Deck Conductor | Image Services | invocation | SlideOutline (visual_direction), StyleGuide (palette), Budget constraints |
-| 5 | Deck Conductor | Assembly & QA Services | invocation | SlideOutline, StyleGuide, ImageManifest, ChartManifest, SpeakerNotes |
-| 6 | Deck Conductor | Speaker | delivery | .pptx file, QAReport, Presentation Review, Cost summary |
+| 2 | Deck Conductor | Brand Profile Management | invocation | TalkBrief, Brand assets (logo, PDF, .pptx template, hex/font input) |
+| 3 | Deck Conductor | Design Services | invocation | TalkBrief, BrandProfile |
+| 4 | Deck Conductor | Speaker | consultation | Design options, BrandProfile summary, Compliance mode |
+| 5 | Deck Conductor | Content Services | invocation | TalkBrief, StyleGuide |
+| 6 | Deck Conductor | Image Services | invocation | SlideOutline (visual_direction), StyleGuide (palette), Budget constraints |
+| 7 | Deck Conductor | Assembly & QA Services | invocation | SlideOutline, StyleGuide, ImageManifest, ChartManifest, SpeakerNotes |
+| 8 | Deck Conductor | Speaker | delivery | .pptx file, QAReport, Presentation Review, Cost summary |
 
 ---
 
@@ -206,9 +216,10 @@ Deck Conductor
 
 | Type | Count | Description |
 |---|---|---|
-| invocation | 16 | One entity calls another to perform work |
+| invocation | 17 | One entity calls another to perform work |
 | probe | 5 | Runtime discovery of provider availability |
-| consultation | 3 | Advisory request to an AI Persona (no side effects) |
+| consultation | 4 | Advisory request to an AI Persona or human actor (no side effects) |
+| data-provision | 2 | One service provides data artefacts to another |
 | delivery | 1 | Final output delivered to the Speaker |
 | feedback | 2 | Quality findings returned to the Conductor for action |
-| **Total** | **27** | |
+| **Total** | **31** | |

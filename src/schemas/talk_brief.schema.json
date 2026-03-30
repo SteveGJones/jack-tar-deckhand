@@ -37,10 +37,29 @@
       "additionalProperties": false,
       "properties": {
         "company_name": {"type": "string"},
+        "brand_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Reference to an existing BrandProfile. If provided, brand-manager loads the cached profile."
+        },
         "logo_path": {"type": "string"},
+        "brand_guidelines_path": {
+          "type": "string",
+          "description": "Path to a brand guidelines PDF for extraction."
+        },
+        "template_pptx_path": {
+          "type": "string",
+          "description": "Path to a corporate .pptx template for style extraction."
+        },
         "primary_color": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
         "secondary_color": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
-        "font_preference": {"type": "string"}
+        "font_preference": {"type": "string"},
+        "compliance_mode": {
+          "type": "string",
+          "enum": ["strict", "guided"],
+          "default": "guided",
+          "description": "strict: brand values non-negotiable. guided: brand as foundation, Speaker approves extensions."
+        }
       }
     },
     "preferences": {

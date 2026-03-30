@@ -32,7 +32,7 @@ L0  Presentation Engineering
     |
     +-- L1  Design Services
     |   +-- L2  Style Derivation          [skill: slide-stylist]
-    |   +-- L2  Brand Extraction          [capability: slide-stylist]
+    |   +-- L2  Brand Profile Management  [skill: brand-manager]
     |   +-- L2  Layout Intelligence       [capability: slide-stylist]
     |
     +-- L1  Content Services
@@ -58,7 +58,7 @@ L0  Presentation Engineering
         +-- L2  Presentation Reviewer     [AI Persona - Advisory]
 ```
 
-**Totals:** 1 L0, 5 L1, 19 L2 (13 skills, 3 capabilities, 3 AI Personas)
+**Totals:** 1 L0, 5 L1, 19 L2 (14 skills, 2 capabilities, 3 AI Personas)
 
 ### Architecture Diagrams
 
@@ -103,7 +103,7 @@ The pipeline operates in two phases: **Draft** and **Production**. The Speaker i
 
 Each draft cycle runs the full pipeline to produce a reviewable deck. The Speaker iterates on narrative, layout, slide structure, and visual direction across multiple cycles:
 
-- **Design + Content**: Run at full quality (LLM text generation, no cost difference between draft and production)
+- **Design + Content**: Run at full quality (LLM text generation, no cost difference between draft and production). The brand-manager runs first to obtain or create a BrandProfile, then the slide-stylist derives the StyleGuide from it
 - **Image**: Uses draft-quality rendering — Ollama for structural placeholders, or cloud providers at reduced size/quality for prompt refinement
 - **Assembly + QA + Review**: Build and review the draft deck
 
@@ -128,7 +128,8 @@ Once the Speaker approves the draft:
 
 | Step | Requires | Produces |
 |---|---|---|
-| Design | TalkBrief, brand assets (optional) | StyleGuide |
+| Brand Profile | TalkBrief, brand assets (logo, PDF, .pptx template, hex/font input) | BrandProfile |
+| Design | TalkBrief, BrandProfile | StyleGuide |
 | Content | TalkBrief, StyleGuide | SlideOutline, SpeakerNotes |
 | Image (draft) | SlideOutline, StyleGuide, AvailableProviders | ImageManifest (low-res) |
 | Image (production) | SlideOutline, StyleGuide, AvailableProviders, Speaker approval | ImageManifest (full quality) |
@@ -203,7 +204,7 @@ The Visual QA (deck-qa) runs 25 automated, machine-checkable anti-pattern checks
 
 | Actor | Role | Relationship |
 |---|---|---|
-| **Speaker** | Primary user | Provides TalkBrief, makes creative decisions, approves budget, receives finished deck |
+| **Speaker** | Primary user | Provides TalkBrief, reviews BrandProfile, makes creative decisions, approves budget, receives finished deck |
 | **Reviewer** | Optional human reviewer | Reviews QAReport and Presentation Review output for content accuracy and brand compliance |
 
 ---
@@ -214,8 +215,8 @@ The Visual QA (deck-qa) runs 25 automated, machine-checkable anti-pattern checks
 |---|---|---|
 | Service Catalogue | [service-catalogue.md](service-catalogue.md) | Full listing of all 25 services with hierarchy |
 | AI Persona Summaries | [ai-persona-summaries.md](ai-persona-summaries.md) | Detailed persona specifications |
-| Interaction Matrix | [interaction-matrix.md](interaction-matrix.md) | All 27 interactions between entities |
+| Interaction Matrix | [interaction-matrix.md](interaction-matrix.md) | All 31 interactions between entities |
 | System Actor Registry | [system-actor-registry.md](system-actor-registry.md) | External systems, configuration, discovery |
-| Data Contracts | [data-contracts.md](data-contracts.md) | All 10 data contracts with schemas |
+| Data Contracts | [data-contracts.md](data-contracts.md) | All 11 data contracts with schemas |
 | Canonical Model | [../../.bsa/models/jack-tar-deckhand.json](../../.bsa/models/jack-tar-deckhand.json) | Machine-readable source of truth |
 | DeckContext Research | [../../research/12-deckcontext-state-management.md](../../research/12-deckcontext-state-management.md) | Full JSON schemas and state management design |
