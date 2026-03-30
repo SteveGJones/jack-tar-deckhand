@@ -67,3 +67,55 @@ def test_palette_drift_no_images_no_issues(tmp_dir):
     brand_palette = ['006B5E']
     issues = check_palette_drift(slide, 1, brand_palette=brand_palette)
     assert len(issues) == 0
+
+
+def test_run_qa_skips_text_checks_on_full_render(tmp_dir):
+    """full_render slides should not get wall-of-text or font-size errors."""
+    import json
+    from src.qa.run_qa import run_qa
+
+    # Create a deck dir with a strategy map marking slide 1 as full_render
+    deck_dir = os.path.join(tmp_dir, 'deck')
+    os.makedirs(deck_dir, exist_ok=True)
+    strategy_map = {
+        'approval_mode': 'review',
+        'slides': [{'slide_number': 1, 'strategy': 'full_render', 'rationale': 'test', 'render_funnel': ['ollama']}],
+    }
+    with open(os.path.join(deck_dir, 'strategy-map.json'), 'w') as f:
+        json.dump(strategy_map, f)
+
+    # Create a minimal pptx with one image-only slide
+    pptx_path = _make_pptx_with_image(tmp_dir, (0, 107, 94), 'qa_test.pptx')
+    report = run_qa(pptx_path, deck_dir)
+
+    # Should not have wall-of-text or font-size errors for slide 1
+    text_errors = [f for f in report['findings']
+                   if f['slide_number'] == 1 and f['category'] in ('text_overflow', 'consistency')]
+    assert len(text_errors) == 0
+
+
+def test_run_qa_applies_palette_drift_on_full_render(tmp_dir):
+    """full_render slides should get palette drift checks."""
+    import json
+    from src.qa.run_qa import run_qa
+
+    deck_dir = os.path.join(tmp_dir, 'deck')
+    os.makedirs(deck_dir, exist_ok=True)
+    strategy_map = {
+        'approval_mode': 'review',
+        'slides': [{'slide_number': 1, 'strategy': 'full_render', 'rationale': 'test', 'render_funnel': ['ollama']}],
+    }
+    with open(os.path.join(deck_dir, 'strategy-map.json'), 'w') as f:
+        json.dump(strategy_map, f)
+
+    # Brand profile with palette
+    brand_profile = {'palette': {'primary': '006B5E', 'secondary': '4B635B'}}
+    with open(os.path.join(deck_dir, 'brand-profile.json'), 'w') as f:
+        json.dump(brand_profile, f)
+
+    # Create pptx with an off-brand red image
+    pptx_path = _make_pptx_with_image(tmp_dir, (255, 0, 0), 'drift_test.pptx')
+    report = run_qa(pptx_path, deck_dir)
+
+    drift_findings = [f for f in report['findings'] if f['category'] == 'palette_drift']
+    assert len(drift_findings) >= 1
