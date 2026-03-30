@@ -733,6 +733,52 @@ function buildClosingSlide(pptx, slideData, ctx) {
     }
 }
 
+/**
+ * Full-render keynote slide: entire slide is a single AI-generated image.
+ * No text boxes, no shapes — just a full-bleed image + speaker notes.
+ * Logo overlay is optional (controlled by style guide).
+ */
+function buildFullRenderSlide(pptx, slideData, ctx) {
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData } = ctx;
+
+    const slide = pptx.addSlide();
+
+    // Full-bleed image covering the entire slide
+    if (imageData) {
+        const imgPath = resolveImagePath(imageData.file_path);
+        if (fs.existsSync(imgPath)) {
+            slide.addImage({
+                path: imgPath,
+                x: 0,
+                y: 0,
+                w: SLIDE_W,
+                h: SLIDE_H,
+                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                altText: imageData.alt_text || '',
+            });
+        }
+    }
+
+    // Optional logo overlay (bottom-left, same position as title/closing slides)
+    if (hasLogo) {
+        const logoH = 0.55;
+        const logoW = logoH * (169 / 200);
+        slide.addImage({
+            path: logoPath,
+            x: MARGIN,
+            y: SLIDE_H - MARGIN - logoH,
+            w: logoW,
+            h: logoH,
+            altText: 'Logo',
+        });
+    }
+
+    // Speaker notes
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
 // Run
 assembleDeck().catch(err => {
     console.error('Assembly failed:', err);
