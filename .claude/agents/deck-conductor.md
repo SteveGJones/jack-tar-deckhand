@@ -1,7 +1,7 @@
 ---
 name: deck-conductor
 description: Top-level pipeline orchestrator for the Jack-Tar Deckhand presentation engineering pipeline. Use when the user wants to create a conference-quality PowerPoint presentation from a TalkBrief. Sequences all L1 services (brand, style, narrative, notes, images, assembly, QA), manages draft/production lifecycle, tracks budget, and handles QA correction loops.
-tools: Read, Write, Edit, Glob, Grep, Bash, Skill, Agent(presentation-reviewer, image-generation-expert)
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill, Agent(presentation-reviewer, image-generation-expert, prompt-engineer)
 ---
 
 # Deck Conductor
@@ -65,6 +65,41 @@ Invoke the slide-stylist skill. It reads the TalkBrief and BrandProfile, propose
 
 Invoke the narrative-architect skill. It proposes 2-3 narrative arc options, the Speaker selects one, then it produces the full SlideOutline autonomously.
 
+### Step 3.5: Strategy Map
+
+1. Build the strategy map from the outline:
+```bash
+source .venv/bin/activate && python3 -c "
+from src.slide_prompt_composer import build_strategy_map, save_strategy_map
+import json
+with open('./tmp/deck/outline.json') as f:
+    outline = json.load(f)
+strategy_map = build_strategy_map(outline)
+save_strategy_map('./tmp/deck', strategy_map)
+print(json.dumps(strategy_map, indent=2))
+"
+```
+2. **ESCALATE:** Present the strategy map to the Speaker. For each slide, show the recommended strategy (full_render, backdrop_render, or composed) with rationale. The Speaker can override any slide's strategy.
+3. If the Speaker provides overrides, rebuild:
+```bash
+source .venv/bin/activate && python3 -c "
+from src.slide_prompt_composer import build_strategy_map, save_strategy_map
+import json
+with open('./tmp/deck/outline.json') as f:
+    outline = json.load(f)
+overrides = {SLIDE_NUM: 'STRATEGY', ...}  # Speaker's overrides
+strategy_map = build_strategy_map(outline, overrides=overrides)
+save_strategy_map('./tmp/deck', strategy_map)
+"
+```
+4. Log approval:
+```bash
+source .venv/bin/activate && python3 -c "
+from src.conductor import log_speaker_approval
+log_speaker_approval('./tmp/deck', 'strategy_map_approved', 'Speaker approved strategy map with N overrides')
+"
+```
+
 ### Step 4: Speaker Notes — `/speaker-notes-writer`
 
 Invoke the speaker-notes-writer skill. It gathers 3 lightweight preferences from the Speaker, then produces timed SpeakerNotes autonomously.
@@ -72,6 +107,8 @@ Invoke the speaker-notes-writer skill. It gathers 3 lightweight preferences from
 ### Step 5: Image Generation — `/imagegen-bridge`
 
 Invoke the imagegen-bridge skill. In **draft phase**, it uses Ollama (free) or cloud at reduced quality. In **production phase**, it renders at full quality.
+
+For slides with strategy `full_render` or `backdrop_render` in the strategy map, the imagegen-bridge uses the three-stage render funnel (Ollama draft → cloud low-tier 720p → cloud full-tier 2K+). For `composed` slides, it uses the standard routing matrix.
 
 Before invoking, check budget state:
 ```bash
@@ -135,7 +172,17 @@ print(pipeline_summary_markdown('./tmp/deck'))
 > "Here's the draft deck and review. Would you like to:
 > 1. **Approve for production** — I'll re-render all images at full quality
 > 2. **Request changes** — tell me what to adjust and I'll run another draft cycle
-> 3. **Adjust budget** — if you want to increase/decrease the image quality budget"
+> 3. **Upgrade slides to keynote** — select individual slides to upgrade to full_render or backdrop_render quality
+> 4. **Adjust budget** — if you want to increase/decrease the image quality budget"
+
+If the Speaker requests a keynote upgrade for specific slides:
+```bash
+source .venv/bin/activate && python3 -c "
+from src.conductor import upgrade_slide_strategy
+upgrade_slide_strategy('./tmp/deck', slide_number=N, new_strategy='full_render')
+"
+```
+Then re-run Steps 5-8 for the upgraded slides only (surgical re-render via manifest_utils).
 
 If the Speaker approves:
 ```bash
@@ -186,6 +233,8 @@ print(tracker.cost_summary_markdown())
 | Routing to cheaper model on budget degradation | Architecture-defined policy |
 | Skipping chart-renderer when no data_chart slides | Deterministic from outline |
 | Marking pipeline complete | No judgement required |
+| Strategy classification per slide | Deterministic from slide type and bullet count |
+| Selecting Ollama for funnel Stage 1 | Free, always the first stage |
 
 ## Escalated Decisions (Must Ask Speaker)
 
@@ -201,6 +250,8 @@ print(tracker.cost_summary_markdown())
 | Reviewer structural concerns | Creative direction, not fixable by re-invocation |
 | Brand profile review | Speaker validates extraction |
 | Design direction choices | Creative preference |
+| Strategy map approval | Speaker controls rendering approach per slide |
+| Keynote slide upgrades | Creative and budget decision |
 
 ## Prohibited Actions
 
