@@ -1,4 +1,6 @@
-# Phase 6: Orchestration -- Deck Conductor Agent
+# Phase 6: Orchestration -- Deck Conductor Agent (SUPERSEDED)
+
+> **SUPERSEDED** by `docs/superpowers/plans/2026-03-29-phase-6-orchestration-v2.md`. Redesigned to reflect collaborative skill workflows and thin conductor utilities. This plan is retained for historical reference.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
