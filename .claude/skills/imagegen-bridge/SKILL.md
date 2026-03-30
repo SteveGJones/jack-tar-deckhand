@@ -1,6 +1,6 @@
 ---
 name: imagegen-bridge
-description: Top-level image orchestrator. Routes all slide image generation to the appropriate skill (ollama-image, ollama-icon, ollama-pattern, ollama-diagram, cloud-generate-image, cloud-generate-icon, render_chart). Produces ImageManifest and ChartManifest.
+description: Top-level image orchestrator. Routes all slide image generation to the appropriate skill (ollama-image, ollama-icon, ollama-pattern, ollama-diagram, cloud-generate-image, cloud-generate-icon, render_chart). Produces ImageManifest and ChartManifest. Also reads strategy-map.json to determine per-slide rendering approach (full_render, backdrop_render, composed).
 argument-hint: --mode draft|production
 allowed-tools: Bash(python *), Bash(curl *), Read, Glob, Skill
 ---
@@ -45,8 +45,10 @@ Read the required DeckContext files:
 1. Read `./tmp/deck/outline.json` (SlideOutline) using the Read tool
 2. Read `./tmp/deck/style-guide.json` (StyleGuide) using the Read tool
 3. Read `./tmp/deck/talk-brief.json` (TalkBrief) using the Read tool -- needed for data_sources (charts)
+4. Read `./tmp/deck/strategy-map.json` (StrategyMap) if it exists — determines per-slide rendering strategy
+5. Read `./tmp/deck/brand-profile.json` (BrandProfile) if it exists — provides palette for prompt constraints
 
-Verify all three files exist. If any is missing, report the error and stop.
+Verify all three required files exist. If any is missing, report the error and stop.
 
 Parse the JSON content of each file.
 
@@ -70,6 +72,10 @@ else:
 Parse the budget state. The `state` field is one of: `allow`, `allow_with_caps`, `degrade`, `typography_only`.
 
 ## Step 4: Route All Slides
+
+If a strategy map exists, check each slide's strategy before routing:
+- **full_render** or **backdrop_render** slides: Use the three-stage render funnel. Dispatch the `prompt-engineer` agent (Haiku model) with a structured brief from `assemble_brief()`, then render through Ollama → cloud_low → cloud_full stages.
+- **composed** slides: Use the standard routing matrix (unchanged).
 
 Use the image router to determine which skill handles each slide:
 
@@ -100,6 +106,46 @@ Review the routing decisions. Report a summary table:
 
 | Slide | Visual Type | Skill | Provider | Model | Est. Cost | Fallback? |
 |-------|-------------|-------|----------|-------|-----------|-----------|
+
+### Step 4.5: Render Funnel (for keynote slides)
+
+For slides with strategy `full_render` or `backdrop_render`:
+
+1. Assemble a structured brief:
+```bash
+source .venv/bin/activate && python3 -c "
+from src.slide_prompt_composer import assemble_brief
+import json
+with open('./tmp/deck/outline.json') as f:
+    outline = json.load(f)
+with open('./tmp/deck/style-guide.json') as f:
+    style_guide = json.load(f)
+brief = assemble_brief(outline['slides'][SLIDE_INDEX], 'STRATEGY', style_guide, brand_profile, 'FUNNEL_STAGE')
+print(json.dumps(brief, indent=2))
+"
+```
+
+2. Dispatch the `prompt-engineer` agent with the brief to generate the image prompt.
+
+3. Execute the funnel stage:
+```bash
+source .venv/bin/activate && python3 -c "
+from src.render_funnel import execute_funnel_stage
+result = execute_funnel_stage(
+    deck_dir='./tmp/deck',
+    slide_number=N,
+    strategy='STRATEGY',
+    prompt='GENERATED_PROMPT',
+    funnel_stage='STAGE',
+    model='MODEL',
+    output_path='./tmp/deck/images/slide-NN-hero.png',
+)
+import json; print(json.dumps(result, indent=2))
+"
+```
+
+4. After Stage 1 (Ollama), review the result. If acceptable, proceed to Stage 2 (cloud_low). If not, refine the prompt and retry (up to 3 iterations).
+5. After Stage 2 (cloud_low), if acceptable, proceed to Stage 3 (cloud_full). This is the final render -- no iteration at this tier.
 
 ## Step 5: Check Cache for Each Image
 

@@ -48,6 +48,14 @@ source .venv/bin/activate && python -m src.qa.run_qa --pptx-path ./tmp/deck/outp
 - AP-12: Image Resolution Too Low for Placement Size
 - AP-13: Image Aspect Ratio Distortion (>5%)
 
+**Keynote Slide Checks (strategy-aware):**
+- AP-26: Palette Drift — dominant colours in full_render/backdrop_render images compared against brand palette (RGB distance threshold)
+
+When `strategy-map.json` exists in the deck directory, QA routes checks per slide:
+- **full_render** slides: skip text checks (AP-01, AP-02, etc.), run image quality + palette drift
+- **backdrop_render** slides: run all standard checks + palette drift
+- **composed** slides: standard 25 checks (unchanged)
+
 **Animations & Charts:**
 - AP-21: Excessive Animation/Transition Types (>2)
 - AP-22: Poor Data-Ink Ratio (3D charts, minor gridlines)
