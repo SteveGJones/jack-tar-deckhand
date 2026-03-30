@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/strategy-map.json",
+  "title": "StrategyMap",
+  "description": "Per-slide rendering strategy classification for keynote pipeline.",
+  "type": "object",
+  "required": ["approval_mode", "slides"],
+  "properties": {
+    "created_at": {"type": "string"},
+    "approval_mode": {
+      "type": "string",
+      "enum": ["review", "one_shot"]
+    },
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slide_number", "strategy", "rationale", "render_funnel"],
+        "properties": {
+          "slide_number": {"type": "integer", "minimum": 1},
+          "strategy": {
+            "type": "string",
+            "enum": ["full_render", "backdrop_render", "composed"]
+          },
+          "rationale": {"type": "string"},
+          "render_funnel": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["ollama", "cloud_low", "cloud_full"]
+            }
+          },
+          "speaker_override": {
+            "type": ["string", "null"],
+            "enum": ["full_render", "backdrop_render", "composed", null]
+          }
+        }
+      }
+    }
+  }
+}

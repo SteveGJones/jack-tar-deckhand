@@ -3,6 +3,7 @@
 import json
 import os
 import pytest
+import jsonschema
 from jsonschema import validate, ValidationError
 
 SCHEMA_DIR = os.path.join(os.path.dirname(__file__), '..', 'src', 'schemas')
@@ -275,3 +276,67 @@ class TestTalkBriefBrandingExtensions:
         schema = load_schema('talk_brief')
         with pytest.raises(ValidationError):
             validate(instance=brief, schema=schema)
+
+
+class TestStrategyMapSchema:
+    @pytest.fixture
+    def schema(self):
+        with open('src/schemas/strategy_map.schema.json') as f:
+            return json.load(f)
+
+    def test_valid_strategy_map(self, schema):
+        data = {
+            "created_at": "2026-03-29T12:00:00Z",
+            "approval_mode": "review",
+            "slides": [
+                {
+                    "slide_number": 1,
+                    "strategy": "full_render",
+                    "rationale": "Title slide with dramatic visual",
+                    "render_funnel": ["ollama", "cloud_low", "cloud_full"],
+                    "speaker_override": None
+                }
+            ]
+        }
+        jsonschema.Draft202012Validator(schema).validate(data)
+
+    def test_invalid_strategy_fails(self, schema):
+        data = {
+            "created_at": "2026-03-29T12:00:00Z",
+            "approval_mode": "review",
+            "slides": [
+                {
+                    "slide_number": 1,
+                    "strategy": "invalid_strategy",
+                    "rationale": "Test",
+                    "render_funnel": ["ollama"]
+                }
+            ]
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.Draft202012Validator(schema).validate(data)
+
+    def test_invalid_approval_mode_fails(self, schema):
+        data = {
+            "created_at": "2026-03-29T12:00:00Z",
+            "approval_mode": "invalid",
+            "slides": []
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.Draft202012Validator(schema).validate(data)
+
+    def test_invalid_funnel_stage_fails(self, schema):
+        data = {
+            "created_at": "2026-03-29T12:00:00Z",
+            "approval_mode": "review",
+            "slides": [
+                {
+                    "slide_number": 1,
+                    "strategy": "composed",
+                    "rationale": "Test",
+                    "render_funnel": ["invalid_stage"]
+                }
+            ]
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.Draft202012Validator(schema).validate(data)
