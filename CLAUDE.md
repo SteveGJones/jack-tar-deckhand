@@ -26,7 +26,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Phase 5: Assembly & QA — COMPLETE (67 tests, 327 total)
   - Phase 2: Design Services — COMPLETE (27 tests, 354 total)
   - Phase 3: Content Services — COMPLETE (12 tests, 366 total)
-  - Phase 6: Orchestration (deck-conductor) — planned, NEXT
+  - Phase 6: Orchestration (deck-conductor) — COMPLETE (19 tests, 385 total)
 
 - **Existing ollama-* skills are upstream — do NOT fork or modify them.** The imagegen-bridge handles all DeckContext integration.
 
@@ -53,6 +53,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Style validation | `src/style_validation.py` | 10 | Done |
 | Schema tests (P2) | `tests/test_schemas.py` | 5 | Done |
 | Content validation | `src/content_validation.py` | 12 | Done |
+| Conductor utils | `src/conductor.py` | 19 | Done |
 
 ### Architecture Summary
 
