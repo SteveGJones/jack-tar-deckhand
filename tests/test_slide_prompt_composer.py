@@ -111,3 +111,34 @@ def test_classify_returns_render_funnel(sample_outline):
     result = classify_slide_strategy(sample_outline["slides"][0])
     assert "render_funnel" in result
     assert result["render_funnel"] == ["ollama", "cloud_low", "cloud_full"]
+
+
+def test_build_strategy_map(sample_outline):
+    from src.slide_prompt_composer import build_strategy_map
+    result = build_strategy_map(sample_outline)
+    assert result["approval_mode"] == "review"
+    assert len(result["slides"]) == 6
+    assert "created_at" in result
+
+
+def test_build_strategy_map_validates_against_schema(sample_outline):
+    import jsonschema
+    from src.slide_prompt_composer import build_strategy_map
+    result = build_strategy_map(sample_outline)
+    with open("src/schemas/strategy_map.schema.json") as f:
+        schema = json.load(f)
+    jsonschema.Draft202012Validator(schema).validate(result)
+
+
+def test_build_strategy_map_with_override(sample_outline):
+    from src.slide_prompt_composer import build_strategy_map
+    overrides = {4: "full_render"}  # Force diagram slide to full_render
+    result = build_strategy_map(sample_outline, overrides=overrides)
+    slide_4 = [s for s in result["slides"] if s["slide_number"] == 4][0]
+    assert slide_4["speaker_override"] == "full_render"
+
+
+def test_build_strategy_map_one_shot_mode(sample_outline):
+    from src.slide_prompt_composer import build_strategy_map
+    result = build_strategy_map(sample_outline, approval_mode="one_shot")
+    assert result["approval_mode"] == "one_shot"

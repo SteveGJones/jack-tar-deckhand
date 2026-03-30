@@ -73,3 +73,41 @@ def classify_slide_strategy(slide):
         'render_funnel': ['ollama', 'cloud_low', 'cloud_full'],
         'speaker_override': None,
     }
+
+
+from datetime import datetime, timezone
+
+
+def build_strategy_map(outline, approval_mode='review', overrides=None):
+    """Build a complete StrategyMap from a SlideOutline.
+
+    Args:
+        outline: dict from SlideOutline (must have 'slides' array).
+        approval_mode: 'review' (default) or 'one_shot'.
+        overrides: Optional dict of {slide_number: strategy} Speaker overrides.
+
+    Returns:
+        dict conforming to StrategyMap schema.
+    """
+    overrides = overrides or {}
+    slides = []
+
+    for slide in outline.get('slides', []):
+        entry = classify_slide_strategy(slide)
+        slide_num = entry['slide_number']
+
+        if slide_num in overrides:
+            entry['speaker_override'] = overrides[slide_num]
+            # Override also sets the render funnel for the new strategy
+            if overrides[slide_num] in ('full_render', 'backdrop_render'):
+                entry['render_funnel'] = ['ollama', 'cloud_low', 'cloud_full']
+            else:
+                entry['render_funnel'] = ['ollama']
+
+        slides.append(entry)
+
+    return {
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'approval_mode': approval_mode,
+        'slides': slides,
+    }
