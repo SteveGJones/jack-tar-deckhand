@@ -1,0 +1,28 @@
+{
+  "topic": "Q3 Product Roadmap Review",
+  "audience": "Engineering leadership team familiar with the product",
+  "duration_minutes": 30,
+  "tone": "professional",
+  "key_takeaways": [
+    "Three major features shipping in Q3",
+    "Platform reliability target: 99.95%",
+    "Team growing from 12 to 18 engineers"
+  ],
+  "branding": {
+    "company_name": "Nexus Technologies",
+    "brand_id": "nexus-tech",
+    "primary_color": "0F4C81",
+    "secondary_color": "6BA3D6",
+    "font_preference": "Inter",
+    "compliance_mode": "guided"
+  },
+  "preferences": {
+    "style": "data-heavy",
+    "slide_count_hint": 25,
+    "image_backend": "ollama",
+    "resolution": "1080p",
+    "include_speaker_notes": true,
+    "include_charts": true
+  },
+  "data_sources": []
+}

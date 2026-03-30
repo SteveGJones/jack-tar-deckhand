@@ -1,0 +1,19 @@
+{
+  "topic": "Introduction to Machine Learning",
+  "audience": "Business analysts with no ML background",
+  "duration_minutes": 20,
+  "tone": "conversational",
+  "key_takeaways": [
+    "ML is pattern recognition at scale",
+    "You don't need to code to use ML"
+  ],
+  "preferences": {
+    "style": "image-rich",
+    "slide_count_hint": 15,
+    "image_backend": "ollama",
+    "resolution": "1080p",
+    "include_speaker_notes": true,
+    "include_charts": false
+  },
+  "data_sources": []
+}
