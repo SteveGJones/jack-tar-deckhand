@@ -63,6 +63,10 @@ The narrative-architect selects from established arc patterns based on talk dura
 - **compare-contrast** -- evaluation and decision-making talks
 - **deep-dive** -- technical single-topic explorations
 
+### Collaborative Workflow
+
+The narrative-architect operates in two stages with a Speaker approval gate between them. Stage 1 proposes 2-3 narrative arc options curated from research. Stage 2 produces the full SlideOutline autonomously once the arc is agreed. Individual slide decisions are professional craft -- the architect does not seek per-slide approval.
+
 ### Constraints
 
 - Maximum 5 body points per slide (projection readability)
@@ -96,6 +100,10 @@ Generate per-slide speaker notes with timing markers, cumulative time marks, and
 | `demo` | Live demonstration beat | "Switch to terminal, run the command" |
 | `build_animation` | Timed reveal | "Click to reveal the second column" |
 
+### Collaborative Workflow
+
+The speaker-notes-writer gathers three lightweight preferences before autonomous execution: note format (bullets vs sentences), audience interaction style, and speaker experience level. It then produces the full SpeakerNotes without per-slide review.
+
 ---
 
 ## Data Contracts
@@ -123,6 +131,8 @@ Generate per-slide speaker notes with timing markers, cumulative time marks, and
 | Source | Type | Data |
 |---|---|---|
 | Deck Conductor | invocation | TalkBrief, StyleGuide |
+| Speaker | review/approval | Narrative arc selection, outline approval |
+| Speaker | consultation | Voice preferences, interaction style, experience level |
 
 ### Outbound
 
@@ -138,11 +148,25 @@ Deck Conductor
   |
   | TalkBrief + StyleGuide
   v
-narrative-architect
+narrative-architect (Stage 1: Arc Proposal)
+  |
+  | 2-3 arc options with descriptions
+  v
+Speaker selects arc
+  |
+  v
+narrative-architect (Stage 2: Outline Execution)
   |
   | SlideOutline (outline.json)
   v
-speaker-notes-writer
+speaker-notes-writer (Voice Preferences)
+  |
+  | 3 quick questions
+  v
+Speaker answers preferences
+  |
+  v
+speaker-notes-writer (Notes Execution)
   |
   | SpeakerNotes (speaker-notes.json)
   v
@@ -159,10 +183,11 @@ The narrative-architect runs first because the speaker-notes-writer needs the Sl
 |---|---|---|---|---|
 | Outline Generation | `narrative-architect` | `.claude/skills/narrative-architect/SKILL.md` | -- | Planned (Phase 3) |
 | Speaker Notes | `speaker-notes-writer` | `.claude/skills/speaker-notes-writer/SKILL.md` | -- | Planned (Phase 3) |
+| Content Validation | -- | `src/content_validation.py` | -- | Planned (Phase 3) |
 | SlideOutline schema | -- | `src/schemas/slide_outline.schema.json` | 27 (shared) | Done (Phase 1) |
 | SpeakerNotes schema | -- | `src/schemas/speaker_notes.schema.json` | 27 (shared) | Done (Phase 1) |
 
-The JSON schemas for SlideOutline and SpeakerNotes were defined in Phase 1 as part of the 8 contract schemas. The skills themselves (SKILL.md files) are planned for Phase 3.
+The JSON schemas for SlideOutline and SpeakerNotes were defined in Phase 1 as part of the 8 contract schemas. The skills themselves are SKILL.md files planned for Phase 3. The `content_validation.py` module handles timing arithmetic and reference integrity only.
 
 ---
 
