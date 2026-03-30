@@ -8,9 +8,9 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 ### Current Status (2026-03-29)
 
-- **BSA Architecture:** Complete, user reviewed
-  - Canonical model: `.bsa/models/jack-tar-deckhand.json`
-  - Documentation: `docs/architecture/` (6 docs + 7 SVG diagrams)
+- **BSA Architecture:** v1.1.0, includes keynote pipeline
+  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (28 services, 4 AI personas, 42 interactions)
+  - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
 
 - **Research Library:** Complete — 18 papers, ~105K words in `research/`
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
@@ -26,7 +26,15 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Phase 5: Assembly & QA (deck-assembler, deck-qa, presentation-reviewer) — 67 tests
   - Phase 6: Orchestration (deck-conductor) — 19 tests
 
-- **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → speaker-notes-writer → imagegen-bridge → deck-assembler → deck-qa → presentation-reviewer
+- **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **strategy-map** → speaker-notes-writer → imagegen-bridge → deck-assembler → deck-qa → presentation-reviewer
+
+- **Keynote Pipeline (NEW):** Three rendering strategies per slide:
+  - `full_render` — entire slide as AI-generated image (title, section divider, closing)
+  - `backdrop_render` — AI background + programmatic text overlay (dense content slides)
+  - `composed` — standard PptxGenJS assembly (diagrams, charts, code)
+  - Three-stage render funnel: Ollama draft (free) → cloud low 720p (cheap) → cloud full 2K+ (production)
+  - Prompt Engineer agent (Haiku default, Sonnet escalation) generates creative prompts from structured briefs
+  - Post-hoc single-slide upgrade via `upgrade_slide_strategy()`
 
 - **Architecture Docs:** `docs/architecture/` (10 docs + 7 SVG diagrams, 4 L1 service docs)
 
@@ -74,8 +82,8 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Approach B (Domain-Centric):** Services designed for reuse beyond deck production
 - **4 L1 Services:** Content, Design, Image, Assembly & QA
-- **3 AI Personas:** Deck Conductor (orchestrator), Image Generation Expert (advisory), Presentation Reviewer (advisory)
-- **17 Deliverables:** 14 skills + 3 agents
+- **4 AI Personas:** Deck Conductor (orchestrator), Image Generation Expert (advisory), Presentation Reviewer (advisory), Prompt Engineer (invoker, Haiku/Sonnet)
+- **20 Deliverables:** 15 skills + 3 capabilities + 4 agents
 - **Naming Convention:** Provider prefix — `ollama-*` for local, `cloud-*` for cloud image skills
 
 ### Key Files
@@ -84,7 +92,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 |------|---------|
 | `.bsa/models/jack-tar-deckhand.json` | Canonical model (single source of truth) |
 | `docs/architecture/architecture-overview.md` | One-page architecture summary |
-| `docs/architecture/ai-persona-summaries.md` | 3 agent contracts |
+| `docs/architecture/ai-persona-summaries.md` | 4 agent contracts |
 | `docs/architecture/diagrams/` | 7 SVG architecture diagrams |
 | `research/RESEARCH-INDEX.md` | Research library index with key findings |
 | `docs/superpowers/specs/2026-03-29-bsa-architecture-design.md` | Full design decisions |
