@@ -1,0 +1,25 @@
+{
+  "topic": "Building Fault-Tolerant Distributed Systems with Raft Consensus",
+  "audience": "Backend engineers familiar with distributed systems but new to consensus algorithms",
+  "duration_minutes": 30,
+  "tone": "technical",
+  "key_takeaways": [
+    "Raft is simpler than Paxos without sacrificing correctness",
+    "Leader election is the hardest part to get right",
+    "Log replication handles network partitions gracefully"
+  ],
+  "branding": {
+    "company_name": "Nexus Technologies",
+    "brand_id": "nexus-tech",
+    "compliance_mode": "guided"
+  },
+  "preferences": {
+    "style": "diagram-heavy",
+    "slide_count_hint": 25,
+    "image_backend": "ollama",
+    "resolution": "1080p",
+    "include_speaker_notes": true,
+    "include_charts": false
+  },
+  "data_sources": []
+}
