@@ -1,4 +1,6 @@
-# Phase 3: Content Services — narrative-architect & speaker-notes-writer
+> **SUPERSEDED** by `docs/superpowers/plans/2026-03-29-phase-3-content-services-v2.md`. Redesigned with collaborative arc selection workflow and thin validation module (no Python arc logic). This plan is retained for historical reference.
+
+# Phase 3: Content Services — narrative-architect & speaker-notes-writer (SUPERSEDED)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
