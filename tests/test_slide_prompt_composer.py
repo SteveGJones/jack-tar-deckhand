@@ -372,3 +372,45 @@ def test_select_backdrop_variant_avoids_consecutive_duplicates():
     results = [select_backdrop_variant(i, 10) for i in range(5)]
     for i in range(1, len(results)):
         assert results[i] != results[i - 1]
+
+
+def test_assemble_brief_background_includes_variant(sample_outline, sample_style_guide, sample_brand_profile):
+    """Background brief should include backdrop_variant and text zone hint."""
+    from src.slide_prompt_composer import assemble_brief
+    slide = sample_outline['slides'][1]
+    brief = assemble_brief(slide, 'background', sample_style_guide, sample_brand_profile, 'ollama',
+                           backdrop_variant='bottom_bar')
+    assert brief['strategy'] == 'background'
+    assert brief['backdrop_variant'] == 'bottom_bar'
+    assert 'text_instruction' in brief
+    assert 'NO TEXT' in brief['text_instruction']
+
+
+def test_assemble_brief_pragmatic_includes_element_layout(sample_outline, sample_style_guide, sample_brand_profile):
+    """Pragmatic composition brief should include element_layout."""
+    from src.slide_prompt_composer import assemble_brief
+    slide = sample_outline['slides'][1]
+    element_layout = {
+        'template': 'three_across',
+        'elements': [{'id': 'elem_1', 'label_source': 'body_points[0]', 'x': 0.1, 'y': 0.2, 'w': 0.25, 'h': 0.5}],
+        'title_region': {'x': 0.05, 'y': 0.02, 'w': 0.90, 'h': 0.12},
+    }
+    brief = assemble_brief(slide, 'pragmatic_composition', sample_style_guide, sample_brand_profile, 'ollama',
+                           element_layout=element_layout)
+    assert brief['strategy'] == 'pragmatic_composition'
+    assert brief['element_layout'] == element_layout
+
+
+def test_assemble_brief_backdrop_includes_element_layout(sample_outline, sample_style_guide, sample_brand_profile):
+    """Backdrop brief should include element_layout for spatial intent."""
+    from src.slide_prompt_composer import assemble_brief
+    slide = sample_outline['slides'][1]
+    element_layout = {
+        'template': 'two_column',
+        'elements': [{'id': 'elem_1', 'label_source': 'body_points[0]', 'x': 0.1, 'y': 0.2, 'w': 0.4, 'h': 0.6}],
+        'title_region': {'x': 0.05, 'y': 0.02, 'w': 0.90, 'h': 0.12},
+    }
+    brief = assemble_brief(slide, 'backdrop', sample_style_guide, sample_brand_profile, 'ollama',
+                           element_layout=element_layout)
+    assert brief['strategy'] == 'backdrop'
+    assert brief['element_layout'] == element_layout

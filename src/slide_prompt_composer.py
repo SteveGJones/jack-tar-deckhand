@@ -128,15 +128,18 @@ _RESOLUTIONS = {
 }
 
 
-def assemble_brief(slide, strategy, style_guide, brand_profile, funnel_stage):
+def assemble_brief(slide, strategy, style_guide, brand_profile, funnel_stage,
+                   backdrop_variant=None, element_layout=None):
     """Assemble a structured brief for the Prompt Engineer agent.
 
     Args:
         slide: dict from SlideOutline slides array.
-        strategy: 'full_render' or 'backdrop_render'.
+        strategy: Strategy string (full_render, background, backdrop, pragmatic_composition, composed).
         style_guide: dict from StyleGuide contract.
         brand_profile: dict from BrandProfile contract (or None).
         funnel_stage: 'ollama', 'cloud_low', or 'cloud_full'.
+        backdrop_variant: Template zone name for background strategy (optional).
+        element_layout: Element layout dict for backdrop/pragmatic strategies (optional).
 
     Returns:
         dict: Structured brief with all context the Prompt Engineer needs.
@@ -168,10 +171,16 @@ def assemble_brief(slide, strategy, style_guide, brand_profile, funnel_stage):
         'target_resolution': _RESOLUTIONS.get(funnel_stage, '1920x1080'),
     }
 
-    if strategy == 'backdrop_render':
+    if strategy in ('backdrop_render', 'background', 'backdrop', 'pragmatic_composition'):
         brief['text_instruction'] = 'NO TEXT in the image \u2014 leave clean space for text overlay'
     elif strategy == 'full_render':
         brief['text_instruction'] = f'Include headline text: "{slide.get("headline", "")}"'
+
+    if backdrop_variant:
+        brief['backdrop_variant'] = backdrop_variant
+
+    if element_layout:
+        brief['element_layout'] = element_layout
 
     return brief
 
