@@ -216,3 +216,67 @@ def test_load_strategy_map_missing_file(deck_dir):
     from src.slide_prompt_composer import load_strategy_map
     with pytest.raises(FileNotFoundError):
         load_strategy_map(deck_dir)
+
+
+def test_strategy_map_accepts_background_strategy(sample_outline):
+    """StrategyMap schema should accept 'background' as a valid strategy."""
+    from src.slide_prompt_composer import build_strategy_map
+    import jsonschema
+    result = build_strategy_map(sample_outline)
+    result['slides'][1]['strategy'] = 'background'
+    result['slides'][1]['backdrop_variant'] = 'bottom_bar'
+    with open('src/schemas/strategy_map.schema.json') as f:
+        schema = json.load(f)
+    jsonschema.Draft202012Validator(schema).validate(result)
+
+
+def test_strategy_map_accepts_backdrop_strategy(sample_outline):
+    """StrategyMap schema should accept 'backdrop' with element_layout."""
+    from src.slide_prompt_composer import build_strategy_map
+    import jsonschema
+    result = build_strategy_map(sample_outline)
+    result['slides'][1]['strategy'] = 'backdrop'
+    result['slides'][1]['element_layout'] = {
+        'template': 'three_across',
+        'elements': [
+            {'id': 'elem_1', 'label_source': 'body_points[0]', 'x': 0.08, 'y': 0.25, 'w': 0.25, 'h': 0.50},
+            {'id': 'elem_2', 'label_source': 'body_points[1]', 'x': 0.38, 'y': 0.25, 'w': 0.25, 'h': 0.50},
+            {'id': 'elem_3', 'label_source': 'body_points[2]', 'x': 0.67, 'y': 0.25, 'w': 0.25, 'h': 0.50},
+        ],
+        'title_region': {'x': 0.05, 'y': 0.02, 'w': 0.90, 'h': 0.12},
+    }
+    with open('src/schemas/strategy_map.schema.json') as f:
+        schema = json.load(f)
+    jsonschema.Draft202012Validator(schema).validate(result)
+
+
+def test_strategy_map_accepts_pragmatic_composition(sample_outline):
+    """StrategyMap schema should accept 'pragmatic_composition'."""
+    from src.slide_prompt_composer import build_strategy_map
+    import jsonschema
+    result = build_strategy_map(sample_outline)
+    result['slides'][1]['strategy'] = 'pragmatic_composition'
+    result['slides'][1]['element_layout'] = {
+        'template': 'two_column',
+        'elements': [
+            {'id': 'elem_1', 'label_source': 'body_points[0]', 'x': 0.05, 'y': 0.20, 'w': 0.40, 'h': 0.60},
+            {'id': 'elem_2', 'label_source': 'body_points[1]', 'x': 0.55, 'y': 0.20, 'w': 0.40, 'h': 0.60},
+        ],
+        'title_region': {'x': 0.05, 'y': 0.02, 'w': 0.90, 'h': 0.12},
+    }
+    with open('src/schemas/strategy_map.schema.json') as f:
+        schema = json.load(f)
+    jsonschema.Draft202012Validator(schema).validate(result)
+
+
+def test_strategy_map_accepts_backdrop_variant(sample_outline):
+    """StrategyMap schema should accept backdrop_variant field."""
+    from src.slide_prompt_composer import build_strategy_map
+    import jsonschema
+    result = build_strategy_map(sample_outline)
+    result['slides'][1]['strategy'] = 'background'
+    for variant in ['left_panel', 'right_panel', 'bottom_bar', 'top_band', 'center_float']:
+        result['slides'][1]['backdrop_variant'] = variant
+        with open('src/schemas/strategy_map.schema.json') as f:
+            schema = json.load(f)
+        jsonschema.Draft202012Validator(schema).validate(result)
