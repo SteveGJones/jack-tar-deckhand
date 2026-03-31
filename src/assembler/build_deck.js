@@ -171,7 +171,11 @@ async function assembleDeck() {
             continue;
         }
         if (strategy === 'backdrop_render' || strategy === 'background') {
-            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
+            const strategyEntry = strategyMap
+                ? (strategyMap.slides || []).find(e => e.slide_number === slideData.slide_number)
+                : null;
+            const variant = strategyEntry?.backdrop_variant || 'left_panel';
+            buildBackgroundSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData, variant });
             continue;
         }
         if (strategy === 'backdrop') {
@@ -896,6 +900,87 @@ function buildBackdropRenderSlide(pptx, slideData, ctx) {
     }
 
     // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
+
+    // Speaker notes
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
+/**
+ * Background slide: AI background image + text in a template zone overlay.
+ * Supports 5 variants: left_panel, right_panel, bottom_bar, top_band, center_float.
+ */
+function buildBackgroundSlide(pptx, slideData, ctx) {
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData, variant } = ctx;
+
+    const slide = pptx.addSlide();
+
+    // Full-bleed backdrop image
+    if (imageData) {
+        const imgPath = resolveImagePath(imageData.file_path);
+        if (fs.existsSync(imgPath)) {
+            slide.addImage({
+                path: imgPath, x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                altText: imageData.alt_text || '',
+            });
+        }
+    }
+
+    // Template zone definitions (in inches)
+    const zones = {
+        left_panel:   { ox: 0,              oy: 0,              ow: SLIDE_W * 0.40, oh: SLIDE_H,          tx: MARGIN,                        ty: SLIDE_H * 0.15, tw: SLIDE_W * 0.40 - 2 * MARGIN, transparency: 60 },
+        right_panel:  { ox: SLIDE_W * 0.60, oy: 0,              ow: SLIDE_W * 0.40, oh: SLIDE_H,          tx: SLIDE_W * 0.60 + MARGIN,       ty: SLIDE_H * 0.15, tw: SLIDE_W * 0.40 - 2 * MARGIN, transparency: 60 },
+        bottom_bar:   { ox: 0,              oy: SLIDE_H * 0.70, ow: SLIDE_W,         oh: SLIDE_H * 0.30,  tx: MARGIN,                        ty: SLIDE_H * 0.72, tw: SLIDE_W - 2 * MARGIN,        transparency: 60 },
+        top_band:     { ox: 0,              oy: 0,              ow: SLIDE_W,         oh: SLIDE_H * 0.25,  tx: MARGIN,                        ty: MARGIN,          tw: SLIDE_W - 2 * MARGIN,        transparency: 60 },
+        center_float: { ox: SLIDE_W * 0.20, oy: SLIDE_H * 0.25, ow: SLIDE_W * 0.60, oh: SLIDE_H * 0.50, tx: SLIDE_W * 0.20 + MARGIN,       ty: SLIDE_H * 0.27, tw: SLIDE_W * 0.60 - 2 * MARGIN, transparency: 65 },
+    };
+
+    const zone = zones[variant] || zones.left_panel;
+
+    // Semi-transparent overlay
+    slide.addShape(pptx.ShapeType.rect, {
+        x: zone.ox, y: zone.oy, w: zone.ow, h: zone.oh,
+        fill: { color: '000000', transparency: zone.transparency },
+    });
+
+    // Heading
+    const headingH = 1.0;
+    slide.addText(slideData.headline, {
+        x: zone.tx, y: zone.ty, w: zone.tw, h: headingH,
+        fontSize: typo.heading_sizes?.slide_heading || 32,
+        fontFace: typo.heading_font,
+        color: 'FFFFFF',
+        bold: true,
+        valign: 'bottom',
+        wrap: true,
+    });
+
+    // Body points
+    if (slideData.body_points && slideData.body_points.length > 0) {
+        const bodyY = zone.ty + headingH + 0.15;
+        const bodyH = (zone.oy + zone.oh) - bodyY - MARGIN;
+        const bodyText = slideData.body_points.map(bp => ({
+            text: bp,
+            options: {
+                fontSize: typo.body_size || 18,
+                fontFace: typo.body_font,
+                color: 'FFFFFF',
+                bullet: { type: 'bullet' },
+                lineSpacingMultiple: typo.line_spacing || 1.4,
+                breakLine: true,
+                paraSpaceAfter: 8,
+            },
+        }));
+        slide.addText(bodyText, {
+            x: zone.tx, y: bodyY, w: zone.tw, h: Math.max(bodyH, 1.0),
+            valign: 'top',
+        });
+    }
+
+    // Footer logo
     addFooterLogo(slide, ctx);
 
     // Speaker notes

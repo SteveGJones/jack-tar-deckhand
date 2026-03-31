@@ -111,6 +111,24 @@ def test_build_deck_with_background_strategy(deck_dir):
     assert result.returncode == 0, f"build_deck.js failed: {result.stderr}"
 
 
+def test_build_deck_background_variants(deck_dir):
+    """Each backdrop_variant should produce a valid slide."""
+    # Update the strategy map to test each variant
+    sm_path = os.path.join(deck_dir, 'strategy-map.json')
+    with open(sm_path) as f:
+        sm = json.load(f)
+    sm['slides'][1]['strategy'] = 'background'
+    sm['slides'][1]['backdrop_variant'] = 'bottom_bar'
+    with open(sm_path, 'w') as f:
+        json.dump(sm, f)
+
+    result = subprocess.run(
+        ['node', 'src/assembler/build_deck.js', '--deck-dir', deck_dir],
+        capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0, f"Failed with bottom_bar: {result.stderr}"
+
+
 def test_build_deck_without_strategy_map(tmp_path):
     """Assembler works when strategy-map.json is absent (backward compatible)."""
     # Use the existing test deck at ./tmp/deck if available, otherwise skip
