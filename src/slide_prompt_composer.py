@@ -63,11 +63,11 @@ def classify_slide_strategy(slide):
             'speaker_override': None,
         }
 
-    # Content slides: backdrop if dense text, full render if sparse
+    # Content slides: background if dense text, full render if sparse
     if len(body_points) > _BACKDROP_BULLET_THRESHOLD:
         return {
             'slide_number': slide_number,
-            'strategy': 'backdrop_render',
+            'strategy': 'background',
             'rationale': f'Content slide with {len(body_points)} bullet points — AI background with programmatic text overlay',
             'render_funnel': ['ollama', 'cloud_low', 'cloud_full'],
             'speaker_override': None,
@@ -106,7 +106,7 @@ def build_strategy_map(outline, approval_mode='review', overrides=None):
         if slide_num in overrides:
             entry['speaker_override'] = overrides[slide_num]
             # Override also sets the render funnel for the new strategy
-            if overrides[slide_num] in ('full_render', 'backdrop_render'):
+            if overrides[slide_num] in ('full_render', 'backdrop_render', 'background', 'backdrop'):
                 entry['render_funnel'] = ['ollama', 'cloud_low', 'cloud_full']
             else:
                 entry['render_funnel'] = ['ollama']

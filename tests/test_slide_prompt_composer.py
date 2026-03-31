@@ -72,9 +72,10 @@ def test_classify_title_as_full_render(sample_outline):
 
 
 def test_classify_content_with_many_bullets_as_backdrop(sample_outline):
+    """Content with many bullets should now classify as 'background'."""
     from src.slide_prompt_composer import classify_slide_strategy
     result = classify_slide_strategy(sample_outline["slides"][1])
-    assert result["strategy"] == "backdrop_render"
+    assert result["strategy"] == "background"
 
 
 def test_classify_section_divider_as_full_render(sample_outline):
@@ -280,3 +281,24 @@ def test_strategy_map_accepts_backdrop_variant(sample_outline):
         with open('src/schemas/strategy_map.schema.json') as f:
             schema = json.load(f)
         jsonschema.Draft202012Validator(schema).validate(result)
+
+
+def test_classify_content_with_many_bullets_as_background():
+    """Content slide with >2 bullets should classify as 'background' (not backdrop_render)."""
+    from src.slide_prompt_composer import classify_slide_strategy
+    slide = {'slide_number': 2, 'slide_type': 'content',
+             'body_points': ['A', 'B', 'C', 'D'], 'visual_type': 'hero_image'}
+    result = classify_slide_strategy(slide)
+    assert result['strategy'] == 'background'
+
+
+def test_classify_backdrop_render_still_accepted():
+    """Backward compat: existing code producing backdrop_render should still work."""
+    from src.slide_prompt_composer import build_strategy_map
+    outline = {'slides': [
+        {'slide_number': 1, 'slide_type': 'content',
+         'body_points': ['A', 'B', 'C'], 'visual_type': 'hero_image'},
+    ]}
+    overrides = {1: 'backdrop_render'}
+    result = build_strategy_map(outline, overrides=overrides)
+    assert result['slides'][0]['speaker_override'] == 'backdrop_render'
