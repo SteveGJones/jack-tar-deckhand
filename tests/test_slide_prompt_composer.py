@@ -414,3 +414,30 @@ def test_assemble_brief_backdrop_includes_element_layout(sample_outline, sample_
                            element_layout=element_layout)
     assert brief['strategy'] == 'backdrop'
     assert brief['element_layout'] == element_layout
+
+
+def test_split_element_briefs(sample_style_guide, sample_brand_profile):
+    """split_element_briefs should produce 1 background + N element briefs."""
+    from src.slide_prompt_composer import split_element_briefs, get_element_layout
+    slide = {'slide_number': 11, 'slide_type': 'content', 'headline': 'Three Options',
+             'body_points': ['Option A', 'Option B', 'Option C'],
+             'visual_direction': 'Three panels showing different approaches'}
+    layout = get_element_layout('three_across', 3)
+    briefs = split_element_briefs(slide, sample_style_guide, sample_brand_profile, layout, 'ollama')
+    assert len(briefs) == 4  # 1 bg + 3 elements
+    assert briefs[0]['role'] == 'background'
+    assert briefs[1]['role'] == 'element'
+    assert briefs[1]['element_id'] == 'elem_1'
+    # All should share a style prefix
+    assert briefs[1]['shared_style_prefix'] == briefs[2]['shared_style_prefix']
+
+
+def test_split_element_briefs_no_text_instruction(sample_style_guide, sample_brand_profile):
+    """All element briefs should include NO TEXT instruction."""
+    from src.slide_prompt_composer import split_element_briefs, get_element_layout
+    slide = {'slide_number': 11, 'slide_type': 'content', 'headline': 'Test',
+             'body_points': ['A', 'B'], 'visual_direction': 'Two panels'}
+    layout = get_element_layout('two_column', 2)
+    briefs = split_element_briefs(slide, sample_style_guide, sample_brand_profile, layout, 'ollama')
+    for brief in briefs:
+        assert 'NO TEXT' in brief['text_instruction']

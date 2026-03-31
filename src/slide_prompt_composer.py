@@ -337,3 +337,81 @@ def select_backdrop_variant(slide_index, total_slides):
         str: One of 'left_panel', 'right_panel', 'bottom_bar', 'top_band', 'center_float'.
     """
     return _BACKDROP_VARIANTS[slide_index % len(_BACKDROP_VARIANTS)]
+
+
+def split_element_briefs(slide, style_guide, brand_profile, element_layout, funnel_stage):
+    """Split a slide into 1 background brief + N element briefs for pragmatic composition.
+
+    Args:
+        slide: dict from SlideOutline.
+        style_guide: StyleGuide dict.
+        brand_profile: BrandProfile dict (or None).
+        element_layout: Element layout dict with 'elements' array.
+        funnel_stage: 'ollama', 'cloud_low', or 'cloud_full'.
+
+    Returns:
+        list of brief dicts: [background_brief, elem_1_brief, elem_2_brief, ...]
+    """
+    palette = style_guide.get('palette', {})
+    palette_hex = [v for v in palette.values() if isinstance(v, str) and len(v) == 6]
+    style_tokens = style_guide.get('image_style_tokens', {})
+
+    approved = []
+    prohibited = []
+    if brand_profile:
+        approved = brand_profile.get('approved_image_styles', [])
+        prohibited = brand_profile.get('prohibited_image_styles', [])
+
+    shared_prefix = (
+        f"Brand palette: {', '.join(f'#{h}' for h in palette_hex[:5])}. "
+        f"Style: {style_tokens.get('mood', 'professional')}. "
+        f"Flat illustration, clean edges, consistent style."
+    )
+
+    resolution = _RESOLUTIONS.get(funnel_stage, '1920x1080')
+
+    # Background brief
+    bg_brief = {
+        'slide_number': slide.get('slide_number', 0),
+        'role': 'background',
+        'element_id': None,
+        'strategy': 'pragmatic_composition',
+        'visual_direction': f"Atmospheric textured background. {style_tokens.get('color_direction', '')}. No figurative elements, no objects. Subtle, non-distracting.",
+        'text_instruction': 'NO TEXT in the image — pure background texture',
+        'brand_constraints': {'palette_hex': palette_hex, 'approved_styles': approved, 'prohibited_styles': prohibited},
+        'shared_style_prefix': shared_prefix,
+        'funnel_stage': funnel_stage,
+        'target_resolution': resolution,
+    }
+
+    briefs = [bg_brief]
+
+    # Element briefs
+    body_points = slide.get('body_points', [])
+    for elem in element_layout.get('elements', []):
+        idx_str = elem.get('label_source', 'body_points[0]')
+        try:
+            idx = int(idx_str.split('[')[1].rstrip(']'))
+            label = body_points[idx] if idx < len(body_points) else elem['id']
+        except (IndexError, ValueError):
+            label = elem['id']
+
+        elem_brief = {
+            'slide_number': slide.get('slide_number', 0),
+            'role': 'element',
+            'element_id': elem['id'],
+            'strategy': 'pragmatic_composition',
+            'visual_direction': f"Single illustration of: {label}. {slide.get('visual_direction', '')}",
+            'text_instruction': 'NO TEXT in the image — the label will be added programmatically',
+            'brand_constraints': {'palette_hex': palette_hex, 'approved_styles': approved, 'prohibited_styles': prohibited},
+            'shared_style_prefix': shared_prefix,
+            'funnel_stage': funnel_stage,
+            'target_resolution': resolution,
+            'target_dimensions': {
+                'w': round(elem['w'] * int(resolution.split('x')[0])),
+                'h': round(elem['h'] * int(resolution.split('x')[1])),
+            },
+        }
+        briefs.append(elem_brief)
+
+    return briefs
