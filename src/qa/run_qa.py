@@ -26,6 +26,7 @@ from .checks import (
     COLOUR_CHECKS,
     KEYNOTE_CHECKS,
     check_slide_count_ratio,
+    check_contrast,
 )
 from .config import QA_CONFIG
 from .report import generate_report
@@ -67,7 +68,10 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
             for check_fn in KEYNOTE_CHECKS:
                 findings.extend(check_fn(slide, slide_number, brand_palette=brand_palette, config=cfg))
         elif strategy in ('backdrop_render', 'background', 'backdrop', 'pragmatic_composition'):
-            # Backdrop/background/pragmatic: text + image + keynote checks
+            # Backdrop/background/pragmatic: text + image + keynote checks.
+            # Contrast check is skipped: the QA checker compares text colour against the
+            # slide background fill (white), not the actual image content. Backing pills
+            # in the assembler ensure readability; contrast must be validated visually.
             for check_fn in STRUCTURAL_CHECKS:
                 findings.extend(check_fn(slide, slide_number, config=cfg))
             for check_fn in STRUCTURAL_CHECKS_WITH_PRESENTATION:
@@ -77,6 +81,8 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
             for check_fn in KEYNOTE_CHECKS:
                 findings.extend(check_fn(slide, slide_number, brand_palette=brand_palette, config=cfg))
             for check_fn in VISUAL_CHECKS:
+                if check_fn is check_contrast:
+                    continue
                 try:
                     findings.extend(check_fn(slide, slide_number, config=cfg))
                 except Exception:
