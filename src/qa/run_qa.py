@@ -95,6 +95,34 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
                 except Exception:
                     pass
 
+    # Step 1b: Element layout checks (AP-27, AP-28)
+    from src.qa.checks.element_layout import check_element_layout, check_vision_confidence
+
+    if os.path.exists(strategy_map_path):
+        with open(strategy_map_path) as f:
+            strategy_map_data = json.load(f)
+        outline_path = os.path.join(deck_dir, 'outline.json')
+        outline_slides = {}
+        if os.path.exists(outline_path):
+            with open(outline_path) as f:
+                outline_data = json.load(f)
+            outline_slides = {s['slide_number']: s for s in outline_data.get('slides', [])}
+
+        for entry in strategy_map_data.get('slides', []):
+            if entry.get('strategy') in ('backdrop', 'pragmatic_composition') or \
+               entry.get('speaker_override') in ('backdrop', 'pragmatic_composition'):
+                outline_slide = outline_slides.get(entry['slide_number'], {})
+                findings.extend(check_element_layout(entry, outline_slide))
+
+    # AP-28: Check vision confidence on image manifest
+    im_path = os.path.join(deck_dir, 'image-manifest.json')
+    if os.path.exists(im_path):
+        with open(im_path) as f:
+            im_data = json.load(f)
+        for img in im_data.get('images', []):
+            if img.get('detected_positions'):
+                findings.extend(check_vision_confidence(img))
+
     # Step 2: Deck-level structural checks
     for check_fn in DECK_STRUCTURAL_CHECKS:
         findings.extend(check_fn(prs, config=cfg))
