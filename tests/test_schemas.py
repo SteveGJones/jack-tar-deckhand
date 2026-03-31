@@ -390,3 +390,39 @@ class TestRenderLogSchema:
         }
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.Draft202012Validator(schema).validate(data)
+
+
+def test_image_manifest_accepts_detected_positions():
+    """ImageManifest should accept detected_positions array on image entries."""
+    import jsonschema
+    with open('src/schemas/image_manifest.schema.json') as f:
+        schema = json.load(f)
+    manifest = {
+        'images': [{
+            'image_id': 'slide-05-hero',
+            'slide_number': 5,
+            'file_path': './tmp/deck/images/slide-05-hero.png',
+            'status': 'generated',
+            'detected_positions': [
+                {'element_id': 'elem_1', 'x': 0.10, 'y': 0.28, 'w': 0.22, 'h': 0.45, 'confidence': 0.92},
+                {'element_id': 'elem_2', 'x': 0.39, 'y': 0.26, 'w': 0.24, 'h': 0.48, 'confidence': 0.88},
+            ],
+        }],
+    }
+    jsonschema.Draft202012Validator(schema).validate(manifest)
+
+
+def test_image_manifest_accepts_element_placement():
+    """ImageManifest should accept element_id and placement_zone for pragmatic composition."""
+    import jsonschema
+    with open('src/schemas/image_manifest.schema.json') as f:
+        schema = json.load(f)
+    manifest = {
+        'images': [
+            {'image_id': 'slide-11-bg', 'slide_number': 11, 'file_path': './bg.png',
+             'status': 'generated', 'placement_zone': 'background'},
+            {'image_id': 'slide-11-elem-1', 'slide_number': 11, 'file_path': './e1.png',
+             'status': 'generated', 'placement_zone': 'element', 'element_id': 'elem_1'},
+        ],
+    }
+    jsonschema.Draft202012Validator(schema).validate(manifest)

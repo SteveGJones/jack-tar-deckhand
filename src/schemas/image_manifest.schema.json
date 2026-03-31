@@ -18,6 +18,22 @@
           "slide_number": {"type": "integer"},
           "file_path": {"type": "string"},
           "placement_zone": {"type": "string"},
+          "element_id": {"type": "string"},
+          "detected_positions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["element_id", "x", "y", "w", "h", "confidence"],
+              "properties": {
+                "element_id": {"type": "string"},
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+                "w": {"type": "number"},
+                "h": {"type": "number"},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+              }
+            }
+          },
           "dimensions": {
             "type": "object",
             "properties": {
