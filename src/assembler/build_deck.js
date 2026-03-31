@@ -175,7 +175,8 @@ async function assembleDeck() {
                 ? (strategyMap.slides || []).find(e => e.slide_number === slideData.slide_number)
                 : null;
             const variant = strategyEntry?.backdrop_variant || 'left_panel';
-            buildBackgroundSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData, variant });
+            const bodyLayout = strategyEntry?.body_layout || 'list';
+            buildBackgroundSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData, variant, bodyLayout });
             continue;
         }
         if (strategy === 'backdrop') {
@@ -461,6 +462,12 @@ function buildSectionDivider(pptx, slideData, ctx) {
 
     const slide = pptx.addSlide();
     slide.background = { color: bgColor };
+    // Full-slide rectangle as fallback — some viewers ignore slide.background
+    slide.addShape(pptx.ShapeType.rect, {
+        x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+        fill: { color: bgColor },
+        line: { width: 0 },
+    });
 
     const textZone = layouts.section_divider?.text_zone || { x: 1.5, y: 2.0, w: 10.333, h: 3.5 };
 
@@ -742,6 +749,12 @@ function buildClosingSlide(pptx, slideData, ctx) {
 
     const slide = pptx.addSlide();
     slide.background = { color: bgColor };
+    // Full-slide rectangle as fallback — some viewers ignore slide.background
+    slide.addShape(pptx.ShapeType.rect, {
+        x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+        fill: { color: bgColor },
+        line: { width: 0 },
+    });
 
     const textZone = layouts.closing_slide?.text_zone || { x: 1.5, y: 1.5, w: 10.333, h: 4.5 };
 
@@ -917,7 +930,7 @@ function buildBackdropRenderSlide(pptx, slideData, ctx) {
  * Supports 5 variants: left_panel, right_panel, bottom_bar, top_band, center_float.
  */
 function buildBackgroundSlide(pptx, slideData, ctx) {
-    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData, variant } = ctx;
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData, variant, bodyLayout } = ctx;
 
     const slide = pptx.addSlide();
 
@@ -942,7 +955,14 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
         center_float: { ox: SLIDE_W * 0.20, oy: SLIDE_H * 0.25, ow: SLIDE_W * 0.60, oh: SLIDE_H * 0.50, tx: SLIDE_W * 0.20 + MARGIN,       ty: SLIDE_H * 0.27, tw: SLIDE_W * 0.60 - 2 * MARGIN, transparency: 65 },
     };
 
-    const zone = zones[variant] || zones.left_panel;
+    let zone = zones[variant] || zones.left_panel;
+
+    // Expand overlay upward for grid_2x2 body layout — needs more vertical space
+    if (bodyLayout === 'grid_2x2' && (variant === 'bottom_bar' || variant === 'top_band')) {
+        const expandedOy = SLIDE_H * 0.52;
+        const expandedOh = SLIDE_H - expandedOy;
+        zone = { ...zone, ox: zone.ox, oy: expandedOy, ow: zone.ow, oh: expandedOh, ty: expandedOy + MARGIN * 0.5 };
+    }
 
     // Semi-transparent overlay
     slide.addShape(pptx.ShapeType.rect, {
@@ -951,7 +971,7 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
     });
 
     // Heading
-    const headingH = 1.0;
+    const headingH = 0.7;
     slide.addText(slideData.headline, {
         x: zone.tx, y: zone.ty, w: zone.tw, h: headingH,
         fontSize: typo.heading_sizes?.slide_heading || 32,
@@ -964,24 +984,58 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
 
     // Body points
     if (slideData.body_points && slideData.body_points.length > 0) {
-        const bodyY = zone.ty + headingH + 0.15;
+        const bodyY = zone.ty + headingH + 0.1;
         const bodyH = (zone.oy + zone.oh) - bodyY - MARGIN;
-        const bodyText = slideData.body_points.map(bp => ({
-            text: bp,
-            options: {
-                fontSize: typo.body_size || 18,
-                fontFace: typo.body_font,
-                color: 'FFFFFF',
-                bullet: { type: 'bullet' },
-                lineSpacingMultiple: typo.line_spacing || 1.4,
-                breakLine: true,
-                paraSpaceAfter: 8,
-            },
-        }));
-        slide.addText(bodyText, {
-            x: zone.tx, y: bodyY, w: zone.tw, h: Math.max(bodyH, 1.0),
-            valign: 'top',
-        });
+
+        if (bodyLayout === 'grid_2x2' && slideData.body_points.length >= 4) {
+            // 2x2 grid layout — two columns, two rows
+            // Column-first reading order: TL(0) → BL(1) → TR(2) → BR(3)
+            const colGap = 0.3;
+            const rowGap = 0.05;
+            const colW = (zone.tw - colGap) / 2;
+            const rowH = (Math.max(bodyH, 1.0) - rowGap) / 2;
+            const positions = [
+                { x: zone.tx,                  y: bodyY },                   // TL — body_points[0]
+                { x: zone.tx,                  y: bodyY + rowH + rowGap },   // BL — body_points[1]
+                { x: zone.tx + colW + colGap,  y: bodyY },                   // TR — body_points[2]
+                { x: zone.tx + colW + colGap,  y: bodyY + rowH + rowGap },   // BR — body_points[3]
+            ];
+            slideData.body_points.forEach((bp, i) => {
+                if (i < 4) {
+                    slide.addText([{
+                        text: bp,
+                        options: {
+                            fontSize: typo.body_size || 18,
+                            fontFace: typo.body_font,
+                            color: 'FFFFFF',
+                            bullet: { type: 'bullet' },
+                            lineSpacingMultiple: 1.2,
+                        },
+                    }], {
+                        x: positions[i].x, y: positions[i].y, w: colW, h: rowH,
+                        valign: 'top',
+                    });
+                }
+            });
+        } else {
+            // Default: single-column bullet list
+            const bodyText = slideData.body_points.map(bp => ({
+                text: bp,
+                options: {
+                    fontSize: typo.body_size || 18,
+                    fontFace: typo.body_font,
+                    color: 'FFFFFF',
+                    bullet: { type: 'bullet' },
+                    lineSpacingMultiple: typo.line_spacing || 1.4,
+                    breakLine: true,
+                    paraSpaceAfter: 8,
+                },
+            }));
+            slide.addText(bodyText, {
+                x: zone.tx, y: bodyY, w: zone.tw, h: Math.max(bodyH, 1.0),
+                valign: 'top',
+            });
+        }
     }
 
     // Footer logo
@@ -1015,7 +1069,7 @@ function buildPragmaticSlide(pptx, slideData, ctx) {
     const titleRegion = elementLayout.title_region || { x: 0.05, y: 0.03, w: 0.90, h: 0.12 };
     const images = findSlideImages(imageManifest, slideData.slide_number);
 
-    // 1. Background image (full-bleed)
+    // 1. Background image (full-bleed) or dark fill
     const bgImage = images.find(img => img.placement_zone === 'background');
     if (bgImage) {
         const imgPath = resolveImagePath(bgImage.file_path);
@@ -1026,6 +1080,30 @@ function buildPragmaticSlide(pptx, slideData, ctx) {
                 altText: 'Background',
             });
         }
+    } else {
+        // Dark background when no background image.
+        // Sample the first element image's corner pixel for colour matching.
+        const elemImages = images.filter(img => img.element_id);
+        let bgColor = palette.primary || '006B5E';
+        if (elemImages.length > 0) {
+            try {
+                const samplePath = resolveImagePath(elemImages[0].file_path);
+                if (fs.existsSync(samplePath)) {
+                    const { execSync } = require('child_process');
+                    const hex = execSync(
+                        `python3 -c "from PIL import Image; img=Image.open('${samplePath}').convert('RGB'); r,g,b=img.getpixel((3,3)); print(f'{r:02x}{g:02x}{b:02x}')"`,
+                        { encoding: 'utf-8', timeout: 5000 }
+                    ).trim();
+                    if (/^[0-9a-f]{6}$/.test(hex)) bgColor = hex;
+                }
+            } catch (_) { /* fall back to palette */ }
+        }
+        slide.background = { color: bgColor };
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+            fill: { color: bgColor },
+            line: { width: 0 },
+        });
     }
 
     // 2. Place each element image at its prescribed position
@@ -1041,7 +1119,7 @@ function buildPragmaticSlide(pptx, slideData, ctx) {
             if (fs.existsSync(imgPath)) {
                 slide.addImage({
                     path: imgPath, x: ex, y: ey, w: ew, h: eh,
-                    sizing: { type: 'contain', w: ew, h: eh },
+                    sizing: { type: 'cover', w: ew, h: eh },
                     altText: elem.id,
                 });
             }
@@ -1054,10 +1132,14 @@ function buildPragmaticSlide(pptx, slideData, ctx) {
             ? (slideData.body_points[parseInt(match[1])] || elem.id)
             : elem.id;
 
-        const labelH = 0.5;
+        // Content-aware label sizing
+        const labelFontSize = typo.body_size || 18;
+        const cpi = 7;  // chars per inch at 18pt
+        const estimatedLines = Math.ceil(label.length / (ew * cpi));
+        const labelH = Math.max(estimatedLines * 0.32, 0.5);
         const labelW = ew;
-        const inBottomThird = (ey + eh) > (SLIDE_H * 0.67);
-        const labelY = inBottomThird ? (ey - labelH - 0.05) : (ey + eh + 0.05);
+        const inBottomThird = (ey + eh + labelH + 0.05) > (SLIDE_H - 0.15);
+        let labelY = inBottomThird ? (ey - labelH - 0.05) : (ey + eh + 0.05);
         const labelX = ex;
 
         // Small backing pill
@@ -1069,7 +1151,7 @@ function buildPragmaticSlide(pptx, slideData, ctx) {
 
         slide.addText(label, {
             x: labelX, y: labelY, w: labelW, h: labelH,
-            fontSize: typo.body_size || 18,
+            fontSize: labelFontSize,
             fontFace: typo.body_font,
             color: 'FFFFFF',
             align: 'center',
@@ -1130,12 +1212,17 @@ function buildBackdropSlide(pptx, slideData, ctx) {
     const useDetected = detectedPositions.length > 0;
     const positions = useDetected ? detectedPositions : prescribedElements;
 
-    // Place text labels at element positions
+    // Place text labels below each visual element, horizontally centered on it.
+    // Label width is based on text content length, not element width.
+    const fontSize = typo.body_size || 18;
+    const charsPerInch = 7;  // conservative estimate at 18pt
+
     for (const pos of positions) {
         const ex = pos.x * SLIDE_W;
         const ey = pos.y * SLIDE_H;
         const ew = pos.w * SLIDE_W;
         const eh = pos.h * SLIDE_H;
+        const elemCenterX = ex + ew / 2;
 
         // Find the matching label
         const elemId = pos.element_id || pos.id;
@@ -1146,11 +1233,22 @@ function buildBackdropSlide(pptx, slideData, ctx) {
             ? (slideData.body_points[parseInt(match[1])] || elemId)
             : elemId;
 
-        // Text label centered within the detected bounding box
-        const labelH = 0.5;
-        const labelW = Math.max(ew, 1.5);
-        const labelX = ex + (ew - labelW) / 2;
-        const labelY = ey + eh - labelH;
+        // Size label based on text content — aim for 2 lines max
+        const minW = Math.max(ew, 3.5);
+        const contentW = label.length / charsPerInch;
+        const targetW = Math.min(Math.max(contentW / 2, minW), SLIDE_W * 0.45);
+        const labelW = targetW;
+        const estimatedLines = Math.ceil(label.length / (labelW * charsPerInch));
+        const labelH = Math.max(estimatedLines * 0.32, 0.5);
+
+        // Position: top-aligned to bottom of element, centered horizontally.
+        // If that would push off the slide, fall back to inside-bottom.
+        const labelX = Math.max(0, Math.min(elemCenterX - labelW / 2, SLIDE_W - labelW));
+        let labelY = ey + eh + 0.05;
+        if (labelY + labelH > SLIDE_H - 0.15) {
+            // Fall back: bottom-aligned inside the element
+            labelY = ey + eh - labelH - 0.05;
+        }
 
         // Backing pill
         slide.addShape(pptx.ShapeType.rect, {
@@ -1161,7 +1259,7 @@ function buildBackdropSlide(pptx, slideData, ctx) {
 
         slide.addText(label, {
             x: labelX, y: labelY, w: labelW, h: labelH,
-            fontSize: typo.body_size || 18,
+            fontSize: fontSize,
             fontFace: typo.body_font,
             color: 'FFFFFF',
             align: 'center',

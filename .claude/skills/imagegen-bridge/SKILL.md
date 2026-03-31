@@ -185,9 +185,21 @@ print(json.dumps(translated, indent=2))
 
 For production-mode hero images, consult the `image-generation-expert` agent before finalising the prompt.
 
+### Background colour in element prompts (pragmatic_composition)
+
+For `pragmatic_composition` slides that do NOT have a separate background image, include the target background colour in every element image prompt. Use descriptive language alongside hex values since Ollama models approximate hex colours rather than interpreting them precisely:
+
+> "on a very dark background, almost black with slight teal tint, hex #0E1513"
+
+Use **identical** background description text across all element prompts for that slide. This is critical because the assembler samples the corner pixel of the first element image to set the slide background colour. If one element has a noticeably different background, it will create visible seams where the element image meets the slide background.
+
 ## Step 7: Generate Images
 
 For each slide that needs generation, invoke the appropriate skill. Process slides sequentially.
+
+### Element image aspect ratios (pragmatic_composition)
+
+For `pragmatic_composition` slides, calculate the target aspect ratio from the strategy map's `element_layout` dimensions before generating each element image. For each element: `aspect_ratio = element.w / element.h` (normalised coordinates). Then set `--width` and `--height` to match this ratio at the desired resolution. For example, for a 2.79:1 ratio at 1024px wide: `--width 1024 --height 368`. Do NOT generate square images for non-square placement boxes -- the image will be stretched or cropped by the assembler, degrading quality.
 
 ### For ollama-image (hero_image in draft mode):
 ```
@@ -265,6 +277,22 @@ print(f'Budget: \${bt.spent:.3f} / \${budget_data[\"total_budget\"]:.2f} ({bt.st
 ```
 
 If budget state changes, re-route remaining slides with the new budget state.
+
+## Step 9.5: Realign Detected Positions (backdrop / pragmatic_composition slides)
+
+After generating or regenerating any image for a slide whose strategy is `backdrop` or `pragmatic_composition`, you MUST re-run vision alignment to update `detected_positions` in the ImageManifest. The old coordinates are stale the moment the image changes.
+
+1. Read the strategy map to check if the slide uses `backdrop` or `pragmatic_composition`.
+2. If yes, dispatch the `vision-analyst` agent with:
+   - The newly generated image path
+   - The element descriptions from the strategy map's `element_layout.elements`
+   - The expected element count
+3. Map the returned `elem_N` IDs back to the element IDs from the strategy map (in left-to-right, top-to-bottom order).
+4. Write the updated `detected_positions` array into the slide's ImageManifest entry.
+
+This step is **not optional**. Skipping it will cause text labels to misalign with the visual elements on the assembled slide.
+
+**When to trigger:** Any time an image is generated, regenerated, or replaced for a position-dependent slide — including manual re-runs, prompt tuning, and production upgrades.
 
 ## Step 10: Post-Process Generated Images
 

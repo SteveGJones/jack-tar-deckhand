@@ -135,7 +135,7 @@ Invoke the deck-assembler skill. It reads all DeckContext contracts and produces
 
 ### Step 7: Quality Assurance — `/deck-qa`
 
-Invoke the deck-qa skill. It runs 25 anti-pattern checks and produces a QAReport.
+Invoke the deck-qa skill. It runs 30 anti-pattern checks and produces a QAReport.
 
 **If QA verdict is 'fail':**
 - Check if correction cycles remain:
@@ -183,6 +183,8 @@ upgrade_slide_strategy('./tmp/deck', slide_number=N, new_strategy='full_render')
 "
 ```
 Then re-run Steps 5-8 for the upgraded slides only (surgical re-render via manifest_utils).
+
+**Realignment rule:** Whenever an image is regenerated or text is changed on a slide using `backdrop` or `pragmatic_composition` strategy, the imagegen-bridge MUST re-run vision alignment (Step 9.5) to update `detected_positions` in the ImageManifest. This applies to draft iterations, production upgrades, prompt tuning, and QA correction re-renders. Image changes do not require text regeneration, and text changes do not require image regeneration — but BOTH require realignment.
 
 If the Speaker approves:
 ```bash
@@ -262,3 +264,4 @@ print(tracker.cost_summary_markdown())
 - **Never** proceed past provider discovery without Speaker confirmation
 - **Never** act on Presentation Reviewer feedback without Speaker decision
 - **Never** exceed 2 QA correction cycles without escalating
+- **Never** regenerate an image for a `backdrop` or `pragmatic_composition` slide without re-running vision alignment (imagegen-bridge Step 9.5)

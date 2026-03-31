@@ -65,6 +65,11 @@ Return a single string: the image generation prompt. Nothing else.
 - **cloud_low** — Full prompt detail. Include all text, colours, spatial relationships. This validates the prompt works on the target model.
 - **cloud_full** — Same prompt as cloud_low. Do not change the prompt between cloud_low and cloud_full — the point is to render a proven prompt at higher resolution.
 
+### Colour accuracy for Ollama models:
+
+- Ollama models (z-image-turbo, flux) approximate hex colours — they typically drift 2-3 stops from the requested value. Pair hex values with strong descriptive anchors: "very dark, almost black with a slight teal tint, hex #0E1513" is more reliable than "#0E1513" alone. For dark backgrounds, "very dark" or "almost black" produces more consistent results than relying on the hex value.
+- For element images in `pragmatic_composition`: always specify the target slide background colour explicitly in the prompt so the element image backgrounds match the slide.
+
 ## Prohibited
 
 - Do not generate images — only produce text prompts

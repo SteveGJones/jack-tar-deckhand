@@ -116,7 +116,17 @@
       "Bash(python -m pytest tests/test_assembler.py --collect-only)",
       "Bash(python -m pytest tests/ -k \"qa\" --collect-only)",
       "Bash(find /Users/stevejones/Documents/Development/jack-tar-deckhand -type f -name *first*deck* -o -name *memory* -o -name *TalkBrief*)",
-      "Bash(ollama list:*)"
+      "Bash(ollama list:*)",
+      "Bash(shasum -a 256 /Users/stevejones/Documents/Development/jack-tar-deckhand/tmp/deck/images/slide-05-scene.png)",
+      "Bash(python -m pytest tests/ -x -q)",
+      "Bash(soffice:*)",
+      "Bash(python -m pytest tests/test_qa_element_layout.py -v)",
+      "Bash(python -m src.qa.run_qa --deck-dir ./tmp/deck)",
+      "Bash(shasum -a 256 /Users/stevejones/Documents/Development/jack-tar-deckhand/tmp/deck/images/slide-07-bg.png)",
+      "Bash(shasum -a 256 /Users/stevejones/Documents/Development/jack-tar-deckhand/tmp/deck/images/slide-13-hero.png)",
+      "Bash(shasum -a 256 ./tmp/deck/images/slide-05-elem-no_structure.png ./tmp/deck/images/slide-05-elem-no_contracts.png ./tmp/deck/images/slide-05-elem-no_quality.png ./tmp/deck/images/slide-05-elem-tangled.png)",
+      "Bash(python -m pytest tests/ -x --tb=short)",
+      "Bash(.venv/bin/pytest tests/ -x --tb=short)"
     ]
   }
 }

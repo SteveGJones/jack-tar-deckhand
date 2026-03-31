@@ -1,11 +1,11 @@
 # Session Handoff
 
-_Generated: 2026-03-31 03:00:17 UTC_
+_Generated: 2026-03-31 05:03:56 UTC_
 
 ## Git Context
 
 - **Branch:** `main`
-- **HEAD:** 2c49b9d: chore: auto-commit before merge (loop primary)
+- **HEAD:** 34e5dae: chore: auto-commit before merge (loop primary)
 
 ## Tasks
 
@@ -25,6 +25,12 @@ _Generated: 2026-03-31 03:00:17 UTC_
 - [x] Task 12: Implement buildBackdropSlide
 - [x] Task 13: QA checks AP-27 and AP-28
 - [x] Task 14: Integration tests for new rendering strategies
+- [x] Generate all images (17 total, Ollama x/z-image-turbo:fp8)
+- [x] Vision analysis for backdrop slides 5 and 10
+- [x] Build image manifest
+- [x] Assemble deck and review all layouts
+- [x] Run QA and finalize
+- [x] Fix slide 14 contrast and re-run QA
 
 
 ## Key Files
@@ -33,14 +39,14 @@ Recently modified:
 
 - `.DS_Store`
 - `.bsa/models/jack-tar-deckhand.json`
-- `.claude/agents/vision-analyst.md`
 - `.claude/settings.local.json`
+- `.ralph/agent/handoff.md`
+- `.ralph/agent/memories.md`
+- `.ralph/agent/memories.md.lock`
 - `.ralph/agent/scratchpad.md`
 - `.ralph/agent/summary.md`
 - `.ralph/agent/tasks.jsonl`
 - `.ralph/agent/tasks.jsonl.lock`
-- `.ralph/current-events`
-- `.ralph/current-loop-id`
 
 ## Next Session
 
@@ -49,13 +55,11 @@ Session completed successfully. No pending work.
 **Original objective:**
 
 ```
-# Rendering Strategy Expansion — Overnight Build
+# Draft Deck — Layout Testing Loop (Ollama Only, Zero Cost)
 
-## What You Are Doing
+## Objective
 
-You are implementing the rendering strategy expansion for Jack-Tar Deckhand. This expands the pipeline from 3 rendering strategies (full_render, backdrop_render, composed) to 5 (+ background, backdrop, pragmatic_composition).
+Test all 5 rendering strategies using free local Ollama generation. Reuse the existing 14-slide narrative ("Presentations, Engineered"). The goal is to validate that our layout approaches work — text positioning, element composition, backdrop overlays, background zones — by iterating until the layouts are correct. Image quality doesn't matter here (it's Ollama draft quality). Layout correctness does.
 
-## References
-
-- **Implementation plan:** `docs/superpowers/plans/2026-03-30-rendering-strategy-expansion.md` — Follow this task by task, in order. Each task has exact file paths, test code, imple...
+**This is NOT ...
 ```
