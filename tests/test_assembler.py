@@ -102,6 +102,15 @@ def test_build_deck_handles_empty_chart_manifest(deck_dir):
     assert os.path.isfile(pptx_path)
 
 
+def test_build_deck_with_background_strategy(deck_dir):
+    """Assembler should handle 'background' strategy without crashing."""
+    result = subprocess.run(
+        ['node', 'src/assembler/build_deck.js', '--deck-dir', deck_dir],
+        capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0, f"build_deck.js failed: {result.stderr}"
+
+
 def test_build_deck_without_strategy_map(tmp_path):
     """Assembler works when strategy-map.json is absent (backward compatible)."""
     # Use the existing test deck at ./tmp/deck if available, otherwise skip

@@ -66,8 +66,8 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
                 findings.extend(check_fn(slide, slide_number, prs, config=cfg))
             for check_fn in KEYNOTE_CHECKS:
                 findings.extend(check_fn(slide, slide_number, brand_palette=brand_palette, config=cfg))
-        elif strategy == 'backdrop_render':
-            # Backdrop: run standard text checks + image + keynote checks
+        elif strategy in ('backdrop_render', 'background', 'backdrop', 'pragmatic_composition'):
+            # Backdrop/background/pragmatic: text + image + keynote checks
             for check_fn in STRUCTURAL_CHECKS:
                 findings.extend(check_fn(slide, slide_number, config=cfg))
             for check_fn in STRUCTURAL_CHECKS_WITH_PRESENTATION:

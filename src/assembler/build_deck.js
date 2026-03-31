@@ -170,8 +170,18 @@ async function assembleDeck() {
             buildFullRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
             continue;
         }
-        if (strategy === 'backdrop_render') {
-            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData });
+        if (strategy === 'backdrop_render' || strategy === 'background') {
+            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
+            continue;
+        }
+        if (strategy === 'backdrop') {
+            // Phase 4: will become buildBackdropSlide — stub to backdrop for now
+            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
+            continue;
+        }
+        if (strategy === 'pragmatic_composition') {
+            // Phase 3: will become buildPragmaticSlide — stub to backdrop for now
+            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
             continue;
         }
 
@@ -181,23 +191,23 @@ async function assembleDeck() {
                 buildTitleSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
                 break;
             case 'section_divider':
-                buildSectionDivider(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData });
+                buildSectionDivider(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData });
                 break;
             case 'closing':
                 buildClosingSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData });
                 break;
             case 'diagram':
-                buildDiagramSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData });
+                buildDiagramSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
                 break;
             case 'data_chart':
-                buildDataChartSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, chartData });
+                buildDataChartSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, chartData });
                 break;
             case 'code':
-                buildCodeSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData });
+                buildCodeSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData });
                 break;
             default:
                 // content, two_column, icon_grid, image_feature, etc.
-                buildContentSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData });
+                buildContentSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
                 break;
         }
     }
@@ -228,8 +238,27 @@ async function assembleDeck() {
 // =============================================================================
 
 /**
+ * Add footer logo to any slide (bottom-right, consistent position on every slide).
+ */
+function addFooterLogo(slide, ctx) {
+    const { logoPath, hasLogo, SLIDE_W, SLIDE_H, MARGIN } = ctx;
+    if (!hasLogo) return;
+
+    const logoH = 0.45;
+    const logoW = logoH * (169 / 200); // maintain aspect ratio
+    slide.addImage({
+        path: logoPath,
+        x: SLIDE_W - MARGIN - logoW,
+        y: SLIDE_H - MARGIN - logoH,
+        w: logoW,
+        h: logoH,
+        altText: 'Logo',
+    });
+}
+
+/**
  * Title slide: Primary bg (#006B5E), white text left, hero image right half,
- * logo bottom-left.
+ * logo bottom-right.
  */
 function buildTitleSlide(pptx, slideData, ctx) {
     const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData } = ctx;
@@ -291,19 +320,8 @@ function buildTitleSlide(pptx, slideData, ctx) {
         }
     }
 
-    // Logo bottom-left
-    if (hasLogo) {
-        const logoH = 0.55;
-        const logoW = logoH * (169 / 200); // maintain aspect ratio
-        slide.addImage({
-            path: logoPath,
-            x: MARGIN,
-            y: SLIDE_H - MARGIN - logoH,
-            w: logoW,
-            h: logoH,
-            altText: 'metamirror.io logo',
-        });
-    }
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
 
     // Speaker notes
     if (noteData) {
@@ -416,6 +434,9 @@ function buildContentSlide(pptx, slideData, ctx) {
         });
     }
 
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
+
     // Speaker notes
     if (noteData) {
         slide.addNotes(noteData.text);
@@ -448,6 +469,9 @@ function buildSectionDivider(pptx, slideData, ctx) {
         bold: true,
         wrap: true,
     });
+
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
 
     // Speaker notes
     if (noteData) {
@@ -571,6 +595,9 @@ function buildDiagramSlide(pptx, slideData, ctx) {
         }
     }
 
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
+
     // Speaker notes
     if (noteData) {
         slide.addNotes(noteData.text);
@@ -633,6 +660,9 @@ function buildDataChartSlide(pptx, slideData, ctx) {
         }
     }
 
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
+
     if (noteData) {
         slide.addNotes(noteData.text);
     }
@@ -686,13 +716,16 @@ function buildCodeSlide(pptx, slideData, ctx) {
         });
     }
 
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
+
     if (noteData) {
         slide.addNotes(noteData.text);
     }
 }
 
 /**
- * Closing slide: Primary bg (#006B5E), white text, logo bottom-left.
+ * Closing slide: Primary bg (#006B5E), white text, logo bottom-right.
  */
 function buildClosingSlide(pptx, slideData, ctx) {
     const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData } = ctx;
@@ -740,19 +773,8 @@ function buildClosingSlide(pptx, slideData, ctx) {
         });
     }
 
-    // Logo bottom-left
-    if (hasLogo) {
-        const logoH = 0.55;
-        const logoW = logoH * (169 / 200);
-        slide.addImage({
-            path: logoPath,
-            x: MARGIN,
-            y: SLIDE_H - MARGIN - logoH,
-            w: logoW,
-            h: logoH,
-            altText: 'metamirror.io logo',
-        });
-    }
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
 
     if (noteData) {
         slide.addNotes(noteData.text);
@@ -785,19 +807,8 @@ function buildFullRenderSlide(pptx, slideData, ctx) {
         }
     }
 
-    // Optional logo overlay (bottom-left, same position as title/closing slides)
-    if (hasLogo) {
-        const logoH = 0.55;
-        const logoW = logoH * (169 / 200);
-        slide.addImage({
-            path: logoPath,
-            x: MARGIN,
-            y: SLIDE_H - MARGIN - logoH,
-            w: logoW,
-            h: logoH,
-            altText: 'Logo',
-        });
-    }
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
 
     // Speaker notes
     if (noteData) {
@@ -883,6 +894,9 @@ function buildBackdropRenderSlide(pptx, slideData, ctx) {
             valign: 'top',
         });
     }
+
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
 
     // Speaker notes
     if (noteData) {
