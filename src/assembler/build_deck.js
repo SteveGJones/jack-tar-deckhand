@@ -179,8 +179,10 @@ async function assembleDeck() {
             continue;
         }
         if (strategy === 'backdrop') {
-            // Phase 4: will become buildBackdropSlide — stub to backdrop for now
-            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
+            const strategyEntry = strategyMap
+                ? (strategyMap.slides || []).find(e => e.slide_number === slideData.slide_number)
+                : null;
+            buildBackdropSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageManifest, strategyEntry });
             continue;
         }
         if (strategy === 'pragmatic_composition') {
@@ -1091,6 +1093,97 @@ function buildPragmaticSlide(pptx, slideData, ctx) {
     });
 
     // Footer logo + notes
+    addFooterLogo(slide, ctx);
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
+/**
+ * Backdrop slide: structured AI scene with text placed at vision-detected positions.
+ * Falls back to prescribed positions from element_layout if no detected_positions.
+ */
+function buildBackdropSlide(pptx, slideData, ctx) {
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageManifest, strategyEntry } = ctx;
+
+    const slide = pptx.addSlide();
+    const elementLayout = strategyEntry?.element_layout || {};
+    const prescribedElements = elementLayout.elements || [];
+    const titleRegion = elementLayout.title_region || { x: 0.05, y: 0.03, w: 0.90, h: 0.12 };
+    const images = findSlideImages(imageManifest, slideData.slide_number);
+
+    // Full-bleed scene image
+    const sceneImage = images[0];
+    if (sceneImage) {
+        const imgPath = resolveImagePath(sceneImage.file_path);
+        if (fs.existsSync(imgPath)) {
+            slide.addImage({
+                path: imgPath, x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                altText: sceneImage.alt_text || '',
+            });
+        }
+    }
+
+    // Use detected positions if available, otherwise fall back to prescribed
+    const detectedPositions = sceneImage?.detected_positions || [];
+    const useDetected = detectedPositions.length > 0;
+    const positions = useDetected ? detectedPositions : prescribedElements;
+
+    // Place text labels at element positions
+    for (const pos of positions) {
+        const ex = pos.x * SLIDE_W;
+        const ey = pos.y * SLIDE_H;
+        const ew = pos.w * SLIDE_W;
+        const eh = pos.h * SLIDE_H;
+
+        // Find the matching label
+        const elemId = pos.element_id || pos.id;
+        const prescribed = prescribedElements.find(e => e.id === elemId) || {};
+        const labelSource = prescribed.label_source || '';
+        const match = labelSource.match(/body_points\[(\d+)\]/);
+        const label = match && slideData.body_points
+            ? (slideData.body_points[parseInt(match[1])] || elemId)
+            : elemId;
+
+        // Text label centered within the detected bounding box
+        const labelH = 0.5;
+        const labelW = Math.max(ew, 1.5);
+        const labelX = ex + (ew - labelW) / 2;
+        const labelY = ey + eh - labelH;
+
+        // Backing pill
+        slide.addShape(pptx.ShapeType.rect, {
+            x: labelX, y: labelY, w: labelW, h: labelH,
+            fill: { color: '000000', transparency: 55 },
+            rectRadius: 0.1,
+        });
+
+        slide.addText(label, {
+            x: labelX, y: labelY, w: labelW, h: labelH,
+            fontSize: typo.body_size || 18,
+            fontFace: typo.body_font,
+            color: 'FFFFFF',
+            align: 'center',
+            valign: 'middle',
+            bold: true,
+            wrap: true,
+        });
+    }
+
+    // Headline
+    slide.addText(slideData.headline, {
+        x: titleRegion.x * SLIDE_W,
+        y: titleRegion.y * SLIDE_H,
+        w: titleRegion.w * SLIDE_W,
+        h: titleRegion.h * SLIDE_H,
+        fontSize: typo.heading_sizes?.slide_heading || 32,
+        fontFace: typo.heading_font,
+        color: 'FFFFFF',
+        bold: true,
+        valign: 'middle',
+    });
+
     addFooterLogo(slide, ctx);
     if (noteData) {
         slide.addNotes(noteData.text);
