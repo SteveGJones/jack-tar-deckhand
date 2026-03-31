@@ -354,3 +354,21 @@ def test_element_layout_caps_at_5():
     assert len(layout['elements']) == 5
     with pytest.raises(ValueError):
         get_element_layout('process_flow', 6)
+
+
+def test_select_backdrop_variant():
+    """select_backdrop_variant should return a valid variant name."""
+    from src.slide_prompt_composer import select_backdrop_variant
+    variants = ['left_panel', 'right_panel', 'bottom_bar', 'top_band', 'center_float']
+    # Should cycle through variants based on position
+    for i in range(5):
+        result = select_backdrop_variant(i, 10)
+        assert result in variants
+
+
+def test_select_backdrop_variant_avoids_consecutive_duplicates():
+    """Consecutive slides should not get the same variant."""
+    from src.slide_prompt_composer import select_backdrop_variant
+    results = [select_backdrop_variant(i, 10) for i in range(5)]
+    for i in range(1, len(results)):
+        assert results[i] != results[i - 1]

@@ -310,3 +310,21 @@ def get_element_layout(template_name, element_count):
         'elements': elements,
         'title_region': tmpl['title_region'],
     }
+
+
+_BACKDROP_VARIANTS = ['left_panel', 'bottom_bar', 'right_panel', 'top_band', 'center_float']
+
+
+def select_backdrop_variant(slide_index, total_slides):
+    """Select a backdrop variant for visual rhythm.
+
+    Cycles through variants to avoid consecutive duplicates.
+
+    Args:
+        slide_index: 0-based index of this slide among background slides.
+        total_slides: Total number of slides in the deck (unused, for future weighting).
+
+    Returns:
+        str: One of 'left_panel', 'right_panel', 'bottom_bar', 'top_band', 'center_float'.
+    """
+    return _BACKDROP_VARIANTS[slide_index % len(_BACKDROP_VARIANTS)]
