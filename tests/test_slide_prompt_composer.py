@@ -302,3 +302,55 @@ def test_classify_backdrop_render_still_accepted():
     overrides = {1: 'backdrop_render'}
     result = build_strategy_map(outline, overrides=overrides)
     assert result['slides'][0]['speaker_override'] == 'backdrop_render'
+
+
+def test_element_layout_three_across():
+    """three_across template should produce 3 evenly-spaced columns."""
+    from src.slide_prompt_composer import get_element_layout
+    layout = get_element_layout('three_across', 3)
+    assert layout['template'] == 'three_across'
+    assert len(layout['elements']) == 3
+    assert all(0 <= e['x'] <= 1 and 0 <= e['y'] <= 1 for e in layout['elements'])
+    assert 'title_region' in layout
+    # Elements should be horizontally spaced
+    xs = [e['x'] for e in layout['elements']]
+    assert xs[0] < xs[1] < xs[2]
+
+
+def test_element_layout_two_column():
+    """two_column template should produce 2 wide columns."""
+    from src.slide_prompt_composer import get_element_layout
+    layout = get_element_layout('two_column', 2)
+    assert len(layout['elements']) == 2
+
+
+def test_element_layout_grid_2x2():
+    """grid_2x2 template should produce 4 elements in a 2x2 grid."""
+    from src.slide_prompt_composer import get_element_layout
+    layout = get_element_layout('grid_2x2', 4)
+    assert len(layout['elements']) == 4
+
+
+def test_element_layout_process_flow():
+    """process_flow template should produce a horizontal row."""
+    from src.slide_prompt_composer import get_element_layout
+    layout = get_element_layout('process_flow', 4)
+    assert len(layout['elements']) == 4
+    xs = [e['x'] for e in layout['elements']]
+    assert xs == sorted(xs)
+
+
+def test_element_layout_hub_and_spoke():
+    """hub_and_spoke template should have 1 centre + surrounding elements."""
+    from src.slide_prompt_composer import get_element_layout
+    layout = get_element_layout('hub_and_spoke', 4)
+    assert len(layout['elements']) == 4
+
+
+def test_element_layout_caps_at_5():
+    """Element count must be capped at 5."""
+    from src.slide_prompt_composer import get_element_layout
+    layout = get_element_layout('process_flow', 5)
+    assert len(layout['elements']) == 5
+    with pytest.raises(ValueError):
+        get_element_layout('process_flow', 6)

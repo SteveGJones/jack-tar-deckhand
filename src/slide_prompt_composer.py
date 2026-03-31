@@ -231,3 +231,82 @@ def load_strategy_map(deck_dir):
         raise FileNotFoundError(f'No strategy-map.json in {deck_dir}')
     with open(path) as f:
         return json.load(f)
+
+
+_ELEMENT_LAYOUTS = {
+    'three_across': {
+        'regions': lambda n: [
+            {'x': 0.05 + i * 0.32, 'y': 0.22, 'w': 0.27, 'h': 0.50}
+            for i in range(n)
+        ],
+        'title_region': {'x': 0.05, 'y': 0.03, 'w': 0.90, 'h': 0.12},
+    },
+    'two_column': {
+        'regions': lambda n: [
+            {'x': 0.05 + i * 0.50, 'y': 0.22, 'w': 0.42, 'h': 0.55}
+            for i in range(n)
+        ],
+        'title_region': {'x': 0.05, 'y': 0.03, 'w': 0.90, 'h': 0.12},
+    },
+    'grid_2x2': {
+        'regions': lambda n: [
+            {'x': 0.05 + (i % 2) * 0.50, 'y': 0.18 + (i // 2) * 0.40, 'w': 0.42, 'h': 0.35}
+            for i in range(n)
+        ],
+        'title_region': {'x': 0.05, 'y': 0.03, 'w': 0.90, 'h': 0.10},
+    },
+    'process_flow': {
+        'regions': lambda n: [
+            {'x': 0.03 + i * (0.94 / n), 'y': 0.25, 'w': 0.94 / n - 0.03, 'h': 0.45}
+            for i in range(n)
+        ],
+        'title_region': {'x': 0.05, 'y': 0.03, 'w': 0.90, 'h': 0.12},
+    },
+    'hub_and_spoke': {
+        'regions': lambda n: [
+            {'x': 0.37, 'y': 0.28, 'w': 0.26, 'h': 0.40},  # centre hub
+        ] + [
+            {'x': [0.05, 0.70, 0.05, 0.70][i], 'y': [0.15, 0.15, 0.55, 0.55][i], 'w': 0.22, 'h': 0.28}
+            for i in range(n - 1)
+        ],
+        'title_region': {'x': 0.05, 'y': 0.03, 'w': 0.90, 'h': 0.10},
+    },
+}
+
+
+def get_element_layout(template_name, element_count):
+    """Return an element_layout dict for the given template and count.
+
+    Args:
+        template_name: One of 'three_across', 'two_column', 'grid_2x2',
+                       'process_flow', 'hub_and_spoke'.
+        element_count: Number of elements (1-5).
+
+    Returns:
+        dict with 'template', 'elements' (array of {id, label_source, x, y, w, h}),
+        and 'title_region'.
+
+    Raises:
+        ValueError: If element_count > 5 or template_name unknown.
+    """
+    if element_count > 5:
+        raise ValueError(f'Element count {element_count} exceeds maximum of 5')
+    if template_name not in _ELEMENT_LAYOUTS:
+        raise ValueError(f'Unknown layout template: {template_name}')
+
+    tmpl = _ELEMENT_LAYOUTS[template_name]
+    regions = tmpl['regions'](element_count)
+
+    elements = []
+    for i, region in enumerate(regions):
+        elements.append({
+            'id': f'elem_{i + 1}',
+            'label_source': f'body_points[{i}]',
+            **region,
+        })
+
+    return {
+        'template': template_name,
+        'elements': elements,
+        'title_region': tmpl['title_region'],
+    }
