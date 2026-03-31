@@ -184,8 +184,10 @@ async function assembleDeck() {
             continue;
         }
         if (strategy === 'pragmatic_composition') {
-            // Phase 3: will become buildPragmaticSlide — stub to backdrop for now
-            buildBackdropRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
+            const strategyEntry = strategyMap
+                ? (strategyMap.slides || []).find(e => e.slide_number === slideData.slide_number)
+                : null;
+            buildPragmaticSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageManifest, strategyEntry });
             continue;
         }
 
@@ -984,6 +986,112 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
     addFooterLogo(slide, ctx);
 
     // Speaker notes
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
+/**
+ * Find all images for a given slide number from the manifest.
+ */
+function findSlideImages(imageManifest, slideNumber) {
+    return (imageManifest.images || []).filter(
+        img => img.slide_number === slideNumber && img.status !== 'failed'
+    );
+}
+
+/**
+ * Pragmatic composition slide: atmospheric background + individually-placed element images
+ * with text labels adjacent to each element.
+ */
+function buildPragmaticSlide(pptx, slideData, ctx) {
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageManifest, strategyEntry } = ctx;
+
+    const slide = pptx.addSlide();
+    const elementLayout = strategyEntry?.element_layout || {};
+    const elements = elementLayout.elements || [];
+    const titleRegion = elementLayout.title_region || { x: 0.05, y: 0.03, w: 0.90, h: 0.12 };
+    const images = findSlideImages(imageManifest, slideData.slide_number);
+
+    // 1. Background image (full-bleed)
+    const bgImage = images.find(img => img.placement_zone === 'background');
+    if (bgImage) {
+        const imgPath = resolveImagePath(bgImage.file_path);
+        if (fs.existsSync(imgPath)) {
+            slide.addImage({
+                path: imgPath, x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                altText: 'Background',
+            });
+        }
+    }
+
+    // 2. Place each element image at its prescribed position
+    for (const elem of elements) {
+        const elemImage = images.find(img => img.element_id === elem.id);
+        const ex = elem.x * SLIDE_W;
+        const ey = elem.y * SLIDE_H;
+        const ew = elem.w * SLIDE_W;
+        const eh = elem.h * SLIDE_H;
+
+        if (elemImage) {
+            const imgPath = resolveImagePath(elemImage.file_path);
+            if (fs.existsSync(imgPath)) {
+                slide.addImage({
+                    path: imgPath, x: ex, y: ey, w: ew, h: eh,
+                    sizing: { type: 'contain', w: ew, h: eh },
+                    altText: elem.id,
+                });
+            }
+        }
+
+        // 3. Text label — below element (or above if in bottom third)
+        const labelSource = elem.label_source || '';
+        const match = labelSource.match(/body_points\[(\d+)\]/);
+        const label = match && slideData.body_points
+            ? (slideData.body_points[parseInt(match[1])] || elem.id)
+            : elem.id;
+
+        const labelH = 0.5;
+        const labelW = ew;
+        const inBottomThird = (ey + eh) > (SLIDE_H * 0.67);
+        const labelY = inBottomThird ? (ey - labelH - 0.05) : (ey + eh + 0.05);
+        const labelX = ex;
+
+        // Small backing pill
+        slide.addShape(pptx.ShapeType.rect, {
+            x: labelX, y: labelY, w: labelW, h: labelH,
+            fill: { color: '000000', transparency: 55 },
+            rectRadius: 0.1,
+        });
+
+        slide.addText(label, {
+            x: labelX, y: labelY, w: labelW, h: labelH,
+            fontSize: typo.body_size || 18,
+            fontFace: typo.body_font,
+            color: 'FFFFFF',
+            align: 'center',
+            valign: 'middle',
+            bold: true,
+            wrap: true,
+        });
+    }
+
+    // 4. Headline in title region
+    slide.addText(slideData.headline, {
+        x: titleRegion.x * SLIDE_W,
+        y: titleRegion.y * SLIDE_H,
+        w: titleRegion.w * SLIDE_W,
+        h: titleRegion.h * SLIDE_H,
+        fontSize: typo.heading_sizes?.slide_heading || 32,
+        fontFace: typo.heading_font,
+        color: 'FFFFFF',
+        bold: true,
+        valign: 'middle',
+    });
+
+    // Footer logo + notes
+    addFooterLogo(slide, ctx);
     if (noteData) {
         slide.addNotes(noteData.text);
     }

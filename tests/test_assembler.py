@@ -129,6 +129,46 @@ def test_build_deck_background_variants(deck_dir):
     assert result.returncode == 0, f"Failed with bottom_bar: {result.stderr}"
 
 
+def test_build_deck_pragmatic_composition(deck_dir):
+    """Assembler should handle pragmatic_composition with multiple images per slide."""
+    # Update strategy map
+    sm_path = os.path.join(deck_dir, 'strategy-map.json')
+    with open(sm_path) as f:
+        sm = json.load(f)
+    sm['slides'][1]['strategy'] = 'pragmatic_composition'
+    sm['slides'][1]['element_layout'] = {
+        'template': 'two_column',
+        'elements': [
+            {'id': 'elem_1', 'label_source': 'body_points[0]', 'x': 0.05, 'y': 0.22, 'w': 0.42, 'h': 0.55},
+            {'id': 'elem_2', 'label_source': 'body_points[1]', 'x': 0.55, 'y': 0.22, 'w': 0.42, 'h': 0.55},
+        ],
+        'title_region': {'x': 0.05, 'y': 0.03, 'w': 0.90, 'h': 0.12},
+    }
+    with open(sm_path, 'w') as f:
+        json.dump(sm, f)
+
+    # Update image manifest with element images
+    im_path = os.path.join(deck_dir, 'image-manifest.json')
+    with open(im_path) as f:
+        im = json.load(f)
+    im['images'].extend([
+        {'image_id': 'slide-02-bg', 'slide_number': 2, 'file_path': im['images'][0]['file_path'],
+         'status': 'generated', 'placement_zone': 'background'},
+        {'image_id': 'slide-02-elem-1', 'slide_number': 2, 'file_path': im['images'][0]['file_path'],
+         'status': 'generated', 'placement_zone': 'element', 'element_id': 'elem_1'},
+        {'image_id': 'slide-02-elem-2', 'slide_number': 2, 'file_path': im['images'][0]['file_path'],
+         'status': 'generated', 'placement_zone': 'element', 'element_id': 'elem_2'},
+    ])
+    with open(im_path, 'w') as f:
+        json.dump(im, f)
+
+    result = subprocess.run(
+        ['node', 'src/assembler/build_deck.js', '--deck-dir', deck_dir],
+        capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0, f"Failed: {result.stderr}"
+
+
 def test_build_deck_without_strategy_map(tmp_path):
     """Assembler works when strategy-map.json is absent (backward compatible)."""
     # Use the existing test deck at ./tmp/deck if available, otherwise skip
