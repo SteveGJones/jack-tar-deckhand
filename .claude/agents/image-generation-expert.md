@@ -235,6 +235,11 @@ Colour palette strictly limited to: primary #HEX1, secondary #HEX2,
 accent #HEX3, neutral dark #HEX4, neutral light #HEX5.
 ```
 
+### Ollama Colour Accuracy
+- Ollama z-image-turbo colour accuracy: the model drifts ~2-3 stops from requested hex values. Dark colours are more reliable than mid-tones. Recommend using descriptive colour terms alongside hex values (e.g., "very dark, almost black with a slight teal tint, hex #0E1513" rather than "#0E1513" alone).
+- Element images for `pragmatic_composition` should be generated at the exact target aspect ratio from the strategy map `element_layout` (calculate w/h ratio and set `--width`/`--height` accordingly). Do NOT generate square images and rely on post-crop -- this wastes resolution and may not fill the placement box.
+- For consistent background colour across multiple element images: use identical prompt language for the background in all element prompts. The assembler will sample the corner pixel of the first element image to set the slide background colour.
+
 ### Visual Baseline Approach
 1. Generate the title slide hero image first
 2. Extract style description from the hero

@@ -1,0 +1,67 @@
+{
+  "brand_id": "metamirror-io",
+  "company_name": "metamirror.io",
+  "source_inputs": [
+    {
+      "type": "pdf",
+      "path": "./tmp/metamirror/metamirror_brand_style_guide_v1.0.pdf"
+    },
+    {
+      "type": "logo",
+      "path": "./tmp/metamirror/metamirror.svg"
+    },
+    {
+      "type": "logo",
+      "path": "./tmp/metamirror/Metamirror-icon.png"
+    },
+    {
+      "type": "brief",
+      "values": {
+        "tagline": "The operational reflection of business reality. AI strategy to execution."
+      }
+    }
+  ],
+  "palette": {
+    "primary": "006B5E",
+    "secondary": "4B635B",
+    "accent": "5CDBC0",
+    "background": "F5FBF7",
+    "background_alt": "7AF8DB",
+    "text_primary": "171D1B",
+    "text_muted": "9DA3A0",
+    "text_on_dark": "DEE4E0",
+    "chart_series": [
+      "006B5E",
+      "5CDBC0",
+      "3D6278",
+      "4B635B",
+      "9DA3A0"
+    ]
+  },
+  "typography": {
+    "heading_font": "Inter",
+    "body_font": "Inter",
+    "mono_font": "JetBrains Mono",
+    "approved_alternatives": [
+      "system-ui",
+      "Helvetica Neue",
+      "Arial"
+    ]
+  },
+  "approved_image_styles": [
+    "clean flat illustration",
+    "minimal line art",
+    "technical diagram",
+    "abstract geometric",
+    "professional photography"
+  ],
+  "prohibited_image_styles": [
+    "clip art",
+    "WordArt",
+    "gradients on text",
+    "cartoons",
+    "stock photo cliches"
+  ],
+  "compliance_mode": "guided",
+  "extracted_at": "2026-03-30T03:34:59.504446+00:00"
+}

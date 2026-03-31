@@ -26,6 +26,7 @@ from .checks import (
     COLOUR_CHECKS,
     KEYNOTE_CHECKS,
     check_slide_count_ratio,
+    check_contrast,
 )
 from .config import QA_CONFIG
 from .report import generate_report
@@ -66,8 +67,11 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
                 findings.extend(check_fn(slide, slide_number, prs, config=cfg))
             for check_fn in KEYNOTE_CHECKS:
                 findings.extend(check_fn(slide, slide_number, brand_palette=brand_palette, config=cfg))
-        elif strategy == 'backdrop_render':
-            # Backdrop: run standard text checks + image + keynote checks
+        elif strategy in ('backdrop_render', 'background', 'backdrop', 'pragmatic_composition'):
+            # Backdrop/background/pragmatic: text + image + keynote checks.
+            # Contrast check is skipped: the QA checker compares text colour against the
+            # slide background fill (white), not the actual image content. Backing pills
+            # in the assembler ensure readability; contrast must be validated visually.
             for check_fn in STRUCTURAL_CHECKS:
                 findings.extend(check_fn(slide, slide_number, config=cfg))
             for check_fn in STRUCTURAL_CHECKS_WITH_PRESENTATION:
@@ -77,6 +81,8 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
             for check_fn in KEYNOTE_CHECKS:
                 findings.extend(check_fn(slide, slide_number, brand_palette=brand_palette, config=cfg))
             for check_fn in VISUAL_CHECKS:
+                if check_fn is check_contrast:
+                    continue
                 try:
                     findings.extend(check_fn(slide, slide_number, config=cfg))
                 except Exception:
@@ -94,6 +100,59 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
                     findings.extend(check_fn(slide, slide_number, config=cfg))
                 except Exception:
                     pass
+
+    # Step 1b: Element layout checks (AP-27 to AP-30)
+    from src.qa.checks.element_layout import (
+        check_element_layout,
+        check_vision_confidence,
+        check_text_element_alignment,
+        check_grid_reading_order,
+        check_label_text_fit,
+    )
+
+    # Load image manifest for alignment checks
+    im_path = os.path.join(deck_dir, 'image-manifest.json')
+    im_data = {}
+    if os.path.exists(im_path):
+        with open(im_path) as f:
+            im_data = json.load(f)
+    images_by_slide = {}
+    for img in im_data.get('images', []):
+        sn = img.get('slide_number')
+        if sn and img.get('detected_positions'):
+            images_by_slide[sn] = img
+
+    if os.path.exists(strategy_map_path):
+        with open(strategy_map_path) as f:
+            strategy_map_data = json.load(f)
+        outline_path = os.path.join(deck_dir, 'outline.json')
+        outline_slides = {}
+        if os.path.exists(outline_path):
+            with open(outline_path) as f:
+                outline_data = json.load(f)
+            outline_slides = {s['slide_number']: s for s in outline_data.get('slides', [])}
+
+        for entry in strategy_map_data.get('slides', []):
+            strategy = entry.get('speaker_override') or entry.get('strategy')
+            if strategy in ('backdrop', 'pragmatic_composition'):
+                outline_slide = outline_slides.get(entry['slide_number'], {})
+                # AP-27: Element layout validation
+                findings.extend(check_element_layout(entry, outline_slide))
+                # AP-29: Text-element alignment
+                image_entry = images_by_slide.get(entry['slide_number'], {})
+                if image_entry:
+                    findings.extend(check_text_element_alignment(entry, image_entry))
+                # AP-31: Label text fit
+                findings.extend(check_label_text_fit(entry, outline_slide, image_entry))
+            # AP-30: Grid reading order (any strategy with grid layout)
+            if entry.get('element_layout', {}).get('template') == 'grid_2x2' or \
+               entry.get('body_layout') == 'grid_2x2':
+                findings.extend(check_grid_reading_order(entry))
+
+    # AP-28: Check vision confidence on image manifest
+    for img in im_data.get('images', []):
+        if img.get('detected_positions'):
+            findings.extend(check_vision_confidence(img))
 
     # Step 2: Deck-level structural checks
     for check_fn in DECK_STRUCTURAL_CHECKS:

@@ -10,7 +10,7 @@
 |------------|------|-------|-------------|
 | PPTX Build | Skill | `deck-assembler` | Compose all artefacts into .pptx via PptxGenJS |
 | File Optimisation | Capability | within `deck-assembler` | Compression, font subsetting, metadata stripping |
-| Visual QA | Skill | `deck-qa` | 25 automated anti-pattern checks |
+| Visual QA | Skill | `deck-qa` | 30 automated anti-pattern checks |
 | Presentation Reviewer | AI Persona | -- | Conference best practices review |
 
 ## Data Contract Summary

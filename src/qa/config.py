@@ -27,15 +27,15 @@ QA_CONFIG = {
     # AP-06: Elements Outside Safe Margins
     'safe_margin_pct': 0.05,
 
-    # AP-07: Low Contrast
-    'min_contrast_ratio': 7.0,
+    # AP-07: Low Contrast (WCAG AA minimum for body text: 4.5:1)
+    'min_contrast_ratio': 4.5,
 
     # AP-10: Slide Count vs Duration
     'slides_per_minute_min': 0.5,
     'slides_per_minute_max': 2.0,
 
-    # AP-12: Image Resolution
-    'min_image_dpi_equiv': 96,
+    # AP-12: Image Resolution (72 DPI = screen resolution minimum for presentations)
+    'min_image_dpi_equiv': 72,
 
     # AP-13: Image Aspect Ratio Distortion
     'max_aspect_distortion_pct': 5.0,

@@ -203,8 +203,8 @@ def test_upgrade_slide_strategy(tmp_path):
     strategy_map = build_strategy_map(outline)
     save_strategy_map(deck_dir, strategy_map)
 
-    # Slide 2 should be backdrop_render (4 bullets)
-    assert strategy_map['slides'][1]['strategy'] == 'backdrop_render'
+    # Slide 2 should be background (4 bullets — dense content)
+    assert strategy_map['slides'][1]['strategy'] == 'background'
 
     # Upgrade slide 2 to full_render
     updated = upgrade_slide_strategy(deck_dir, slide_number=2, new_strategy='full_render')

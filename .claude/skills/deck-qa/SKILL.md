@@ -1,6 +1,6 @@
 ---
 name: deck-qa
-description: Run 25 automated anti-pattern checks on an assembled .pptx and produce a QAReport with verdict and per-slide findings.
+description: Run 30 automated anti-pattern checks on an assembled .pptx and produce a QAReport with verdict and per-slide findings.
 argument-hint: [--pptx-path PATH] [--deck-dir PATH] [--duration MINUTES]
 allowed-tools: Bash(python *), Read, Glob
 ---

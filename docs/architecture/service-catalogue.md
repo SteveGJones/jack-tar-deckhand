@@ -345,7 +345,7 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 |---|---|
 | **Level** | L2 |
 | **Parent** | assembly-qa-services |
-| **Mission** | Run 25 automated anti-pattern checks: contrast validation, margin enforcement, font size compliance, consistency audit, image quality thresholds. |
+| **Mission** | Run 30 automated anti-pattern checks: contrast validation, margin enforcement, font size compliance, consistency audit, image quality thresholds, element alignment, grid reading order, label text fit. |
 | **Service Type** | core |
 | **Tags** | l2, skill, deck-qa, automated |
 | **AI Persona** | No |
@@ -383,7 +383,7 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 | L0 | 1 | Root domain |
 | L1 | 5 | Service domains (Content, Design, Image, Assembly & QA, Deck Conductor) |
 | L2 | 19 | Skills (14), Capabilities (2), AI Persona Agents (3) |
-| **Total** | **25** | |
+| **Total** | **30** | |
 
 ## Service Counts by Tag Type
 
