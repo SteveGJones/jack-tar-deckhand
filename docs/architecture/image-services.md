@@ -140,12 +140,38 @@ Background removal (rembg), resize, crop, colour correction, and file optimisati
 
 Assembles structured briefs from SlideOutline, StyleGuide, BrandProfile, and StrategyMap for each slide. Briefs are consumed by the Prompt Engineer agent to produce image generation prompts. Handles brand constraint injection, resolution-aware formatting, and model-specific prompt hygiene. Validates that output prompts contain required elements.
 
+### Strategy Classification
+
+Classifies each slide into one of 5 rendering strategies:
+
+| Strategy | Classification Criteria |
+|---|---|
+| `full_render` | Title cards, section dividers, dramatic visual-impact moments with no text overlay needed |
+| `background` | Slides with bullet text or narrative content that benefit from an atmospheric mood image behind a text overlay zone |
+| `backdrop` | Slides describing structured scenes with identifiable figurative elements (e.g., labelled systems, annotated processes) where text should be associated with specific visual elements |
+| `pragmatic_composition` | Slides requiring precise positioning of multiple distinct visual items (comparison grids, process flows, feature showcases) |
+| `composed` | Diagrams, data charts, code slides, and text-heavy content best served by PptxGenJS shapes and text boxes |
+
+For `background` slides, also selects a `backdrop_variant` template zone (see below). For `backdrop` and `pragmatic_composition` slides, also produces an `element_layout` specifying element regions.
+
+### backGROUND Template Zones
+
+The `background` strategy supports 5 template zones, selected per-slide via the `backdrop_variant` field in the StrategyMap:
+
+| Template | Overlay Position | Best For |
+|---|---|---|
+| `left_panel` | Left 40%, full height | Dense bullets (default, backward-compatible with `backdrop_render`) |
+| `right_panel` | Right 40%, full height | Visual variety, image dominates left |
+| `bottom_bar` | Bottom 30%, full width | Short text, image dominates |
+| `top_band` | Top 25%, full width | Headline-heavy slides |
+| `center_float` | Centered box, generous padding | Sparse text, image wraps |
+
 ### Produced Contracts
 
 | Contract | File | Description |
 |---|---|---|
-| StrategyMap | `./tmp/deck/strategy-map.json` | Per-slide rendering strategy classification (full_render, backdrop_render, or composed) with rationale and Speaker override support |
-| SlidePrompts | `./tmp/deck/slide-prompts.json` | Generated prompts per slide, inspectable and reusable |
+| StrategyMap | `./tmp/deck/strategy-map.json` | Per-slide rendering strategy classification (full_render, background, backdrop, pragmatic_composition, composed, or backward-compatible backdrop_render) with rationale, backdrop_variant, element_layout, and Speaker override support |
+| SlidePrompts | `./tmp/deck/slide-prompts.json` | Generated prompts per slide, inspectable and reusable. For `pragmatic_composition` slides, contains 1 background prompt plus N element prompts. |
 
 ---
 
@@ -157,6 +183,12 @@ Assembles structured briefs from SlideOutline, StyleGuide, BrandProfile, and Str
 **Model:** Haiku (default), Sonnet (escalation after 3 failed iterations)
 
 AI Persona that receives structured briefs and produces creative image generation prompts. Composes spatial relationships, visual metaphors, typography descriptions, and scene layouts that template-based systems cannot. Single agent definition with model selected at dispatch time.
+
+Handles three composition modes based on rendering strategy:
+
+- **Atmospheric prompts** (`background`): Mood/texture images with no spatial requirements.
+- **Spatial-intent prompts** (`backdrop`): Broad compositional direction for structured scenes. Receives element metadata (count, descriptions, layout template) in the brief. Does not specify exact coordinates -- vision analysis detects where elements landed.
+- **Element-level prompts** (`pragmatic_composition`): Produces 1 background prompt plus N individual element prompts. Uses a shared style prefix (palette tokens, illustration style) to maintain visual consistency across separately generated element images.
 
 ---
 
@@ -173,10 +205,15 @@ Three-stage render funnel for keynote-quality slide images:
 
 ### Keynote Strategies
 
-| Strategy | Description |
-|---|---|
-| **full_render** | Complete slide (text + visuals) as single AI image |
-| **backdrop_render** | AI visual background for PptxGenJS text overlay |
+| Strategy | Image Generation | Assembly Approach |
+|---|---|---|
+| **full_render** | 1 image: complete slide (text + visuals) | Single full-bleed image, no PptxGenJS text boxes |
+| **background** | 1 image: atmospheric/mood background | Full-bleed background + text in template zone with semi-transparent overlay |
+| **backdrop** | 1 image: structured scene with figurative elements | Full-bleed scene + text boxes at vision-detected positions with backing pills |
+| **pragmatic_composition** | 1 background + N element images (max 5) | Background full-bleed + element images at exact coordinates + adjacent text labels |
+| **composed** | Optional individual images (icons, charts) | Standard PptxGenJS assembly with shapes, text boxes, programmatic images |
+
+Note: `backdrop_render` is retained in the schema for backward compatibility and maps to `background` with the `left_panel` template zone.
 
 ---
 
@@ -194,6 +231,7 @@ Advisory persona consulted by image generation skills for:
 - Quality scoring against a 6-dimension rubric (composition, colour, clarity, relevance, technical quality, text accuracy)
 - Iteration convergence guidance (accept, refine prompt, rewrite, try different model)
 - Model selection advice given asset type and available providers
+- Vision analysis quality advisory for `backdrop` slides: evaluates whether detected element positions are reliable enough for text placement, recommends re-generation with adjusted spatial-intent prompt if confidence is low
 
 ### Boundaries
 
@@ -201,8 +239,113 @@ Advisory persona consulted by image generation skills for:
 - Never makes routing decisions -- the imagegen-bridge routes using the expert's advice
 - Never accesses or modifies DeckContext state
 - Never communicates with the Speaker directly -- all communication through the Conductor or calling skill
+- Never performs vision analysis directly -- the vision analysis capability performs the analysis; the expert advises on result quality
 
 For the full persona specification, see [AI Persona Summaries](ai-persona-summaries.md).
+
+---
+
+## Vision Analysis (backDROP)
+
+**Type:** Capability (within Image Services, not a separate persona)
+
+Vision post-analysis for `backdrop` strategy slides. After image generation produces a structured scene, the vision analysis capability examines the generated image to detect where figurative elements actually landed, enabling the assembler to place text at accurate positions.
+
+### Why Vision Analysis
+
+Standard image generation models (FLUX, z-image-turbo, GPT-Image, Nanobanana) do not reliably follow precise spatial positioning instructions. They can produce broad compositions ("three computers arranged horizontally") but not coordinate-level precision ("element at x=25%"). Prompt-prescribed positioning would result in visibly misaligned text labels. Vision post-analysis solves this by working with what the model actually produced.
+
+### Input
+
+- Generated image (PNG) from the render funnel
+- Element descriptions from the SlideOutline (body_points content)
+- Expected element count from the StrategyMap `element_layout`
+
+### Process
+
+Vision model (Claude) receives the image plus a structured prompt:
+
+> "This image contains N figurative elements representing [descriptions]. For each element, return its approximate bounding box as normalised coordinates {x, y, w, h} where 0,0 is top-left and 1,1 is bottom-right. Order elements left-to-right, then top-to-bottom."
+
+### Output
+
+Array of detected positions written to the ImageManifest:
+
+```json
+{
+  "detected_positions": [
+    {"element_id": "elem_1", "x": 0.10, "y": 0.28, "w": 0.22, "h": 0.45, "confidence": 0.92},
+    {"element_id": "elem_2", "x": 0.39, "y": 0.26, "w": 0.24, "h": 0.48, "confidence": 0.88}
+  ]
+}
+```
+
+Confidence threshold: 0.7 minimum. Elements below threshold are flagged in the QA report (AP-28).
+
+### Cost
+
+- Claude vision: ~$0.01-0.04 per image analysis
+- Applied only to `backdrop` slides (typically 1-3 per deck)
+- Budget tracker updated to track vision analysis costs as a separate line item
+
+### Fallback
+
+If vision analysis fails or returns low confidence for all elements:
+1. Fall back to prescribed positions from `element_layout` in the StrategyMap
+2. Flag in QA report as "vision fallback -- positions may be approximate"
+3. Image Generation Expert may recommend re-generation with adjusted spatial intent or fallback to `background` strategy
+
+### Semantic Matching
+
+Associating detected bounding boxes with the correct content items is mitigated by:
+- Ordering elements left-to-right, then top-to-bottom (natural reading order)
+- Limiting to 5 elements maximum per slide
+- Including element descriptions in the vision analysis prompt
+
+`backdrop` works best for figurative (recognisable) elements. Abstract layouts should use `pragmatic_composition` instead.
+
+---
+
+## Pragmatic Composition (Element Generation)
+
+**Type:** Capability (within Image Services)
+
+For `pragmatic_composition` strategy slides, Image Services generates multiple images per slide: 1 atmospheric background plus N individual element images (maximum 5). Each element is generated separately at a size appropriate for its placement region.
+
+### Flow
+
+1. Slide Prompt Composer produces a brief containing `element_layout` with prescribed positions and a `background_prompt` plus `element_prompts[]`
+2. Prompt Engineer generates 1 background prompt plus N element prompts with a shared style prefix (palette, illustration style tokens) for visual consistency
+3. Render funnel generates each image independently using the same model
+4. All images are registered in the ImageManifest with `placement_zone: "element"` and their `element_id`
+5. Assembler places background full-bleed, then each element at its exact prescribed coordinates, then text labels adjacent to elements
+
+### No Vision Analysis Needed
+
+Positions are deterministic because Image Services controls where elements are placed, not the image model. The Prompt Engineer generates individual element images (e.g., "a single laptop computer, flat illustration, transparent background") that are placed at exact coordinates by the assembler.
+
+### Style Consistency
+
+The key challenge is maintaining visual consistency across separately generated element images. Mitigated by:
+- Shared prompt prefix with palette and style tokens
+- Using the same model for all elements in a slide
+- Post-processing to normalise colour balance
+
+---
+
+## Element Layout Templates
+
+5 starter templates for `backdrop` and `pragmatic_composition` slides:
+
+| Template | Elements | Layout | Best For |
+|---|---|---|---|
+| `three_across` | 3 | 3 equal columns | Comparison, options |
+| `two_column` | 2 | 2 wide columns | Before/after, contrast |
+| `grid_2x2` | 4 | 2x2 grid | Feature grid, quadrant |
+| `process_flow` | 3-5 | Horizontal row | Sequential steps |
+| `hub_and_spoke` | 1 center + 3-4 | Central + surrounding | Core concept + related |
+
+For `backdrop` slides, template positions are targets -- vision analysis may adjust them based on where elements actually landed. For `pragmatic_composition` slides, positions are exact -- the assembler places elements precisely at the specified coordinates.
 
 ---
 
@@ -215,7 +358,7 @@ For the full persona specification, see [AI Persona Summaries](ai-persona-summar
 | SlideOutline | Content Services (narrative-architect) | visual_direction field provides prompt context per slide |
 | StyleGuide | Design Services (slide-stylist) | Palette for colour enforcement, image_style_tokens for style consistency |
 | BrandProfile | Design Services (brand-manager) | approved_image_styles and prohibited_image_styles for prompt compliance |
-| StrategyMap | Image Services (slide-prompt-composition) | Per-slide rendering strategy (full_render, backdrop_render, composed) |
+| StrategyMap | Image Services (slide-prompt-composition) | Per-slide rendering strategy (full_render, background, backdrop, pragmatic_composition, composed; backward-compatible backdrop_render) with backdrop_variant and element_layout |
 | Budget constraints | Deck Conductor | Per-image and total budget caps |
 | TalkBrief | Speaker (via Deck Conductor) | data_sources for chart rendering |
 
@@ -223,7 +366,7 @@ For the full persona specification, see [AI Persona Summaries](ai-persona-summar
 
 | Contract | File | Consumers | Description |
 |---|---|---|---|
-| ImageManifest | `./tmp/deck/image-manifest.json` | deck-assembler | Registry of all generated images with metadata, file paths, prompts, model used |
+| ImageManifest | `./tmp/deck/image-manifest.json` | deck-assembler | Registry of all generated images with metadata, file paths, prompts, model used. For `backdrop` slides, includes `detected_positions` from vision analysis. For `pragmatic_composition` slides, includes multiple images per slide (1 background + N elements with `placement_zone: "element"` and `element_id`). |
 | ChartManifest | `./tmp/deck/chart-manifest.json` | deck-assembler | Registry of all rendered charts with metadata |
 | SlidePrompts | `./tmp/deck/slide-prompts.json` | Prompt Engineer, imagegen-bridge | Generated prompts per slide, inspectable and reusable |
 | RenderLog | `./tmp/deck/render-log.json` | Deck Conductor, deck-qa | Per-slide render history: stage, model, cost, quality score, iteration count |
@@ -254,6 +397,8 @@ For the full persona specification, see [AI Persona Summaries](ai-persona-summar
 | Prompt Engineer | Slide Prompt Composition | data-provision | Returns SlidePrompts for validation and persistence |
 | Keynote Rendering | Image Routing & Discovery | invocation | Stage-gated render requests (draft → low-tier → production) |
 | Keynote Rendering | Image Generation Expert | consultation | Quality scoring at each render stage to decide promote/retry/abort |
+| Keynote Rendering | Vision Analysis | invocation | Post-generation analysis for `backdrop` slides to detect element positions |
+| Vision Analysis | Image Generation Expert | consultation | Confidence assessment -- expert advises re-generation if detection quality is low |
 | Image Routing & Discovery | Image Generation Expert | consultation | Model selection advice |
 | Image Routing & Discovery | Ollama Image Generation | invocation | Routed local generation request |
 | Image Routing & Discovery | Cloud Image Generation | invocation | Routed cloud generation request |

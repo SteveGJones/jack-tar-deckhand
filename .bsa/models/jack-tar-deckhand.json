@@ -4,10 +4,10 @@
     "id": "jack-tar-deckhand",
     "name": "Jack-Tar Deckhand — Presentation Engineering",
     "description": "AI-First Business Service Architecture for a Claude Code skill suite that generates conference-quality PowerPoint presentations. Services are designed as independent, reusable domains orchestrated by a Deck Conductor agent.",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "organisation": "Jack-Tar",
     "createdDate": "2026-03-29",
-    "lastModifiedDate": "2026-03-29",
+    "lastModifiedDate": "2026-03-30",
     "authors": ["Steve Jones", "Claude"],
     "status": "draft"
   },
@@ -220,7 +220,7 @@
       "level": 2,
       "parentId": "image-services",
       "serviceType": "core",
-      "mission": "Assemble structured briefs from SlideOutline, StyleGuide, BrandProfile, and StrategyMap for each slide. Briefs are consumed by the Prompt Engineer agent to produce image generation prompts. Handles brand constraint injection, resolution-aware formatting, and model-specific prompt hygiene. Validates that output prompts contain required elements.",
+      "mission": "Assemble structured briefs from SlideOutline, StyleGuide, BrandProfile, and StrategyMap for each slide. Classifies slides into 5 rendering strategies (full_render, background, backdrop, pragmatic_composition, composed). For background strategy, selects one of 5 template zones (left_panel, right_panel, bottom_bar, top_band, center_float). For backdrop strategy, composes spatial-intent briefs with element layout metadata. For pragmatic_composition, splits the brief into 1 background prompt + N element prompts with shared style prefix. Briefs are consumed by the Prompt Engineer agent to produce image generation prompts. Handles brand constraint injection, resolution-aware formatting, and model-specific prompt hygiene. Validates that output prompts contain required elements.",
       "owner": "Steve Jones",
       "isAIPersona": false,
       "tags": ["l2", "skill", "slide-prompt-composer", "keynote"]
@@ -231,7 +231,7 @@
       "level": 2,
       "parentId": "image-services",
       "serviceType": "core",
-      "mission": "AI Persona that receives structured briefs and produces creative image generation prompts. Composes spatial relationships, visual metaphors, and scene descriptions that template-based systems cannot. Dispatched at Haiku by default for cost efficiency, escalated to Sonnet when output quality does not converge after 3 iterations.",
+      "mission": "AI Persona that receives structured briefs and produces creative image generation prompts. Composes spatial relationships, visual metaphors, and scene descriptions that template-based systems cannot. Supports 5 rendering strategies: atmospheric prompts (background), spatial-intent scene prompts with element arrangement (backdrop), element-level individual prompts with shared style prefix (pragmatic_composition), full-slide scene prompts (full_render), and no-image briefs (composed). Receives element metadata including element_layout regions and label_sources. Dispatched at Haiku by default for cost efficiency, escalated to Sonnet when output quality does not converge after 3 iterations.",
       "owner": "Steve Jones",
       "isAIPersona": true,
       "tags": ["l2", "agent", "ai-persona", "prompt-engineering", "keynote"]
@@ -242,7 +242,7 @@
       "level": 2,
       "parentId": "image-services",
       "serviceType": "core",
-      "mission": "Three-stage render funnel for keynote-quality slide images. Stage 1: Ollama draft (free, validate concept/composition). Stage 2: Cloud low-tier at 720p (cheap, validate on target model family, palette drift check). Stage 3: Cloud full-tier at 2K+ (production, single proven-prompt render). Supports full_render (complete slide as image) and backdrop_render (visual background for text overlay) strategies.",
+      "mission": "Three-stage render funnel for keynote-quality slide images. Stage 1: Ollama draft (free, validate concept/composition). Stage 2: Cloud low-tier at 720p (cheap, validate on target model family, palette drift check). Stage 3: Cloud full-tier at 2K+ (production, single proven-prompt render). Supports 5 rendering strategies: full_render (complete slide as image), background (atmospheric image for template zone text overlay), backdrop (structured scene with vision post-analysis for element positioning), pragmatic_composition (1 background + N element images generated individually for deterministic assembly), and composed (no image generation, standard PptxGenJS). For backdrop strategy, triggers vision analysis after image generation. For pragmatic_composition, generates multiple images per slide with consistent style.",
       "owner": "Steve Jones",
       "isAIPersona": false,
       "tags": ["l2", "capability", "keynote", "render-funnel"]
@@ -253,10 +253,22 @@
       "level": 2,
       "parentId": "image-services",
       "serviceType": "core",
-      "mission": "Advisory AI Persona for prompt engineering, model-specific translation, image quality scoring, and iteration convergence guidance.",
+      "mission": "Advisory AI Persona for prompt engineering, model-specific translation, image quality scoring, iteration convergence guidance, and vision analysis quality advisory. For backdrop strategy slides, advises on whether vision-detected element positions are reliable (confidence thresholds) and recommends re-generation if element detection confidence is low.",
       "owner": "Steve Jones",
       "isAIPersona": true,
       "tags": ["l2", "agent", "ai-persona", "advisory"]
+    },
+
+    {
+      "id": "image-vision-analysis",
+      "name": "Vision Analysis",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Post-generation vision analysis for backdrop strategy slides. Uses Claude vision to analyse generated images and detect where figurative elements (computers, nodes, process boxes) actually landed. Returns normalised bounding boxes {x, y, w, h, confidence} per detected element, ordered left-to-right then top-to-bottom. Confidence threshold 0.7 minimum; elements below threshold flagged for QA. Falls back to prescribed positions from element_layout when vision analysis fails or returns low confidence for all elements. Cost: ~$0.01-0.04 per analysis, applied only to backdrop slides (typically 1-3 per deck).",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "capability", "vision", "keynote", "backdrop"]
     },
 
     {
@@ -276,7 +288,7 @@
       "level": 2,
       "parentId": "assembly-qa-services",
       "serviceType": "core",
-      "mission": "Compose outline, style guide, image manifest, and speaker notes into a .pptx file via PptxGenJS.",
+      "mission": "Compose outline, style guide, image manifest, and speaker notes into a .pptx file via PptxGenJS. Routes to 5 assembly paths based on StrategyMap: buildFullRenderSlide() for full_render, buildBackgroundSlide() for background (5 template zone variants: left_panel, right_panel, bottom_bar, top_band, center_float), buildBackdropSlide() for backdrop (text at vision-detected coordinates with semi-transparent backing pills, reads detected_positions from ImageManifest), buildPragmaticSlide() for pragmatic_composition (background full-bleed + element images at exact prescribed coordinates + text labels adjacent to elements), and standard assembly for composed.",
       "owner": "Steve Jones",
       "isAIPersona": false,
       "tags": ["l2", "skill", "deck-assembler"]
@@ -287,7 +299,7 @@
       "level": 2,
       "parentId": "assembly-qa-services",
       "serviceType": "core",
-      "mission": "Run 25 automated anti-pattern checks: contrast validation, margin enforcement, font size compliance, consistency audit, image quality thresholds.",
+      "mission": "Run 27 automated anti-pattern checks: contrast validation, margin enforcement, font size compliance, consistency audit, image quality thresholds. AP-27 (element layout validation): for backdrop and pragmatic_composition slides, validates all element regions within slide bounds (0.0-1.0), no two regions overlap by more than 10%, label_source references exist in SlideOutline, element count within 1-5 range. AP-28 (vision confidence): for backdrop slides, flags elements with vision detection confidence < 0.7 and slides where vision analysis fell back to prescribed positions. Existing AP-20 (overlap check) adjusted to not flag intentional text-over-image overlap for backdrop and pragmatic_composition strategies.",
       "owner": "Steve Jones",
       "isAIPersona": false,
       "tags": ["l2", "skill", "deck-qa", "automated"]
@@ -309,7 +321,7 @@
       "level": 2,
       "parentId": "assembly-qa-services",
       "serviceType": "core",
-      "mission": "Review assembled decks against conference presentation best practices: narrative coherence, visual storytelling, pacing, speaker notes quality, audience appropriateness.",
+      "mission": "Review assembled decks against conference presentation best practices: narrative coherence, visual storytelling, pacing, speaker notes quality, audience appropriateness. For backdrop and pragmatic_composition slides, reviews text-to-element alignment quality — whether text labels are visually associated with the correct visual elements and whether the overall composition reads naturally.",
       "owner": "Steve Jones",
       "isAIPersona": true,
       "tags": ["l2", "agent", "ai-persona", "advisory", "craft-review"]
@@ -321,7 +333,7 @@
       "level": 1,
       "parentId": "presentation-engineering",
       "serviceType": "core",
-      "mission": "Orchestrate the full pipeline from talk brief to finished deck. Owns the DeckContext lifecycle, sequences L1 service invocations, manages budget, and handles the QA correction loop.",
+      "mission": "Orchestrate the full pipeline from talk brief to finished deck. Owns the DeckContext lifecycle, sequences L1 service invocations, manages budget, and handles the QA correction loop. Routes 5 rendering strategies (full_render, background, backdrop, pragmatic_composition, composed) through the pipeline, managing the additional vision analysis step for backdrop slides and multi-image generation for pragmatic_composition slides.",
       "owner": "Steve Jones",
       "isAIPersona": true,
       "tags": ["l1", "agent", "ai-persona", "orchestration"]
@@ -332,7 +344,7 @@
     {
       "id": "persona-deck-conductor",
       "serviceId": "deck-conductor",
-      "description": "Top-level orchestration agent that sequences the presentation engineering pipeline. Receives a talk brief from the Speaker, invokes L1 services in dependency order (Design → Content → Image → Assembly → QA → Review), maintains shared state via the DeckContext file system, and manages cloud API budget.",
+      "description": "Top-level orchestration agent that sequences the presentation engineering pipeline. Receives a talk brief from the Speaker, invokes L1 services in dependency order (Design → Content → Image → Assembly → QA → Review), maintains shared state via the DeckContext file system, and manages cloud API budget. Routes 5 rendering strategies through the pipeline: full_render, background, backdrop, pragmatic_composition, composed. For backdrop slides, ensures vision analysis runs after image generation and before assembly. For pragmatic_composition slides, manages multi-image generation (1 background + N elements) and tracks per-element costs.",
       "authorityModel": "hybrid",
       "confidenceThreshold": {
         "autonomousMin": 0.8,
@@ -347,7 +359,11 @@
           "Invoke provider discovery and adapt routing based on available providers",
           "Track cumulative cloud API spend against budget cap",
           "Re-invoke services when QA or Reviewer identifies issues (max 2 correction cycles)",
-          "Report progress, cost, and timing to the Speaker"
+          "Report progress, cost, and timing to the Speaker",
+          "Route 5 rendering strategies (full_render, background, backdrop, pragmatic_composition, composed) through appropriate pipeline paths",
+          "Trigger vision analysis step for backdrop slides after image generation",
+          "Manage multi-image generation for pragmatic_composition slides (1 background + N element images)",
+          "Track vision analysis costs in budget alongside image generation costs"
         ],
         "prohibited": [
           "Must not generate content, images, or style decisions directly — always delegates to L1 services",
@@ -361,7 +377,9 @@
           "QA finds critical issues after 2 correction cycles",
           "No image generation providers available",
           "Reviewer identifies structural narrative problems requiring Speaker input on direction",
-          "Talk brief is ambiguous or missing required fields"
+          "Talk brief is ambiguous or missing required fields",
+          "Vision analysis returns low confidence for all elements on a backdrop slide after re-generation",
+          "Pragmatic composition element style consistency is poor after re-generation with shared prompt prefix"
         ]
       },
       "dataSources": [
@@ -381,7 +399,7 @@
           "sourceId": "sys-filesystem",
           "sourceName": "DeckContext State",
           "accessType": "read-write",
-          "dataDescription": "All DeckContext artefacts in ./tmp/deck/: StyleGuide, SlideOutline, ImageManifest, SpeakerNotes, ChartManifest, QAReport, PipelineState"
+          "dataDescription": "All DeckContext artefacts in ./tmp/deck/: StyleGuide, SlideOutline, ImageManifest, SpeakerNotes, ChartManifest, QAReport, PipelineState, StrategyMap"
         }
       ],
       "sops": []
@@ -389,7 +407,7 @@
     {
       "id": "persona-prompt-engineer",
       "serviceId": "image-prompt-engineer",
-      "description": "AI Persona that transforms structured slide briefs into creative image generation prompts. Composes spatial relationships, visual metaphors, typography descriptions, and scene layouts that pure template systems cannot produce. Dispatched at Haiku model by default for cost efficiency (~$0.001/call); escalated to Sonnet when output quality fails to converge after 3 iterations. Single agent definition, model selected at dispatch time.",
+      "description": "AI Persona that transforms structured slide briefs into creative image generation prompts. Composes spatial relationships, visual metaphors, typography descriptions, and scene layouts that pure template systems cannot produce. Supports 5 rendering strategies with strategy-specific composition rules: atmospheric prompts for background (mood/texture, no spatial requirements), spatial-intent scene prompts for backdrop (element arrangement descriptions like 'three computers arranged horizontally' without coordinate-level precision), element-level individual prompts for pragmatic_composition (1 background prompt + N element prompts with shared style prefix for visual consistency), full-slide scene prompts for full_render, and no prompts for composed. Receives element metadata including element_layout regions and label_sources in the structured brief. Dispatched at Haiku model by default for cost efficiency (~$0.001/call); escalated to Sonnet when output quality fails to converge after 3 iterations. Single agent definition, model selected at dispatch time.",
       "authorityModel": "invoker",
       "confidenceThreshold": {
         "autonomousMin": 0.6,
@@ -397,11 +415,14 @@
       },
       "scope": {
         "permitted": [
-          "Compose full-slide image generation prompts from structured briefs",
-          "Compose backdrop-only image generation prompts (no text, safe zones for overlay)",
+          "Compose full-slide image generation prompts from structured briefs (full_render strategy)",
+          "Compose atmospheric background prompts with no spatial requirements (background strategy)",
+          "Compose spatial-intent scene prompts describing element arrangement without coordinate precision (backdrop strategy)",
+          "Compose element-level individual prompts: 1 background prompt + N element prompts with shared style prefix for visual consistency (pragmatic_composition strategy)",
           "Adapt prompts for different target models (Ollama, OpenAI, Google, FAL)",
           "Refine prompts based on vision review feedback scores",
-          "Include brand palette hex values and prohibited style constraints in prompts"
+          "Include brand palette hex values and prohibited style constraints in prompts",
+          "Receive and incorporate element metadata (element_layout regions, label_sources) into spatial composition"
         ],
         "prohibited": [
           "Must not generate images directly — only produces text prompts",
@@ -427,7 +448,7 @@
     {
       "id": "persona-image-generation-expert",
       "serviceId": "image-generation-expert",
-      "description": "Advisory AI Persona consulted by image generation skills for prompt engineering, model-specific prompt translation, quality scoring against a 6-dimension rubric, and iteration convergence guidance. Never generates images directly.",
+      "description": "Advisory AI Persona consulted by image generation skills for prompt engineering, model-specific prompt translation, quality scoring against a 6-dimension rubric, iteration convergence guidance, and vision analysis quality advisory. For backdrop strategy slides, advises on whether vision-detected element positions are reliable based on confidence thresholds and recommends re-generation if element detection confidence is low. For pragmatic_composition slides, advises on style consistency across separately generated element images. Never generates images directly.",
       "authorityModel": "invoker",
       "confidenceThreshold": {
         "autonomousMin": 0.7,
@@ -440,7 +461,10 @@
           "Score generated images against 6-dimension rubric (composition, colour, clarity, relevance, technical quality, text accuracy)",
           "Recommend iteration strategy (accept, refine prompt, rewrite, try different model)",
           "Advise on model selection given asset type and available providers",
-          "Provide negative space and style consistency guidance"
+          "Provide negative space and style consistency guidance",
+          "Advise on vision analysis quality for backdrop slides — assess whether detected element positions are reliable based on confidence scores",
+          "Recommend re-generation when vision detection confidence is below threshold (< 0.7) for critical elements",
+          "Advise on style consistency for pragmatic_composition element images — flag visual inconsistencies across separately generated elements"
         ],
         "prohibited": [
           "Must not invoke image generation directly — only advises, the calling skill generates",
@@ -478,7 +502,7 @@
     {
       "id": "persona-presentation-reviewer",
       "serviceId": "assembly-presentation-reviewer",
-      "description": "Advisory AI Persona that reviews assembled decks against conference presentation best practices. Assesses narrative coherence, visual storytelling, pacing, speaker notes quality, and audience appropriateness. Produces structured review with prioritised recommendations. Never modifies the deck directly.",
+      "description": "Advisory AI Persona that reviews assembled decks against conference presentation best practices. Assesses narrative coherence, visual storytelling, pacing, speaker notes quality, and audience appropriateness. For backdrop and pragmatic_composition slides, reviews text-to-element alignment quality — whether text labels are visually associated with the correct visual elements and whether the overall composition reads naturally. Produces structured review with prioritised recommendations. Never modifies the deck directly.",
       "authorityModel": "invoker",
       "confidenceThreshold": {
         "autonomousMin": 0.7,
@@ -492,7 +516,9 @@
           "Assess pacing: slide density, breathing room, interaction beats",
           "Assess speaker notes quality: specific and actionable vs generic filler",
           "Produce structured review with per-slide feedback and overall assessment",
-          "Recommend specific improvements with priority (critical, suggested, polish)"
+          "Recommend specific improvements with priority (critical, suggested, polish)",
+          "Review text-to-element alignment quality for backdrop and pragmatic_composition slides",
+          "Assess whether visual element composition reads naturally and supports the slide's narrative intent"
         ],
         "prohibited": [
           "Must not modify the deck, outline, images, or notes directly",
@@ -697,6 +723,19 @@
           "serviceId": "image-chart-renderer",
           "relationship": "provides",
           "description": "Chart rendering engine"
+        }
+      ]
+    },
+    {
+      "id": "sys-claude-vision",
+      "name": "Claude Vision API",
+      "type": "Cloud vision analysis API",
+      "description": "Claude vision capability for post-generation image analysis. Used by the vision analysis capability in Image Services to detect where figurative elements landed in generated backdrop images. Receives a generated image + element descriptions + expected element count. Returns normalised bounding boxes per detected element with confidence scores. Cost: ~$0.01-0.04 per analysis. Requires ANTHROPIC_API_KEY.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-vision-analysis",
+          "relationship": "provides",
+          "description": "Vision analysis endpoint for element position detection in generated images"
         }
       ]
     },
@@ -1014,7 +1053,7 @@
       "sourceId": "image-slide-prompt-composition",
       "targetId": "assembly-pptx-build",
       "type": "data-provision",
-      "description": "Assembler reads StrategyMap to select assembly path per slide: full-bleed image (full_render), backdrop + text overlay (backdrop_render), or programmatic (composed)",
+      "description": "Assembler reads StrategyMap to select assembly path per slide: full-bleed image (full_render), template zone overlay (background with backdrop_variant), vision-detected positioning (backdrop with detected_positions from ImageManifest), multi-image deterministic assembly (pragmatic_composition with element_layout), or programmatic (composed)",
       "dataFlows": ["StrategyMap"]
     },
     {
@@ -1022,7 +1061,7 @@
       "sourceId": "image-slide-prompt-composition",
       "targetId": "assembly-visual-qa",
       "type": "data-provision",
-      "description": "QA reads StrategyMap to select check suite per slide: vision-based checks for full_render, contrast-over-backdrop for backdrop_render, standard 25 checks for composed",
+      "description": "QA reads StrategyMap to select check suite per slide: vision-based checks for full_render, AP-27 element layout + AP-28 vision confidence for backdrop and pragmatic_composition, contrast-over-backdrop for background, standard checks for composed",
       "dataFlows": ["StrategyMap"]
     },
     {
@@ -1032,6 +1071,54 @@
       "type": "consultation",
       "description": "Speaker provides voice and style preferences: note format, interaction style, experience level",
       "dataFlows": ["Voice preferences", "Interaction style", "Experience level"]
+    },
+    {
+      "id": "int-keynote-to-vision-analysis",
+      "sourceId": "image-keynote-rendering",
+      "targetId": "image-vision-analysis",
+      "type": "invocation",
+      "description": "For backdrop strategy slides, keynote renderer invokes vision analysis after image generation to detect where figurative elements landed in the generated scene image",
+      "dataFlows": ["Generated image (PNG)", "Element descriptions from SlideOutline", "Expected element count"]
+    },
+    {
+      "id": "int-vision-analysis-to-claude",
+      "sourceId": "image-vision-analysis",
+      "targetId": "sys-claude-vision",
+      "type": "invocation",
+      "description": "Vision analysis capability calls Claude vision API with generated image and element detection prompt. Returns normalised bounding boxes per detected element with confidence scores.",
+      "dataFlows": ["Image for analysis", "Vision prompt with element descriptions", "detected_positions response"]
+    },
+    {
+      "id": "int-vision-analysis-to-manifest",
+      "sourceId": "image-vision-analysis",
+      "targetId": "assembly-pptx-build",
+      "type": "data-provision",
+      "description": "Vision analysis writes detected_positions array to ImageManifest for the backdrop slide. Assembler reads detected positions to place text boxes at vision-detected coordinates.",
+      "dataFlows": ["detected_positions (element_id, x, y, w, h, confidence)"]
+    },
+    {
+      "id": "int-vision-analysis-to-expert",
+      "sourceId": "image-vision-analysis",
+      "targetId": "image-generation-expert",
+      "type": "consultation",
+      "description": "Vision analysis consults Image Generation Expert when element detection confidence is ambiguous — expert advises whether to accept positions, re-generate the image, or fall back to prescribed positions",
+      "dataFlows": ["detected_positions with confidence scores", "Re-generate/accept/fallback recommendation"]
+    },
+    {
+      "id": "int-composer-element-briefs",
+      "sourceId": "image-slide-prompt-composition",
+      "targetId": "image-prompt-engineer",
+      "type": "invocation",
+      "description": "For pragmatic_composition slides, slide prompt composer dispatches element-level briefs to the Prompt Engineer: 1 background brief + N element briefs with shared style prefix, element metadata, and label_sources",
+      "dataFlows": ["Background brief", "Element briefs[]", "Shared style prefix", "element_layout metadata"]
+    },
+    {
+      "id": "int-keynote-multi-image",
+      "sourceId": "image-keynote-rendering",
+      "targetId": "image-routing-discovery",
+      "type": "invocation",
+      "description": "For pragmatic_composition slides, keynote renderer dispatches multiple generation requests through the image router: 1 background image + N element images. Each element image is generated individually via the same model for style consistency.",
+      "dataFlows": ["Background prompt", "Element prompts[]", "Model constraint (same model for all elements)"]
     }
   ],
 
@@ -1039,34 +1126,41 @@
     {
       "id": "contract-strategy-map",
       "name": "StrategyMap",
-      "description": "Per-slide rendering strategy classification. Persists in DeckContext as strategy-map.json. Determines whether each slide uses full_render (entire slide as AI image), backdrop_render (AI background + programmatic text overlay), or composed (current PptxGenJS assembly). Revised at any point during the pipeline — supports post-hoc single-slide upgrades.",
+      "description": "Per-slide rendering strategy classification. Persists in DeckContext as strategy-map.json. Determines which of 5 rendering strategies each slide uses: full_render (entire slide as AI image), background (atmospheric AI image + text in template zones), backdrop (structured AI scene + vision-detected text positioning), pragmatic_composition (AI-generated element images + deterministic assembly), or composed (standard PptxGenJS assembly). Retains backward compatibility with backdrop_render (maps to background with left_panel variant). Revised at any point during the pipeline — supports post-hoc single-slide upgrades.",
       "producedBy": "image-slide-prompt-composition",
-      "consumedBy": ["image-keynote-rendering", "image-routing-discovery", "assembly-pptx-build", "assembly-visual-qa", "deck-conductor"],
+      "consumedBy": ["image-keynote-rendering", "image-routing-discovery", "assembly-pptx-build", "assembly-visual-qa", "deck-conductor", "image-vision-analysis"],
       "fields": [
         { "name": "created_at", "type": "string", "description": "ISO 8601 timestamp" },
         { "name": "approval_mode", "type": "string", "description": "Speaker approval mode: 'review' (default, approve before generation and before production) or 'one_shot' (pre-approved, skip approval gates)" },
-        { "name": "slides", "type": "array", "description": "Per-slide strategy entries with slide_number, strategy, rationale, render_funnel, speaker_override" }
+        { "name": "slides", "type": "array", "description": "Per-slide strategy entries with slide_number, strategy (full_render|background|backdrop|pragmatic_composition|composed|backdrop_render), rationale, render_funnel, speaker_override" },
+        { "name": "slides[].backdrop_variant", "type": "string", "description": "Template zone for background strategy: left_panel, right_panel, bottom_bar, top_band, center_float" },
+        { "name": "slides[].element_layout", "type": "object", "description": "Element positioning for backdrop and pragmatic_composition strategies. Contains template name, elements[] with id/label_source/x/y/w/h, and title_region. For backdrop: target regions (vision may adjust). For pragmatic_composition: exact placement positions." }
       ]
     },
     {
       "id": "contract-slide-prompts",
       "name": "SlidePrompts",
-      "description": "Generated image prompts per slide, produced by the Prompt Engineer agent from structured briefs. Stored as slide-prompts.json in DeckContext. Prompts are inspectable, editable, and reusable across decks.",
+      "description": "Generated image prompts per slide, produced by the Prompt Engineer agent from structured briefs. Stored as slide-prompts.json in DeckContext. Prompts are inspectable, editable, and reusable across decks. For pragmatic_composition slides, contains multiple prompts per slide: 1 background prompt + N element prompts with a shared_style_prefix for visual consistency.",
       "producedBy": "image-prompt-engineer",
       "consumedBy": ["image-keynote-rendering", "image-routing-discovery"],
       "fields": [
         { "name": "generated_at", "type": "string", "description": "ISO 8601 timestamp" },
-        { "name": "prompts", "type": "array", "description": "Per-slide prompt entries with slide_number, strategy, prompt_text, target_model, funnel_stage" }
+        { "name": "prompts", "type": "array", "description": "Per-slide prompt entries with slide_number, strategy, prompt_text, target_model, funnel_stage" },
+        { "name": "prompts[].element_prompts", "type": "array", "description": "For pragmatic_composition: individual element prompts with element_id and prompt_text" },
+        { "name": "prompts[].shared_style_prefix", "type": "string", "description": "For pragmatic_composition: shared style prefix applied to all element prompts for visual consistency" }
       ]
     },
     {
       "id": "contract-render-log",
       "name": "RenderLog",
-      "description": "Append-only log of every render attempt across the pipeline. Captures prompt, model, resolution, vision score, iteration number, and cost. Builds best-practice dataset over time — which prompt patterns converge faster, which models handle text better, where Haiku vs Sonnet made the difference.",
+      "description": "Append-only log of every render attempt across the pipeline. Captures prompt, model, resolution, vision score, iteration number, and cost. Tracks vision analysis costs for backdrop slides and per-element generation costs for pragmatic_composition slides. Builds best-practice dataset over time — which prompt patterns converge faster, which models handle text better, where Haiku vs Sonnet made the difference.",
       "producedBy": "image-keynote-rendering",
       "consumedBy": ["deck-conductor"],
       "fields": [
-        { "name": "entries", "type": "array", "description": "Per-render entries with slide_number, strategy, funnel_stage, prompt_hash, model, resolution, vision_score, iteration, cost_usd, timestamp" }
+        { "name": "entries", "type": "array", "description": "Per-render entries with slide_number, strategy, funnel_stage, prompt_hash, model, resolution, vision_score, iteration, cost_usd, timestamp" },
+        { "name": "entries[].vision_analysis_cost_usd", "type": "number", "description": "For backdrop slides: cost of the Claude vision analysis call (~$0.01-0.04)" },
+        { "name": "entries[].element_id", "type": "string", "description": "For pragmatic_composition: identifies which element image this render entry is for (null for background image)" },
+        { "name": "entries[].vision_confidence", "type": "number", "description": "For backdrop slides: average confidence score across all detected elements" }
       ]
     },
     {

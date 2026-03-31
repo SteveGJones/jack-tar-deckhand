@@ -6,10 +6,10 @@ All rules are in **CONSTITUTION.md**. Core instructions are in **CLAUDE-CORE.md*
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-03-29)
+### Current Status (2026-03-30)
 
-- **BSA Architecture:** v1.1.0, includes keynote pipeline
-  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (28 services, 4 AI personas, 42 interactions)
+- **BSA Architecture:** v1.2.0, includes keynote pipeline + rendering strategy expansion
+  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (29 services, 4 AI personas, 48 interactions)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
 
 - **Research Library:** Complete — 18 papers, ~105K words in `research/`
@@ -28,13 +28,20 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **strategy-map** → speaker-notes-writer → imagegen-bridge → deck-assembler → deck-qa → presentation-reviewer
 
-- **Keynote Pipeline (NEW):** Three rendering strategies per slide:
+- **Keynote Pipeline:** Five rendering strategies per slide (expanded from 3, 2026-03-30):
   - `full_render` — entire slide as AI-generated image (title, section divider, closing)
-  - `backdrop_render` — AI background + programmatic text overlay (dense content slides)
+  - `background` — atmospheric AI background + text in template zones (5 variants: left_panel, right_panel, bottom_bar, top_band, center_float)
+  - `backdrop` — structured AI scene + vision post-analysis for text positioning (Claude Code vision-analyst agent)
+  - `pragmatic_composition` — individual AI-generated elements assembled at exact positions with text labels
   - `composed` — standard PptxGenJS assembly (diagrams, charts, code)
+  - `backdrop_render` retained for backward compatibility (maps to `background` with `left_panel`)
   - Three-stage render funnel: Ollama draft (free) → cloud low 720p (cheap) → cloud full 2K+ (production)
   - Prompt Engineer agent (Haiku default, Sonnet escalation) generates creative prompts from structured briefs
   - Post-hoc single-slide upgrade via `upgrade_slide_strategy()`
+  - **Spike:** `docs/spikes/backdrop-content-aware-positioning.md`
+  - **Implementation plan:** `docs/superpowers/plans/2026-03-30-rendering-strategy-expansion.md` (14 tasks)
+
+- **Footer:** Metamirror logo bottom-right on every slide (assembler `addFooterLogo()` helper)
 
 - **Architecture Docs:** `docs/architecture/` (10 docs + 7 SVG diagrams, 4 L1 service docs)
 
@@ -57,7 +64,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Image router | `src/image_router.py` | 35 | Done |
 | Integration test | `tests/test_integration.py` | 1 | Done |
 | Deck assembler | `src/assembler/` | 5 | Done |
-| QA checks (25 APs) | `src/qa/` | 60 | Done |
+| QA checks (27 APs) | `src/qa/` | 60 | Done |
 | Phase 5 E2E | `tests/test_phase5_integration.py` | 2 | Done |
 | Brand profile utils | `src/brand_profile.py` | 12 | Done |
 | Style validation | `src/style_validation.py` | 10 | Done |

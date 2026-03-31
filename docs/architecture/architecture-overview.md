@@ -113,7 +113,7 @@ The pipeline operates in two phases: **Draft** and **Production**. The Speaker i
 Each draft cycle runs the full pipeline to produce a reviewable deck. The Speaker iterates on narrative, layout, slide structure, and visual direction across multiple cycles:
 
 - **Design + Content**: Run at full quality (LLM text generation, no cost difference between draft and production). The brand-manager runs first to obtain or create a BrandProfile, then the slide-stylist derives the StyleGuide from it
-- **Strategy Map**: The slide prompt composer classifies each slide's rendering strategy (full_render, backdrop_render, or composed), the prompt engineer generates prompts, and the Speaker approves
+- **Strategy Map**: The slide prompt composer classifies each slide's rendering strategy (full_render, background, backdrop, pragmatic_composition, or composed), the prompt engineer generates prompts, and the Speaker approves
 - **Image**: Uses draft-quality rendering — Ollama for structural placeholders, or cloud providers at reduced size/quality for prompt refinement
 - **Assembly + QA + Review**: Build and review the draft deck
 
@@ -207,11 +207,57 @@ The QA correction loop is bounded at 2 iterations. After 2 failed QA cycles, the
 
 ### 8. Separation of Automated and Human-Judgement QA
 
-The Visual QA (deck-qa) runs 25 automated, machine-checkable anti-pattern checks (contrast, margins, overflow, consistency). The Presentation Reviewer applies human-judgement-level assessment (narrative coherence, visual storytelling, pacing). These are separate steps with different purposes and different feedback paths.
+The Visual QA (deck-qa) runs 27 automated, machine-checkable anti-pattern checks (contrast, margins, overflow, consistency, element layout, vision confidence). The Presentation Reviewer applies human-judgement-level assessment (narrative coherence, visual storytelling, pacing). These are separate steps with different purposes and different feedback paths.
 
 ### 9. Three-Stage Render Funnel
 
 Iteration happens at the cheapest stages (Ollama free, cloud low-tier cheap). Production renders use proven prompts only.
+
+### 10. Five Rendering Strategies
+
+The pipeline supports five rendering strategies, each serving a distinct use case. Strategy selection is per-slide, recorded in the StrategyMap, and can be overridden by the Speaker.
+
+| Strategy | Description | Best For |
+|---|---|---|
+| `full_render` | Entire slide is a single AI-generated image. No PptxGenJS text boxes. Speaker notes carry the delivery. | Title cards, section dividers, dramatic visual moments |
+| `background` | AI generates an atmospheric/mood background image. Text goes in one of 5 predefined template zones with a semi-transparent overlay for readability. The image does not need to "know" where text goes. | Conceptual/emotional slides with bullet text |
+| `backdrop` | AI generates a structured scene with figurative visual elements. A vision model (Claude vision) analyses the generated image to detect where those elements actually landed. The assembler places PptxGenJS text boxes at the detected positions with small semi-transparent backing pills. | Structured scenes with labelled elements (annotated processes, network diagrams) |
+| `pragmatic_composition` | Individual element images are generated separately, then placed at exact pixel positions by the assembler on top of an atmospheric background image. Text labels are placed at predetermined positions adjacent to each element. No vision analysis needed -- positions are deterministic. | Precise grids/flows with multiple distinct items, feature showcases |
+| `composed` | Standard PptxGenJS assembly. Shapes, text boxes, optional images placed programmatically. | Diagrams, data charts, code slides, text-heavy content |
+
+#### backGROUND Template Zones
+
+The `background` strategy supports 5 template zones, selected per-slide in the StrategyMap via the `backdrop_variant` field. This gives visual rhythm across background slides without changing the fundamental approach.
+
+| Template | Overlay Position | Best For |
+|---|---|---|
+| `left_panel` | Left 40%, full height | Dense bullets (default) |
+| `right_panel` | Right 40%, full height | Visual variety, image dominates left |
+| `bottom_bar` | Bottom 30%, full width | Short text, image dominates |
+| `top_band` | Top 25%, full width | Headline-heavy slides |
+| `center_float` | Centered box, generous padding | Sparse text, image wraps |
+
+#### backDROP Vision Analysis
+
+Standard image generation models (FLUX, z-image-turbo, GPT-Image, Nanobanana) do not reliably follow precise spatial positioning instructions. They can do broad composition ("three things spread across the image") but not coordinate-level precision. The `backdrop` strategy solves this by using vision post-analysis to detect where elements actually landed, then placing text at the detected positions. If vision analysis fails or returns low confidence, the assembler falls back to prescribed positions from `element_layout`.
+
+#### Pragmatic Composition Element Assembly
+
+The `pragmatic_composition` strategy avoids the position detection problem entirely by generating elements individually and placing them at exact coordinates. Each slide produces 1 background image plus N element images (maximum 5 elements per slide). A shared prompt prefix with palette and style tokens maintains visual consistency across elements.
+
+#### Strategy Selection Guide
+
+| Slide Content | Best Strategy | Rationale |
+|---|---|---|
+| Dramatic visual moment, no text needed | `full_render` | Maximum visual impact |
+| Conceptual/emotional with bullet text | `background` | Mood image + readable text zones |
+| Structured scene with labelled elements | `backdrop` | Vision-detected element positioning |
+| Precise grid/flow with multiple distinct items | `pragmatic_composition` | Deterministic positioning, style control |
+| Diagrams, charts, data, code | `composed` | Programmatic precision |
+
+#### Backward Compatibility
+
+The original `backdrop_render` strategy value is retained in the StrategyMap schema for backward compatibility. Existing outlines that use `backdrop_render` map to the `background` strategy with the `left_panel` template zone. New slides should use `background` or `backdrop` explicitly.
 
 ---
 
