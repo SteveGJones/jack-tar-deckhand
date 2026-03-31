@@ -114,7 +114,9 @@
       "Bash(python -m pytest tests/ -k \"qa\" -v)",
       "Bash(python -m pytest tests/test_slide_prompt_composer.py --collect-only)",
       "Bash(python -m pytest tests/test_assembler.py --collect-only)",
-      "Bash(python -m pytest tests/ -k \"qa\" --collect-only)"
+      "Bash(python -m pytest tests/ -k \"qa\" --collect-only)",
+      "Bash(find /Users/stevejones/Documents/Development/jack-tar-deckhand -type f -name *first*deck* -o -name *memory* -o -name *TalkBrief*)",
+      "Bash(ollama list:*)"
     ]
   }
 }

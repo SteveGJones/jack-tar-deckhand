@@ -1,8 +1,8 @@
 # Loop Summary
 
 **Status:** Completed successfully
-**Iterations:** 15
-**Duration:** 33m 59s
+**Iterations:** 5
+**Duration:** 35m 15s
 
 ## Tasks
 
@@ -14,4 +14,4 @@ _No events recorded._
 
 ## Final Commit
 
-9a32683: feat: tagged integration tests for background and pragmatic_composition rendering
+038e5e9: fix: QA thresholds for screen presentations and image-based slides
