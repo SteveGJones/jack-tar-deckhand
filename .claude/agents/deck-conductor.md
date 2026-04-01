@@ -194,7 +194,58 @@ log_speaker_approval('./tmp/deck', 'draft_approved', 'Speaker approved draft for
 set_phase('./tmp/deck', 'production')
 "
 ```
-Then re-run Steps 5-8 at production quality.
+Then execute the production upgrade flow:
+
+#### Production Step A: Production Upgrade Plan
+
+Invoke the image-generation-expert agent to produce a Production Upgrade Plan:
+
+> "Review the draft ImageManifest, StrategyMap, and StyleGuide. Produce a production-upgrade-plan.json that recommends the optimal rendering engine, provider, model, and tier for each slide. Save it to ./tmp/deck/production-upgrade-plan.json."
+
+The expert will produce a plan with two tracks:
+- **raster_upscale** — re-render at higher resolution on a cloud model (FLUX Pro, GPT Image, Nanobanana Flash/Pro)
+- **vector_conversion** — generate SVG via Recraft V4 (standard or pro tier)
+- **no_upgrade** — already production quality (matplotlib charts)
+
+**ESCALATE:** Present the Production Upgrade Plan to the Speaker as a table with per-slide reasoning and total estimated cost. The Speaker can:
+- Approve the plan as-is
+- Override individual slide choices (provider, tier, model)
+- Request changes to the overall budget approach
+
+If the Speaker overrides with a questionable choice, the expert will have added warnings — relay these and confirm before proceeding.
+
+Log approval:
+```bash
+source .venv/bin/activate && python3 -c "
+from src.conductor import log_speaker_approval
+log_speaker_approval('./tmp/deck', 'production_plan_approved', 'Speaker approved production upgrade plan')
+"
+```
+
+#### Production Step B: Execute Production Renders
+
+Invoke `/imagegen-bridge` in production mode. The bridge reads `production-upgrade-plan.json` and executes each entry mechanically:
+- `raster_upscale` entries → `cloud-generate-image` with the specified provider/model/tier
+- `vector_conversion` entries → `cloud-generate-icon` with Recraft endpoint
+- `no_upgrade` entries → skip
+
+#### Production Step C: Post-Production Quality Gate
+
+Invoke the presentation-reviewer agent for a per-slide quality assessment of the production images:
+
+> "Review each production image against the brand palette and content requirements. Return a per-slide verdict: pass, escalate_tier, escalate_provider, or flag_for_speaker."
+
+**If any verdicts are escalate_tier or escalate_provider:**
+**ESCALATE:** Present the escalation recommendations to the Speaker:
+> "The reviewer recommends upgrading these slides to a higher tier/provider: [table]. Estimated additional cost: $X.XX. Would you like to proceed with these upgrades?"
+
+If approved, re-render only the escalated slides and re-run assembly.
+
+**If all verdicts are pass:** Proceed to assembly.
+
+#### Production Step D: Assembly and Final QA
+
+Re-run Steps 6-8 (assembly, QA, review) with the production images.
 
 If the Speaker requests changes:
 ```bash
@@ -254,6 +305,8 @@ print(tracker.cost_summary_markdown())
 | Design direction choices | Creative preference |
 | Strategy map approval | Speaker controls rendering approach per slide |
 | Keynote slide upgrades | Creative and budget decision |
+| Production upgrade plan approval | Expert recommendations involve spending money |
+| Post-production escalation approval | Reviewer recommends higher tier/provider |
 
 ## Prohibited Actions
 
