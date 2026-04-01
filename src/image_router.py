@@ -9,6 +9,8 @@ Finding 1.1, with fallback chains from Finding 5.2 and budget degradation
 from research/13-cost-optimisation-caching.md Section 4.
 """
 
+import json
+import os
 from collections import namedtuple
 
 
@@ -429,3 +431,68 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
         ))
 
     return decisions
+
+
+def load_upgrade_plan(deck_dir):
+    """Load the expert-approved production-upgrade-plan.json.
+
+    Args:
+        deck_dir: Path to the deck working directory.
+
+    Returns:
+        dict: The parsed production upgrade plan.
+
+    Raises:
+        FileNotFoundError: If production-upgrade-plan.json does not exist.
+    """
+    path = os.path.join(deck_dir, 'production-upgrade-plan.json')
+    if not os.path.exists(path):
+        raise FileNotFoundError(f'No production-upgrade-plan.json in {deck_dir}')
+    with open(path) as f:
+        return json.load(f)
+
+
+def execute_upgrade_plan_entry(entry):
+    """Map a single upgrade plan entry to execution parameters.
+
+    Args:
+        entry: dict from the production upgrade plan entries array.
+
+    Returns:
+        dict: {skill, provider, model, width, height} for the imagegen-bridge
+              to execute. width/height are None for vector_conversion and no_upgrade.
+    """
+    track = entry['upgrade_track']
+
+    if track == 'no_upgrade':
+        return {
+            'skill': 'skip',
+            'provider': entry.get('recommended_provider', 'none'),
+            'model': entry.get('recommended_model', 'none'),
+            'width': None,
+            'height': None,
+        }
+
+    if track == 'vector_conversion':
+        return {
+            'skill': 'cloud-generate-icon',
+            'provider': entry['recommended_provider'],
+            'model': entry['recommended_model'],
+            'width': None,
+            'height': None,
+        }
+
+    # raster_upscale
+    dims = entry.get('target_dimensions')
+    width, height = None, None
+    if dims and 'x' in dims:
+        parts = dims.split('x')
+        width, height = int(parts[0]), int(parts[1])
+
+    return {
+        'skill': 'cloud-generate-image',
+        'provider': entry['recommended_provider'],
+        'model': entry['recommended_model'],
+        'width': width,
+        'height': height,
+    }

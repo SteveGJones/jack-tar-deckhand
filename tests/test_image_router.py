@@ -3,7 +3,7 @@
 import json
 import os
 import pytest
-from src.image_router import plan_production_upgrade, UpgradeDecision
+from src.image_router import plan_production_upgrade, UpgradeDecision, load_upgrade_plan, execute_upgrade_plan_entry
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
 
@@ -380,3 +380,82 @@ def test_plan_upgrade_returns_upgrade_decisions(draft_manifest, upgrade_outline,
     decisions = plan_production_upgrade(draft_manifest, upgrade_outline, all_providers, budget_allow)
     assert all(isinstance(d, UpgradeDecision) for d in decisions)
     assert len(decisions) == 3
+
+
+def test_load_upgrade_plan_reads_file(tmp_path):
+    plan = {
+        'created_at': '2026-03-31T12:00:00Z',
+        'deck_dir': str(tmp_path),
+        'total_estimated_cost_usd': 0.11,
+        'entries': [
+            {
+                'slide_number': 1,
+                'image_id': 'slide-01-hero',
+                'upgrade_track': 'raster_upscale',
+                'recommended_provider': 'fal',
+                'recommended_model': 'flux-2-pro',
+                'recommended_tier': 'standard',
+                'target_dimensions': '1920x1080',
+                'estimated_cost_usd': 0.03,
+                'reasoning': 'Abstract hero',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': 'A dramatic wave',
+            },
+        ],
+    }
+    plan_path = tmp_path / 'production-upgrade-plan.json'
+    import json
+    plan_path.write_text(json.dumps(plan))
+    loaded = load_upgrade_plan(str(tmp_path))
+    assert len(loaded['entries']) == 1
+    assert loaded['entries'][0]['upgrade_track'] == 'raster_upscale'
+
+
+def test_load_upgrade_plan_missing_file_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_upgrade_plan(str(tmp_path))
+
+
+def test_execute_entry_raster_returns_skill_and_provider():
+    entry = {
+        'upgrade_track': 'raster_upscale',
+        'recommended_provider': 'google',
+        'recommended_model': 'gemini-3.1-flash-image-preview',
+        'recommended_tier': 'flash',
+        'target_dimensions': '1920x1080',
+    }
+    result = execute_upgrade_plan_entry(entry)
+    assert result['skill'] == 'cloud-generate-image'
+    assert result['provider'] == 'google'
+    assert result['model'] == 'gemini-3.1-flash-image-preview'
+    assert result['width'] == 1920
+    assert result['height'] == 1080
+
+
+def test_execute_entry_vector_returns_icon_skill():
+    entry = {
+        'upgrade_track': 'vector_conversion',
+        'recommended_provider': 'recraft',
+        'recommended_model': 'recraft-v4-svg',
+        'recommended_tier': 'standard',
+        'target_dimensions': None,
+    }
+    result = execute_upgrade_plan_entry(entry)
+    assert result['skill'] == 'cloud-generate-icon'
+    assert result['provider'] == 'recraft'
+    assert result['model'] == 'recraft-v4-svg'
+    assert result['width'] is None
+    assert result['height'] is None
+
+
+def test_execute_entry_no_upgrade_returns_skip():
+    entry = {
+        'upgrade_track': 'no_upgrade',
+        'recommended_provider': 'local',
+        'recommended_model': 'matplotlib',
+        'recommended_tier': 'standard',
+        'target_dimensions': None,
+    }
+    result = execute_upgrade_plan_entry(entry)
+    assert result['skill'] == 'skip'
