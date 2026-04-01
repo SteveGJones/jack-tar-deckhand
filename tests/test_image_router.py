@@ -476,3 +476,93 @@ def test_production_diagram_routes_to_recraft():
     decision = route_slide(slide, 'production', providers, 'allow')
     assert decision.provider == 'recraft'
     assert decision.skill == 'cloud-generate-icon'
+
+
+def test_full_plan_load_and_execute_cycle(tmp_path):
+    """Integration: write a plan, load it, execute each entry, verify routing."""
+    plan = {
+        'created_at': '2026-03-31T12:00:00Z',
+        'deck_dir': str(tmp_path),
+        'total_estimated_cost_usd': 0.19,
+        'entries': [
+            {
+                'slide_number': 1,
+                'image_id': 'slide-01-hero',
+                'upgrade_track': 'raster_upscale',
+                'recommended_provider': 'fal',
+                'recommended_model': 'flux-2-pro',
+                'recommended_tier': 'standard',
+                'target_dimensions': '1920x1080',
+                'estimated_cost_usd': 0.03,
+                'reasoning': 'Abstract hero',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': 'A dramatic wave',
+            },
+            {
+                'slide_number': 4,
+                'image_id': 'slide-04-diagram',
+                'upgrade_track': 'vector_conversion',
+                'recommended_provider': 'recraft',
+                'recommended_model': 'recraft-v4-svg',
+                'recommended_tier': 'standard',
+                'target_dimensions': None,
+                'estimated_cost_usd': 0.08,
+                'reasoning': 'Flowchart — clean vector',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': 'A flowchart showing data pipeline',
+            },
+            {
+                'slide_number': 7,
+                'image_id': 'slide-07-chart',
+                'upgrade_track': 'no_upgrade',
+                'recommended_provider': 'local',
+                'recommended_model': 'matplotlib',
+                'recommended_tier': 'standard',
+                'target_dimensions': None,
+                'estimated_cost_usd': 0.0,
+                'reasoning': 'Already production quality',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': None,
+            },
+            {
+                'slide_number': 10,
+                'image_id': 'slide-10-hero',
+                'upgrade_track': 'raster_upscale',
+                'recommended_provider': 'google',
+                'recommended_model': 'gemini-3.1-flash-image-preview',
+                'recommended_tier': 'flash',
+                'target_dimensions': '1920x1080',
+                'estimated_cost_usd': 0.067,
+                'reasoning': 'Text-in-image scene',
+                'brand_notes': 'Primary blue #2B6CB0 — Nanobanana reliable for blues',
+                'warnings': [],
+                'draft_prompt': 'A scene with embedded labels',
+            },
+        ],
+    }
+
+    # Write the plan
+    plan_path = tmp_path / 'production-upgrade-plan.json'
+    plan_path.write_text(json.dumps(plan))
+
+    # Load and execute
+    loaded = load_upgrade_plan(str(tmp_path))
+    results = [execute_upgrade_plan_entry(e) for e in loaded['entries']]
+
+    # Verify routing
+    assert results[0]['skill'] == 'cloud-generate-image'
+    assert results[0]['provider'] == 'fal'
+    assert results[0]['width'] == 1920
+
+    assert results[1]['skill'] == 'cloud-generate-icon'
+    assert results[1]['provider'] == 'recraft'
+    assert results[1]['width'] is None
+
+    assert results[2]['skill'] == 'skip'
+
+    assert results[3]['skill'] == 'cloud-generate-image'
+    assert results[3]['provider'] == 'google'
+    assert results[3]['model'] == 'gemini-3.1-flash-image-preview'
