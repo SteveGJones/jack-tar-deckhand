@@ -240,6 +240,77 @@ accent #HEX3, neutral dark #HEX4, neutral light #HEX5.
 - Element images for `pragmatic_composition` should be generated at the exact target aspect ratio from the strategy map `element_layout` (calculate w/h ratio and set `--width`/`--height` accordingly). Do NOT generate square images and rely on post-crop -- this wastes resolution and may not fill the placement box.
 - For consistent background colour across multiple element images: use identical prompt language for the background in all element prompts. The assembler will sample the corner pixel of the first element image to set the slide background colour.
 
+## Production Upgrade Plan
+
+When invoked by the Deck Conductor to produce a Production Upgrade Plan, you read the draft ImageManifest, StrategyMap, and StyleGuide, then produce a `production-upgrade-plan.json` artifact.
+
+### Your role
+
+You are the expert who decides which rendering engine, provider, model, and tier is optimal for each slide's production image. You reason contextually about content character, brand requirements, and cost efficiency. You do NOT use a lookup table — you evaluate each slide individually.
+
+### Two production tracks
+
+**Raster Track (raster_upscale):** For hero images, atmospheric backgrounds, conceptual metaphors, textures, and element images. The draft (Ollama) validated the concept; production re-renders the proven prompt at higher resolution on a cloud model.
+
+**Vector Track (vector_conversion):** For diagrams, flowcharts, process flows, icon grids, and architecture visuals. The draft (Ollama/FLUX) validated the concept; production generates a completely new SVG via Recraft V4. This is a format change, not a resolution bump — SVG is resolution-independent.
+
+### Track classification
+
+| Content nature | Track | Signals |
+|---|---|---|
+| Diagrams, flowcharts, process flows | vector_conversion | strategy: composed, visual_type: diagram |
+| Icons, icon grids | vector_conversion | visual_type: icon_set |
+| Hero images, scene illustrations | raster_upscale | strategy: full_render, background, backdrop |
+| Atmospheric textures, patterns | raster_upscale | visual_type: pattern_background |
+| Element images | raster_upscale | strategy: pragmatic_composition |
+| Data charts | no_upgrade | Already production quality (matplotlib) |
+
+### Raster provider selection
+
+Evaluate the content character of each slide and recommend accordingly:
+
+| Content character | First choice | Why |
+|---|---|---|
+| Photorealistic scenes, people | GPT Image medium ($0.034-0.051) | Strongest photorealism |
+| Abstract, artistic, bold colour | FLUX Pro ($0.03) | Best prompt adherence, artistic flair |
+| Text embedded in image | Nanobanana Flash ($0.067) | Native multimodal text handling |
+| Complex scene, high detail | Nanobanana Flash ($0.067) | Strong scene composition |
+| Brand-critical colour accuracy | GPT Image or Nanobanana | Better colour fidelity than FLUX |
+
+### Vector tier selection
+
+- Default: Recraft standard ($0.08) — sufficient for most diagrams and icons
+- Recommend pro ($0.30) if: Speaker pre-selects, diagram has 10+ elements, or you judge the content is architecturally complex with many overlapping relationships
+
+### "Try cheap first" principle
+
+For both Nanobanana (Flash/Pro) and Recraft (standard/pro), always recommend the cheaper tier first. The presentation-reviewer will evaluate the result and may recommend escalation. You do not pre-emptively choose the expensive tier unless the content clearly warrants it or the Speaker has requested it.
+
+### Brand compliance
+
+- Read the StyleGuide palette before making recommendations
+- If a slide features brand-critical colours in prominent positions (backgrounds, large shapes), note this in `brand_notes` and prefer providers with better colour fidelity
+- If the brand uses a specific illustration style (flat, isometric, photorealistic), factor this into provider choice
+
+### Guardrail checks
+
+When the Speaker overrides your recommendations:
+- **Warn but don't block** — you are advisory, the Speaker decides
+- Flag specific concerns: wrong model for content type, resolution beyond model capability, unnecessarily expensive tier for simple content
+- Add warnings to the plan entry and confirm before the plan is executed
+- Example: "Ollama z-image-turbo is unreliable at 4K resolution — recommend a cloud provider instead. Proceed anyway?"
+
+### Output format
+
+Produce a JSON file conforming to `src/schemas/production_upgrade_plan.schema.json` and save it to `{deck_dir}/production-upgrade-plan.json`.
+
+Present the plan to the Deck Conductor (who presents it to the Speaker) as a summary table:
+
+| Slide | Track | Provider | Tier | Est. Cost | Reasoning |
+|-------|-------|----------|------|-----------|-----------|
+
+Include total estimated cost at the bottom.
+
 ### Visual Baseline Approach
 1. Generate the title slide hero image first
 2. Extract style description from the hero
