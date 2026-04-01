@@ -199,6 +199,8 @@ Use **identical** background description text across all element prompts for tha
 
 For each slide that needs generation, invoke the appropriate skill. Process slides sequentially.
 
+**IMPORTANT: Store the prompt.** After generating each image, you MUST include the `source_prompt` field in the image manifest entry. This is the translated prompt that was actually sent to the model. The production upgrade plan needs these prompts to re-render at higher quality without regenerating them. Without `source_prompt`, the production pipeline cannot function.
+
 ### Element image aspect ratios (pragmatic_composition)
 
 For `pragmatic_composition` slides, calculate the target aspect ratio from the strategy map's `element_layout` dimensions before generating each element image. For each element: `aspect_ratio = element.w / element.h` (normalised coordinates). Then set `--width` and `--height` to match this ratio at the desired resolution. For example, for a 2.79:1 ratio at 1024px wide: `--width 1024 --height 368`. Do NOT generate square images for non-square placement boxes -- the image will be stretched or cropped by the assembler, degrading quality.
@@ -364,6 +366,21 @@ cache.close()
 ```
 
 ## Step 12: Build and Write ImageManifest
+
+Each image entry in `$IMAGES_LIST` MUST include `source_prompt` — the translated prompt that was sent to the generation model. Example entry:
+```json
+{
+  "slide_number": 1,
+  "file_path": "./tmp/deck/images/slide-01-hero.png",
+  "status": "generated",
+  "content_hash": "abc123...",
+  "dimensions": {"width": 1024, "height": 576},
+  "alt_text": "Headline text",
+  "image_id": "slide-01-hero",
+  "model_used": "x/z-image-turbo",
+  "source_prompt": "A dramatic teal wave cresting over..."
+}
+```
 
 ```bash
 python3 -c "
