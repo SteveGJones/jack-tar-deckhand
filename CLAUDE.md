@@ -6,7 +6,7 @@ All rules are in **CONSTITUTION.md**. Core instructions are in **CLAUDE-CORE.md*
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-03-30)
+### Current Status (2026-03-31)
 
 - **BSA Architecture:** v1.2.0, includes keynote pipeline + rendering strategy expansion
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` (29 services, 4 AI personas, 48 interactions)
@@ -16,13 +16,13 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
   - Create `research/synthesis-[skill-name].md` before implementing any skill
 
-- **All Phases COMPLETE — 491 tests passing**
+- **All Phases COMPLETE — 502 tests passing**
   - Phase 1: Foundation — 38 tests
   - Phase 2: Design Services (brand-manager, slide-stylist) — 27 tests
   - Phase 3: Content Services (narrative-architect, speaker-notes-writer) — 12 tests
   - Phase 4A: Image Utilities — 98 tests
   - Phase 4B: Cloud Generation — 89 tests
-  - Phase 4C: Routing & Advisory — 35 tests
+  - Phase 4C: Routing & Advisory — 46 tests
   - Phase 5: Assembly & QA (deck-assembler, deck-qa, presentation-reviewer) — 67 tests
   - Phase 6: Orchestration (deck-conductor) — 19 tests
 
@@ -40,6 +40,14 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Post-hoc single-slide upgrade via `upgrade_slide_strategy()`
   - **Spike:** `docs/spikes/backdrop-content-aware-positioning.md`
   - **Implementation plan:** `docs/superpowers/plans/2026-03-30-rendering-strategy-expansion.md` (14 tasks)
+
+- **Production Rendering Engine Strategy (2026-03-31):** Expert-advised two-track production upgrade system
+  - **Raster Track (raster_upscale):** Ollama draft → cloud production (FLUX Pro, GPT Image, Nanobanana Flash/Pro)
+  - **Vector Track (vector_conversion):** Ollama/FLUX draft → Recraft V4 SVG (standard $0.08, pro $0.30)
+  - Image-generation-expert produces `production-upgrade-plan.json` before any money is spent
+  - Presentation-reviewer returns per-slide verdicts (pass/escalate_tier/escalate_provider/flag_for_speaker)
+  - "Try cheap first" principle: start at cheaper tier, reviewer evaluates, escalate if needed
+  - **Spec:** `docs/superpowers/specs/2026-03-31-production-rendering-engine-strategy.md`
 
 - **Footer:** Metamirror logo bottom-right on every slide (assembler `addFooterLogo()` helper)
 
@@ -84,6 +92,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Strategy-aware QA | `src/qa/run_qa.py` | 65 | Done |
 | Pipeline step order | `src/deckcontext.py` | 1 | Done |
 | Upgrade slide strategy | `src/conductor.py` | 23 | Done |
+| Production upgrade plan | `src/image_router.py`, `src/schemas/` | 11 | Done |
 
 ### Architecture Summary
 
