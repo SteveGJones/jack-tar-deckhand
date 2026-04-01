@@ -149,6 +149,8 @@ import json; print(json.dumps(result, indent=2))
 
 ## Step 5: Check Cache for Each Image
 
+**Production mode:** If `production-upgrade-plan.json` exists in the deck directory, skip this step and use Step 9A instead. The upgrade plan takes precedence over the routing matrix for production renders.
+
 For each routing decision where `skill` is not `skip` and not `placeholder`:
 
 ```bash
@@ -277,6 +279,48 @@ print(f'Budget: \${bt.spent:.3f} / \${budget_data[\"total_budget\"]:.2f} ({bt.st
 ```
 
 If budget state changes, re-route remaining slides with the new budget state.
+
+## Step 9A: Production Mode — Execute Upgrade Plan
+
+In production mode, the imagegen-bridge reads `production-upgrade-plan.json` instead of computing routing decisions. The image-generation-expert agent has already determined the optimal engine for each slide.
+
+```bash
+source .venv/bin/activate && python3 -c "
+from src.image_router import load_upgrade_plan, execute_upgrade_plan_entry
+import json
+
+plan = load_upgrade_plan('./tmp/deck')
+for entry in plan['entries']:
+    params = execute_upgrade_plan_entry(entry)
+    print(f'Slide {entry[\"slide_number\"]}: {params[\"skill\"]} via {params[\"provider\"]} ({params[\"model\"]})')
+"
+```
+
+For each entry:
+
+### raster_upscale entries
+
+Invoke `cloud-generate-image` with the plan's provider, model, and dimensions:
+
+```bash
+/cloud-generate-image "DRAFT_PROMPT" --provider PROVIDER --model MODEL --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero.png
+```
+
+The draft prompt is carried from the draft ImageManifest via the plan's `draft_prompt` field. Use it directly — it was already validated during drafting.
+
+### vector_conversion entries
+
+Invoke `cloud-generate-icon` with Recraft:
+
+```bash
+/cloud-generate-icon "DRAFT_PROMPT" --provider recraft --output ./tmp/deck/images/slide-NN-diagram.svg
+```
+
+The output is SVG. The assembler's existing SVG rasterisation path (`src/process_image.py`) handles conversion to PNG at the target slide resolution for embedding in the .pptx.
+
+### no_upgrade entries
+
+Skip — the existing draft image is already production quality (matplotlib chart or similar).
 
 ## Step 9.5: Realign Detected Positions (backdrop / pragmatic_composition slides)
 
