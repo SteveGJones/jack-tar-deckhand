@@ -3,7 +3,7 @@
 import json
 import os
 import pytest
-from src.image_router import plan_production_upgrade, UpgradeDecision, load_upgrade_plan, execute_upgrade_plan_entry
+from src.image_router import plan_production_upgrade, UpgradeDecision, load_upgrade_plan, execute_upgrade_plan_entry, route_slide
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
 
@@ -138,11 +138,12 @@ class TestRouteSlideProductionMode:
         decision = route_slide(slide, 'production', ALL_PROVIDERS, 'allow')
         assert decision.skill == 'cloud-generate-icon'
 
-    def test_diagram_still_routes_to_ollama_diagram(self):
+    def test_diagram_routes_to_recraft_in_production(self):
         from src.image_router import route_slide
         slide = {'slide_number': 6, 'visual_type': 'diagram'}
         decision = route_slide(slide, 'production', ALL_PROVIDERS, 'allow')
-        assert decision.skill == 'ollama-diagram'
+        assert decision.skill == 'cloud-generate-icon'
+        assert decision.provider == 'recraft'
 
     def test_chart_still_routes_to_render_chart(self):
         from src.image_router import route_slide
@@ -459,3 +460,19 @@ def test_execute_entry_no_upgrade_returns_skip():
     }
     result = execute_upgrade_plan_entry(entry)
     assert result['skill'] == 'skip'
+
+
+def test_diagram_is_upgradeable():
+    from src.image_router import _UPGRADEABLE_VISUAL_TYPES
+    assert 'diagram' in _UPGRADEABLE_VISUAL_TYPES
+
+
+def test_production_diagram_routes_to_recraft():
+    slide = {'slide_number': 1, 'visual_type': 'diagram'}
+    providers = {
+        'ollama': {'available': True, 'models': ['x/flux2-klein']},
+        'recraft': {'available': True, 'model': 'recraft-v4'},
+    }
+    decision = route_slide(slide, 'production', providers, 'allow')
+    assert decision.provider == 'recraft'
+    assert decision.skill == 'cloud-generate-icon'

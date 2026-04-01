@@ -82,6 +82,7 @@ ROUTING_MATRIX = {
         RoutingTarget('ollama-diagram', 'ollama', 'x/flux2-klein', 0.00),
     ],
     ('diagram', 'production'): [
+        RoutingTarget('cloud-generate-icon', 'recraft', 'recraft-v4-svg', 0.08),
         RoutingTarget('ollama-diagram', 'ollama', 'x/flux2-klein', 0.00),
     ],
     ('chart', 'draft'): [
@@ -144,7 +145,7 @@ VALID_VISUAL_TYPES = {'hero_image', 'icon_set', 'pattern_background', 'diagram',
 _PRODUCTION_QUALITY_SOURCES = {'svg-convert', 'matplotlib', 'render_chart'}
 
 # Visual types that benefit from cloud upgrade
-_UPGRADEABLE_VISUAL_TYPES = {'hero_image', 'pattern_background', 'icon_set'}
+_UPGRADEABLE_VISUAL_TYPES = {'hero_image', 'pattern_background', 'icon_set', 'diagram'}
 
 
 def classify_visual_type(slide):
