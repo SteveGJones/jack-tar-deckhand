@@ -18,6 +18,21 @@ Consult the `image-generation-expert` agent for prompt translation advice when g
 Parse `$ARGUMENTS` for:
 - **--mode MODE**: `draft` or `production` (default: `draft`)
 
+## Step 0: Read Local Config
+
+Before any image generation, read `local-config.json` from the project root to get machine-specific Ollama model tags and timeouts. This file is gitignored — it contains the exact model identifiers installed on this machine (e.g., `x/z-image-turbo:fp8` not `x/z-image-turbo`).
+
+```bash
+python3 -c "
+import json
+with open('local-config.json') as f:
+    config = json.load(f)
+print(json.dumps(config, indent=2))
+"
+```
+
+Use `config.ollama.default_image_model` for hero/background/element images and `config.ollama.default_diagram_model` for diagrams. **Never hardcode Ollama model names** — always read from this file.
+
 ## Step 1: Run Provider Discovery
 
 Discover which image generation providers are available for this run.

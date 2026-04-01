@@ -55,6 +55,8 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Existing ollama-* skills are upstream — do NOT fork or modify them.** The imagegen-bridge handles all DeckContext integration.
 
+- **Local config:** `local-config.json` (gitignored) contains machine-specific settings — Ollama model tags, timeouts. Always read this before Ollama commands. Never hardcode model names without tags.
+
 ### Implementation Status
 
 | Module | Location | Tests | Status |

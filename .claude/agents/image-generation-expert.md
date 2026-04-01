@@ -21,10 +21,12 @@ You are a knowledge resource, not an orchestrator. You provide expertise on prom
 
 ### Local Models (Ollama)
 
-| Model | Identifier | Best For | Default Steps | Timeout | Notes |
+**IMPORTANT:** Ollama model identifiers include version tags that vary per machine (e.g., `x/z-image-turbo:fp8` not `x/z-image-turbo`). Always read `local-config.json` from the project root to get the correct model tags before generating. Use `ollama.default_image_model` for hero/bg images and `ollama.default_diagram_model` for diagrams. Never hardcode model names without tags.
+
+| Model | Base Identifier | Best For | Default Steps | Timeout | Notes |
 |-------|-----------|----------|---------------|---------|-------|
-| Z-Image Turbo | `x/z-image-turbo` | Photorealism, skin textures, lighting, HDR | 8 | 120s | Fast. Default model. Best for photos, portraits, landscapes. |
-| FLUX.2 Klein | `x/flux2-klein` | Text rendering, complex multi-subject scenes, spatial accuracy | 20+ | 600s | Slower but more precise. Best for diagrams, text-heavy images, complex compositions. |
+| Z-Image Turbo | `x/z-image-turbo` (check local-config for tag) | Photorealism, skin textures, lighting, HDR | 8 | 120s | Fast. Default model. Best for photos, portraits, landscapes. |
+| FLUX.2 Klein | `x/flux2-klein` (check local-config for tag) | Text rendering, complex multi-subject scenes, spatial accuracy | 20+ | 600s | Slower but more precise. Best for diagrams, text-heavy images, complex compositions. |
 
 Both models are distilled and use natural language prompts only. Neither supports ControlNet, LoRA, inpainting, or img2img.
 
