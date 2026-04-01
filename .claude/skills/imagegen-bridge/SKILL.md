@@ -159,8 +159,8 @@ import json; print(json.dumps(result, indent=2))
 "
 ```
 
-4. After Stage 1 (Ollama), review the result. If acceptable, proceed to Stage 2 (cloud_low). If not, refine the prompt and retry (up to 3 iterations).
-5. After Stage 2 (cloud_low), if acceptable, proceed to Stage 3 (cloud_full). This is the final render -- no iteration at this tier.
+4. After Stage 1 (Ollama), **view the generated image** (Read tool) and assess it using the per-image review criteria in Step 7. If not acceptable, refine the prompt and retry (up to 10 iterations — Ollama is free). Save each attempt as `slide-NN-hero-vN.png`.
+5. After Stage 2 (cloud_low), view and assess. If acceptable, proceed to Stage 3 (cloud_full). If not, refine and retry (up to 3 iterations — cloud costs money).
 
 ## Step 5: Check Cache for Each Image
 
@@ -210,11 +210,34 @@ For `pragmatic_composition` slides that do NOT have a separate background image,
 
 Use **identical** background description text across all element prompts for that slide. This is critical because the assembler samples the corner pixel of the first element image to set the slide background colour. If one element has a noticeably different background, it will create visible seams where the element image meets the slide background.
 
-## Step 7: Generate Images
+## Step 7: Generate Images With Review-and-Refine Loop
 
 For each slide that needs generation, invoke the appropriate skill. Process slides sequentially.
 
 **IMPORTANT: Store the prompt.** After generating each image, you MUST include the `source_prompt` field in the image manifest entry. This is the translated prompt that was actually sent to the model. The production upgrade plan needs these prompts to re-render at higher quality without regenerating them. Without `source_prompt`, the production pipeline cannot function.
+
+### Per-image review cycle (MANDATORY)
+
+After generating EVERY image, you MUST review it visually before moving to the next slide. Ollama is free — there is no cost to iterating. Use this cycle:
+
+1. **Generate** the image with the current prompt
+2. **View** the generated image (use the Read tool to display it)
+3. **Assess** against these criteria:
+   - Does it match the visual_direction from the outline?
+   - Is it free of artefacts? (garbled text, extra limbs, impossible geometry, colour bleed)
+   - Does it use the brand palette? (check dominant colours match teal/mint/dark)
+   - For element images: is the subject clearly identifiable at the small display size?
+   - For hero/full_render: does it work as a standalone visual without text context?
+4. **If acceptable:** proceed to the next image
+5. **If not acceptable:** refine the prompt and regenerate. Common fixes:
+   - Artefacts/mutations (e.g., 3 straps on a watch): simplify the prompt, remove conflicting details
+   - Wrong subject: make the subject more explicit in the first 15 words
+   - Garbled text/symbols: add "No text, no words, no letters, no symbols, no numbers" more forcefully
+   - Wrong colours: use descriptive colour terms alongside hex values
+   - Too abstract: add concrete physical descriptions
+6. **Repeat** up to 10 iterations per image. Save each attempt as `slide-NN-TYPE-vN.png` so the Speaker can review alternatives if needed. The final accepted version overwrites `slide-NN-TYPE.png`.
+
+**Never skip review.** A broken image that reaches the assembled deck wastes the Speaker's time and undermines confidence in the pipeline.
 
 ### Element image aspect ratios (pragmatic_composition)
 
