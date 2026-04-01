@@ -412,6 +412,85 @@ def test_image_manifest_accepts_detected_positions():
     jsonschema.Draft202012Validator(schema).validate(manifest)
 
 
+def test_production_upgrade_plan_schema_loads():
+    schema_path = os.path.join(SCHEMA_DIR, 'production_upgrade_plan.schema.json')
+    with open(schema_path) as f:
+        schema = json.load(f)
+    assert schema['title'] == 'ProductionUpgradePlan'
+    assert 'entries' in schema['properties']
+
+
+def test_production_upgrade_plan_valid_entry():
+    schema_path = os.path.join(SCHEMA_DIR, 'production_upgrade_plan.schema.json')
+    with open(schema_path) as f:
+        schema = json.load(f)
+    valid_plan = {
+        'created_at': '2026-03-31T12:00:00Z',
+        'deck_dir': './tmp/deck',
+        'total_estimated_cost_usd': 0.45,
+        'entries': [
+            {
+                'slide_number': 1,
+                'image_id': 'slide-01-hero',
+                'upgrade_track': 'raster_upscale',
+                'recommended_provider': 'fal',
+                'recommended_model': 'flux-2-pro',
+                'recommended_tier': 'standard',
+                'target_dimensions': '1920x1080',
+                'estimated_cost_usd': 0.03,
+                'reasoning': 'Abstract artistic hero — FLUX Pro best for bold colour',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': 'A dramatic teal wave...',
+            },
+            {
+                'slide_number': 4,
+                'image_id': 'slide-04-diagram',
+                'upgrade_track': 'vector_conversion',
+                'recommended_provider': 'recraft',
+                'recommended_model': 'recraft-v4-svg',
+                'recommended_tier': 'standard',
+                'target_dimensions': None,
+                'estimated_cost_usd': 0.08,
+                'reasoning': 'Flowchart with 6 elements — clean vector output',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': 'A flowchart showing...',
+            },
+        ],
+    }
+    import jsonschema
+    jsonschema.Draft202012Validator(schema).validate(valid_plan)
+
+
+def test_production_upgrade_plan_rejects_invalid_track():
+    schema_path = os.path.join(SCHEMA_DIR, 'production_upgrade_plan.schema.json')
+    with open(schema_path) as f:
+        schema = json.load(f)
+    invalid = {
+        'created_at': '2026-03-31T12:00:00Z',
+        'deck_dir': './tmp/deck',
+        'total_estimated_cost_usd': 0.0,
+        'entries': [{
+            'slide_number': 1,
+            'image_id': 'x',
+            'upgrade_track': 'magic_upgrade',
+            'recommended_provider': 'fal',
+            'recommended_model': 'flux-2-pro',
+            'recommended_tier': 'standard',
+            'target_dimensions': None,
+            'estimated_cost_usd': 0.0,
+            'reasoning': 'test',
+            'brand_notes': None,
+            'warnings': [],
+            'draft_prompt': None,
+        }],
+    }
+    import jsonschema
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft202012Validator(schema).validate(invalid)
+
+
 def test_image_manifest_accepts_element_placement():
     """ImageManifest should accept element_id and placement_zone for pragmatic composition."""
     import jsonschema

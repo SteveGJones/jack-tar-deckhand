@@ -3,7 +3,7 @@
 import json
 import os
 import pytest
-from src.image_router import plan_production_upgrade, UpgradeDecision
+from src.image_router import plan_production_upgrade, UpgradeDecision, load_upgrade_plan, execute_upgrade_plan_entry, route_slide
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
 
@@ -138,11 +138,12 @@ class TestRouteSlideProductionMode:
         decision = route_slide(slide, 'production', ALL_PROVIDERS, 'allow')
         assert decision.skill == 'cloud-generate-icon'
 
-    def test_diagram_still_routes_to_ollama_diagram(self):
+    def test_diagram_routes_to_recraft_in_production(self):
         from src.image_router import route_slide
         slide = {'slide_number': 6, 'visual_type': 'diagram'}
         decision = route_slide(slide, 'production', ALL_PROVIDERS, 'allow')
-        assert decision.skill == 'ollama-diagram'
+        assert decision.skill == 'cloud-generate-icon'
+        assert decision.provider == 'recraft'
 
     def test_chart_still_routes_to_render_chart(self):
         from src.image_router import route_slide
@@ -380,3 +381,188 @@ def test_plan_upgrade_returns_upgrade_decisions(draft_manifest, upgrade_outline,
     decisions = plan_production_upgrade(draft_manifest, upgrade_outline, all_providers, budget_allow)
     assert all(isinstance(d, UpgradeDecision) for d in decisions)
     assert len(decisions) == 3
+
+
+def test_load_upgrade_plan_reads_file(tmp_path):
+    plan = {
+        'created_at': '2026-03-31T12:00:00Z',
+        'deck_dir': str(tmp_path),
+        'total_estimated_cost_usd': 0.11,
+        'entries': [
+            {
+                'slide_number': 1,
+                'image_id': 'slide-01-hero',
+                'upgrade_track': 'raster_upscale',
+                'recommended_provider': 'fal',
+                'recommended_model': 'flux-2-pro',
+                'recommended_tier': 'standard',
+                'target_dimensions': '1920x1080',
+                'estimated_cost_usd': 0.03,
+                'reasoning': 'Abstract hero',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': 'A dramatic wave',
+            },
+        ],
+    }
+    plan_path = tmp_path / 'production-upgrade-plan.json'
+    import json
+    plan_path.write_text(json.dumps(plan))
+    loaded = load_upgrade_plan(str(tmp_path))
+    assert len(loaded['entries']) == 1
+    assert loaded['entries'][0]['upgrade_track'] == 'raster_upscale'
+
+
+def test_load_upgrade_plan_missing_file_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_upgrade_plan(str(tmp_path))
+
+
+def test_execute_entry_raster_returns_skill_and_provider():
+    entry = {
+        'upgrade_track': 'raster_upscale',
+        'recommended_provider': 'google',
+        'recommended_model': 'gemini-3.1-flash-image-preview',
+        'recommended_tier': 'flash',
+        'target_dimensions': '1920x1080',
+    }
+    result = execute_upgrade_plan_entry(entry)
+    assert result['skill'] == 'cloud-generate-image'
+    assert result['provider'] == 'google'
+    assert result['model'] == 'gemini-3.1-flash-image-preview'
+    assert result['width'] == 1920
+    assert result['height'] == 1080
+
+
+def test_execute_entry_vector_returns_icon_skill():
+    entry = {
+        'upgrade_track': 'vector_conversion',
+        'recommended_provider': 'recraft',
+        'recommended_model': 'recraft-v4-svg',
+        'recommended_tier': 'standard',
+        'target_dimensions': None,
+    }
+    result = execute_upgrade_plan_entry(entry)
+    assert result['skill'] == 'cloud-generate-icon'
+    assert result['provider'] == 'recraft'
+    assert result['model'] == 'recraft-v4-svg'
+    assert result['width'] is None
+    assert result['height'] is None
+
+
+def test_execute_entry_no_upgrade_returns_skip():
+    entry = {
+        'upgrade_track': 'no_upgrade',
+        'recommended_provider': 'local',
+        'recommended_model': 'matplotlib',
+        'recommended_tier': 'standard',
+        'target_dimensions': None,
+    }
+    result = execute_upgrade_plan_entry(entry)
+    assert result['skill'] == 'skip'
+
+
+def test_diagram_is_upgradeable():
+    from src.image_router import _UPGRADEABLE_VISUAL_TYPES
+    assert 'diagram' in _UPGRADEABLE_VISUAL_TYPES
+
+
+def test_production_diagram_routes_to_recraft():
+    slide = {'slide_number': 1, 'visual_type': 'diagram'}
+    providers = {
+        'ollama': {'available': True, 'models': ['x/flux2-klein']},
+        'recraft': {'available': True, 'model': 'recraft-v4'},
+    }
+    decision = route_slide(slide, 'production', providers, 'allow')
+    assert decision.provider == 'recraft'
+    assert decision.skill == 'cloud-generate-icon'
+
+
+def test_full_plan_load_and_execute_cycle(tmp_path):
+    """Integration: write a plan, load it, execute each entry, verify routing."""
+    plan = {
+        'created_at': '2026-03-31T12:00:00Z',
+        'deck_dir': str(tmp_path),
+        'total_estimated_cost_usd': 0.19,
+        'entries': [
+            {
+                'slide_number': 1,
+                'image_id': 'slide-01-hero',
+                'upgrade_track': 'raster_upscale',
+                'recommended_provider': 'fal',
+                'recommended_model': 'flux-2-pro',
+                'recommended_tier': 'standard',
+                'target_dimensions': '1920x1080',
+                'estimated_cost_usd': 0.03,
+                'reasoning': 'Abstract hero',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': 'A dramatic wave',
+            },
+            {
+                'slide_number': 4,
+                'image_id': 'slide-04-diagram',
+                'upgrade_track': 'vector_conversion',
+                'recommended_provider': 'recraft',
+                'recommended_model': 'recraft-v4-svg',
+                'recommended_tier': 'standard',
+                'target_dimensions': None,
+                'estimated_cost_usd': 0.08,
+                'reasoning': 'Flowchart — clean vector',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': 'A flowchart showing data pipeline',
+            },
+            {
+                'slide_number': 7,
+                'image_id': 'slide-07-chart',
+                'upgrade_track': 'no_upgrade',
+                'recommended_provider': 'local',
+                'recommended_model': 'matplotlib',
+                'recommended_tier': 'standard',
+                'target_dimensions': None,
+                'estimated_cost_usd': 0.0,
+                'reasoning': 'Already production quality',
+                'brand_notes': None,
+                'warnings': [],
+                'draft_prompt': None,
+            },
+            {
+                'slide_number': 10,
+                'image_id': 'slide-10-hero',
+                'upgrade_track': 'raster_upscale',
+                'recommended_provider': 'google',
+                'recommended_model': 'gemini-3.1-flash-image-preview',
+                'recommended_tier': 'flash',
+                'target_dimensions': '1920x1080',
+                'estimated_cost_usd': 0.067,
+                'reasoning': 'Text-in-image scene',
+                'brand_notes': 'Primary blue #2B6CB0 — Nanobanana reliable for blues',
+                'warnings': [],
+                'draft_prompt': 'A scene with embedded labels',
+            },
+        ],
+    }
+
+    # Write the plan
+    plan_path = tmp_path / 'production-upgrade-plan.json'
+    plan_path.write_text(json.dumps(plan))
+
+    # Load and execute
+    loaded = load_upgrade_plan(str(tmp_path))
+    results = [execute_upgrade_plan_entry(e) for e in loaded['entries']]
+
+    # Verify routing
+    assert results[0]['skill'] == 'cloud-generate-image'
+    assert results[0]['provider'] == 'fal'
+    assert results[0]['width'] == 1920
+
+    assert results[1]['skill'] == 'cloud-generate-icon'
+    assert results[1]['provider'] == 'recraft'
+    assert results[1]['width'] is None
+
+    assert results[2]['skill'] == 'skip'
+
+    assert results[3]['skill'] == 'cloud-generate-image'
+    assert results[3]['provider'] == 'google'
+    assert results[3]['model'] == 'gemini-3.1-flash-image-preview'
