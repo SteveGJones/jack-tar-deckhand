@@ -48,10 +48,11 @@
           "cache_key": {"type": "string"},
           "status": {
             "type": "string",
-            "enum": ["generated", "cached", "placeholder", "failed"]
+            "enum": ["generated", "cached", "placeholder", "failed", "accepted_with_issues"]
           },
           "retry_count": {"type": "integer"},
-          "generation_time_seconds": {"type": "number"}
+          "generation_time_seconds": {"type": "number"},
+          "review_summary": {"type": "string"}
         }
       }
     },
