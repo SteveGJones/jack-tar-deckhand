@@ -3,7 +3,7 @@
 > Generated from canonical model: `jack-tar-deckhand.json` v1.1.0
 > Date: 2026-03-30
 
-This document provides the full specification for each of the 4 AI Personas defined in the canonical model. These personas govern how autonomous agents behave within the pipeline, what they are permitted to do, and when they must escalate to a human or higher-authority agent.
+This document provides the full specification for each of the 5 AI Personas defined in the canonical model. These personas govern how autonomous agents behave within the pipeline, what they are permitted to do, and when they must escalate to a human or higher-authority agent.
 
 ---
 
@@ -297,16 +297,80 @@ The invoker authority model means this persona acts within the bounds set by the
 
 ---
 
+## 5. Image Reviewer
+
+**Persona ID:** `persona-image-reviewer`
+**Service ID:** `image-image-reviewer`
+
+### Service Location
+
+| Field | Value |
+|---|---|
+| **Level** | L2 |
+| **Parent** | image-services (L1) |
+| **Role** | Visual quality gate for AI-generated images |
+
+### Description
+
+Visual quality reviewer dispatched per image after generation by the imagegen-bridge. Assesses against five criteria (artifacts, subject match, palette compliance, composition, strategy fit) and returns a compact JSON verdict. Keeps images out of the main orchestration context — the bridge accumulates only the one-line summary strings, not the images themselves. Runs at Haiku tier for cost efficiency; escalates to Sonnet after 3 consecutive refine verdicts.
+
+### Authority Model
+
+| Field | Value |
+|---|---|
+| **Model** | Invoker |
+| **Autonomous Confidence Minimum** | 0.7 |
+| **Escalation Target** | persona-deck-conductor |
+
+Acts on behalf of the imagegen-bridge. Returns verdicts directly to the bridge, which decides whether to iterate, escalate, or accept.
+
+### Scope: Permitted Actions
+
+- Read and visually assess generated image files
+- Check for visual artifacts (garbled text, mutations, impossible geometry)
+- Assess subject match against visual_direction from outline
+- Check dominant colour compliance against brand palette
+- Assess composition suitability for slide rendering strategy
+- Return structured JSON verdict (pass/refine)
+
+### Scope: Prohibited Actions
+
+- Must not generate or modify images
+- Must not refine or suggest prompts (image-generation-expert's role)
+- Must not write to DeckContext or manifest files
+- Must not communicate with Speaker directly
+
+### Escalation Triggers
+
+1. Image fails quality criteria after 3 consecutive Haiku assessments — escalate to Sonnet tier
+2. Image accepted after 10 iterations with remaining issues — flag as accepted_with_issues
+
+### Data Sources
+
+| Source | Name | Access | Description |
+|---|---|---|---|
+| `content-outline-generation` | SlideOutline | read | visual_direction for subject match |
+| `design-brand-profile-management` | BrandProfile | read | Palette hex values for colour compliance |
+
+### Key Interactions
+
+| Direction | Target | Type | Data |
+|---|---|---|---|
+| Receives from | imagegen-bridge | invocation | Image path, visual direction, palette, strategy, iteration |
+| Returns to | imagegen-bridge | delivery | Verdict, issues, confidence, summary |
+
+---
+
 ## Persona Comparison Matrix
 
-| Dimension | Deck Conductor | Image Generation Expert | Prompt Engineer | Presentation Reviewer |
-|---|---|---|---|---|
-| **Level** | L1 | L2 | L2 | L2 |
-| **Authority** | Hybrid | Invoker | Invoker | Invoker |
-| **Confidence Min** | 0.8 | 0.7 | 0.6 | 0.7 |
-| **Escalates To** | Speaker | Deck Conductor | Deck Conductor | Deck Conductor |
-| **Generates Content?** | No (delegates) | No (advises) | Yes (prompts: atmospheric, spatial-intent, element-level) | No (reviews) |
-| **Modifies Artefacts?** | No (re-invokes) | No | No | No |
-| **Data Write Access** | DeckContext (read-write) | None | None | None |
-| **Data Read Access** | All DeckContext + Speaker + Providers | StyleGuide + SlideOutline + BrandProfile | Structured Brief (incl. element metadata) | PPTX + Outline + StyleGuide + Notes + Brief |
-| **Pipeline Phase** | All phases | Image generation + vision analysis advisory | Image generation | Post-assembly (incl. text-to-element alignment) |
+| Dimension | Deck Conductor | Image Generation Expert | Prompt Engineer | Presentation Reviewer | Image Reviewer |
+|---|---|---|---|---|---|
+| **Level** | L1 | L2 | L2 | L2 | L2 |
+| **Authority** | Hybrid | Invoker | Invoker | Invoker | Invoker |
+| **Confidence Min** | 0.8 | 0.7 | 0.6 | 0.7 | 0.7 |
+| **Escalates To** | Speaker | Deck Conductor | Deck Conductor | Deck Conductor | Deck Conductor |
+| **Generates Content?** | No (delegates) | No (advises) | Yes (prompts: atmospheric, spatial-intent, element-level) | No (reviews) | No (assesses) |
+| **Modifies Artefacts?** | No (re-invokes) | No | No | No | No |
+| **Data Write Access** | DeckContext (read-write) | None | None | None | None |
+| **Data Read Access** | All DeckContext + Speaker + Providers | StyleGuide + SlideOutline + BrandProfile | Structured Brief (incl. element metadata) | PPTX + Outline + StyleGuide + Notes + Brief | SlideOutline + BrandProfile |
+| **Pipeline Phase** | All phases | Image generation + vision analysis advisory | Image generation | Post-assembly (incl. text-to-element alignment) | Post-generation (image quality gate) |

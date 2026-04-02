@@ -28,6 +28,7 @@
 | `image-chart-renderer` | Chart Rendering | L2 | image-services | core | No | `chart-renderer` |
 | `image-post-processing` | Image Post-Processing | L2 | image-services | core | No | `image-processor` |
 | `image-generation-expert` | Image Generation Expert | L2 | image-services | core | **Yes** | -- (agent/advisory) |
+| `image-image-reviewer` | Image Reviewer | L2 | image-services | core | **Yes** | -- (agent/quality) |
 | `assembly-qa-services` | Assembly & QA Services | L1 | presentation-engineering | core | No | -- |
 | `assembly-pptx-build` | PPTX Build | L2 | assembly-qa-services | core | No | `deck-assembler` |
 | `assembly-visual-qa` | Visual QA | L2 | assembly-qa-services | core | No | `deck-qa` |
@@ -35,8 +36,8 @@
 | `assembly-presentation-reviewer` | Presentation Reviewer | L2 | assembly-qa-services | core | **Yes** | -- (agent/advisory) |
 | `deck-conductor` | Deck Conductor | L1 | presentation-engineering | core | **Yes** | -- (agent/orchestration) |
 
-**Total services:** 25 (1 L0, 5 L1, 19 L2)
-**AI Personas:** 3 (Deck Conductor, Image Generation Expert, Presentation Reviewer)
+**Total services:** 26 (1 L0, 5 L1, 20 L2)
+**AI Personas:** 4 (Deck Conductor, Image Generation Expert, Image Reviewer, Presentation Reviewer)
 **Skills (L2 invocable):** 14
 **Capabilities (L2 internal):** 2
 
@@ -309,6 +310,17 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 | **Tags** | l2, agent, ai-persona, advisory |
 | **AI Persona** | **Yes** -- see [AI Persona Summaries](ai-persona-summaries.md) |
 
+#### `image-image-reviewer` -- Image Reviewer
+
+| Field | Value |
+|---|---|
+| **Level** | L2 |
+| **Parent** | image-services |
+| **Mission** | Quality assurance AI Persona for image review, aesthetic validation, brand alignment, and production readiness assessment across all rendering strategies. |
+| **Service Type** | core |
+| **Tags** | l2, agent, ai-persona, quality |
+| **AI Persona** | **Yes** -- see [AI Persona Summaries](ai-persona-summaries.md) |
+
 ---
 
 ## L1: Assembly & QA Services
@@ -382,8 +394,8 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 |---|---|---|
 | L0 | 1 | Root domain |
 | L1 | 5 | Service domains (Content, Design, Image, Assembly & QA, Deck Conductor) |
-| L2 | 19 | Skills (14), Capabilities (2), AI Persona Agents (3) |
-| **Total** | **30** | |
+| L2 | 20 | Skills (14), Capabilities (2), AI Persona Agents (4) |
+| **Total** | **26** | |
 
 ## Service Counts by Tag Type
 
@@ -391,7 +403,7 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 |---|---|---|
 | `skill` | 14 | Invocable L2 services that map to Claude Code skills |
 | `capability` | 2 | Internal capabilities of a parent skill (not independently invocable) |
-| `agent` / `ai-persona` | 3 | AI Personas with authority models and scope boundaries |
+| `agent` / `ai-persona` | 4 | AI Personas with authority models and scope boundaries |
 | `local` | 4 | Services that use local Ollama for inference |
 | `cloud` | 3 | Services that use cloud APIs for generation |
 | `reusable` | 3 | L1 domains marked as reusable across different orchestrators |

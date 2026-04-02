@@ -6,17 +6,17 @@ All rules are in **CONSTITUTION.md**. Core instructions are in **CLAUDE-CORE.md*
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-03-31)
+### Current Status (2026-04-01)
 
-- **BSA Architecture:** v1.2.0, includes keynote pipeline + rendering strategy expansion
-  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (29 services, 4 AI personas, 48 interactions)
+- **BSA Architecture:** v1.3.0, includes keynote pipeline + rendering strategy expansion + image reviewer
+  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (30 services, 5 AI personas, 50 interactions)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
 
 - **Research Library:** Complete — 18 papers, ~105K words in `research/`
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
   - Create `research/synthesis-[skill-name].md` before implementing any skill
 
-- **All Phases COMPLETE — 502 tests passing**
+- **All Phases COMPLETE — 504 tests passing**
   - Phase 1: Foundation — 38 tests
   - Phase 2: Design Services (brand-manager, slide-stylist) — 27 tests
   - Phase 3: Content Services (narrative-architect, speaker-notes-writer) — 12 tests
@@ -49,11 +49,25 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - "Try cheap first" principle: start at cheaper tier, reviewer evaluates, escalate if needed
   - **Spec:** `docs/superpowers/specs/2026-03-31-production-rendering-engine-strategy.md`
 
+- **Image Reviewer Agent (2026-04-01):** Subagent-based visual quality gate
+  - Dispatched per image after generation, returns compact JSON verdict (pass/refine)
+  - Keeps images out of main orchestration context — bridge accumulates only summary strings
+  - Haiku default, Sonnet escalation after 3 consecutive refine verdicts
+  - 5 assessment criteria: artifacts, subject match, palette compliance, composition, strategy fit
+  - `accepted_with_issues` status for images passing after max iterations
+  - **Spec:** `docs/superpowers/specs/2026-04-01-image-reviewer-agent-design.md`
+
+- **Production Pipeline Learnings (2026-03-31):** First production render documented 11 gaps
+  - `docs/changelog/2026-03-31-production-pipeline-learnings.md`
+  - Fixes: source_prompt in manifest, per-image review, local-config.json, provider dimension limits
+
 - **Footer:** Metamirror logo bottom-right on every slide (assembler `addFooterLogo()` helper)
 
 - **Architecture Docs:** `docs/architecture/` (10 docs + 7 SVG diagrams, 4 L1 service docs)
 
 - **Existing ollama-* skills are upstream — do NOT fork or modify them.** The imagegen-bridge handles all DeckContext integration.
+
+- **Local config:** `local-config.json` (gitignored) contains machine-specific settings — Ollama model tags, timeouts. Always read this before Ollama commands. Never hardcode model names without tags.
 
 ### Implementation Status
 
@@ -85,6 +99,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Strategy Map schema | `src/schemas/strategy_map.schema.json` | 4 | Done |
 | Slide prompt composer | `src/slide_prompt_composer.py` | 20 | Done |
 | Prompt engineer agent | `.claude/agents/prompt-engineer.md` | -- | Done |
+| Image reviewer agent | `.claude/agents/image-reviewer.md` | -- | Done |
 | RenderLog schema | `src/schemas/render_log.schema.json` | 3 | Done |
 | Render funnel | `src/render_funnel.py` | 8 | Done |
 | Assembler keynote paths | `src/assembler/build_deck.js` | 6 | Done |
@@ -98,8 +113,8 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Approach B (Domain-Centric):** Services designed for reuse beyond deck production
 - **4 L1 Services:** Content, Design, Image, Assembly & QA
-- **4 AI Personas:** Deck Conductor (orchestrator), Image Generation Expert (advisory), Presentation Reviewer (advisory), Prompt Engineer (invoker, Haiku/Sonnet)
-- **20 Deliverables:** 15 skills + 3 capabilities + 4 agents
+- **5 AI Personas:** Deck Conductor (orchestrator), Image Generation Expert (advisory), Image Reviewer (quality), Presentation Reviewer (advisory), Prompt Engineer (invoker, Haiku/Sonnet)
+- **21 Deliverables:** 15 skills + 3 capabilities + 5 agents
 - **Naming Convention:** Provider prefix — `ollama-*` for local, `cloud-*` for cloud image skills
 
 ### Key Files
@@ -108,7 +123,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 |------|---------|
 | `.bsa/models/jack-tar-deckhand.json` | Canonical model (single source of truth) |
 | `docs/architecture/architecture-overview.md` | One-page architecture summary |
-| `docs/architecture/ai-persona-summaries.md` | 4 agent contracts |
+| `docs/architecture/ai-persona-summaries.md` | 5 agent contracts |
 | `docs/architecture/diagrams/` | 7 SVG architecture diagrams |
 | `research/RESEARCH-INDEX.md` | Research library index with key findings |
 | `docs/superpowers/specs/2026-03-29-bsa-architecture-design.md` | Full design decisions |

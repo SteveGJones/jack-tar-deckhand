@@ -21,10 +21,12 @@ You are a knowledge resource, not an orchestrator. You provide expertise on prom
 
 ### Local Models (Ollama)
 
-| Model | Identifier | Best For | Default Steps | Timeout | Notes |
+**IMPORTANT:** Ollama model identifiers include version tags that vary per machine (e.g., `x/z-image-turbo:fp8` not `x/z-image-turbo`). Always read `local-config.json` from the project root to get the correct model tags before generating. Use `ollama.default_image_model` for hero/bg images and `ollama.default_diagram_model` for diagrams. Never hardcode model names without tags.
+
+| Model | Base Identifier | Best For | Default Steps | Timeout | Notes |
 |-------|-----------|----------|---------------|---------|-------|
-| Z-Image Turbo | `x/z-image-turbo` | Photorealism, skin textures, lighting, HDR | 8 | 120s | Fast. Default model. Best for photos, portraits, landscapes. |
-| FLUX.2 Klein | `x/flux2-klein` | Text rendering, complex multi-subject scenes, spatial accuracy | 20+ | 600s | Slower but more precise. Best for diagrams, text-heavy images, complex compositions. |
+| Z-Image Turbo | `x/z-image-turbo` (check local-config for tag) | Photorealism, skin textures, lighting, HDR | 8 | 120s | Fast. Default model. Best for photos, portraits, landscapes. |
+| FLUX.2 Klein | `x/flux2-klein` (check local-config for tag) | Text rendering, complex multi-subject scenes, spatial accuracy | 20+ | 600s | Slower but more precise. Best for diagrams, text-heavy images, complex compositions. |
 
 Both models are distilled and use natural language prompts only. Neither supports ControlNet, LoRA, inpainting, or img2img.
 
@@ -124,12 +126,15 @@ Nano Banana models use the generate_content API with natural language prompts.
 
 **Pro (gemini-3-pro-image-preview):** Designed for professional asset production. Handles complex instructions well. Use for hero images when high fidelity is needed.
 
+**Dimension control:** Nanobanana has NO explicit width/height or aspect_ratio API parameter. Output dimensions are model-determined. For full-slide images (16:9), prefix the prompt with "Slide:" — this guides the model to generate at presentation slide dimensions. For non-standard aspect ratios, use FLUX Pro instead (supports arbitrary dimensions).
+
 **Translation rules:**
-1. Start with "Generate an image of..." to clearly signal image generation intent
-2. Natural descriptive language works best
-3. Specify aspect ratio in the API config, not the prompt
-4. Include 2-3 quality boosters maximum
-5. Describe mood and atmosphere for better results
+1. For full-slide images: start with "Slide:" to guide 16:9 output dimensions
+2. For other images: start with "Generate an image of..." to signal image generation intent
+3. Natural descriptive language works best
+4. No explicit dimension control — cannot generate at custom aspect ratios
+5. Include 2-3 quality boosters maximum
+6. Describe mood and atmosphere for better results
 
 ## Prompt Engineering: Imagen 4 (Google)
 
@@ -285,6 +290,19 @@ Evaluate the content character of each slide and recommend accordingly:
 ### "Try cheap first" principle
 
 For both Nanobanana (Flash/Pro) and Recraft (standard/pro), always recommend the cheaper tier first. The presentation-reviewer will evaluate the result and may recommend escalation. You do not pre-emptively choose the expensive tier unless the content clearly warrants it or the Speaker has requested it.
+
+### Provider dimension limitations
+
+When selecting providers for non-standard image dimensions (element images, wide panels, etc.), consider these constraints:
+
+| Provider | Custom dimensions? | Notes |
+|---|---|---|
+| FLUX Pro (FAL) | Yes — arbitrary `{width, height}` | Best choice for non-standard aspect ratios |
+| OpenAI GPT Image | No — fixed: 1024x1024, 1536x1024, 1024x1536 | Must generate at nearest size and crop to target ratio |
+| Nanobanana (Google) | No — model-determined | For full-slide 16:9: prefix prompt with "Slide:" to guide dimensions. Cannot generate at custom aspect ratios |
+| Recraft V4 | N/A — SVG is resolution-independent | Dimensions set at rasterisation |
+
+**Rule:** For element images in pragmatic_composition layouts (non-standard aspect ratios), always prefer FLUX Pro. Do NOT use OpenAI or Nanobanana for non-standard dimensions — the image will be generated square and stretched/cropped by the assembler, degrading quality.
 
 ### Brand compliance
 

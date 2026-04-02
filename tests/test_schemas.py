@@ -505,3 +505,37 @@ def test_image_manifest_accepts_element_placement():
         ],
     }
     jsonschema.Draft202012Validator(schema).validate(manifest)
+
+
+def test_image_manifest_accepts_review_summary():
+    """ImageManifest should accept review_summary field on image entries."""
+    import jsonschema
+    with open('src/schemas/image_manifest.schema.json') as f:
+        schema = json.load(f)
+    manifest = {
+        'images': [{
+            'image_id': 'slide-10-scene',
+            'slide_number': 10,
+            'file_path': './tmp/deck/images/slide-10-scene.png',
+            'status': 'generated',
+            'review_summary': 'Clean android/human profile composition, brand palette matches',
+        }],
+    }
+    jsonschema.Draft202012Validator(schema).validate(manifest)
+
+
+def test_image_manifest_accepts_accepted_with_issues_status():
+    """ImageManifest should accept 'accepted_with_issues' as a valid status."""
+    import jsonschema
+    with open('src/schemas/image_manifest.schema.json') as f:
+        schema = json.load(f)
+    manifest = {
+        'images': [{
+            'image_id': 'slide-02-bg',
+            'slide_number': 2,
+            'file_path': './tmp/deck/images/slide-02-bg.png',
+            'status': 'accepted_with_issues',
+            'review_summary': 'Minor palette drift but acceptable after 10 iterations',
+        }],
+    }
+    jsonschema.Draft202012Validator(schema).validate(manifest)

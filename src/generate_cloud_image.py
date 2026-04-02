@@ -154,7 +154,10 @@ def estimate_fal_cost(model='fal-ai/flux-2-pro', image_size='landscape_16_9'):
     # Tiered megapixel models
     if model in _FAL_TIERED_COSTS:
         base_cost, extra_mp_cost = _FAL_TIERED_COSTS[model]
-        mp = _FAL_SIZE_MEGAPIXELS.get(image_size, 1.5)  # default ~1.5MP
+        if isinstance(image_size, dict):
+            mp = (image_size['width'] * image_size['height']) / 1_000_000
+        else:
+            mp = _FAL_SIZE_MEGAPIXELS.get(image_size, 1.5)
         extra_mp = max(0.0, mp - 1.0)
         return round(base_cost + extra_mp * extra_mp_cost, 4)
 

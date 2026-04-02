@@ -18,6 +18,21 @@ Consult the `image-generation-expert` agent for prompt translation advice when g
 Parse `$ARGUMENTS` for:
 - **--mode MODE**: `draft` or `production` (default: `draft`)
 
+## Step 0: Read Local Config
+
+Before any image generation, read `local-config.json` from the project root to get machine-specific Ollama model tags and timeouts. This file is gitignored — it contains the exact model identifiers installed on this machine (e.g., `x/z-image-turbo:fp8` not `x/z-image-turbo`).
+
+```bash
+python3 -c "
+import json
+with open('local-config.json') as f:
+    config = json.load(f)
+print(json.dumps(config, indent=2))
+"
+```
+
+Use `config.ollama.default_image_model` for hero/background/element images and `config.ollama.default_diagram_model` for diagrams. **Never hardcode Ollama model names** — always read from this file.
+
 ## Step 1: Run Provider Discovery
 
 Discover which image generation providers are available for this run.
@@ -144,8 +159,8 @@ import json; print(json.dumps(result, indent=2))
 "
 ```
 
-4. After Stage 1 (Ollama), review the result. If acceptable, proceed to Stage 2 (cloud_low). If not, refine the prompt and retry (up to 3 iterations).
-5. After Stage 2 (cloud_low), if acceptable, proceed to Stage 3 (cloud_full). This is the final render -- no iteration at this tier.
+4. After Stage 1 (Ollama), **view the generated image** (Read tool) and assess it using the per-image review criteria in Step 7. If not acceptable, refine the prompt and retry (up to 10 iterations — Ollama is free). Save each attempt as `slide-NN-hero-vN.png`.
+5. After Stage 2 (cloud_low), view and assess. If acceptable, proceed to Stage 3 (cloud_full). If not, refine and retry (up to 3 iterations — cloud costs money).
 
 ## Step 5: Check Cache for Each Image
 
@@ -195,9 +210,45 @@ For `pragmatic_composition` slides that do NOT have a separate background image,
 
 Use **identical** background description text across all element prompts for that slide. This is critical because the assembler samples the corner pixel of the first element image to set the slide background colour. If one element has a noticeably different background, it will create visible seams where the element image meets the slide background.
 
-## Step 7: Generate Images
+## Step 7: Generate Images With Review-and-Refine Loop
 
 For each slide that needs generation, invoke the appropriate skill. Process slides sequentially.
+
+**IMPORTANT: Store the prompt.** After generating each image, you MUST include the `source_prompt` field in the image manifest entry. This is the translated prompt that was actually sent to the model. The production upgrade plan needs these prompts to re-render at higher quality without regenerating them. Without `source_prompt`, the production pipeline cannot function.
+
+### Per-image review cycle (MANDATORY)
+
+After generating EVERY image, dispatch the `image-reviewer` agent to assess it. This keeps images out of the main orchestration context.
+
+1. **Generate** the image with the current prompt
+2. **Dispatch** the `image-reviewer` agent with:
+   - Image path: the just-generated file
+   - Visual direction: from outline.json for this slide
+   - Brand palette: hex values from brand-profile.json
+   - Strategy: from strategy-map.json for this slide
+   - Element ID: from strategy-map element_layout (if applicable)
+   - Iteration: current attempt number out of max (e.g., "3 of 10")
+
+   Example dispatch:
+   ```
+   Review this generated image for quality.
+   Image: ./tmp/deck/images/slide-10-scene-v3.png
+   Visual direction: "Side profile view of two heads facing each other..."
+   Brand palette: #006B5E, #5CDBC0, #0E1513, #F5FBF7
+   Strategy: backdrop
+   Iteration: 3 of 10
+   ```
+
+3. **Parse the JSON verdict** returned by the agent
+4. **If verdict is "pass":** proceed to next image, log the summary
+5. **If verdict is "refine":** use the `issues` array to guide prompt refinement, regenerate, and dispatch a new agent review
+6. **Escalation:** after 3 consecutive "refine" verdicts, re-dispatch the image-reviewer at Sonnet tier for a more nuanced assessment
+7. **Hard stop:** after 10 iterations total, accept the best version. Set status to `"accepted_with_issues"` in the manifest and store the final summary in `"review_summary"`
+8. **Save versions** as `slide-NN-TYPE-vN.png` so the Speaker can review alternatives if needed. The final accepted version overwrites `slide-NN-TYPE.png`.
+
+**Context savings:** The main context keeps only the `summary` string (~50 chars) per review, not the image itself. A 17-slide deck with 3 iterations each accumulates ~17 short strings instead of ~51 images.
+
+**Never skip review.** A broken image that reaches the assembled deck wastes the Speaker's time and undermines confidence in the pipeline.
 
 ### Element image aspect ratios (pragmatic_composition)
 
@@ -364,6 +415,21 @@ cache.close()
 ```
 
 ## Step 12: Build and Write ImageManifest
+
+Each image entry in `$IMAGES_LIST` MUST include `source_prompt` — the translated prompt that was sent to the generation model. Example entry:
+```json
+{
+  "slide_number": 1,
+  "file_path": "./tmp/deck/images/slide-01-hero.png",
+  "status": "generated",
+  "content_hash": "abc123...",
+  "dimensions": {"width": 1024, "height": 576},
+  "alt_text": "Headline text",
+  "image_id": "slide-01-hero",
+  "model_used": "x/z-image-turbo",
+  "source_prompt": "A dramatic teal wave cresting over..."
+}
+```
 
 ```bash
 python3 -c "
