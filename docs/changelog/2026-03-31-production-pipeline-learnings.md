@@ -45,8 +45,8 @@ First production render run of the Sparkline deck. Issues found and fixes applie
 
 ### 8. Recraft SVG prompts need different style than Ollama
 **Problem:** Prompts written for Ollama's photorealistic style produced abstract conceptual art on Recraft instead of labeled diagrams. The draft FLUX Klein versions were better actual flowcharts.
-**Fix:** Recraft needs design-centric prompts describing geometric layout, not photorealistic scenes. Slide 3 prompt needs rework.
-**Status:** Pending — slide 3 prompt to be reworked.
+**Fix:** Recraft needs design-centric prompts that enumerate each element explicitly (e.g., "Rectangle 1: label 'Brief'") and explicitly forbid unwanted text ("No title. No subtitle. No annotations."). Tested with slide 3 — Recraft V4 produced a clean 8-stage pipeline diagram on second iteration ($0.16 total).
+**Status:** Fixed (2026-04-02).
 
 ### 9. SVG background colour mismatch
 **Problem:** Recraft SVGs had white backgrounds (`rgb(253,253,253)`) instead of matching the slide surface colour. When rasterised to PNG, the white background showed.
