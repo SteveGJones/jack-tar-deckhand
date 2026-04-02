@@ -240,3 +240,76 @@ def test_rasterize_svg_no_rsvg(tmp_dir, test_svg, monkeypatch):
     output = os.path.join(tmp_dir, 'output.png')
     with pytest.raises(RuntimeError, match='rsvg-convert'):
         process_image.rasterize_svg(test_svg, output)
+
+
+@pytest.fixture
+def white_bg_svg(tmp_dir):
+    """Create an SVG with a near-white background like Recraft produces."""
+    path = os.path.join(tmp_dir, 'recraft.svg')
+    with open(path, 'w') as f:
+        f.write(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">'
+            '<rect width="400" height="300" fill="rgb(253, 253, 253)"/>'
+            '<circle cx="200" cy="150" r="50" fill="#006B5E"/>'
+            '</svg>'
+        )
+    return path
+
+
+def test_rasterize_svg_background_color_replaces_white(tmp_dir, white_bg_svg):
+    """rasterize_svg with background_color should replace near-white fills."""
+    from src.process_image import rasterize_svg
+    output = os.path.join(tmp_dir, 'output.png')
+    result = rasterize_svg(white_bg_svg, output, width=400,
+                           background_color='#0E1513')
+    assert os.path.exists(output)
+    # Verify the background pixel is dark, not white
+    img = Image.open(output)
+    corner_pixel = img.getpixel((0, 0))
+    # Should be near #0E1513 (14, 21, 19), not near white (253, 253, 253)
+    assert corner_pixel[0] < 30, f'Expected dark red channel, got {corner_pixel}'
+    assert corner_pixel[1] < 40, f'Expected dark green channel, got {corner_pixel}'
+    assert corner_pixel[2] < 35, f'Expected dark blue channel, got {corner_pixel}'
+
+
+def test_rasterize_svg_background_color_preserves_content(tmp_dir, white_bg_svg):
+    """background_color should only replace the background, not other fills."""
+    from src.process_image import rasterize_svg
+    output = os.path.join(tmp_dir, 'output.png')
+    rasterize_svg(white_bg_svg, output, width=400,
+                  background_color='#0E1513')
+    img = Image.open(output)
+    # Centre pixel should still be teal (the circle), not dark
+    centre_pixel = img.getpixel((200, 150))
+    assert centre_pixel[1] > 80, f'Expected teal green channel, got {centre_pixel}'
+
+
+def test_rasterize_svg_background_color_hex_formats(tmp_dir):
+    """background_color should accept hex with or without # prefix."""
+    from src.process_image import rasterize_svg
+    svg_path = os.path.join(tmp_dir, 'test_hex.svg')
+    with open(svg_path, 'w') as f:
+        f.write(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+            '<rect width="100" height="100" fill="#FDFDFD"/>'
+            '</svg>'
+        )
+    output = os.path.join(tmp_dir, 'output.png')
+    result = rasterize_svg(svg_path, output, width=100,
+                           background_color='F5FBF7')
+    assert os.path.exists(output)
+    img = Image.open(output)
+    corner = img.getpixel((0, 0))
+    # #F5FBF7 = (245, 251, 247) — should be close
+    assert corner[0] > 230, f'Expected light pixel, got {corner}'
+
+
+def test_rasterize_svg_no_background_color_unchanged(tmp_dir, white_bg_svg):
+    """Without background_color, white backgrounds should be preserved."""
+    from src.process_image import rasterize_svg
+    output = os.path.join(tmp_dir, 'output.png')
+    rasterize_svg(white_bg_svg, output, width=400)
+    img = Image.open(output)
+    corner_pixel = img.getpixel((0, 0))
+    # Should remain near-white
+    assert corner_pixel[0] > 240, f'Expected white pixel, got {corner_pixel}'

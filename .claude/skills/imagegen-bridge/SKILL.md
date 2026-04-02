@@ -367,7 +367,24 @@ Invoke `cloud-generate-icon` with Recraft:
 /cloud-generate-icon "DRAFT_PROMPT" --provider recraft --output ./tmp/deck/images/slide-NN-diagram.svg
 ```
 
-The output is SVG. The assembler's existing SVG rasterisation path (`src/process_image.py`) handles conversion to PNG at the target slide resolution for embedding in the .pptx.
+The output is SVG. After generation, rasterise it to PNG using `src/process_image.py`, passing the slide's background colour to fix Recraft's default white backgrounds:
+
+```python
+from src.process_image import rasterize_svg
+
+# Get slide background colour from the StyleGuide's slidePalette:
+#   title slides:   slidePalette.title_slide.background   (or palette.primary)
+#   content slides: slidePalette.content_slides.background (or palette.background)
+#   code slides:    slidePalette.code_slides.background    (or '#0E1513')
+result = rasterize_svg(
+    'tmp/deck/images/slide-NN-diagram.svg',
+    'tmp/deck/images/slide-NN-diagram.png',
+    width=1920,
+    background_color=slide_bg_color,  # e.g. '#F5FBF7' or '#0E1513'
+)
+```
+
+This replaces Recraft's near-white SVG backgrounds with the actual slide background colour, preventing visible white rectangles on assembled slides.
 
 ### no_upgrade entries
 

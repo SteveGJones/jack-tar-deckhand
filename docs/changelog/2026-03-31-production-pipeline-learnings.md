@@ -50,8 +50,8 @@ First production render run of the Sparkline deck. Issues found and fixes applie
 
 ### 9. SVG background colour mismatch
 **Problem:** Recraft SVGs had white backgrounds (`rgb(253,253,253)`) instead of matching the slide surface colour. When rasterised to PNG, the white background showed.
-**Fix:** SVG background needs to match slide surface colour (light slides: `#F5FBF7`, dark slides: `#0E1513`).
-**Status:** Pending — fix for slides 3 & 6.
+**Fix:** `rasterize_svg()` in `src/process_image.py` now accepts a `background_color` parameter. When provided, it replaces near-white SVG fills with the target colour before rasterising. The imagegen-bridge passes the slide background colour from the StyleGuide's `slidePalette` during vector_conversion production upgrades.
+**Status:** Fixed (2026-04-02).
 
 ### 10. Full_render strategy needs title text option
 **Problem:** Slide 1 (title slide) used full_render strategy — the entire slide is one AI image. But the deck title "Presentations, Engineered" was not visible because it wasn't baked into the image or overlaid.
