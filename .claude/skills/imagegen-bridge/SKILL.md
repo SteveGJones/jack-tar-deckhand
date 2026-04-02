@@ -218,24 +218,35 @@ For each slide that needs generation, invoke the appropriate skill. Process slid
 
 ### Per-image review cycle (MANDATORY)
 
-After generating EVERY image, you MUST review it visually before moving to the next slide. Ollama is free — there is no cost to iterating. Use this cycle:
+After generating EVERY image, dispatch the `image-reviewer` agent to assess it. This keeps images out of the main orchestration context.
 
 1. **Generate** the image with the current prompt
-2. **View** the generated image (use the Read tool to display it)
-3. **Assess** against these criteria:
-   - Does it match the visual_direction from the outline?
-   - Is it free of artefacts? (garbled text, extra limbs, impossible geometry, colour bleed)
-   - Does it use the brand palette? (check dominant colours match teal/mint/dark)
-   - For element images: is the subject clearly identifiable at the small display size?
-   - For hero/full_render: does it work as a standalone visual without text context?
-4. **If acceptable:** proceed to the next image
-5. **If not acceptable:** refine the prompt and regenerate. Common fixes:
-   - Artefacts/mutations (e.g., 3 straps on a watch): simplify the prompt, remove conflicting details
-   - Wrong subject: make the subject more explicit in the first 15 words
-   - Garbled text/symbols: add "No text, no words, no letters, no symbols, no numbers" more forcefully
-   - Wrong colours: use descriptive colour terms alongside hex values
-   - Too abstract: add concrete physical descriptions
-6. **Repeat** up to 10 iterations per image. Save each attempt as `slide-NN-TYPE-vN.png` so the Speaker can review alternatives if needed. The final accepted version overwrites `slide-NN-TYPE.png`.
+2. **Dispatch** the `image-reviewer` agent with:
+   - Image path: the just-generated file
+   - Visual direction: from outline.json for this slide
+   - Brand palette: hex values from brand-profile.json
+   - Strategy: from strategy-map.json for this slide
+   - Element ID: from strategy-map element_layout (if applicable)
+   - Iteration: current attempt number out of max (e.g., "3 of 10")
+
+   Example dispatch:
+   ```
+   Review this generated image for quality.
+   Image: ./tmp/deck/images/slide-10-scene-v3.png
+   Visual direction: "Side profile view of two heads facing each other..."
+   Brand palette: #006B5E, #5CDBC0, #0E1513, #F5FBF7
+   Strategy: backdrop
+   Iteration: 3 of 10
+   ```
+
+3. **Parse the JSON verdict** returned by the agent
+4. **If verdict is "pass":** proceed to next image, log the summary
+5. **If verdict is "refine":** use the `issues` array to guide prompt refinement, regenerate, and dispatch a new agent review
+6. **Escalation:** after 3 consecutive "refine" verdicts, re-dispatch the image-reviewer at Sonnet tier for a more nuanced assessment
+7. **Hard stop:** after 10 iterations total, accept the best version. Set status to `"accepted_with_issues"` in the manifest and store the final summary in `"review_summary"`
+8. **Save versions** as `slide-NN-TYPE-vN.png` so the Speaker can review alternatives if needed. The final accepted version overwrites `slide-NN-TYPE.png`.
+
+**Context savings:** The main context keeps only the `summary` string (~50 chars) per review, not the image itself. A 17-slide deck with 3 iterations each accumulates ~17 short strings instead of ~51 images.
 
 **Never skip review.** A broken image that reaches the assembled deck wastes the Speaker's time and undermines confidence in the pipeline.
 
