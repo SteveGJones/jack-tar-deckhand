@@ -52,6 +52,7 @@ L0  Presentation Engineering
     |   +-- L2  Image Post-Processing         [skill: image-processor]
     |   +-- L2  Keynote Rendering             [capability: render funnel]
     |   +-- L2  Image Generation Expert       [AI Persona - Advisory]
+    |   +-- L2  Image Reviewer                [AI Persona - Quality]
     |   +-- L2  Prompt Engineer               [AI Persona - Prompt Engineering]
     |
     +-- L1  Assembly & QA Services
@@ -61,7 +62,7 @@ L0  Presentation Engineering
         +-- L2  Presentation Reviewer     [AI Persona - Advisory]
 ```
 
-**Totals:** 1 L0, 5 L1, 22 L2 (15 skills, 3 capabilities, 4 AI Personas)
+**Totals:** 1 L0, 5 L1, 23 L2 (15 skills, 3 capabilities, 5 AI Personas)
 
 ### Architecture Diagrams
 
@@ -76,7 +77,7 @@ Drill-down diagrams for each L1 domain:
 
 ---
 
-## The Four AI Personas
+## The Five AI Personas
 
 ### 1. Deck Conductor (L1 -- Orchestrator)
 
@@ -101,6 +102,12 @@ Receives structured briefs and produces creative image generation prompts. Dispa
 **Authority:** Invoker (acts on behalf of the Conductor, escalates to Conductor)
 
 An advisory persona that reviews assembled decks against conference presentation best practices. It assesses narrative coherence, visual storytelling, pacing, speaker notes quality, and audience appropriateness. It produces structured recommendations but never modifies the deck directly.
+
+### 5. Image Reviewer (L2 -- Quality)
+
+**Authority:** Invoker (acts on behalf of the calling skill, escalates to Conductor)
+
+Visual quality gate for generated images. Dispatched per image, returns pass/refine verdict. Haiku default, Sonnet escalation.
 
 ---
 

@@ -9,7 +9,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 ### Current Status (2026-03-31)
 
 - **BSA Architecture:** v1.2.0, includes keynote pipeline + rendering strategy expansion
-  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (29 services, 4 AI personas, 48 interactions)
+  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (30 services, 5 AI personas, 48 interactions)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
 
 - **Research Library:** Complete — 18 papers, ~105K words in `research/`
@@ -87,6 +87,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Strategy Map schema | `src/schemas/strategy_map.schema.json` | 4 | Done |
 | Slide prompt composer | `src/slide_prompt_composer.py` | 20 | Done |
 | Prompt engineer agent | `.claude/agents/prompt-engineer.md` | -- | Done |
+| Image reviewer agent | `.claude/agents/image-reviewer.md` | -- | Done |
 | RenderLog schema | `src/schemas/render_log.schema.json` | 3 | Done |
 | Render funnel | `src/render_funnel.py` | 8 | Done |
 | Assembler keynote paths | `src/assembler/build_deck.js` | 6 | Done |
@@ -100,8 +101,8 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Approach B (Domain-Centric):** Services designed for reuse beyond deck production
 - **4 L1 Services:** Content, Design, Image, Assembly & QA
-- **4 AI Personas:** Deck Conductor (orchestrator), Image Generation Expert (advisory), Presentation Reviewer (advisory), Prompt Engineer (invoker, Haiku/Sonnet)
-- **20 Deliverables:** 15 skills + 3 capabilities + 4 agents
+- **5 AI Personas:** Deck Conductor (orchestrator), Image Generation Expert (advisory), Image Reviewer (quality), Presentation Reviewer (advisory), Prompt Engineer (invoker, Haiku/Sonnet)
+- **21 Deliverables:** 15 skills + 3 capabilities + 5 agents
 - **Naming Convention:** Provider prefix — `ollama-*` for local, `cloud-*` for cloud image skills
 
 ### Key Files
@@ -110,7 +111,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 |------|---------|
 | `.bsa/models/jack-tar-deckhand.json` | Canonical model (single source of truth) |
 | `docs/architecture/architecture-overview.md` | One-page architecture summary |
-| `docs/architecture/ai-persona-summaries.md` | 4 agent contracts |
+| `docs/architecture/ai-persona-summaries.md` | 5 agent contracts |
 | `docs/architecture/diagrams/` | 7 SVG architecture diagrams |
 | `research/RESEARCH-INDEX.md` | Research library index with key findings |
 | `docs/superpowers/specs/2026-03-29-bsa-architecture-design.md` | Full design decisions |
