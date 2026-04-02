@@ -4,10 +4,10 @@
     "id": "jack-tar-deckhand",
     "name": "Jack-Tar Deckhand — Presentation Engineering",
     "description": "AI-First Business Service Architecture for a Claude Code skill suite that generates conference-quality PowerPoint presentations. Services are designed as independent, reusable domains orchestrated by a Deck Conductor agent.",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "organisation": "Jack-Tar",
     "createdDate": "2026-03-29",
-    "lastModifiedDate": "2026-03-30",
+    "lastModifiedDate": "2026-04-01",
     "authors": ["Steve Jones", "Claude"],
     "status": "draft"
   },
@@ -270,6 +270,17 @@
       "isAIPersona": false,
       "tags": ["l2", "capability", "vision", "keynote", "backdrop"]
     },
+    {
+      "id": "image-image-reviewer",
+      "name": "Image Reviewer",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Visual quality assessment for AI-generated presentation images. Dispatched per image after generation to check for artifacts, subject match, palette compliance, composition, and strategy fit. Returns a compact pass/refine verdict so the orchestration context never holds images. Runs at Haiku tier by default, escalates to Sonnet after 3 consecutive refine verdicts.",
+      "owner": "Steve Jones",
+      "isAIPersona": true,
+      "tags": ["l2", "agent", "ai-persona", "quality"]
+    },
 
     {
       "id": "assembly-qa-services",
@@ -495,6 +506,51 @@
           "sourceName": "BrandProfile",
           "accessType": "read",
           "dataDescription": "Brand image style constraints: approved_image_styles and prohibited_image_styles for prompt compliance"
+        }
+      ],
+      "sops": []
+    },
+    {
+      "id": "persona-image-reviewer",
+      "serviceId": "image-image-reviewer",
+      "description": "Visual quality reviewer for AI-generated presentation images. Dispatched per image after generation by the imagegen-bridge. Assesses against five criteria: artifacts (garbled text, mutations), subject match (vs visual_direction), palette compliance (vs brand palette), composition (open areas for text overlay), and strategy fit (standalone vs atmospheric). Returns a flat JSON verdict with pass/refine decision, confidence score, issues list, and one-line summary. Runs at Haiku tier for cost efficiency; escalates to Sonnet after 3 consecutive refine verdicts for more nuanced assessment. Never modifies images, refines prompts, or writes to DeckContext.",
+      "authorityModel": "invoker",
+      "confidenceThreshold": {
+        "autonomousMin": 0.7,
+        "escalationTarget": "persona-deck-conductor"
+      },
+      "scope": {
+        "permitted": [
+          "Read and visually assess generated image files",
+          "Check for visual artifacts: garbled text, extra limbs, impossible geometry, colour bleed, mutations",
+          "Assess whether image subject matches the visual_direction from the outline",
+          "Check dominant colour compliance against brand palette hex values",
+          "Assess composition suitability for the slide's rendering strategy",
+          "Return structured JSON verdict with pass/refine decision"
+        ],
+        "prohibited": [
+          "Must not generate or modify images",
+          "Must not refine or suggest prompts — that is the image-generation-expert's role",
+          "Must not write to DeckContext or manifest files",
+          "Must not communicate with Speaker directly"
+        ],
+        "escalationTriggers": [
+          "Image fails quality criteria after 3 consecutive assessments at Haiku tier — escalate to Sonnet for more nuanced review",
+          "Image accepted after 10 iterations with remaining issues — flag as accepted_with_issues in manifest"
+        ]
+      },
+      "dataSources": [
+        {
+          "sourceId": "content-outline-generation",
+          "sourceName": "SlideOutline",
+          "accessType": "read",
+          "dataDescription": "visual_direction field for subject match assessment"
+        },
+        {
+          "sourceId": "design-brand-profile-management",
+          "sourceName": "BrandProfile",
+          "accessType": "read",
+          "dataDescription": "Brand palette hex values for colour compliance checking"
         }
       ],
       "sops": []
@@ -1119,6 +1175,22 @@
       "type": "invocation",
       "description": "For pragmatic_composition slides, keynote renderer dispatches multiple generation requests through the image router: 1 background image + N element images. Each element image is generated individually via the same model for style consistency.",
       "dataFlows": ["Background prompt", "Element prompts[]", "Model constraint (same model for all elements)"]
+    },
+    {
+      "id": "int-imagegen-bridge-to-image-reviewer",
+      "sourceId": "image-routing-discovery",
+      "targetId": "image-image-reviewer",
+      "type": "invocation",
+      "description": "imagegen-bridge dispatches image-reviewer after each image generation for visual quality assessment",
+      "dataFlows": ["Image path", "Visual direction", "Brand palette", "Slide strategy", "Iteration count"]
+    },
+    {
+      "id": "int-image-reviewer-to-imagegen-bridge",
+      "sourceId": "image-image-reviewer",
+      "targetId": "image-routing-discovery",
+      "type": "delivery",
+      "description": "image-reviewer returns structured quality verdict to imagegen-bridge",
+      "dataFlows": ["Verdict (pass/refine)", "Issues list", "Confidence score", "Summary"]
     }
   ],
 
