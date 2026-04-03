@@ -8,8 +8,10 @@ Does NOT use Real-ESRGAN (too slow on CPU — use Lanczos instead).
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
+import tempfile
 
 from PIL import Image
 
@@ -223,7 +225,49 @@ def optimize_png(image_path, output_path=None, quality=80):
     }
 
 
-def rasterize_svg(svg_path, output_path, width=2048, height=None, keep_aspect=True):
+def _is_near_white(color_str):
+    """Check if an SVG fill colour is near-white (background to replace).
+
+    Matches white, near-white hex, and rgb() values where all channels > 240.
+    """
+    color_str = color_str.strip().lower()
+    # Hex formats: #fff, #ffffff, #fdfdfd, etc.
+    hex_match = re.match(r'^#?([0-9a-f]{3,6})$', color_str)
+    if hex_match:
+        h = hex_match.group(1)
+        if len(h) == 3:
+            r, g, b = int(h[0]*2, 16), int(h[1]*2, 16), int(h[2]*2, 16)
+        else:
+            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return r > 240 and g > 240 and b > 240
+    # rgb() format: rgb(253, 253, 253)
+    rgb_match = re.match(r'rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', color_str)
+    if rgb_match:
+        r, g, b = int(rgb_match.group(1)), int(rgb_match.group(2)), int(rgb_match.group(3))
+        return r > 240 and g > 240 and b > 240
+    # Named colours
+    return color_str in ('white', '#fff', '#ffffff')
+
+
+def _replace_svg_background(svg_content, target_color):
+    """Replace near-white fill colours in the first background rect of an SVG.
+
+    Only replaces fill on <rect> elements that span the full viewBox
+    (width/height matching the SVG root or set to 100%).
+    """
+    def replace_fill(match):
+        fill_val = match.group(1)
+        if _is_near_white(fill_val):
+            return f'fill="{target_color}"'
+        return match.group(0)
+
+    # Replace fill on the first rect that has a near-white fill.
+    # Recraft SVGs typically have one background rect as the first element.
+    return re.sub(r'fill="([^"]+)"', replace_fill, svg_content, count=1)
+
+
+def rasterize_svg(svg_path, output_path, width=2048, height=None,
+                  keep_aspect=True, background_color=None):
     """Convert an SVG file to a PNG using rsvg-convert.
 
     Args:
@@ -233,6 +277,9 @@ def rasterize_svg(svg_path, output_path, width=2048, height=None, keep_aspect=Tr
         height: Target height in pixels. If None and keep_aspect is True,
                 height is computed from the SVG's native aspect ratio.
         keep_aspect: If True (default), maintain the SVG's aspect ratio.
+        background_color: Optional hex colour (e.g. '#0E1513' or '0E1513')
+                         to replace near-white SVG backgrounds with. Fixes
+                         the Recraft white-background mismatch issue.
 
     Returns:
         dict: {path, width, height, content_hash}
@@ -249,15 +296,40 @@ def rasterize_svg(svg_path, output_path, width=2048, height=None, keep_aspect=Tr
             'Install via: brew install librsvg (macOS) or apt install librsvg2-bin (Linux)'
         )
 
-    cmd = [_RSVG_CONVERT_PATH, '-w', str(width)]
-    if height is not None:
-        cmd.extend(['-h', str(height)])
-    if keep_aspect:
-        cmd.append('--keep-aspect-ratio')
-    cmd.extend([svg_path, '-o', output_path])
+    source_path = svg_path
+    tmp_svg = None
 
-    os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
-    subprocess.run(cmd, check=True, capture_output=True)
+    if background_color:
+        # Normalise to #RRGGBB
+        color = background_color.strip()
+        if not color.startswith('#'):
+            color = f'#{color}'
+
+        with open(svg_path, 'r') as f:
+            svg_content = f.read()
+
+        modified = _replace_svg_background(svg_content, color)
+        if modified != svg_content:
+            tmp_svg = tempfile.NamedTemporaryFile(
+                suffix='.svg', delete=False, mode='w'
+            )
+            tmp_svg.write(modified)
+            tmp_svg.close()
+            source_path = tmp_svg.name
+
+    try:
+        cmd = [_RSVG_CONVERT_PATH, '-w', str(width)]
+        if height is not None:
+            cmd.extend(['-h', str(height)])
+        if keep_aspect:
+            cmd.append('--keep-aspect-ratio')
+        cmd.extend([source_path, '-o', output_path])
+
+        os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+        subprocess.run(cmd, check=True, capture_output=True)
+    finally:
+        if tmp_svg and os.path.exists(tmp_svg.name):
+            os.unlink(tmp_svg.name)
 
     w, h = get_dimensions(output_path)
     content_hash = compute_content_hash(output_path)

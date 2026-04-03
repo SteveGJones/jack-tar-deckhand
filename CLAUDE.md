@@ -16,7 +16,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
   - Create `research/synthesis-[skill-name].md` before implementing any skill
 
-- **All Phases COMPLETE — 504 tests passing**
+- **All Phases COMPLETE — 518 tests passing**
   - Phase 1: Foundation — 38 tests
   - Phase 2: Design Services (brand-manager, slide-stylist) — 27 tests
   - Phase 3: Content Services (narrative-architect, speaker-notes-writer) — 12 tests
@@ -94,7 +94,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Content validation | `src/content_validation.py` | 12 | Done |
 | Conductor utils | `src/conductor.py` | 19 | Done |
 | Manifest utilities | `src/manifest_utils.py` | 7 | Done |
-| SVG rasterisation | `src/process_image.py` | 23 | Done |
+| SVG rasterisation | `src/process_image.py` | 27 | Done |
 | Production upgrade | `src/image_router.py` | 40 | Done |
 | Strategy Map schema | `src/schemas/strategy_map.schema.json` | 4 | Done |
 | Slide prompt composer | `src/slide_prompt_composer.py` | 20 | Done |

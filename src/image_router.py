@@ -41,6 +41,7 @@ UpgradeDecision = namedtuple('UpgradeDecision', [
     'target_model',     # model for upgrade (None if keep)
     'target_size',      # size string e.g. '1536x1024' (None if keep)
     'estimated_cost_usd',
+    'warnings',         # list of warning strings (empty list if none)
 ])
 
 
@@ -146,6 +147,32 @@ _PRODUCTION_QUALITY_SOURCES = {'svg-convert', 'matplotlib', 'render_chart'}
 
 # Visual types that benefit from cloud upgrade
 _UPGRADEABLE_VISUAL_TYPES = {'hero_image', 'pattern_background', 'icon_set', 'diagram'}
+
+# OpenAI GPT Image only supports these fixed sizes
+OPENAI_SUPPORTED_SIZES = {'1024x1024', '1536x1024', '1024x1536'}
+
+
+def _check_openai_dimension_warning(provider, target_dims):
+    """Return a warning string if OpenAI is the provider and dims are non-standard.
+
+    Args:
+        provider: provider key string (e.g. 'openai').
+        target_dims: target dimensions string (e.g. '1920x1080') or None.
+
+    Returns:
+        Warning string if applicable, otherwise None.
+    """
+    if provider != 'openai':
+        return None
+    if target_dims is None:
+        return None
+    if target_dims in OPENAI_SUPPORTED_SIZES:
+        return None
+    return (
+        f'OpenAI supports only 1024x1024, 1536x1024, 1024x1536. '
+        f'Target {target_dims} requires cropping or a different provider '
+        f'(FLUX Pro supports arbitrary dimensions).'
+    )
 
 
 def classify_visual_type(slide):
@@ -377,6 +404,7 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
                 target_model=None,
                 target_size=None,
                 estimated_cost_usd=0.0,
+                warnings=[],
             ))
             continue
 
@@ -392,6 +420,7 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
                 target_model=None,
                 target_size=None,
                 estimated_cost_usd=0.0,
+                warnings=[],
             ))
             continue
 
@@ -415,10 +444,16 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
                 target_model=None,
                 target_size=None,
                 estimated_cost_usd=0.0,
+                warnings=[],
             ))
             continue
 
         remaining -= route.cost_per_image
+        target_size = '1536x1024'
+        warnings = []
+        dim_warning = _check_openai_dimension_warning(route.provider, target_size)
+        if dim_warning:
+            warnings.append(dim_warning)
         decisions.append(UpgradeDecision(
             slide_number=slide_num,
             image_id=image_id,
@@ -427,8 +462,9 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
             draft_prompt=draft_prompt,
             target_provider=route.provider,
             target_model=route.model,
-            target_size='1536x1024',
+            target_size=target_size,
             estimated_cost_usd=route.cost_per_image,
+            warnings=warnings,
         ))
 
     return decisions
@@ -497,3 +533,23 @@ def execute_upgrade_plan_entry(entry):
         'width': width,
         'height': height,
     }
+
+
+def validate_plan_entry_dimensions(entry):
+    """Check a production upgrade plan entry for provider dimension mismatches.
+
+    Mutates the entry's 'warnings' list in place if a mismatch is found.
+
+    Args:
+        entry: dict from the production upgrade plan entries array,
+               must have 'recommended_provider', 'target_dimensions', 'warnings'.
+
+    Returns:
+        The entry (for chaining convenience).
+    """
+    provider = entry.get('recommended_provider')
+    dims = entry.get('target_dimensions')
+    warning = _check_openai_dimension_warning(provider, dims)
+    if warning:
+        entry.setdefault('warnings', []).append(warning)
+    return entry

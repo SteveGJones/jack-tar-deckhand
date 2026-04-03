@@ -3,7 +3,7 @@
 import json
 import os
 import pytest
-from src.image_router import plan_production_upgrade, UpgradeDecision, load_upgrade_plan, execute_upgrade_plan_entry, route_slide
+from src.image_router import plan_production_upgrade, UpgradeDecision, load_upgrade_plan, execute_upgrade_plan_entry, route_slide, validate_plan_entry_dimensions, OPENAI_SUPPORTED_SIZES, _check_openai_dimension_warning
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
 
@@ -566,3 +566,149 @@ def test_full_plan_load_and_execute_cycle(tmp_path):
     assert results[3]['skill'] == 'cloud-generate-image'
     assert results[3]['provider'] == 'google'
     assert results[3]['model'] == 'gemini-3.1-flash-image-preview'
+
+
+class TestOpenAIDimensionWarnings:
+    """Tests for OpenAI dimension mismatch warnings."""
+
+    def test_openai_non_standard_dims_produces_warning(self):
+        """When OpenAI is recommended with non-standard dimensions, a warning is included."""
+        warning = _check_openai_dimension_warning('openai', '1920x1080')
+        assert warning is not None
+        assert '1920x1080' in warning
+        assert 'FLUX Pro' in warning
+
+    def test_openai_standard_dims_no_warning(self):
+        """OpenAI with supported sizes produces no warning."""
+        for size in OPENAI_SUPPORTED_SIZES:
+            warning = _check_openai_dimension_warning('openai', size)
+            assert warning is None, f'Unexpected warning for supported size {size}'
+
+    def test_non_openai_provider_no_warning(self):
+        """Non-OpenAI providers never trigger dimension warnings."""
+        warning = _check_openai_dimension_warning('fal', '1920x1080')
+        assert warning is None
+
+    def test_none_dims_no_warning(self):
+        """None dimensions produce no warning even for OpenAI."""
+        warning = _check_openai_dimension_warning('openai', None)
+        assert warning is None
+
+    def test_plan_production_upgrade_no_warning_openai_default_dims(self):
+        """plan_production_upgrade produces no warning when OpenAI is selected with
+        the default target size 1536x1024, which IS an OpenAI supported size."""
+        manifest = {
+            'images': [
+                {
+                    'image_id': 'slide-01-hero',
+                    'slide_number': 1,
+                    'file_path': '/tmp/deck/images/slide-01-hero.png',
+                    'status': 'generated',
+                    'model_used': 'x/z-image-turbo',
+                    'source_prompt': 'Test prompt',
+                    'dimensions': {'width': 1024, 'height': 576},
+                },
+            ],
+        }
+        outline = {
+            'slides': [{'slide_number': 1, 'visual_type': 'hero_image'}],
+        }
+        # Only OpenAI available so it gets selected for production upgrade
+        openai_only = {
+            'ollama': {'available': False},
+            'openai': {'available': True, 'model': 'gpt-image-1.5'},
+            'google': {'available': False},
+            'fal': {'available': False},
+            'recraft': {'available': False},
+        }
+        budget = {'budget_state': 'allow', 'remaining_usd': 5.0}
+        decisions = plan_production_upgrade(manifest, outline, openai_only, budget)
+        upgrade = [d for d in decisions if d.action == 'upgrade']
+        assert len(upgrade) == 1
+        assert upgrade[0].target_provider == 'openai'
+        # 1536x1024 is a supported OpenAI size, so no warning
+        assert upgrade[0].warnings == []
+
+    def test_plan_production_upgrade_no_warning_for_fal(self):
+        """plan_production_upgrade produces no warnings when FAL (FLUX) is the provider."""
+        manifest = {
+            'images': [
+                {
+                    'image_id': 'slide-01-hero',
+                    'slide_number': 1,
+                    'file_path': '/tmp/deck/images/slide-01-hero.png',
+                    'status': 'generated',
+                    'model_used': 'x/z-image-turbo',
+                    'source_prompt': 'Test prompt',
+                    'dimensions': {'width': 1024, 'height': 576},
+                },
+            ],
+        }
+        outline = {
+            'slides': [{'slide_number': 1, 'visual_type': 'hero_image'}],
+        }
+        budget = {'budget_state': 'allow', 'remaining_usd': 5.0}
+        decisions = plan_production_upgrade(manifest, outline, ALL_PROVIDERS, budget)
+        upgrade = [d for d in decisions if d.action == 'upgrade']
+        assert len(upgrade) == 1
+        assert upgrade[0].target_provider == 'fal'
+        assert upgrade[0].warnings == []
+
+    def test_validate_plan_entry_openai_non_standard(self):
+        """validate_plan_entry_dimensions adds warning for OpenAI with non-standard dims."""
+        entry = {
+            'slide_number': 1,
+            'image_id': 'slide-01-hero',
+            'upgrade_track': 'raster_upscale',
+            'recommended_provider': 'openai',
+            'recommended_model': 'gpt-image-1.5-med',
+            'target_dimensions': '1920x1080',
+            'warnings': [],
+        }
+        validate_plan_entry_dimensions(entry)
+        assert len(entry['warnings']) == 1
+        assert '1920x1080' in entry['warnings'][0]
+
+    def test_validate_plan_entry_openai_standard_no_warning(self):
+        """validate_plan_entry_dimensions does not add warning for supported OpenAI dims."""
+        entry = {
+            'slide_number': 1,
+            'image_id': 'slide-01-hero',
+            'upgrade_track': 'raster_upscale',
+            'recommended_provider': 'openai',
+            'recommended_model': 'gpt-image-1.5-med',
+            'target_dimensions': '1536x1024',
+            'warnings': [],
+        }
+        validate_plan_entry_dimensions(entry)
+        assert entry['warnings'] == []
+
+    def test_validate_plan_entry_non_openai_no_warning(self):
+        """validate_plan_entry_dimensions does not warn for non-OpenAI providers."""
+        entry = {
+            'slide_number': 1,
+            'image_id': 'slide-01-hero',
+            'upgrade_track': 'raster_upscale',
+            'recommended_provider': 'fal',
+            'recommended_model': 'flux-2-pro',
+            'target_dimensions': '1920x1080',
+            'warnings': [],
+        }
+        validate_plan_entry_dimensions(entry)
+        assert entry['warnings'] == []
+
+    def test_upgrade_decision_has_warnings_field(self):
+        """UpgradeDecision namedtuple includes a warnings field."""
+        d = UpgradeDecision(
+            slide_number=1,
+            image_id='test',
+            action='upgrade',
+            reason='test',
+            draft_prompt=None,
+            target_provider='openai',
+            target_model='gpt-image-1.5',
+            target_size='1920x1080',
+            estimated_cost_usd=0.03,
+            warnings=['test warning'],
+        )
+        assert d.warnings == ['test warning']

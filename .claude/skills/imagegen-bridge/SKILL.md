@@ -210,6 +210,15 @@ For `pragmatic_composition` slides that do NOT have a separate background image,
 
 Use **identical** background description text across all element prompts for that slide. This is critical because the assembler samples the corner pixel of the first element image to set the slide background colour. If one element has a noticeably different background, it will create visible seams where the element image meets the slide background.
 
+### Simple backgrounds: prefer Ollama
+
+For atmospheric dark backgrounds, subtle textures, and neutral surfaces (strategy: `background` or `pragmatic_composition` background), prefer Ollama over cloud providers. Cloud models (especially Nanobanana) over-generate from vague atmospheric prompts, adding unwanted complexity, objects, and even text. Ollama produces cleaner, subtler results for this use case — and it's free.
+
+Reserve cloud providers for images that need:
+- Specific complex subjects (product photography, conceptual illustrations)
+- Text-in-image accuracy
+- High-resolution photorealistic detail
+
 ## Step 7: Generate Images With Review-and-Refine Loop
 
 For each slide that needs generation, invoke the appropriate skill. Process slides sequentially.
@@ -367,7 +376,45 @@ Invoke `cloud-generate-icon` with Recraft:
 /cloud-generate-icon "DRAFT_PROMPT" --provider recraft --output ./tmp/deck/images/slide-NN-diagram.svg
 ```
 
-The output is SVG. The assembler's existing SVG rasterisation path (`src/process_image.py`) handles conversion to PNG at the target slide resolution for embedding in the .pptx.
+The output is SVG. After generation, rasterise it to PNG using `src/process_image.py`, passing the slide's background colour to fix Recraft's default white backgrounds:
+
+```python
+from src.process_image import rasterize_svg
+
+# Get slide background colour from the StyleGuide's slidePalette:
+#   title slides:   slidePalette.title_slide.background   (or palette.primary)
+#   content slides: slidePalette.content_slides.background (or palette.background)
+#   code slides:    slidePalette.code_slides.background    (or '#0E1513')
+result = rasterize_svg(
+    'tmp/deck/images/slide-NN-diagram.svg',
+    'tmp/deck/images/slide-NN-diagram.png',
+    width=1920,
+    background_color=slide_bg_color,  # e.g. '#F5FBF7' or '#0E1513'
+)
+```
+
+This replaces Recraft's near-white SVG backgrounds with the actual slide background colour, preventing visible white rectangles on assembled slides.
+
+### Recraft prompt patterns (learned from production)
+
+Recraft V4 interprets prompts differently from raster models. Follow these rules:
+
+1. **Enumerate every element explicitly** — "Rectangle 1: labeled 'Brief'. Rectangle 2: labeled 'Brand'." not "8 connected stages flowing left to right"
+2. **Specify the topology** — "snake pattern with 3 rows" or "single horizontal row" or "2x2 grid" not just "flow diagram"
+3. **Forbid extras explicitly** — "No title. No subtitle. No footer. No annotations. No sub-labels. Only the N elements described above."
+4. **Describe layout geometry** — "wide horizontal bar spanning full width at top" not just "orchestrator across the top"
+5. **Consider slide aspect ratio** — 8 items in a horizontal line on a 16:9 slide will be tiny. Use snake/grid layouts for >4 nodes.
+6. **Use design vocabulary** — "rounded rectangle filled with deep teal (#006B5E)" not "clean geometric node in brand teal"
+
+These patterns reduced Recraft iterations from 3+ to 1-2 per diagram.
+
+### Prompt selection for production upgrades
+
+For slides with a single image, use the outline's `visual_direction` as the prompt (it may have been refined during drafting).
+
+For slides with multiple element images (pragmatic_composition, three_across layouts), use the `draft_prompt` from the production upgrade plan entry for each element — NOT the outline's `visual_direction`. The outline has one visual_direction per slide but element images each need their own distinct prompt. Using the slide-level prompt for all elements produces identical images.
+
+**Rule:** If `image_id` contains `elem-`, always use the production plan's `draft_prompt` for that entry.
 
 ### no_upgrade entries
 

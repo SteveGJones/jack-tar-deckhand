@@ -77,6 +77,19 @@ All `grid_2x2` element layouts MUST use column-first (N-pattern) reading order: 
 
 When specifying element_layout dimensions, calculate the target aspect ratio (w/h) and include it in the strategy map entry so the imagegen-bridge generates images at the correct dimensions. Don't assume square — element images should match their target placement box exactly to avoid letterboxing or cropping artefacts.
 
+### Diagram layout guidance
+
+When classifying diagram slides, consider the slide's 16:9 aspect ratio when recommending layout in the visual_direction:
+
+| Element count | Recommended layout | Rationale |
+|---|---|---|
+| 2-4 nodes | Single horizontal row | Fits comfortably in 16:9 |
+| 5-8 nodes | Snake pattern (2-3 rows) | Fills the vertical space instead of a tiny horizontal line |
+| 9+ nodes | Grid (3x3 or similar) | Maximises use of slide area |
+| Hierarchy (1 + N) | Wide bar at top, row below | Shows orchestration clearly |
+
+Include layout direction in the visual_direction prompt. For example: "Snake pattern: Row 1 left-to-right (Brief → Brand → Style → Narrative), curve down, Row 2 right-to-left (Images → Assembly), curve down, Row 3 left-to-right (QA → Deck)."
+
 ## Output
 
 `./tmp/deck/strategy-map.json` conforming to the StrategyMap schema.
