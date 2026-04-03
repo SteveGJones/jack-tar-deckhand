@@ -55,10 +55,37 @@ First production render run of the Sparkline deck. Issues found and fixes applie
 
 ### 10. Full_render strategy needs title text option
 **Problem:** Slide 1 (title slide) used full_render strategy — the entire slide is one AI image. But the deck title "Presentations, Engineered" was not visible because it wasn't baked into the image or overlaid.
-**Fix:** Change slide 1 to `background` strategy with left_panel variant so the title is programmatic text overlay.
-**Status:** Pending.
+**Fix:** Changed slide 1 to `background` strategy with left_panel variant. Art deco steampunk watchmaker concept, subject on right, dark left side for programmatic title text overlay.
+**Status:** Fixed (2026-04-02).
 
 ### 11. Slide 10 lost its approved visual concept
 **Problem:** Previous session had iterated to an android/human head conversation visual. The re-draft used the original outline's abstract visual_direction instead.
-**Fix:** Need to update outline visual_direction for slide 10 and re-draft via Ollama.
-**Status:** Pending.
+**Fix:** Art deco Metropolis-inspired concept — stylised mechanical head (teal) facing organic human head (mint), golden sunburst between them. Locked via Ollama iteration with image-reviewer, then production-rendered via FLUX Pro.
+**Status:** Fixed (2026-04-02).
+
+## Second Production Run Learnings — 2026-04-02
+
+### 12. Production run script used wrong prompts for element images
+**Problem:** The production run's `get_updated_prompt()` function pulled the outline's `visual_direction` for every image. But slides with multiple element images (5, 9, 11) each need distinct per-element prompts from the production plan. All elements got the same generic prompt, producing identical images.
+**Fix:** Added "Prompt selection for production upgrades" rule to imagegen-bridge: if `image_id` contains `elem-`, always use the production plan's `draft_prompt` for that entry, not the outline's `visual_direction`.
+**Industrialise:** Codified in imagegen-bridge skill. Production run scripts must respect per-element prompts.
+
+### 13. Cloud models over-generate for simple backgrounds
+**Problem:** Nanobanana produced an overly complex background for slide 11 with unwanted title text and busy detail. It was supposed to be a simple dark atmospheric surface.
+**Fix:** Used Ollama instead — produced a clean, subtle dark texture for free. Added "Simple backgrounds: prefer Ollama" rule to imagegen-bridge.
+**Industrialise:** Codified in imagegen-bridge skill. Reserve cloud providers for complex subjects, not atmospheric textures.
+
+### 14. Diagram layout didn't consider slide aspect ratio
+**Problem:** Slide 3's 8-node pipeline was rendered as a single horizontal line on a 16:9 slide, making nodes tiny with 80% wasted space.
+**Fix:** Reworked to snake layout (3 rows). Added diagram layout guidance to strategy-map skill with node-count thresholds.
+**Industrialise:** Codified in strategy-map skill. Diagram prompts must specify topology and consider slide aspect ratio.
+
+### 15. Recraft diagram topology not explicit enough
+**Problem:** Slide 6's architecture diagram was rendered as a tree hierarchy instead of an orchestration pattern with feedback loops. Recraft chose the wrong topology.
+**Fix:** Explicit topology in prompt: "wide horizontal bar spanning full width at top", "4 boxes in a single row below", "bidirectional arrows showing feedback loops".
+**Industrialise:** Recraft prompt patterns documented in imagegen-bridge skill.
+
+### 16. OpenAI dimension mismatch not flagged in production plan
+**Problem:** Slide 5 elements needed 1024x368 but production plan recommended OpenAI which only supports fixed sizes (1024x1024, 1536x1024, 1024x1536). Generated square images were stretched.
+**Fix:** Used FLUX Pro instead (supports arbitrary dimensions). Added dimension mismatch warning to `image_router.py` production plan generation.
+**Industrialise:** `plan_production_upgrade()` now warns when OpenAI is recommended with non-standard dimensions.
