@@ -52,7 +52,11 @@
           },
           "retry_count": {"type": "integer"},
           "generation_time_seconds": {"type": "number"},
-          "review_summary": {"type": "string"}
+          "review_summary": {"type": "string"},
+          "smartart_ref": {
+            "type": "string",
+            "description": "Links this enrichment image to a SmartArt graphic ID"
+          }
         }
       }
     },
