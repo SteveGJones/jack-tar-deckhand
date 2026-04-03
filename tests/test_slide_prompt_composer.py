@@ -441,3 +441,21 @@ def test_split_element_briefs_no_text_instruction(sample_style_guide, sample_bra
     briefs = split_element_briefs(slide, sample_style_guide, sample_brand_profile, layout, 'ollama')
     for brief in briefs:
         assert 'NO TEXT' in brief['text_instruction']
+
+
+def test_classify_does_not_produce_smartart_strategy():
+    """classify_slide_strategy should never produce 'smartart' — that comes from the selector."""
+    from src.slide_prompt_composer import classify_slide_strategy
+    # Try a slide that might tempt smartart classification (content with visual_intent)
+    slide = {
+        'slide_number': 5,
+        'slide_type': 'content',
+        'headline': 'Our Process',
+        'body_points': ['Research', 'Design', 'Build', 'Launch'],
+        'visual_direction': 'Show as a flowchart'
+    }
+    result = classify_slide_strategy(slide)
+    # classify_slide_strategy can only return: composed, full_render, or background
+    # Never smartart — that comes from the SmartArt selector skill
+    assert result['strategy'] != 'smartart'
+    assert result['strategy'] in ['composed', 'full_render', 'background']
