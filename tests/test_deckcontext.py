@@ -89,6 +89,29 @@ class TestChecksum:
         assert checksum == checksum2
 
 
+def test_default_step_order_includes_smartart_steps():
+    from src.deckcontext import DEFAULT_STEP_ORDER
+    assert 'smartart-selector' in DEFAULT_STEP_ORDER
+    assert 'smartart-extractor' in DEFAULT_STEP_ORDER
+    assert 'smartart-renderer' in DEFAULT_STEP_ORDER
+    # Verify ordering
+    selector_idx = DEFAULT_STEP_ORDER.index('smartart-selector')
+    strategy_idx = DEFAULT_STEP_ORDER.index('strategy-map')
+    extractor_idx = DEFAULT_STEP_ORDER.index('smartart-extractor')
+    renderer_idx = DEFAULT_STEP_ORDER.index('smartart-renderer')
+    bridge_idx = DEFAULT_STEP_ORDER.index('imagegen-bridge')
+    assert selector_idx < strategy_idx, "selector must be before strategy-map"
+    assert extractor_idx > strategy_idx, "extractor must be after strategy-map"
+    assert renderer_idx > bridge_idx, "renderer must be after imagegen-bridge"
+
+
+def test_contract_schemas_include_smartart():
+    from src.deckcontext import CONTRACT_SCHEMAS
+    assert 'smartart-recommendations' in CONTRACT_SCHEMAS
+    assert 'smartart-spec' in CONTRACT_SCHEMAS
+    assert 'smartart-manifest' in CONTRACT_SCHEMAS
+
+
 class TestPipelineState:
     def test_update_step_status(self):
         from src.deckcontext import init_deck, update_step, read_contract
