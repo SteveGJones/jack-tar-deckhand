@@ -156,3 +156,159 @@ class TestContainerEngine:
         assert len(cells) == 1
         assert cells[0].width == 400
         assert cells[0].height == 400
+
+
+class TestSwotLayout:
+    def test_renders_4_quadrants(self):
+        from src.smartart_svg.layouts.swot import render_swot
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "quadrants": [
+                {"label": "Strengths", "position": "top_left", "items": ["Brand", "Team"]},
+                {"label": "Weaknesses", "position": "top_right", "items": ["Scale"]},
+                {"label": "Opportunities", "position": "bottom_left", "items": ["AI"]},
+                {"label": "Threats", "position": "bottom_right", "items": ["Regulation"]}
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a', 'chart_series': ['2B6CB0', 'ED8936', '38A169', 'E53E3E']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 1920, 1080, padding=40)
+        svg = render_swot(data, c, tokens)
+        assert '<svg' not in svg  # layout returns fragment, not full doc
+        assert 'Strengths' in svg
+        assert 'Weaknesses' in svg
+        assert 'Brand' in svg
+
+
+class TestFeatureMatrixLayout:
+    def test_renders_grid(self):
+        from src.smartart_svg.layouts.feature_matrix import render_feature_matrix
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "columns": ["Feature A", "Feature B"],
+            "rows": [
+                {"label": "Product 1", "values": [True, False]},
+                {"label": "Product 2", "values": [True, True]}
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a',
+                        'chart_series': ['2B6CB0']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 1920, 1080, padding=40)
+        svg = render_feature_matrix(data, c, tokens)
+        assert 'Feature A' in svg
+        assert 'Product 1' in svg
+
+
+class TestVennLayout:
+    def test_renders_2_circles(self):
+        from src.smartart_svg.layouts.venn import render_venn
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "sets": [
+                {"label": "Set A", "items": ["Only A"]},
+                {"label": "Set B", "items": ["Only B"]}
+            ],
+            "intersection": {"items": ["Shared"]}
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a',
+                        'chart_series': ['2B6CB0', 'ED8936']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 1920, 1080, padding=40)
+        svg = render_venn(data, c, tokens)
+        assert '<circle' in svg
+        assert 'Set A' in svg
+        assert 'Shared' in svg
+
+
+class TestTimelineLayout:
+    def test_renders_stages(self):
+        from src.smartart_svg.layouts.timeline import render_timeline
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "stages": [
+                {"label": "Q1 2025", "description": "Research"},
+                {"label": "Q2 2025", "description": "Design"},
+                {"label": "Q3 2025", "description": "Build"}
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a', 'chart_series': ['2B6CB0']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 1920, 1080, padding=40)
+        svg = render_timeline(data, c, tokens)
+        assert 'Q1 2025' in svg
+        assert 'Research' in svg
+
+
+class TestPipelineFunnelLayout:
+    def test_renders_stages(self):
+        from src.smartart_svg.layouts.pipeline_funnel import render_pipeline_funnel
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "stages": [
+                {"label": "Leads", "value": 1000},
+                {"label": "Qualified", "value": 500},
+                {"label": "Proposals", "value": 200},
+                {"label": "Closed", "value": 50}
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a', 'chart_series': ['2B6CB0']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 1920, 1080, padding=40)
+        svg = render_pipeline_funnel(data, c, tokens)
+        assert 'Leads' in svg
+        assert 'Closed' in svg
+
+
+class TestRenderCustomSvgPublicAPI:
+    def test_renders_swot_as_full_document(self):
+        from src.smartart_svg import render_custom_svg
+        spec = {
+            'graphic_type': 'swot',
+            'data': {
+                'quadrants': [
+                    {'label': 'S', 'position': 'top_left', 'items': ['a']},
+                    {'label': 'W', 'position': 'top_right', 'items': ['b']},
+                    {'label': 'O', 'position': 'bottom_left', 'items': ['c']},
+                    {'label': 'T', 'position': 'bottom_right', 'items': ['d']}
+                ]
+            }
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a', 'chart_series': ['2B6CB0', 'ED8936', '38A169', 'E53E3E']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        result = render_custom_svg(spec, style_guide)
+        assert '<svg' in result
+        assert '<title>' in result
+        assert '</svg>' in result
+
+    def test_raises_for_unsupported_type(self):
+        from src.smartart_svg import render_custom_svg
+        spec = {'graphic_type': 'unsupported', 'data': {}}
+        with pytest.raises(ValueError, match="Unsupported graphic type"):
+            render_custom_svg(spec, {})
