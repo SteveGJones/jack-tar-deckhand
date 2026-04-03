@@ -1,0 +1,472 @@
+"""SmartArt data extractor — transforms slide body_points into engine-specific structured data.
+
+Deterministic transformation only. No LLM calls.
+"""
+
+import re
+from src.smartart_svg.tokens import extract_style_tokens
+
+# ---------------------------------------------------------------------------
+# Node ID generation helpers
+# ---------------------------------------------------------------------------
+
+_NODE_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _node_id(index):
+    """Generate Mermaid-safe node ID: A-Z, then AA, AB, ..."""
+    if index < 26:
+        return _NODE_ID_CHARS[index]
+    first = _NODE_ID_CHARS[(index // 26) - 1]
+    second = _NODE_ID_CHARS[index % 26]
+    return first + second
+
+
+def _clean_label(text):
+    """Strip characters that break Mermaid node labels."""
+    # Remove quotes and braces; keep alphanumeric, spaces, punctuation safe for Mermaid
+    return re.sub(r'["\[\]{}|]', '', text).strip()
+
+
+# ---------------------------------------------------------------------------
+# Colon-split helper
+# ---------------------------------------------------------------------------
+
+def _split_colon(point):
+    """Split 'Label: Value' on first colon. Returns (label, value) or (None, point)."""
+    if ':' in point:
+        label, _, value = point.partition(':')
+        return label.strip(), value.strip()
+    return None, point.strip()
+
+
+def _parse_numeric(value):
+    """Try int then float; return original string if neither works."""
+    try:
+        int_val = int(value.replace(',', ''))
+        return int_val
+    except (ValueError, AttributeError):
+        pass
+    try:
+        return float(value.replace(',', ''))
+    except (ValueError, AttributeError):
+        pass
+    return value
+
+
+# ---------------------------------------------------------------------------
+# 1. extract_graph_data
+# ---------------------------------------------------------------------------
+
+def extract_graph_data(body_points, graphic_type):
+    """Convert body_points to Mermaid syntax dict.
+
+    Returns:
+        dict with keys: engine, syntax, diagram_type, node_count
+    """
+    if graphic_type == 'gantt':
+        return _extract_gantt(body_points)
+    elif graphic_type == 'decision_tree':
+        return _extract_decision_tree(body_points)
+    else:
+        # Default: flowchart (sequential)
+        return _extract_flowchart(body_points)
+
+
+def _extract_flowchart(body_points):
+    lines = ['graph TD']
+    node_ids = []
+    for i, point in enumerate(body_points):
+        nid = _node_id(i)
+        node_ids.append(nid)
+        label = _clean_label(point)
+        lines.append(f'  {nid}["{label}"]')
+    # Connect sequentially
+    for i in range(len(node_ids) - 1):
+        lines.append(f'  {node_ids[i]} --> {node_ids[i + 1]}')
+    syntax = '\n'.join(lines)
+    return {
+        'engine': 'mermaid',
+        'syntax': syntax,
+        'diagram_type': 'flowchart',
+        'node_count': len(body_points),
+    }
+
+
+def _extract_decision_tree(body_points):
+    """Parse decision tree from body_points.
+
+    Heuristic: first point is root question; subsequent points with "Yes:"/"No:"
+    or "Yes ..."/"No ..." prefixes become branches. All others treated as
+    sequential children of the root.
+    """
+    lines = ['graph TD']
+    nodes = []
+
+    # Root node
+    root_label = _clean_label(body_points[0]) if body_points else 'Start'
+    root_id = _node_id(0)
+    lines.append(f'  {root_id}{{"{root_label}"}}')
+    nodes.append(root_id)
+
+    for i, point in enumerate(body_points[1:], start=1):
+        nid = _node_id(i)
+        label = _clean_label(point)
+        # Try "Yes:" or "No:" pattern
+        m = re.match(r'^(Yes|No)\s*:\s*(.+)$', point.strip(), re.IGNORECASE)
+        if m:
+            edge_label = m.group(1)
+            node_label = _clean_label(m.group(2))
+            lines.append(f'  {nid}["{node_label}"]')
+            lines.append(f'  {root_id} -- {edge_label} --> {nid}')
+        else:
+            lines.append(f'  {nid}["{label}"]')
+            lines.append(f'  {nodes[-1]} --> {nid}')
+        nodes.append(nid)
+
+    syntax = '\n'.join(lines)
+    return {
+        'engine': 'mermaid',
+        'syntax': syntax,
+        'diagram_type': 'decision_tree',
+        'node_count': len(body_points),
+    }
+
+
+def _extract_gantt(body_points):
+    """Convert 'Task: Start-End' patterns to Mermaid gantt syntax."""
+    lines = ['gantt', '  dateFormat  MMM', '  section Tasks']
+    for point in body_points:
+        label, value = _split_colon(point)
+        if label is None:
+            label = point
+            value = 'TBD'
+        # Try to parse "Start-End" range like "Jan-Mar"
+        range_match = re.match(r'(.+?)\s*[-–]\s*(.+)', value)
+        if range_match:
+            start = range_match.group(1).strip()
+            end = range_match.group(2).strip()
+            safe_label = label.replace(':', '')
+            lines.append(f'  {safe_label} : {start}, {end}')
+        else:
+            safe_label = label.replace(':', '')
+            lines.append(f'  {safe_label} : {value}')
+
+    syntax = '\n'.join(lines)
+    return {
+        'engine': 'mermaid',
+        'syntax': syntax,
+        'diagram_type': 'gantt',
+        'node_count': len(body_points),
+    }
+
+
+# ---------------------------------------------------------------------------
+# 2. extract_series_data
+# ---------------------------------------------------------------------------
+
+_VEGA_SCHEMA = 'https://vega.github.io/schema/vega-lite/v5.json'
+
+_VEGA_MARK_MAP = {
+    'bar_chart': 'bar',
+    'line_chart': 'line',
+    'radar_chart': 'point',  # closest approximation in Vega-Lite
+}
+
+
+def extract_series_data(body_points, chart_type, engine='vega_lite'):
+    """Parse 'Label: Value' body_points into chart data.
+
+    Returns:
+        dict with engine-specific chart spec
+    """
+    labels = []
+    values = []
+    for point in body_points:
+        label, raw_value = _split_colon(point)
+        if label is None:
+            label = point
+            raw_value = '0'
+        numeric = _parse_numeric(raw_value)
+        labels.append(label)
+        values.append(numeric)
+
+    if engine == 'matplotlib':
+        return {
+            'engine': 'matplotlib',
+            'chart_type': chart_type,
+            'data': {
+                'labels': labels,
+                'values': values,
+            },
+        }
+
+    # Default: vega_lite
+    mark = _VEGA_MARK_MAP.get(chart_type, 'bar')
+    vega_values = [{'label': l, 'value': v} for l, v in zip(labels, values)]
+    spec = {
+        '$schema': _VEGA_SCHEMA,
+        'mark': mark,
+        'data': {'values': vega_values},
+        'encoding': {
+            'x': {'field': 'label', 'type': 'ordinal'},
+            'y': {'field': 'value', 'type': 'quantitative'},
+        },
+    }
+    return {
+        'engine': 'vega_lite',
+        'chart_type': chart_type,
+        'spec': spec,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 3. extract_spatial_data
+# ---------------------------------------------------------------------------
+
+_SWOT_KEYS = ['Strengths', 'Weaknesses', 'Opportunities', 'Threats']
+_MAX_SWOT_ITEMS = 5
+
+
+def extract_spatial_data(body_points, graphic_type):
+    """Convert body_points to custom_svg structured data.
+
+    Returns:
+        dict with keys: engine, graphic_type, data
+    """
+    dispatchers = {
+        'swot': _extract_swot,
+        'timeline': _extract_timeline,
+        'pipeline_funnel': _extract_pipeline_funnel,
+        'venn': _extract_venn,
+        'feature_matrix': _extract_feature_matrix,
+    }
+    extractor = dispatchers.get(graphic_type, _extract_generic_spatial)
+    data = extractor(body_points)
+    return {
+        'engine': 'custom_svg',
+        'graphic_type': graphic_type,
+        'data': data,
+    }
+
+
+def _extract_swot(body_points):
+    """Parse SWOT quadrants from body_points.
+
+    Matches "Strengths:", "Weaknesses:", "Opportunities:", "Threats:" prefixes
+    (case-insensitive). Items within each quadrant are comma-separated.
+    Truncates to MAX_SWOT_ITEMS per quadrant.
+    """
+    quadrant_map = {k.lower(): {'label': k, 'items': []} for k in _SWOT_KEYS}
+
+    for point in body_points:
+        label, value = _split_colon(point)
+        if label is None:
+            continue
+        key = label.strip().lower()
+        if key in quadrant_map:
+            raw_items = [item.strip() for item in value.split(',') if item.strip()]
+            quadrant_map[key]['items'] = raw_items[:_MAX_SWOT_ITEMS]
+
+    quadrants = [quadrant_map[k.lower()] for k in _SWOT_KEYS]
+    return {'quadrants': quadrants}
+
+
+def _extract_timeline(body_points):
+    """Parse 'Label: Description' into timeline stages."""
+    stages = []
+    for point in body_points:
+        label, description = _split_colon(point)
+        if label is None:
+            label = point
+            description = ''
+        stages.append({'label': label, 'description': description})
+    return {'stages': stages}
+
+
+def _extract_pipeline_funnel(body_points):
+    """Parse 'Stage: Value' into funnel stages with numeric values."""
+    stages = []
+    for point in body_points:
+        label, raw_value = _split_colon(point)
+        if label is None:
+            label = point
+            raw_value = '0'
+        numeric = _parse_numeric(raw_value)
+        stages.append({'label': label, 'value': numeric})
+    return {'stages': stages}
+
+
+def _extract_venn(body_points):
+    """Parse 'Set A: item1, item2' patterns into Venn set definitions."""
+    sets = []
+    shared = []
+    for point in body_points:
+        label, value = _split_colon(point)
+        if label is None:
+            continue
+        items = [item.strip() for item in value.split(',') if item.strip()]
+        if label.strip().lower() == 'shared':
+            shared = items
+        else:
+            sets.append({'label': label.strip(), 'items': items})
+    return {'sets': sets, 'shared': shared}
+
+
+def _extract_feature_matrix(body_points):
+    """Parse feature matrix from structured body_points.
+
+    Expects first point to be 'Features: col1, col2, ...' and subsequent
+    points to be 'Row label: val1, val2, ...'.
+    """
+    if not body_points:
+        return {'columns': [], 'rows': []}
+
+    # First point defines columns
+    first_label, first_value = _split_colon(body_points[0])
+    if first_label is None:
+        return {'columns': [], 'rows': []}
+
+    columns = [col.strip() for col in first_value.split(',') if col.strip()]
+    rows = []
+    for point in body_points[1:]:
+        row_label, row_value = _split_colon(point)
+        if row_label is None:
+            continue
+        cell_values = [v.strip() for v in row_value.split(',') if v.strip()]
+        rows.append({'label': row_label.strip(), 'values': cell_values})
+
+    return {'columns': columns, 'rows': rows}
+
+
+def _extract_generic_spatial(body_points):
+    """Fallback: convert body_points to a simple items list."""
+    items = []
+    for point in body_points:
+        label, value = _split_colon(point)
+        if label:
+            items.append({'label': label, 'value': value})
+        else:
+            items.append({'label': point, 'value': ''})
+    return {'items': items}
+
+
+# ---------------------------------------------------------------------------
+# 4. extract (dispatcher)
+# ---------------------------------------------------------------------------
+
+_MERMAID_GRAPHIC_TYPES = {'flowchart', 'decision_tree', 'gantt'}
+_VEGA_GRAPHIC_TYPES = {'bar_chart', 'line_chart', 'radar_chart'}
+_SPATIAL_GRAPHIC_TYPES = {'swot', 'timeline', 'pipeline_funnel', 'feature_matrix', 'venn'}
+
+
+def extract(slide, selection, style_guide):
+    """Top-level extractor — dispatches to the right sub-extractor.
+
+    Args:
+        slide: dict with slide_number, headline, body_points
+        selection: dict with slide_number, graphic_type, enrichment_tier, engine
+        style_guide: StyleGuide dict (palette, typography)
+
+    Returns:
+        SmartArtSpec entry dict (matches per-spec item in schema)
+    """
+    body_points = slide.get('body_points', [])
+    graphic_type = selection['graphic_type']
+    engine = selection['engine']
+    overflow_applied = 'none'
+
+    if engine == 'mermaid' or graphic_type in _MERMAID_GRAPHIC_TYPES:
+        extracted_data = extract_graph_data(body_points, graphic_type)
+    elif engine == 'vega_lite' or engine == 'matplotlib' or graphic_type in _VEGA_GRAPHIC_TYPES:
+        extracted_data = extract_series_data(body_points, graphic_type, engine=engine)
+    elif engine == 'custom_svg' or graphic_type in _SPATIAL_GRAPHIC_TYPES:
+        extracted_data = extract_spatial_data(body_points, graphic_type)
+        # Detect overflow from SWOT truncation
+        if graphic_type == 'swot':
+            for quadrant in extracted_data.get('data', {}).get('quadrants', []):
+                # We stored items at max 5; check if any were truncated by counting
+                # We can't know the original count here, so rely on caller context.
+                # Instead, check by re-parsing to compare — simpler: track in data itself.
+                pass
+    else:
+        extracted_data = {'engine': engine, 'graphic_type': graphic_type, 'items': body_points}
+
+    # Normalise: extracted_data may be the full spatial dict or just the inner data dict
+    # For custom_svg, extract_spatial_data returns {'engine':..,'graphic_type':..,'data':{..}}
+    # For others, the sub-functions return a flat dict that IS the data.
+    if engine == 'custom_svg' or graphic_type in _SPATIAL_GRAPHIC_TYPES:
+        data_payload = extracted_data.get('data', extracted_data)
+    else:
+        data_payload = extracted_data
+
+    # Detect overflow: check SWOT before we truncated vs after (simple length heuristic)
+    if graphic_type == 'swot':
+        for point in body_points:
+            label, value = _split_colon(point)
+            if label and label.strip().lower() in [k.lower() for k in _SWOT_KEYS]:
+                items = [i.strip() for i in value.split(',') if i.strip()]
+                if len(items) > _MAX_SWOT_ITEMS:
+                    overflow_applied = 'truncate'
+                    break
+
+    valid, errors = validate_spec({
+        'engine': engine,
+        'data': data_payload,
+        'graphic_type': graphic_type,
+    })
+
+    style_tokens = extract_style_tokens(style_guide)
+
+    return {
+        'slide_number': selection['slide_number'],
+        'graphic_type': graphic_type,
+        'engine': engine,
+        'enrichment_tier': selection['enrichment_tier'],
+        'data': data_payload,
+        'overflow_applied': overflow_applied,
+        'style_tokens': style_tokens,
+        'validation_status': 'valid' if valid else 'invalid',
+        'comparator_engines': [],
+    }
+
+
+# ---------------------------------------------------------------------------
+# 5. validate_spec
+# ---------------------------------------------------------------------------
+
+_ENGINE_REQUIRED_KEYS = {
+    'mermaid': ['syntax'],
+    'vega_lite': ['$schema', 'mark', 'data', 'encoding'],
+    'matplotlib': ['chart_type', 'data'],
+    'custom_svg': [],  # flexible — no universal required key beyond engine
+}
+
+# For validate_spec the caller passes the outer spec with 'data' as a sub-dict.
+# Engine-specific required keys are checked inside spec['data'].
+
+def validate_spec(spec):
+    """Validate a spec entry dict.
+
+    Args:
+        spec: dict with at least 'engine', 'data', 'graphic_type'
+
+    Returns:
+        (bool valid, list[str] errors)
+    """
+    errors = []
+    engine = spec.get('engine')
+    data = spec.get('data', {})
+
+    if engine is None:
+        errors.append("Missing 'engine' key")
+        return False, errors
+
+    required_keys = _ENGINE_REQUIRED_KEYS.get(engine, [])
+    for key in required_keys:
+        if key not in data:
+            errors.append(f"Engine '{engine}' requires data key '{key}' but it is missing")
+
+    if errors:
+        return False, errors
+    return True, []
