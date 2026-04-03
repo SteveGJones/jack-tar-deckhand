@@ -1,7 +1,7 @@
 # Data Contract Summary -- Jack-Tar Deckhand
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.0.0
-> Date: 2026-03-28
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
+> Date: 2026-04-03
 > Full JSON schemas: see [Research Paper #12 -- DeckContext Serialisation & Pipeline State Management](../../research/12-deckcontext-state-management.md)
 
 This document summarises all data contracts that flow between services in the Jack-Tar Deckhand architecture. Each contract is a JSON file persisted in the `./tmp/deck/` directory, forming the DeckContext shared state.
@@ -26,6 +26,9 @@ This document summarises all data contracts that flow between services in the Ja
 | StrategyMap | `strategy-map.json` | image-slide-prompt-composition | Keynote Rendering, Image Routing & Discovery, PPTX Build, Visual QA, Deck Conductor | Yes |
 | SlidePrompts | `slide-prompts.json` | image-prompt-engineer | Keynote Rendering, Image Routing & Discovery | Yes |
 | RenderLog | `render-log.json` | image-keynote-rendering | Deck Conductor | No (append-only) |
+| SmartArtRecommendations | `smartart-recommendations.json` | smartart-selector | smartart-extractor, strategy-map | Yes |
+| SmartArtSpec | `smartart-spec.json` | smartart-extractor | smartart-renderer | Yes |
+| SmartArtManifest | `smartart-manifest.json` | smartart-renderer | deck-assembler, deck-qa | Yes |
 
 ---
 
@@ -136,11 +139,14 @@ The Conductor's control file. Tracks which pipeline steps have executed, their s
 2. `brand-manager`
 3. `slide-stylist`
 4. `narrative-architect`
-5. `speaker-notes-writer`
-6. `imagegen-bridge`
-7. `chart-renderer`
-8. `deck-assembler`
-9. `deck-qa`
+5. `smartart-selector`
+6. `smartart-extractor`
+7. `speaker-notes-writer`
+8. `imagegen-bridge`
+9. `chart-renderer`
+10. `smartart-renderer`
+11. `deck-assembler`
+12. `deck-qa`
 
 ### Lifecycle
 
@@ -442,11 +448,15 @@ DeckContext is not a single contract but the aggregate of all contracts above, p
   strategy-map.json            # Per-slide rendering strategy (frozen)
   slide-prompts.json           # Generated image prompts (frozen)
   render-log.json              # Append-only render attempt log
+  smartart-recommendations.json   # Approved graphic types (frozen)
+  smartart-spec.json              # Engine-specific data (frozen)
+  smartart-manifest.json          # Rendered SmartArt registry (frozen)
   images/                      # Generated asset files
     slide-01-hero.png
     slide-03-diagram.png
     slide-07-chart.png
     ...
+    smartart/                  # SmartArt SVG sources and rendered PNGs
   output/                      # Final deliverables
     presentation.pptx
 ```
@@ -539,6 +549,134 @@ Append-only log of every render attempt. Builds best-practice dataset over time 
 
 ---
 
+## 15. SmartArtRecommendations
+
+**File:** `./tmp/deck/smartart-recommendations.json`
+**Producer:** `smartart-selector` (content-smartart-selection service)
+**Consumers:** smartart-extractor, strategy-map
+
+### Description
+
+Approved graphic type and enrichment tier recommendations per SmartArt-candidate slide. Produced through negotiation between the smartart-selector and narrative-architect (max 2 rounds). Consumed by the smartart-extractor for data transformation and by the strategy-map for `smartart` strategy classification.
+
+### Key Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `created_at` | string | Yes | ISO 8601 timestamp |
+| `negotiation_rounds` | integer | Yes | Number of rounds completed (1 or 2) |
+| `slides` | array | Yes | Per-slide recommendation entries |
+
+### Per-Slide Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `slide_number` | integer | Yes | Target slide |
+| `graphic_type` | enum | Yes | flowchart, decision_tree, bar_chart, line_chart, radar_chart, swot, feature_matrix, venn, timeline, pipeline_funnel, gantt, none |
+| `enrichment_tier` | enum | Yes | pure_programmatic, ai_background, ai_elements, full_ai_render |
+| `engine` | string | Yes | Primary rendering engine (mermaid, vegalite, custom_svg) |
+| `comparator_engines` | string[] | No | Additional engines for draft-phase comparison |
+| `rationale` | string | Yes | Why this graphic type was recommended |
+| `confidence` | number | Yes | 0.0-1.0 confidence score |
+| `approval_status` | enum | Yes | approved, rejected, skipped |
+| `rejection_feedback` | string | No | Narrative-architect's rejection reason (if rejected in round 1) |
+
+### Lifecycle
+
+1. smartart-selector proposes recommendations after analysing SlideOutline
+2. narrative-architect approves or rejects with feedback
+3. If rejected, selector adjusts and reproposals (max 2 rounds)
+4. Written to `./tmp/deck/smartart-recommendations.json`
+5. Frozen after approval
+
+---
+
+## 16. SmartArtSpec
+
+**File:** `./tmp/deck/smartart-spec.json`
+**Producer:** `smartart-extractor` (content-smartart-extraction service)
+**Consumers:** smartart-renderer
+
+### Description
+
+Engine-specific structured data ready for rendering. Each entry contains the data formatted for the target rendering engine (Mermaid DSL, Vega-Lite JSON, or Custom SVG node/edge structures), along with style tokens and overflow handling metadata.
+
+### Key Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `created_at` | string | Yes | ISO 8601 timestamp |
+| `specs` | array | Yes | Per-slide SmartArt specification entries |
+
+### Per-Spec Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `slide_number` | integer | Yes | Target slide |
+| `smartart_id` | string | Yes | Unique identifier (e.g., smartart-slide-05) |
+| `graphic_type` | enum | Yes | Matches SmartArtRecommendations |
+| `engine` | string | Yes | Primary rendering engine |
+| `comparator_engines` | string[] | No | Additional engines for draft comparison |
+| `data` | object | Yes | Engine-specific data (Mermaid DSL string, Vega-Lite JSON spec, or Custom SVG node/edge structure) |
+| `overflow_applied` | string | No | truncate, paginate, summarise, or null |
+| `style_tokens` | object | Yes | Brand palette, typography, and sizing from StyleGuide |
+| `enrichment_tier` | enum | Yes | From SmartArtRecommendations |
+| `validation_status` | enum | Yes | valid, overflow_handled, rejected |
+
+### Lifecycle
+
+1. smartart-extractor reads SlideOutline and SmartArtRecommendations
+2. Transforms content into engine-specific structured data
+3. Applies overflow handling if content exceeds capacity
+4. Written to `./tmp/deck/smartart-spec.json`
+5. Frozen after creation
+
+---
+
+## 17. SmartArtManifest
+
+**File:** `./tmp/deck/smartart-manifest.json`
+**Producer:** `smartart-renderer` (image-smartart-rendering service)
+**Consumers:** deck-assembler, deck-qa
+
+### Description
+
+Registry of rendered SmartArt graphics with engine comparator results, enrichment compositing references, and Image Reviewer verdicts. Consumed by the deck-assembler for slide construction and by deck-qa for quality checks.
+
+### Key Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `rendered_at` | string | Yes | ISO 8601 timestamp |
+| `graphics` | array | Yes | Per-graphic entries |
+
+### Per-Graphic Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `smartart_id` | string | Yes | Matches SmartArtSpec |
+| `slide_number` | integer | Yes | Target slide |
+| `graphic_type` | enum | Yes | Graphic type rendered |
+| `engine_used` | string | Yes | Winning engine (after comparator) |
+| `enrichment_tier` | enum | Yes | Applied enrichment tier |
+| `file_path` | string | Yes | Path to final composited PNG |
+| `svg_source_path` | string | Yes | Path to source SVG (pre-compositing) |
+| `dimensions` | object | No | width, height in pixels |
+| `comparator_results` | array | No | Per-engine scores from draft comparison |
+| `enrichment_refs` | string[] | No | ImageManifest image_ids used for compositing |
+| `review_summary` | object | No | Image Reviewer verdict (pass/refine, confidence, issues) |
+| `status` | enum | Yes | rendered, enriched, fallback, failed |
+
+### Lifecycle
+
+1. smartart-renderer renders via primary engine (and comparator engines in draft phase)
+2. Image Reviewer scores comparator outputs; winner selected
+3. Enrichment compositing applied based on tier
+4. Written to `./tmp/deck/smartart-manifest.json`
+5. Frozen after creation unless correction cycle requires re-rendering
+
+---
+
 ## Data Flow Diagram
 
 ```
@@ -557,9 +695,18 @@ Deck Conductor ----> [talk-brief.json] (frozen)
   |
   |---> narrative-architect ----> [outline.json]
   |
+  |---> smartart-selector ----> [smartart-recommendations.json]
+  |       reads: outline, style-guide, talk-brief
+  |
+  |---> smartart-extractor ----> [smartart-spec.json]
+  |       reads: outline, smartart-recommendations
+  |
   |---> speaker-notes-writer ----> [speaker-notes.json]
   |
   |---> imagegen-bridge ----> [image-manifest.json] + images/
+  |
+  |---> smartart-renderer ----> [smartart-manifest.json] + images/smartart/
+  |       reads: smartart-spec, style-guide, image-manifest
   |
   |---> chart-renderer ----> [chart-manifest.json] + images/
   |

@@ -1,7 +1,7 @@
 # Interaction Matrix -- Jack-Tar Deckhand
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.0.0
-> Date: 2026-03-28
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
+> Date: 2026-04-03
 
 This document maps all interactions between entities in the Jack-Tar Deckhand architecture. Interactions are grouped by functional concern: pipeline flow, provider discovery, image generation routing, and QA/review loops.
 
@@ -51,6 +51,19 @@ This document maps all interactions between entities in the Jack-Tar Deckhand ar
 | `int-keynote-to-expert` | Keynote Rendering | Image Generation Expert | consultation | Vision-based quality scoring |
 | `int-strategy-map-to-assembly` | Slide Prompt Composition | PPTX Build | data-provision | StrategyMap |
 | `int-strategy-map-to-qa` | Slide Prompt Composition | Visual QA | data-provision | StrategyMap |
+| `int-conductor-to-smartart-selection` | Deck Conductor | SmartArt Selection | invocation | SlideOutline, StyleGuide, TalkBrief, BudgetState |
+| `int-smartart-selector-to-narrative` | SmartArt Selection | narrative-architect | feedback | 2-3 ranked recommendations per SmartArt-candidate slide |
+| `int-narrative-to-smartart-selector` | narrative-architect | SmartArt Selection | feedback | Approval/rejection with adjustment feedback |
+| `int-smartart-selector-to-conductor` | SmartArt Selection | Deck Conductor | escalation | Negotiation failure after 2 rounds |
+| `int-smartart-recommendations-to-extractor` | SmartArt Selection | SmartArt Extraction | data-provision | SmartArtRecommendations |
+| `int-conductor-to-smartart-extraction` | Deck Conductor | SmartArt Extraction | invocation | SlideOutline, SmartArtRecommendations, StrategyMap |
+| `int-smartart-spec-to-renderer` | SmartArt Extraction | SmartArt Rendering | data-provision | SmartArtSpec |
+| `int-smartart-renderer-to-mermaid` | SmartArt Rendering | Mermaid CLI | invocation | Mermaid DSL to SVG |
+| `int-smartart-renderer-to-vegalite` | SmartArt Rendering | Vega-Lite CLI | invocation | Vega-Lite spec to SVG |
+| `int-smartart-renderer-to-reviewer` | SmartArt Rendering | Image Reviewer | invocation | Comparator scoring + enrichment review |
+| `int-smartart-renderer-to-bridge` | SmartArt Rendering | Image Routing & Discovery | invocation | Enrichment asset generation (T1/T2/T3) |
+| `int-smartart-manifest-to-assembler` | SmartArt Rendering | PPTX Build | data-provision | SmartArtManifest |
+| `int-smartart-manifest-to-qa` | SmartArt Rendering | Visual QA | data-provision | SmartArtManifest |
 
 ---
 
@@ -267,14 +280,80 @@ Deck Conductor
 
 ---
 
+## Group 6: SmartArt Pipeline
+
+The SmartArt pipeline adds graphic type selection, data extraction, and multi-engine rendering between the content and image phases.
+
+```
+narrative-architect
+  |
+  | SlideOutline (visual_intent)
+  v
+SmartArt Selector (Round 1)
+  |
+  | 2-3 recommendations per slide
+  v
+narrative-architect evaluates
+  |
+  | approval or rejection + feedback
+  v
+SmartArt Selector (Round 2 if rejected)
+  |
+  | SmartArtRecommendations (approved)
+  v
+strategy-map
+  |
+  | StrategyMap (with smartart strategy)
+  v
+SmartArt Extractor
+  |
+  | SmartArtSpec (engine-specific data)
+  v
+imagegen-bridge (enrichment images for T1/T2/T3)
+  |
+  v
+SmartArt Renderer
+  |
+  |--[draft]--> Engine A + Engine B (comparator)
+  |             |--[invocation]--> Image Reviewer (scoring)
+  |             Select winner
+  |
+  |--[production]--> Winner engine only
+  |
+  |--[compositing]--> Enrichment images (from ImageManifest)
+  |
+  | SmartArtManifest
+  v
+deck-assembler (buildSmartArtSlide())
+```
+
+| # | Source | Target | Type | Data Flows |
+|---|---|---|---|---|
+| 1 | Deck Conductor | SmartArt Selection | invocation | SlideOutline, StyleGuide, TalkBrief, BudgetState |
+| 2 | SmartArt Selection | narrative-architect | feedback | 2-3 ranked recommendations per slide |
+| 3 | narrative-architect | SmartArt Selection | feedback | Approval/rejection with adjustment feedback |
+| 4 | SmartArt Selection | Deck Conductor | escalation | Negotiation failure after 2 rounds |
+| 5 | SmartArt Selection | SmartArt Extraction | data-provision | SmartArtRecommendations |
+| 6 | Deck Conductor | SmartArt Extraction | invocation | SlideOutline, SmartArtRecommendations, StrategyMap |
+| 7 | SmartArt Extraction | SmartArt Rendering | data-provision | SmartArtSpec |
+| 8 | SmartArt Rendering | Mermaid CLI | invocation | Mermaid DSL to SVG |
+| 9 | SmartArt Rendering | Vega-Lite CLI | invocation | Vega-Lite spec to SVG |
+| 10 | SmartArt Rendering | Image Reviewer | invocation | Comparator scoring + enrichment review |
+| 11 | SmartArt Rendering | Image Routing & Discovery | invocation | Enrichment asset generation (T1/T2/T3) |
+| 12 | SmartArt Rendering | PPTX Build | data-provision | SmartArtManifest |
+| 13 | SmartArt Rendering | Visual QA | data-provision | SmartArtManifest |
+
+---
+
 ## Interaction Type Summary
 
 | Type | Count | Description |
 |---|---|---|
-| invocation | 21 | One entity calls another to perform work |
+| invocation | 27 | One entity calls another to perform work |
 | probe | 5 | Runtime discovery of provider availability |
 | consultation | 6 | Advisory request to an AI Persona or human actor (no side effects) |
-| data-provision | 4 | One service provides data artefacts to another |
+| data-provision | 8 | One service provides data artefacts to another |
 | delivery | 1 | Final output delivered to the Speaker |
-| feedback | 3 | Quality findings returned to the Conductor for action |
-| **Total** | **40** | |
+| feedback | 5 | Quality findings or negotiation responses returned for action |
+| escalation | 1 | Negotiation failure escalated to higher authority |
+| **Total** | **53** | |

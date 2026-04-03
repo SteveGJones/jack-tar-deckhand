@@ -6,10 +6,10 @@ All rules are in **CONSTITUTION.md**. Core instructions are in **CLAUDE-CORE.md*
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-04-01)
+### Current Status (2026-04-03)
 
-- **BSA Architecture:** v1.3.0, includes keynote pipeline + rendering strategy expansion + image reviewer
-  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (30 services, 5 AI personas, 50 interactions)
+- **BSA Architecture:** v1.4.0, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics
+  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
 
 - **Research Library:** Complete — 18 papers, ~105K words in `research/`
@@ -26,7 +26,18 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Phase 5: Assembly & QA (deck-assembler, deck-qa, presentation-reviewer) — 67 tests
   - Phase 6: Orchestration (deck-conductor) — 19 tests
 
-- **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **strategy-map** → speaker-notes-writer → imagegen-bridge → deck-assembler → deck-qa → presentation-reviewer
+- **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **smartart-selector** → **strategy-map** → **smartart-extractor** → speaker-notes-writer → imagegen-bridge → **smartart-renderer** → chart-renderer → deck-assembler → deck-qa → presentation-reviewer
+
+- **SmartArt Intelligent Graphics (2026-04-03):** AI-driven templated graphic generation
+  - 10 v1 graphic types: flowchart, decision tree, bar/line chart, radar chart, SWOT, feature matrix, Venn, timeline, pipeline/funnel, Gantt
+  - 3 rendering engines: Mermaid.js (graph-based), Vega-Lite (data viz), Custom SVG (spatial/infographic)
+  - 4 enrichment tiers: T0 pure programmatic, T1 AI background, T2 AI element icons, T3 full AI render
+  - Draft-phase comparator: competing engines render same data, image-reviewer scores, winner locked for production
+  - Negotiation pattern: smartart-selector proposes graphic types, narrative-architect approves/rejects (max 2 rounds)
+  - New AI persona: SmartArt Selector (Haiku default, Sonnet escalation)
+  - **Design spec:** `docs/superpowers/specs/2026-04-03-smartart-intelligent-graphics-design.md`
+  - **Research:** `research/ai-driven-templated-graphic-generation-research.md`
+  - **GitHub issue:** #17
 
 - **Keynote Pipeline:** Five rendering strategies per slide (expanded from 3, 2026-03-30):
   - `full_render` — entire slide as AI-generated image (title, section divider, closing)
@@ -113,8 +124,8 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Approach B (Domain-Centric):** Services designed for reuse beyond deck production
 - **4 L1 Services:** Content, Design, Image, Assembly & QA
-- **5 AI Personas:** Deck Conductor (orchestrator), Image Generation Expert (advisory), Image Reviewer (quality), Presentation Reviewer (advisory), Prompt Engineer (invoker, Haiku/Sonnet)
-- **21 Deliverables:** 15 skills + 3 capabilities + 5 agents
+- **6 AI Personas:** Deck Conductor (orchestrator), Image Generation Expert (advisory), Image Reviewer (quality), Presentation Reviewer (advisory), Prompt Engineer (invoker, Haiku/Sonnet), SmartArt Selector (invoker, Haiku/Sonnet)
+- **24 Deliverables:** 17 skills + 3 capabilities + 6 agents
 - **Naming Convention:** Provider prefix — `ollama-*` for local, `cloud-*` for cloud image skills
 
 ### Key Files
@@ -123,7 +134,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 |------|---------|
 | `.bsa/models/jack-tar-deckhand.json` | Canonical model (single source of truth) |
 | `docs/architecture/architecture-overview.md` | One-page architecture summary |
-| `docs/architecture/ai-persona-summaries.md` | 5 agent contracts |
+| `docs/architecture/ai-persona-summaries.md` | 6 agent contracts |
 | `docs/architecture/diagrams/` | 7 SVG architecture diagrams |
 | `research/RESEARCH-INDEX.md` | Research library index with key findings |
 | `docs/superpowers/specs/2026-03-29-bsa-architecture-design.md` | Full design decisions |

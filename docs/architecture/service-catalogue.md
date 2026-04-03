@@ -1,7 +1,7 @@
 # Service Catalogue -- Jack-Tar Deckhand
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.0.0
-> Date: 2026-03-28
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
+> Date: 2026-04-03
 
 ---
 
@@ -13,6 +13,8 @@
 | `content-services` | Content Services | L1 | presentation-engineering | core | No | -- |
 | `content-outline-generation` | Outline Generation | L2 | content-services | core | No | `narrative-architect` |
 | `content-speaker-notes` | Speaker Notes | L2 | content-services | core | No | `speaker-notes-writer` |
+| `content-smartart-selection` | SmartArt Selection | L2 | content-services | core | **Yes** | `smartart-selector` |
+| `content-smartart-extraction` | SmartArt Data Extraction | L2 | content-services | core | No | `smartart-extractor` |
 | `design-services` | Design Services | L1 | presentation-engineering | core | No | -- |
 | `design-style-derivation` | Style Derivation | L2 | design-services | core | No | `slide-stylist` |
 | `design-brand-profile-management` | Brand Profile Management | L2 | design-services | core | No | `brand-manager` |
@@ -29,6 +31,7 @@
 | `image-post-processing` | Image Post-Processing | L2 | image-services | core | No | `image-processor` |
 | `image-generation-expert` | Image Generation Expert | L2 | image-services | core | **Yes** | -- (agent/advisory) |
 | `image-image-reviewer` | Image Reviewer | L2 | image-services | core | **Yes** | -- (agent/quality) |
+| `image-smartart-rendering` | SmartArt Rendering | L2 | image-services | core | No | `smartart-renderer` |
 | `assembly-qa-services` | Assembly & QA Services | L1 | presentation-engineering | core | No | -- |
 | `assembly-pptx-build` | PPTX Build | L2 | assembly-qa-services | core | No | `deck-assembler` |
 | `assembly-visual-qa` | Visual QA | L2 | assembly-qa-services | core | No | `deck-qa` |
@@ -36,9 +39,9 @@
 | `assembly-presentation-reviewer` | Presentation Reviewer | L2 | assembly-qa-services | core | **Yes** | -- (agent/advisory) |
 | `deck-conductor` | Deck Conductor | L1 | presentation-engineering | core | **Yes** | -- (agent/orchestration) |
 
-**Total services:** 26 (1 L0, 5 L1, 20 L2)
-**AI Personas:** 4 (Deck Conductor, Image Generation Expert, Image Reviewer, Presentation Reviewer)
-**Skills (L2 invocable):** 14
+**Total services:** 29 (1 L0, 5 L1, 23 L2)
+**AI Personas:** 6 (Deck Conductor, Image Generation Expert, Image Reviewer, Presentation Reviewer, Prompt Engineer, SmartArt Selector)
+**Skills (L2 invocable):** 16
 **Capabilities (L2 internal):** 2
 
 ---
@@ -118,6 +121,29 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 | **Tags** | l2, skill, speaker-notes-writer |
 | **AI Persona** | No |
 | **Skill Name** | `speaker-notes-writer` |
+
+#### `content-smartart-selection` -- SmartArt Selection
+
+| Field | Value |
+|---|---|
+| **Level** | L2 |
+| **Parent** | content-services |
+| **Mission** | Recommend graphic type and enrichment tier for SmartArt-candidate slides via negotiation with narrative-architect. Analyses content semantics, audience context, budget state, and adjacent slide strategies. |
+| **Service Type** | core |
+| **Tags** | l2, agent, ai-persona, smartart-selector |
+| **AI Persona** | **Yes** -- see [AI Persona Summaries](ai-persona-summaries.md) |
+
+#### `content-smartart-extraction` -- SmartArt Data Extraction
+
+| Field | Value |
+|---|---|
+| **Level** | L2 |
+| **Parent** | content-services |
+| **Mission** | Transform approved slide content into engine-specific structured data (Mermaid syntax, Vega-Lite JSON, custom SVG data) ready for rendering by the smartart-renderer. |
+| **Service Type** | core |
+| **Tags** | l2, skill, smartart-extractor |
+| **AI Persona** | No |
+| **Skill Name** | `smartart-extractor` |
 
 ---
 
@@ -321,6 +347,18 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 | **Tags** | l2, agent, ai-persona, quality |
 | **AI Persona** | **Yes** -- see [AI Persona Summaries](ai-persona-summaries.md) |
 
+#### `image-smartart-rendering` -- SmartArt Rendering
+
+| Field | Value |
+|---|---|
+| **Level** | L2 |
+| **Parent** | image-services |
+| **Mission** | Render SmartArtSpec through three engines (Mermaid CLI, Vega-Lite CLI, Custom SVG) with draft-phase comparator and optional AI enrichment compositing (T0-T3). |
+| **Service Type** | core |
+| **Tags** | l2, skill, smartart-renderer, data-viz |
+| **AI Persona** | No |
+| **Skill Name** | `smartart-renderer` |
+
 ---
 
 ## L1: Assembly & QA Services
@@ -394,16 +432,16 @@ The Deck Conductor is the only L1 service that is itself an AI Persona. It sits 
 |---|---|---|
 | L0 | 1 | Root domain |
 | L1 | 5 | Service domains (Content, Design, Image, Assembly & QA, Deck Conductor) |
-| L2 | 20 | Skills (14), Capabilities (2), AI Persona Agents (4) |
-| **Total** | **26** | |
+| L2 | 23 | Skills (16), Capabilities (2), AI Persona Agents (5) |
+| **Total** | **29** | |
 
 ## Service Counts by Tag Type
 
 | Tag | Count | Services |
 |---|---|---|
-| `skill` | 14 | Invocable L2 services that map to Claude Code skills |
+| `skill` | 16 | Invocable L2 services that map to Claude Code skills |
 | `capability` | 2 | Internal capabilities of a parent skill (not independently invocable) |
-| `agent` / `ai-persona` | 4 | AI Personas with authority models and scope boundaries |
+| `agent` / `ai-persona` | 6 | AI Personas with authority models and scope boundaries |
 | `local` | 4 | Services that use local Ollama for inference |
 | `cloud` | 3 | Services that use cloud APIs for generation |
 | `reusable` | 3 | L1 domains marked as reusable across different orchestrators |

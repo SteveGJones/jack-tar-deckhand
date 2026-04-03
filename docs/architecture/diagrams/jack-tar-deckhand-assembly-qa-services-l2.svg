@@ -72,7 +72,7 @@
   <rect x="359.0" y="263.0" width="195" height="30" rx="8" fill="#4A90E2"/>
   <rect x="359.0" y="285.0" width="195" height="8" fill="#4A90E2"/>
   <text x="456.5" y="279.0" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Visual QA</text>
-  <text x="367.0" y="307.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Run 25 automated anti-pattern</text>
+  <text x="367.0" y="307.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Run 27 automated anti-pattern</text>
   <text x="367.0" y="321.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">checks: contrast validation,</text>
   <text x="367.0" y="335.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">margin enforcement, font size</text>
 </g>

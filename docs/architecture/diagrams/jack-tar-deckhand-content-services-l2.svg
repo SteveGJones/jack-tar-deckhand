@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 556" width="800" height="556">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 851 875" width="851" height="875">
   <title>Content Services — Level 2 Services</title>
   <desc>AI-First Business Service Architecture. Enterprise &gt; Presentation Engineering &gt; Content Services &gt; Level 2</desc>
 <defs>
@@ -50,44 +50,95 @@
     <path d="M 0 0 L 10 5 L 0 10 Z" fill="#2C5282"/>
   </marker>
 </defs>
-  <rect width="800" height="556" fill="#FAFBFC"/>
+  <rect width="851" height="875" fill="#FAFBFC"/>
   <text x="60" y="78" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="700" fill="#1A202C">Content Services — Level 2 Services</text>
   <text x="60" y="96" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="500" fill="#64748B" letter-spacing="0.3">Enterprise &gt; Presentation Engineering &gt; Content Services &gt; Level 2</text>
   <!-- Interactions -->
+<g class="interaction" data-id="int-speaker-to-narrative-architect">
+  <path d="M 249.0,334.6 C 221.7,356.2 210.0,368.7 202.4,389.1" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-speaker-to-speaker-notes-writer">
+  <path d="M 308.0,280.3 C 329.2,257.1 344.8,240.4 357.7,227.8" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-narrative-to-smartart-selector">
+  <path d="M 171.7,495.5 C 169.7,507.4 168.0,520.5 166.8,533.4" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-smartart-selector-to-narrative">
+  <path d="M 179.2,544.9 C 180.5,532.2 181.8,519.0 183.1,506.4" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
+<g class="interaction" data-id="int-narrative-approval-to-selector">
+  <path d="M 171.7,495.5 C 169.7,507.4 168.0,520.5 166.8,533.4" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
   <!-- Services -->
 <g class="service" data-id="content-outline-generation" filter="url(#shadow)">
-  <rect x="59.998999999999995" y="261.002" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="59.998999999999995" y="261.002" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="59.998999999999995" y="283.002" width="195" height="8" fill="#4A90E2"/>
-  <text x="157.499" y="277.002" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Outline Generation</text>
-  <text x="67.999" y="305.002" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Transform a talk brief into a</text>
-  <text x="67.999" y="319.002" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">structured slide outline with</text>
-  <text x="67.999" y="333.002" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">per-slide type, headline, body</text>
+  <rect x="91.63999999999999" y="400.03" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="91.63999999999999" y="400.03" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="91.63999999999999" y="422.03" width="195" height="8" fill="#4A90E2"/>
+  <text x="189.14" y="416.03" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Outline Generation</text>
+  <text x="99.63999999999999" y="444.03" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Transform a talk brief into a</text>
+  <text x="99.63999999999999" y="458.03" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">structured slide outline with</text>
+  <text x="99.63999999999999" y="472.03" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">per-slide type, headline, body</text>
 </g>
 <g class="service" data-id="content-speaker-notes" filter="url(#shadow)">
-  <rect x="247.0" y="125.0" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="247.0" y="125.0" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="247.0" y="147.0" width="195" height="8" fill="#4A90E2"/>
-  <text x="344.5" y="141.0" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Speaker Notes</text>
-  <text x="255.0" y="169.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate timed, transition-cued</text>
-  <text x="255.0" y="183.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">speaker notes calibrated to</text>
-  <text x="255.0" y="197.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">talk duration and audience</text>
+  <rect x="350.41" y="124.99000000000001" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="350.41" y="124.99000000000001" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="350.41" y="146.99" width="195" height="8" fill="#4A90E2"/>
+  <text x="447.91" y="140.99" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Speaker Notes</text>
+  <text x="358.41" y="168.99" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Generate timed, transition-cued</text>
+  <text x="358.41" y="182.99" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">speaker notes calibrated to</text>
+  <text x="358.41" y="196.99" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">talk duration and audience</text>
+</g>
+<g class="ai-persona" data-id="content-smartart-selection" filter="url(#aiGlow)">
+  <rect x="60.0" y="545.1279999999999" width="225" height="130" rx="10" fill="#F3E8FF" stroke="#6B21A8" stroke-width="2.5"/>
+  <rect x="60.0" y="545.1279999999999" width="225" height="34" rx="10" fill="url(#aiGrad)"/>
+  <rect x="60.0" y="569.1279999999999" width="225" height="10" fill="url(#aiGrad)"/>
+  <line x1="82.0" y1="549.9" x2="82.0" y2="554.5" stroke="#F3E8FF" stroke-width="1.5"/>
+<circle cx="82.0" cy="549.9" r="2.5" fill="#F3E8FF"/>
+<rect x="73.0" y="554.5" width="18.0" height="15.3" rx="3.6" fill="none" stroke="#F3E8FF" stroke-width="1.5"/>
+<circle cx="78.0" cy="560.3" r="2.2" fill="#F3E8FF"/>
+<circle cx="86.0" cy="560.3" r="2.2" fill="#F3E8FF"/>
+<line x1="78.0" y1="565.2" x2="86.0" y2="565.2" stroke="#F3E8FF" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="193.5" y="563.1279999999999" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">SmartArt Selection</text>
+  <text x="172.5" y="595.1279999999999" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="600" fill="#7C3AED" letter-spacing="1.5">AI PERSONA</text>
+  <text x="172.5" y="609.1279999999999" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="8" font-weight="500" fill="#64748B">Authority: INVOKER</text>
+  <text x="68.0" y="621.1279999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">AI agent that recommends graphic type</text>
+  <text x="68.0" y="633.1279999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">and enrichment tier for</text>
+  <text x="68.0" y="645.1279999999999" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">SmartArt-candidate slides. Negotiates</text>
+</g>
+<g class="service" data-id="content-smartart-extraction" filter="url(#shadow)">
+  <rect x="396.0" y="370.13" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="396.0" y="370.13" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="396.0" y="392.13" width="195" height="8" fill="#4A90E2"/>
+  <text x="493.5" y="386.13" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">SmartArt Data Extraction</text>
+  <text x="404.0" y="414.13" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Transform approved slide</text>
+  <text x="404.0" y="428.13" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">content into engine-specific</text>
+  <text x="404.0" y="442.13" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">structured data for SmartArt</text>
 </g>
   <!-- Human Actors -->
+<g class="human-actor" data-id="actor-speaker">
+  <circle cx="280.90999999999997" cy="285.3" r="7.0" fill="none" stroke="#92400E" stroke-width="2.6"/>
+<line x1="280.90999999999997" y1="292.3" x2="280.90999999999997" y2="307.3" stroke="#92400E" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="268.6" y1="300.7" x2="293.2" y2="300.7" stroke="#92400E" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="280.90999999999997" y1="307.3" x2="271.2" y2="320.5" stroke="#92400E" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="280.90999999999997" y1="307.3" x2="290.6" y2="320.5" stroke="#92400E" stroke-width="2.6" stroke-linecap="round"/>
+  <text x="280.90999999999997" y="338.01" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="500" fill="#1A202C">Speaker</text>
+</g>
   <!-- System Actors -->
   <!-- External Services -->
-<g class="legend" transform="translate(430,406)">
+<g class="legend" transform="translate(481,725)">
   <rect x="0" y="0" width="340" height="130" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
   <text x="12" y="18" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#1A202C">Legend</text>
   <rect x="12" y="36" width="16" height="11" rx="3" fill="#F8F9FA" stroke="#2C5282" stroke-width="1.5"/>
   <text x="34" y="45" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">Business Service</text>
-  <circle cx="20" cy="57" r="3" fill="none" stroke="#92400E" stroke-width="1"/>
-  <line x1="20" y1="60" x2="20" y2="66" stroke="#92400E" stroke-width="1"/>
-  <text x="34" y="63" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">Human Actor</text>
-  <rect x="14" y="72" width="12" height="10" rx="1.5" fill="none" stroke="#0C4A6E" stroke-width="1"/>
-  <text x="34" y="81" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">System</text>
-  <rect x="12" y="90" width="16" height="11" rx="3" fill="white" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3,2"/>
-  <text x="34" y="99" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">External Service</text>
+  <rect x="12" y="54" width="16" height="11" rx="3" fill="#F3E8FF" stroke="#6B21A8" stroke-width="1.5"/>
+  <text x="34" y="63" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">AI Persona</text>
+  <circle cx="20" cy="75" r="3" fill="none" stroke="#92400E" stroke-width="1"/>
+  <line x1="20" y1="78" x2="20" y2="84" stroke="#92400E" stroke-width="1"/>
+  <text x="34" y="81" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">Human Actor</text>
+  <rect x="14" y="90" width="12" height="10" rx="1.5" fill="none" stroke="#0C4A6E" stroke-width="1"/>
+  <text x="34" y="99" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">System</text>
+  <rect x="12" y="108" width="16" height="11" rx="3" fill="white" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="34" y="117" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">External Service</text>
   <line x1="165" y1="41" x2="187" y2="41" stroke="#2C5282" stroke-width="2"/>
   <path d="M 183 38 L 187 41 L 183 44" fill="none" stroke="#2C5282" stroke-width="1.2"/>
   <text x="193" y="45" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#475569">Invocation</text>

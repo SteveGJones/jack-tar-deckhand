@@ -4,10 +4,10 @@
     "id": "jack-tar-deckhand",
     "name": "Jack-Tar Deckhand — Presentation Engineering",
     "description": "AI-First Business Service Architecture for a Claude Code skill suite that generates conference-quality PowerPoint presentations. Services are designed as independent, reusable domains orchestrated by a Deck Conductor agent.",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "organisation": "Jack-Tar",
     "createdDate": "2026-03-29",
-    "lastModifiedDate": "2026-04-01",
+    "lastModifiedDate": "2026-04-03",
     "authors": ["Steve Jones", "Claude"],
     "status": "draft"
   },
@@ -57,6 +57,28 @@
       "owner": "Steve Jones",
       "isAIPersona": false,
       "tags": ["l2", "skill", "speaker-notes-writer"]
+    },
+    {
+      "id": "content-smartart-selection",
+      "name": "SmartArt Selection",
+      "level": 2,
+      "parentId": "content-services",
+      "serviceType": "core",
+      "mission": "AI agent that recommends graphic type and enrichment tier for SmartArt-candidate slides. Negotiates with the narrative-architect through a multi-round proposal/approval loop: proposes 2-3 ranked recommendations per slide, narrative-architect evaluates against narrative arc and audience context, approves or rejects with feedback. Maximum 2 rejection rounds before fallback to composed strategy.",
+      "owner": "Steve Jones",
+      "isAIPersona": true,
+      "tags": ["l2", "agent", "ai-persona", "smartart", "smartart-selector"]
+    },
+    {
+      "id": "content-smartart-extraction",
+      "name": "SmartArt Data Extraction",
+      "level": 2,
+      "parentId": "content-services",
+      "serviceType": "core",
+      "mission": "Transform approved slide content into engine-specific structured data for SmartArt rendering. Deterministic extraction with LLM fallback for semantic parsing. Produces Mermaid syntax for graph-based types, Vega-Lite JSON for chart types, Matplotlib data for chart comparator, and custom SVG data structures for spatial types. Handles overflow via truncation, pagination, summarisation, or rejection policies. Validates output against target engine schemas.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "smartart-extractor", "smartart"]
     },
 
     {
@@ -281,6 +303,17 @@
       "isAIPersona": true,
       "tags": ["l2", "agent", "ai-persona", "quality"]
     },
+    {
+      "id": "image-smartart-rendering",
+      "name": "SmartArt Rendering",
+      "level": 2,
+      "parentId": "image-services",
+      "serviceType": "core",
+      "mission": "Render SmartArtSpec data through three engines (Mermaid.js via CLI, Vega-Lite via CLI, custom SVG constraint engine) and composite with enrichment assets. In draft phase, runs comparator across eligible engines and dispatches image-reviewer for scoring. In production phase, renders via winning engine only. Handles four enrichment tiers: T0 pure programmatic SVG, T1 programmatic over AI background, T2 programmatic with AI element icons, T3 full AI render with data fidelity validation. Auto-downgrades T3 to T1 after 3 failed data fidelity checks.",
+      "owner": "Steve Jones",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "smartart-renderer", "smartart"]
+    },
 
     {
       "id": "assembly-qa-services",
@@ -374,7 +407,10 @@
           "Route 5 rendering strategies (full_render, background, backdrop, pragmatic_composition, composed) through appropriate pipeline paths",
           "Trigger vision analysis step for backdrop slides after image generation",
           "Manage multi-image generation for pragmatic_composition slides (1 background + N element images)",
-          "Track vision analysis costs in budget alongside image generation costs"
+          "Track vision analysis costs in budget alongside image generation costs",
+          "Invoke SmartArt selection negotiation between narrative-architect and smartart-selector",
+          "Invoke SmartArt data extraction after strategy-map approval",
+          "Invoke SmartArt rendering after enrichment images are generated"
         ],
         "prohibited": [
           "Must not generate content, images, or style decisions directly — always delegates to L1 services",
@@ -390,7 +426,8 @@
           "Reviewer identifies structural narrative problems requiring Speaker input on direction",
           "Talk brief is ambiguous or missing required fields",
           "Vision analysis returns low confidence for all elements on a backdrop slide after re-generation",
-          "Pragmatic composition element style consistency is poor after re-generation with shared prompt prefix"
+          "Pragmatic composition element style consistency is poor after re-generation with shared prompt prefix",
+          "SmartArt selector fails to produce acceptable recommendations after max negotiation rounds"
         ]
       },
       "dataSources": [
@@ -410,7 +447,7 @@
           "sourceId": "sys-filesystem",
           "sourceName": "DeckContext State",
           "accessType": "read-write",
-          "dataDescription": "All DeckContext artefacts in ./tmp/deck/: StyleGuide, SlideOutline, ImageManifest, SpeakerNotes, ChartManifest, QAReport, PipelineState, StrategyMap"
+          "dataDescription": "All DeckContext artefacts in ./tmp/deck/: StyleGuide, SlideOutline, ImageManifest, SpeakerNotes, ChartManifest, QAReport, PipelineState, StrategyMap, SmartArtRecommendations, SmartArtSpec, SmartArtManifest"
         }
       ],
       "sops": []
@@ -526,7 +563,10 @@
           "Assess whether image subject matches the visual_direction from the outline",
           "Check dominant colour compliance against brand palette hex values",
           "Assess composition suitability for the slide's rendering strategy",
-          "Return structured JSON verdict with pass/refine decision"
+          "Return structured JSON verdict with pass/refine decision",
+          "Score SmartArt comparator candidates using adapted criteria (data legibility, layout clarity, aesthetic quality, style compliance)",
+          "Review SmartArt enrichment images for strategy fit (e.g., T1 backgrounds must have clear centre region for graphic overlay)",
+          "Assess data fidelity in T3 full-AI-render SmartArt images"
         ],
         "prohibited": [
           "Must not generate or modify images",
@@ -617,6 +657,59 @@
           "sourceName": "TalkBrief",
           "accessType": "read",
           "dataDescription": "Original talk brief for alignment checking"
+        }
+      ],
+      "sops": []
+    },
+    {
+      "id": "persona-smartart-selector",
+      "serviceId": "content-smartart-selection",
+      "description": "AI agent that recommends graphic type and enrichment tier for SmartArt-candidate slides. Analyses slide content semantics, considers audience context, budget state, and adjacent slide strategies to propose 2-3 ranked recommendations per slide. Each recommendation includes graphic_type (from 10 v1 types: flowchart, decision_tree, bar_chart, line_chart, radar_chart, swot, feature_matrix, venn, timeline, pipeline_funnel, gantt, or none), enrichment_tier (pure_programmatic, ai_background, ai_elements, full_ai_render), target engine, rationale, and confidence score. Negotiates with narrative-architect through approval/rejection loop (max 2 rounds). Dispatched at Haiku for cost efficiency; escalated to Sonnet after 2 rejections.",
+      "authorityModel": "invoker",
+      "confidenceThreshold": {
+        "autonomousMin": 0.6,
+        "escalationTarget": "persona-deck-conductor"
+      },
+      "scope": {
+        "permitted": [
+          "Analyse slide content to determine appropriate graphic type",
+          "Recommend enrichment tier based on content type, audience, and budget",
+          "Consider adjacent slide strategies to avoid graphic fatigue",
+          "Propose 2-3 ranked graphic type + enrichment recommendations per slide",
+          "Accept feedback from narrative-architect rejection and adjust recommendations",
+          "Force enrichment to T0 (pure_programmatic) when budget state is degrade or typography_only",
+          "Recommend 'none' graphic type when slide content is not suited for SmartArt"
+        ],
+        "prohibited": [
+          "Must not extract structured data — that is the smartart-extractor's role",
+          "Must not render graphics — that is the smartart-renderer's role",
+          "Must not modify SlideOutline or any DeckContext contract",
+          "Must not communicate with Speaker directly",
+          "Must not make budget decisions — only considers budget state in recommendations"
+        ],
+        "escalationTriggers": [
+          "Narrative-architect rejects recommendations twice — escalate to Sonnet model",
+          "No suitable graphic type found for slide with explicit visual_intent — flag to conductor"
+        ]
+      },
+      "dataSources": [
+        {
+          "sourceId": "content-outline-generation",
+          "sourceName": "SlideOutline",
+          "accessType": "read",
+          "dataDescription": "Full deck outline with visual_intent field for SmartArt candidate identification"
+        },
+        {
+          "sourceId": "design-style-derivation",
+          "sourceName": "StyleGuide",
+          "accessType": "read",
+          "dataDescription": "Design tokens for feasibility assessment (can this graphic type work with this palette?)"
+        },
+        {
+          "sourceId": "actor-speaker",
+          "sourceName": "TalkBrief",
+          "accessType": "read",
+          "dataDescription": "Audience and tone context for enrichment tier selection"
         }
       ],
       "sops": []
@@ -779,6 +872,32 @@
           "serviceId": "image-chart-renderer",
           "relationship": "provides",
           "description": "Chart rendering engine"
+        }
+      ]
+    },
+    {
+      "id": "sys-mermaid-cli",
+      "name": "Mermaid CLI",
+      "type": "Node.js CLI tool",
+      "description": "@mermaid-js/mermaid-cli (mmdc) for server-side Mermaid diagram rendering. Converts Mermaid DSL syntax to SVG without requiring a headless browser in the main process. Used for flowcharts, decision trees, Gantt charts, and other graph-based SmartArt types.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-smartart-rendering",
+          "relationship": "provides",
+          "description": "Mermaid syntax to SVG rendering engine"
+        }
+      ]
+    },
+    {
+      "id": "sys-vega-cli",
+      "name": "Vega-Lite CLI",
+      "type": "Node.js CLI tool",
+      "description": "vega-lite + vega-cli npm packages providing vl2svg for server-side Vega-Lite specification to SVG rendering. Used for bar charts, line charts, radar charts, and other data visualisation SmartArt types. Serves as comparator engine alongside Matplotlib for chart types.",
+      "serviceAssociations": [
+        {
+          "serviceId": "image-smartart-rendering",
+          "relationship": "provides",
+          "description": "Vega-Lite spec to SVG rendering engine"
         }
       ]
     },
@@ -1191,6 +1310,84 @@
       "type": "delivery",
       "description": "image-reviewer returns structured quality verdict to imagegen-bridge",
       "dataFlows": ["Verdict (pass/refine)", "Issues list", "Confidence score", "Summary"]
+    },
+    {
+      "id": "int-narrative-to-smartart-selector",
+      "sourceId": "content-outline-generation",
+      "targetId": "content-smartart-selection",
+      "type": "invocation",
+      "description": "Narrative-architect passes SlideOutline with visual_intent to SmartArt selector for graphic type recommendation",
+      "dataFlows": ["SlideOutline (visual_intent)", "StyleGuide", "TalkBrief"]
+    },
+    {
+      "id": "int-smartart-selector-to-narrative",
+      "sourceId": "content-smartart-selection",
+      "targetId": "content-outline-generation",
+      "type": "feedback",
+      "description": "SmartArt selector returns 2-3 ranked graphic type + enrichment tier recommendations per slide",
+      "dataFlows": ["SmartArtRecommendations"]
+    },
+    {
+      "id": "int-narrative-approval-to-selector",
+      "sourceId": "content-outline-generation",
+      "targetId": "content-smartart-selection",
+      "type": "feedback",
+      "description": "Narrative-architect approves or rejects SmartArt recommendations with feedback for retry",
+      "dataFlows": ["Approval/rejection", "Feedback for adjustment"]
+    },
+    {
+      "id": "int-extractor-to-renderer",
+      "sourceId": "content-smartart-extraction",
+      "targetId": "image-smartart-rendering",
+      "type": "data-provision",
+      "description": "SmartArt extractor provides engine-specific structured data (Mermaid syntax, Vega-Lite JSON, custom SVG data) to the renderer",
+      "dataFlows": ["SmartArtSpec"]
+    },
+    {
+      "id": "int-renderer-to-imagegen-bridge",
+      "sourceId": "image-smartart-rendering",
+      "targetId": "image-routing-discovery",
+      "type": "invocation",
+      "description": "SmartArt renderer requests enrichment asset generation (AI backgrounds for T1, element icons for T2, full render for T3) via imagegen-bridge",
+      "dataFlows": ["Enrichment image requests with smartart_ref"]
+    },
+    {
+      "id": "int-imagegen-bridge-to-renderer",
+      "sourceId": "image-routing-discovery",
+      "targetId": "image-smartart-rendering",
+      "type": "data-provision",
+      "description": "imagegen-bridge provides generated enrichment images back to SmartArt renderer for compositing",
+      "dataFlows": ["ImageManifest entries with smartart_ref"]
+    },
+    {
+      "id": "int-renderer-to-image-reviewer",
+      "sourceId": "image-smartart-rendering",
+      "targetId": "image-image-reviewer",
+      "type": "invocation",
+      "description": "SmartArt renderer dispatches image-reviewer for comparator scoring (draft phase) and enrichment quality review. Passes review_context (smartart_comparator, smartart_enrichment, or smartart_full_render) for criteria adaptation",
+      "dataFlows": ["Rendered SmartArt image", "review_context", "smartart_type", "data_summary"]
+    },
+    {
+      "id": "int-renderer-to-assembler",
+      "sourceId": "image-smartart-rendering",
+      "targetId": "assembly-pptx-build",
+      "type": "data-provision",
+      "description": "SmartArt renderer provides SmartArtManifest to the assembler for buildSmartArtSlide() dispatch",
+      "dataFlows": ["SmartArtManifest"]
+    },
+    {
+      "id": "int-smartart-to-mermaid",
+      "sourceId": "image-smartart-rendering",
+      "targetId": "sys-mermaid-cli",
+      "type": "invocation",
+      "description": "SmartArt renderer invokes Mermaid CLI (mmdc) for graph-based diagram rendering"
+    },
+    {
+      "id": "int-smartart-to-vega",
+      "sourceId": "image-smartart-rendering",
+      "targetId": "sys-vega-cli",
+      "type": "invocation",
+      "description": "SmartArt renderer invokes Vega-Lite CLI (vl2svg) for data visualisation rendering"
     }
   ],
 
