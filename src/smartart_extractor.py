@@ -133,32 +133,143 @@ def _extract_decision_tree(body_points):
     }
 
 
-def _extract_gantt(body_points):
-    """Convert 'Task: Start-End' patterns to Mermaid gantt syntax."""
-    lines = ['gantt', '  dateFormat  MMM', '  section Tasks']
+def _extract_gantt(body_points, inline_data=None):
+    """Convert task data to Mermaid gantt syntax.
+
+    Supports two input modes:
+    - inline_data: {'tasks': [{'label': str, 'start': 'YYYY-MM-DD', 'end': 'YYYY-MM-DD'}, ...]}
+    - body_points: 'Task: Start-End' patterns (e.g., 'Research: Jan-Mar')
+
+    Mermaid gantt requires YYYY-MM-DD dateFormat for reliable rendering.
+    """
+    if inline_data and 'tasks' in inline_data:
+        return _gantt_from_inline(inline_data)
+
+    # Parse body_points — try to extract date ranges
+    lines = ['gantt', '    dateFormat YYYY-MM-DD', '    section Tasks']
+    node_count = 0
+
     for point in body_points:
         label, value = _split_colon(point)
         if label is None:
-            label = point
-            value = 'TBD'
-        # Try to parse "Start-End" range like "Jan-Mar"
-        range_match = re.match(r'(.+?)\s*[-–]\s*(.+)', value)
-        if range_match:
-            start = range_match.group(1).strip()
-            end = range_match.group(2).strip()
-            safe_label = label.replace(':', '')
-            lines.append(f'  {safe_label} : {start}, {end}')
+            label = point.strip()
+            value = ''
+
+        safe_label = label.replace(':', '').strip()
+        if not safe_label:
+            continue
+
+        # Try to parse date-like ranges: "Q1 2025" "Jan-Mar" "2025-01-01 to 2025-03-31"
+        date_range = _parse_date_range(value)
+        if date_range:
+            start, end = date_range
+            task_id = re.sub(r'[^a-zA-Z0-9]', '', safe_label)[:10].lower()
+            lines.append(f'    {safe_label} :{task_id}, {start}, {end}')
+            node_count += 1
         else:
-            safe_label = label.replace(':', '')
-            lines.append(f'  {safe_label} : {value}')
+            # Can't parse dates — use a 30-day duration relative to previous task
+            task_id = re.sub(r'[^a-zA-Z0-9]', '', safe_label)[:10].lower()
+            lines.append(f'    {safe_label} :{task_id}, 30d')
+            node_count += 1
 
     syntax = '\n'.join(lines)
     return {
         'engine': 'mermaid',
         'syntax': syntax,
         'diagram_type': 'gantt',
-        'node_count': len(body_points),
+        'node_count': node_count,
     }
+
+
+def _gantt_from_inline(inline_data):
+    """Build Mermaid gantt from structured inline_data with explicit dates."""
+    tasks = inline_data['tasks']
+    title = inline_data.get('title', '')
+    section = inline_data.get('section', 'Tasks')
+
+    lines = ['gantt', '    dateFormat YYYY-MM-DD']
+    if title:
+        lines.append(f'    title {title}')
+    lines.append(f'    section {section}')
+
+    for task in tasks:
+        label = task['label'].replace(':', '').strip()
+        start = task['start']
+        end = task['end']
+        status = task.get('status', '')
+        task_id = re.sub(r'[^a-zA-Z0-9]', '', label)[:10].lower()
+
+        status_prefix = f'{status}, ' if status else ''
+        lines.append(f'    {label} :{status_prefix}{task_id}, {start}, {end}')
+
+    syntax = '\n'.join(lines)
+    return {
+        'engine': 'mermaid',
+        'syntax': syntax,
+        'diagram_type': 'gantt',
+        'node_count': len(tasks),
+    }
+
+
+_QUARTER_TO_DATES = {
+    'Q1': ('01-01', '03-31'),
+    'Q2': ('04-01', '06-30'),
+    'Q3': ('07-01', '09-30'),
+    'Q4': ('10-01', '12-31'),
+}
+
+_MONTH_TO_NUM = {
+    'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+    'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+    'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12',
+}
+
+
+def _parse_date_range(value):
+    """Try to parse a date range string into (start_date, end_date) YYYY-MM-DD.
+
+    Handles: 'Q1 2025 to Q3 2025', 'Jan-Mar', '2025-01-01 to 2025-06-30',
+             'Now to Q2 2025', 'Q2 to Q3 2025'
+    Returns None if parsing fails.
+    """
+    if not value:
+        return None
+    value = value.strip()
+
+    # Try YYYY-MM-DD to YYYY-MM-DD
+    iso_match = re.match(r'(\d{4}-\d{2}-\d{2})\s*(?:to|[-–])\s*(\d{4}-\d{2}-\d{2})', value)
+    if iso_match:
+        return (iso_match.group(1), iso_match.group(2))
+
+    # Try "Q1 2025 to Q3 2025" or "Q1 to Q3 2025" or "Now to Q2 2025"
+    q_match = re.match(r'(?:(Q[1-4])\s+(\d{4})|Now)\s*(?:to|[-–])\s*(Q[1-4])\s+(\d{4})', value)
+    if q_match:
+        if q_match.group(1):
+            sq, sy = q_match.group(1), q_match.group(2)
+            start = f'{sy}-{_QUARTER_TO_DATES[sq][0]}'
+        else:
+            start = '2025-01-01'  # "Now" defaults to start of year
+        eq, ey = q_match.group(3), q_match.group(4)
+        end = f'{ey}-{_QUARTER_TO_DATES[eq][1]}'
+        return (start, end)
+
+    # Try "Q2 to Q3 2025" (start quarter implied same year)
+    q_match2 = re.match(r'(Q[1-4])\s*(?:to|[-–])\s*(Q[1-4])\s+(\d{4})', value)
+    if q_match2:
+        sq, eq, year = q_match2.group(1), q_match2.group(2), q_match2.group(3)
+        start = f'{year}-{_QUARTER_TO_DATES[sq][0]}'
+        end = f'{year}-{_QUARTER_TO_DATES[eq][1]}'
+        return (start, end)
+
+    # Try month abbreviation range: "Jan-Mar" or "May-Aug"
+    month_match = re.match(r'([A-Za-z]{3})\s*[-–]\s*([A-Za-z]{3})', value)
+    if month_match:
+        sm = month_match.group(1).lower()[:3]
+        em = month_match.group(2).lower()[:3]
+        if sm in _MONTH_TO_NUM and em in _MONTH_TO_NUM:
+            return (f'2025-{_MONTH_TO_NUM[sm]}-01', f'2025-{_MONTH_TO_NUM[em]}-28')
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -423,6 +534,8 @@ def extract(slide, selection, style_guide):
             extracted_data = _build_vega_from_inline(inline_data, graphic_type, engine)
         elif engine == 'matplotlib':
             extracted_data = _build_matplotlib_from_inline(inline_data, graphic_type)
+        elif graphic_type == 'gantt':
+            extracted_data = _extract_gantt(body_points, inline_data=inline_data)
         else:
             # For other engines, inline_data is passed through as-is
             extracted_data = {'engine': engine, 'graphic_type': graphic_type, 'data': inline_data}
