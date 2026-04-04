@@ -26,7 +26,7 @@
       ],
       "narrative_beat": "situation",
       "visual_direction": "Structured storm scene \u2014 scattered presentation slides caught in wind, a clock showing wasted time, a frustrated figure at a desk. Dark, dramatic atmosphere.",
-      "visual_type": "hero_image"
+      "visual_type": "none"
     },
     {
       "slide_number": 3,
@@ -158,7 +158,7 @@
       ],
       "narrative_beat": "transition",
       "visual_direction": "Individual nautical elements \u2014 brass compass, telescope, ship's wheel, aged map \u2014 each generated separately and placed at exact positions with labels",
-      "visual_type": "hero_image"
+      "visual_type": "none"
     },
     {
       "slide_number": 10,
@@ -418,7 +418,7 @@
       ],
       "narrative_beat": "transition",
       "visual_direction": "Treasure map scene with figurative landmarks \u2014 a compass rose, dotted trail, X-marks-the-spot. Section title positioned by vision analysis against the map background.",
-      "visual_type": "hero_image"
+      "visual_type": "none"
     },
     {
       "slide_number": 22,
