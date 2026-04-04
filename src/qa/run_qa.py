@@ -154,6 +154,54 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
         if img.get('detected_positions'):
             findings.extend(check_vision_confidence(img))
 
+    # Step 1c: SmartArt QA checks (SA-01 to SA-05) — only when manifest present
+    smartart_manifest_path = os.path.join(deck_dir, 'smartart-manifest.json')
+    if os.path.exists(smartart_manifest_path):
+        from src.qa.checks.smartart_checks import (
+            check_data_integrity,
+            check_label_legibility,
+            check_enrichment_alignment,
+            check_overflow_handling,
+            check_accessibility,
+        )
+        with open(smartart_manifest_path) as f:
+            smartart_manifest = json.load(f)
+
+        # Load outline for SA-01 data integrity checks
+        outline_path = os.path.join(deck_dir, 'outline.json')
+        outline_slides_sa = {}
+        if os.path.exists(outline_path):
+            with open(outline_path) as f:
+                outline_data_sa = json.load(f)
+            outline_slides_sa = {
+                s['slide_number']: s for s in outline_data_sa.get('slides', [])
+            }
+
+        for entry in smartart_manifest.get('slides', []):
+            sn = entry.get('slide_number', 0)
+            spec = entry.get('spec', {})
+            svg_content = entry.get('svg_content', '')
+            bg_color = entry.get('background_color')
+
+            # SA-01: Data integrity
+            outline_slide_sa = outline_slides_sa.get(sn, {})
+            findings.extend(check_data_integrity(outline_slide_sa, spec, slide_number=sn))
+
+            # SA-02: Label legibility
+            if svg_content:
+                findings.extend(check_label_legibility(svg_content, bg_color, slide_number=sn))
+
+            # SA-03: Enrichment alignment
+            findings.extend(check_enrichment_alignment(entry, im_data, slide_number=sn))
+
+            # SA-04: Overflow handling
+            if svg_content:
+                findings.extend(check_overflow_handling(spec, svg_content, slide_number=sn))
+
+            # SA-05: Accessibility
+            if svg_content:
+                findings.extend(check_accessibility(svg_content, entry, slide_number=sn))
+
     # Step 2: Deck-level structural checks
     for check_fn in DECK_STRUCTURAL_CHECKS:
         findings.extend(check_fn(prs, config=cfg))
