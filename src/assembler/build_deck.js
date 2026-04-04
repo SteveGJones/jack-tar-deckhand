@@ -362,14 +362,22 @@ function buildTitleSlide(pptx, slideData, ctx) {
  */
 function buildContentSlide(pptx, slideData, ctx) {
     const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData } = ctx;
-    const bgColor = slidePalette?.content_slides?.background || palette.background;
+    const bgColor = slidePalette?.content_slides?.background || palette.background || 'F5F0E8';
     const textColor = slidePalette?.content_slides?.text || palette.text_primary;
-    const accentColor = slidePalette?.content_slides?.accent_bar || palette.primary;
+    const accentColor = slidePalette?.content_slides?.accent_bar || palette.accent || palette.primary || 'C67B2F';
 
     const slide = pptx.addSlide();
+
+    // Brand background — never leave a slide as white void
     slide.background = { color: bgColor };
 
-    // Teal accent bar on left edge
+    // Bottom accent line
+    slide.addShape(pptx.ShapeType.rect, {
+        x: 0, y: SLIDE_H * 0.95, w: SLIDE_W, h: SLIDE_H * 0.005,
+        fill: { color: accentColor }, line: { width: 0 },
+    });
+
+    // Accent bar on left edge
     slide.addShape(pptx.ShapeType.rect, {
         x: 0,
         y: 0,
@@ -831,19 +839,21 @@ function buildFullRenderSlide(pptx, slideData, ctx) {
     const slide = pptx.addSlide();
 
     // Full-bleed image covering the entire slide
-    if (imageData) {
-        const imgPath = resolveImagePath(imageData.file_path);
-        if (fs.existsSync(imgPath)) {
-            slide.addImage({
-                path: imgPath,
-                x: 0,
-                y: 0,
-                w: SLIDE_W,
-                h: SLIDE_H,
-                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
-                altText: imageData.alt_text || '',
-            });
-        }
+    const imgPath = imageData ? resolveImagePath(imageData.file_path) : null;
+    if (imgPath && fs.existsSync(imgPath)) {
+        slide.addImage({
+            path: imgPath,
+            x: 0,
+            y: 0,
+            w: SLIDE_W,
+            h: SLIDE_H,
+            sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+            altText: imageData.alt_text || '',
+        });
+    } else {
+        // Fallback when no hero image — use brand primary colour instead of blank white
+        const bgColor = palette.primary || '1B3A4B';
+        slide.background = { color: bgColor };
     }
 
     // Footer logo (bottom-right, every slide)
@@ -953,15 +963,23 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
     const slide = pptx.addSlide();
 
     // Full-bleed backdrop image
-    if (imageData) {
-        const imgPath = resolveImagePath(imageData.file_path);
-        if (fs.existsSync(imgPath)) {
-            slide.addImage({
-                path: imgPath, x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
-                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
-                altText: imageData.alt_text || '',
-            });
-        }
+    const bgImagePath = imageData ? resolveImagePath(imageData.file_path) : null;
+    if (bgImagePath && fs.existsSync(bgImagePath)) {
+        slide.addImage({
+            path: bgImagePath, x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+            sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+            altText: imageData.alt_text || '',
+        });
+    } else {
+        // Fallback when no background image — use brand solid colour
+        const bgColor = palette.background || 'F5F0E8';
+        slide.background = { color: bgColor };
+        // Subtle accent bar on left edge
+        const accentColor = palette.accent || palette.primary || 'C67B2F';
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 0, w: SLIDE_W * 0.01, h: SLIDE_H,
+            fill: { color: accentColor }, line: { width: 0 },
+        });
     }
 
     // Template zone definitions (in inches)
