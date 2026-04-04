@@ -114,7 +114,37 @@
       "narrative_beat": "evidence-5",
       "visual_direction": "Radar chart showing capability scores across six dimensions",
       "visual_intent": "Radar chart comparing Jack-Tar capabilities across 6 dimensions",
-      "visual_type": "diagram"
+      "visual_type": "diagram",
+      "data": {
+        "inline_data": {
+          "series": [
+            {
+              "label": "Narrative Structure",
+              "value": 9
+            },
+            {
+              "label": "Visual Design",
+              "value": 8
+            },
+            {
+              "label": "Image Quality",
+              "value": 8
+            },
+            {
+              "label": "Data Visualisation",
+              "value": 9
+            },
+            {
+              "label": "Brand Consistency",
+              "value": 9
+            },
+            {
+              "label": "Speaker Support",
+              "value": 7
+            }
+          ]
+        }
+      }
     },
     {
       "slide_number": 9,
@@ -266,7 +296,51 @@
       "visual_type": "chart",
       "data": {
         "chart_type": "bar",
-        "data_source_label": "QA check distribution by category"
+        "data_source_label": "QA check distribution by category",
+        "inline_data": {
+          "series": [
+            {
+              "label": "Contrast",
+              "value": 4
+            },
+            {
+              "label": "Margins",
+              "value": 3
+            },
+            {
+              "label": "Text Overflow",
+              "value": 3
+            },
+            {
+              "label": "Consistency",
+              "value": 5
+            },
+            {
+              "label": "Image Quality",
+              "value": 4
+            },
+            {
+              "label": "Placeholders",
+              "value": 2
+            },
+            {
+              "label": "Missing Content",
+              "value": 3
+            },
+            {
+              "label": "Accessibility",
+              "value": 3
+            },
+            {
+              "label": "Keynote",
+              "value": 3
+            },
+            {
+              "label": "SmartArt",
+              "value": 5
+            }
+          ]
+        }
       }
     },
     {
@@ -336,7 +410,35 @@
       "visual_type": "chart",
       "data": {
         "chart_type": "bar",
-        "data_source_label": "Cost per deck by category (USD)"
+        "data_source_label": "Cost per deck by category (USD)",
+        "inline_data": {
+          "series": [
+            {
+              "label": "Ollama Drafts",
+              "value": 0
+            },
+            {
+              "label": "Cloud Drafts",
+              "value": 0.5
+            },
+            {
+              "label": "Production Images",
+              "value": 1.5
+            },
+            {
+              "label": "SmartArt",
+              "value": 0
+            },
+            {
+              "label": "QA/Review",
+              "value": 0
+            },
+            {
+              "label": "Total",
+              "value": 2.0
+            }
+          ]
+        }
       }
     },
     {
@@ -383,7 +485,55 @@
       "visual_type": "chart",
       "data": {
         "chart_type": "line",
-        "data_source_label": "Cumulative test count by phase"
+        "data_source_label": "Cumulative test count by phase",
+        "inline_data": {
+          "series": [
+            {
+              "label": "Phase 1",
+              "value": 38
+            },
+            {
+              "label": "Phase 2",
+              "value": 65
+            },
+            {
+              "label": "Phase 3",
+              "value": 77
+            },
+            {
+              "label": "Phase 4A",
+              "value": 175
+            },
+            {
+              "label": "Phase 4B",
+              "value": 264
+            },
+            {
+              "label": "Phase 4C",
+              "value": 310
+            },
+            {
+              "label": "Phase 5",
+              "value": 377
+            },
+            {
+              "label": "Phase 6",
+              "value": 396
+            },
+            {
+              "label": "Keynote",
+              "value": 504
+            },
+            {
+              "label": "Reviewer",
+              "value": 518
+            },
+            {
+              "label": "SmartArt",
+              "value": 603
+            }
+          ]
+        }
       }
     },
     {

@@ -360,6 +360,46 @@ _VEGA_GRAPHIC_TYPES = {'bar_chart', 'line_chart', 'radar_chart'}
 _SPATIAL_GRAPHIC_TYPES = {'swot', 'timeline', 'pipeline_funnel', 'feature_matrix', 'venn'}
 
 
+def _build_vega_from_inline(inline_data, graphic_type, engine='vega_lite'):
+    """Build a Vega-Lite spec from structured inline_data."""
+    series = inline_data.get('series', [])
+    values = [{'label': item['label'], 'value': item['value']} for item in series]
+
+    mark = 'bar'
+    if graphic_type == 'line_chart':
+        mark = 'line'
+    elif graphic_type == 'radar_chart':
+        mark = 'point'
+
+    spec = {
+        '$schema': 'https://vega.github.io/schema/vega-lite/v5.json',
+        'mark': mark,
+        'data': {'values': values},
+        'encoding': {
+            'x': {'field': 'label', 'type': 'ordinal'},
+            'y': {'field': 'value', 'type': 'quantitative'}
+        }
+    }
+    return {
+        'engine': engine,
+        'chart_type': graphic_type,
+        'spec': spec
+    }
+
+
+def _build_matplotlib_from_inline(inline_data, graphic_type):
+    """Build Matplotlib data dict from structured inline_data."""
+    series = inline_data.get('series', [])
+    return {
+        'engine': 'matplotlib',
+        'chart_type': graphic_type.replace('_chart', ''),
+        'data': {
+            'labels': [item['label'] for item in series],
+            'values': [item['value'] for item in series]
+        }
+    }
+
+
 def extract(slide, selection, style_guide):
     """Top-level extractor — dispatches to the right sub-extractor.
 
@@ -372,11 +412,21 @@ def extract(slide, selection, style_guide):
         SmartArtSpec entry dict (matches per-spec item in schema)
     """
     body_points = slide.get('body_points', [])
+    inline_data = slide.get('data', {}).get('inline_data')
     graphic_type = selection['graphic_type']
     engine = selection['engine']
     overflow_applied = 'none'
 
-    if engine == 'mermaid' or graphic_type in _MERMAID_GRAPHIC_TYPES:
+    # Prefer inline_data when present — structured data that bypasses regex parsing
+    if inline_data is not None:
+        if engine == 'vega_lite' or graphic_type in _VEGA_GRAPHIC_TYPES:
+            extracted_data = _build_vega_from_inline(inline_data, graphic_type, engine)
+        elif engine == 'matplotlib':
+            extracted_data = _build_matplotlib_from_inline(inline_data, graphic_type)
+        else:
+            # For other engines, inline_data is passed through as-is
+            extracted_data = {'engine': engine, 'graphic_type': graphic_type, 'data': inline_data}
+    elif engine == 'mermaid' or graphic_type in _MERMAID_GRAPHIC_TYPES:
         extracted_data = extract_graph_data(body_points, graphic_type)
     elif engine == 'vega_lite' or engine == 'matplotlib' or graphic_type in _VEGA_GRAPHIC_TYPES:
         extracted_data = extract_series_data(body_points, graphic_type, engine=engine)
@@ -463,8 +513,10 @@ def validate_spec(spec):
         return False, errors
 
     required_keys = _ENGINE_REQUIRED_KEYS.get(engine, [])
+    # Vega-Lite wraps its spec in a 'spec' sub-dict
+    check_data = data.get('spec', data) if engine == 'vega_lite' else data
     for key in required_keys:
-        if key not in data:
+        if key not in check_data:
             errors.append(f"Engine '{engine}' requires data key '{key}' but it is missing")
 
     if errors:
