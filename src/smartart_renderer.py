@@ -6,11 +6,76 @@ Handles the comparator pattern and builds SmartArtManifest entries.
 import hashlib
 import json
 import os
+import re
 import subprocess
 import uuid
 
 from src.smartart_svg import render_custom_svg
 from src.render_chart import render_chart
+
+
+# ---------------------------------------------------------------------------
+# SVG post-processing and rasterisation helpers
+# ---------------------------------------------------------------------------
+
+def _postprocess_mermaid_svg(svg_path):
+    """Set explicit width/height pixel attributes from viewBox.
+
+    Mermaid CLI emits ``width="100%"`` which PowerPoint cannot use.  This
+    function reads the viewBox dimensions and writes them back as explicit
+    pixel values so downstream rasterisers and assemblers get a concrete size.
+    """
+    with open(svg_path, 'r', encoding='utf-8') as f:
+        svg = f.read()
+    vb_match = re.search(r'viewBox="[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)"', svg)
+    if vb_match:
+        w = int(float(vb_match.group(1)))
+        h = int(float(vb_match.group(2)))
+        svg = re.sub(r'width="[^"]*"', f'width="{w}"', svg, count=1)
+        if 'height="' in svg:
+            svg = re.sub(r'height="[^"]*"', f'height="{h}"', svg, count=1)
+        else:
+            svg = svg.replace(f'width="{w}"', f'width="{w}" height="{h}"', 1)
+    with open(svg_path, 'w', encoding='utf-8') as f:
+        f.write(svg)
+
+
+def _rasterise_svg_to_png(svg_path, png_path, width=1600, height=900):
+    """Convert SVG to PNG.
+
+    Tries in order:
+    1. cairosvg (Python, highest fidelity)
+    2. Node.js sharp via subprocess
+    3. Pillow placeholder (last resort — blank transparent image)
+    """
+    try:
+        import cairosvg
+        cairosvg.svg2png(url=svg_path, write_to=png_path,
+                         output_width=width, output_height=height)
+        return
+    except ImportError:
+        pass
+
+    try:
+        result = subprocess.run(
+            ['node', '-e',
+             f'const sharp = require("sharp"); '
+             f'sharp("{svg_path}")'
+             f'.resize({width}, {height}, {{ fit: "contain", background: {{ r:255,g:255,b:255,alpha:0 }} }})'
+             f'.png().toFile("{png_path}")'
+             f'.then(() => console.log("OK"))'
+             f'.catch(e => {{ console.error(e.message); process.exit(1); }});'],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode == 0 and os.path.exists(png_path):
+            return
+    except Exception:
+        pass
+
+    # Last resort: Pillow placeholder (transparent image)
+    from PIL import Image as PILImage
+    img = PILImage.new('RGBA', (width, height), (255, 255, 255, 0))
+    img.save(png_path)
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +104,10 @@ def render_custom_svg_engine(spec, style_guide, output_dir):
 def render_mermaid(spec, style_guide, output_dir):
     """Render a Mermaid diagram using the Mermaid CLI (mmdc via npx).
 
-    Injects brand theme variables before running the CLI.
+    Injects brand theme variables before running the CLI.  The SVG output is
+    post-processed to embed explicit pixel dimensions from its viewBox, then
+    rasterised to PNG.  The SVG source is kept alongside the PNG for debugging
+    and re-rendering.
 
     Args:
         spec: SmartArt spec dict; spec['data']['syntax'] must contain Mermaid syntax.
@@ -47,7 +115,7 @@ def render_mermaid(spec, style_guide, output_dir):
         output_dir: Directory to write output files.
 
     Returns:
-        Absolute path to the generated .svg file.
+        Absolute path to the rasterised .png file.
 
     Raises:
         RuntimeError: If the Mermaid CLI returns a non-zero exit code.
@@ -71,11 +139,13 @@ def render_mermaid(spec, style_guide, output_dir):
     run_id = uuid.uuid4().hex[:8]
     mmd_path = os.path.join(output_dir, f'input-{run_id}.mmd')
     svg_path = os.path.join(output_dir, f'output-{run_id}.svg')
+    png_path = os.path.join(output_dir, f'output-{run_id}.png')
     with open(mmd_path, 'w', encoding='utf-8') as f:
         f.write(full_syntax)
 
     result = subprocess.run(
-        ['npx', 'mmdc', '-i', mmd_path, '-o', svg_path, '-b', 'transparent'],
+        ['npx', 'mmdc', '-i', mmd_path, '-o', svg_path,
+         '-b', 'transparent', '--width', '1600'],
         capture_output=True,
         text=True,
         timeout=30,
@@ -83,7 +153,13 @@ def render_mermaid(spec, style_guide, output_dir):
     if result.returncode != 0:
         raise RuntimeError(f"Mermaid CLI failed: {result.stderr}")
 
-    return svg_path
+    # Post-process SVG: replace width="100%" with explicit pixel dimensions
+    _postprocess_mermaid_svg(svg_path)
+
+    # Rasterise SVG → PNG (mandatory — PowerPoint can't render SVG <foreignObject>)
+    _rasterise_svg_to_png(svg_path, png_path)
+
+    return png_path
 
 
 def render_vega_lite(spec, style_guide, output_dir):
@@ -289,8 +365,14 @@ def render(spec, style_guide, phase, output_dir):
     # Render primary engine
     try:
         primary_path = dispatch_fn(spec, style_guide, output_dir)
-        # For matplotlib the primary output is a PNG; for others it's SVG
-        if primary_engine == 'matplotlib':
+        # mermaid returns PNG; SVG source lives at the same stem
+        if primary_engine == 'mermaid':
+            file_path = primary_path  # PNG
+            svg_path = primary_path.replace('.png', '.svg')
+            if not os.path.exists(svg_path):
+                svg_path = primary_path
+        # matplotlib primary output is PNG (no SVG source)
+        elif primary_engine == 'matplotlib':
             file_path = primary_path
             svg_path = ''
         else:

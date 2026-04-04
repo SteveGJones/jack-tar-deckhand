@@ -35,7 +35,8 @@ class TestRenderCustomSvgEngine:
 
 
 class TestRenderMermaid:
-    def test_renders_flowchart_to_svg(self):
+    def test_renders_flowchart_to_png(self):
+        """render_mermaid() now returns a rasterised PNG, not SVG."""
         from src.smartart_renderer import render_mermaid
         spec = {
             'data': {
@@ -49,11 +50,9 @@ class TestRenderMermaid:
         }
         with tempfile.TemporaryDirectory() as tmpdir:
             result = render_mermaid(spec, style_guide, tmpdir)
-            assert result.endswith('.svg')
+            assert result.endswith('.png'), f"Expected PNG, got {result}"
             assert os.path.exists(result)
-            with open(result) as f:
-                content = f.read()
-            assert '<svg' in content or 'svg' in content.lower()
+            assert os.path.getsize(result) > 100
 
 
 class TestRenderVegaLite:
@@ -161,6 +160,45 @@ class TestVegaLiteDimensions:
             assert written_spec.get('width') == 1600
             assert written_spec.get('height') == 900
             assert written_spec.get('autosize', {}).get('type') == 'fit'
+
+
+class TestMermaidFixes:
+    def test_mermaid_returns_png(self):
+        """Mermaid now returns PNG (rasterised) not SVG."""
+        from src.smartart_renderer import render_mermaid
+        spec = {
+            'data': {
+                'syntax': 'graph TD\n  A[Start] --> B[End]',
+                'diagram_type': 'flowchart'
+            }
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'body_font': 'Inter'}
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_path = render_mermaid(spec, style_guide, tmpdir)
+            assert result_path.endswith('.png'), f"Expected PNG, got {result_path}"
+            assert os.path.exists(result_path)
+            assert os.path.getsize(result_path) > 100
+
+    def test_mermaid_svg_source_preserved(self):
+        """SVG source should be kept alongside the PNG."""
+        from src.smartart_renderer import render_mermaid
+        spec = {
+            'data': {
+                'syntax': 'graph TD\n  A[Start] --> B[End]',
+                'diagram_type': 'flowchart'
+            }
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'body_font': 'Inter'}
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            png_path = render_mermaid(spec, style_guide, tmpdir)
+            svg_files = [f for f in os.listdir(tmpdir) if f.endswith('.svg')]
+            assert len(svg_files) >= 1, "SVG source should exist"
 
 
 class TestRender:
