@@ -104,6 +104,11 @@ def render_vega_lite(spec, style_guide, output_dir):
     """
     vl_spec = spec['data']['spec'].copy()
 
+    # Inject 16:9 dimensions — prevents portrait-oriented default
+    vl_spec['width'] = 1600
+    vl_spec['height'] = 900
+    vl_spec['autosize'] = {'type': 'fit', 'contains': 'padding'}
+
     # Inject brand style into Vega-Lite config
     palette = style_guide.get('palette', {})
     vl_spec.setdefault('config', {})

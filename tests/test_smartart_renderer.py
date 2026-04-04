@@ -124,6 +124,45 @@ class TestBuildManifestEntry:
         jsonschema.validate(doc, schema)
 
 
+class TestVegaLiteDimensions:
+    def test_vega_lite_svg_is_landscape(self):
+        """Vega-Lite SVGs must be landscape, not portrait."""
+        from src.smartart_renderer import render_vega_lite
+        import re
+        spec = {
+            'data': {
+                'spec': {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {"field": "label", "type": "ordinal"},
+                        "y": {"field": "value", "type": "quantitative"}
+                    },
+                    "data": {"values": [
+                        {"label": "A", "value": 10},
+                        {"label": "B", "value": 20}
+                    ]}
+                }
+            }
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'body_font': 'Inter'}
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            svg_path = render_vega_lite(spec, style_guide, tmpdir)
+            with open(svg_path) as f:
+                svg = f.read()
+            # Verify the spec included width/height by checking the VL spec JSON was written
+            spec_files = [f for f in os.listdir(tmpdir) if f.startswith('vl-spec')]
+            assert len(spec_files) > 0
+            with open(os.path.join(tmpdir, spec_files[0])) as f:
+                written_spec = json.load(f)
+            assert written_spec.get('width') == 1600
+            assert written_spec.get('height') == 900
+            assert written_spec.get('autosize', {}).get('type') == 'fit'
+
+
 class TestRender:
     def test_render_dispatches_custom_svg(self):
         from src.smartart_renderer import render
