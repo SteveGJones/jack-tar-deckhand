@@ -1,0 +1,26 @@
+{
+  "topic": "Jack-Tar Deckhand: AI-First Presentation Engineering — How an AI Crew Turns Ideas into Conference-Quality Decks",
+  "audience": "Technical leaders, conference speakers, and business presenters evaluating AI-powered presentation tools. Mixed technical and non-technical. Reading the deck independently via email, not attending a live presentation.",
+  "duration_minutes": 45,
+  "tone": "professional",
+  "key_takeaways": [
+    "Jack-Tar Deckhand is a complete AI-First presentation engineering system with 33 services and 6 AI personas",
+    "SmartArt intelligent graphics automatically turn structured data into flowcharts, matrices, charts, and diagrams using 3 rendering engines",
+    "The draft-to-production lifecycle keeps costs low ($0-2 per deck) while maintaining conference quality",
+    "35 automated QA checks and 3 layers of AI review ensure every deck meets professional standards",
+    "The system demonstrates itself — this deck was built by the system it describes"
+  ],
+  "branding": {
+    "company_name": "Jack-Tar Deckhand",
+    "brand_id": "jack-tar-deckhand",
+    "primary_color": "1B3A4B",
+    "secondary_color": "456990",
+    "font_preference": "Playfair Display"
+  },
+  "preferences": {
+    "style": "creative",
+    "slide_count_hint": 28,
+    "include_speaker_notes": false,
+    "include_charts": true
+  }
+}

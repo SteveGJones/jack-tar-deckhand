@@ -1,0 +1,40 @@
+{
+  "brand_id": "jack-tar-deckhand",
+  "company_name": "Jack-Tar Deckhand",
+  "tagline": "Your AI Crew for Conference-Quality Decks",
+  "palette": {
+    "primary": "1B3A4B",
+    "secondary": "456990",
+    "accent": "C67B2F",
+    "background": "F5F0E8",
+    "background_alt": "E8E0D0",
+    "text_primary": "1A1A1A",
+    "text_muted": "555555",
+    "text_on_dark": "F5F0E8",
+    "chart_series": ["1B3A4B", "C67B2F", "456990", "8B4513", "2E8B57"]
+  },
+  "typography": {
+    "heading_font": "Playfair Display",
+    "body_font": "Source Sans Pro",
+    "mono_font": "Fira Code"
+  },
+  "approved_image_styles": [
+    "nautical illustration",
+    "aged maritime maps",
+    "brass instruments and compass",
+    "rope and knot textures",
+    "ship deck woodgrain",
+    "ocean and horizon",
+    "vintage cartography"
+  ],
+  "prohibited_image_styles": [
+    "cartoon pirates",
+    "skull and crossbones",
+    "childish pirate themes",
+    "clip art",
+    "stock photo cliches"
+  ],
+  "compliance_mode": "guided",
+  "extracted_at": "2026-04-04T00:00:00Z",
+  "source_hash": "manual-nautical-pirate-brand"
+}

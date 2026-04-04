@@ -1,0 +1,417 @@
+{
+  "narrative_arc": "hook-body-callback-cta",
+  "estimated_duration_minutes": 45,
+  "total_slides": 28,
+  "slides": [
+    {
+      "slide_number": 1,
+      "slide_type": "title",
+      "headline": "Jack-Tar Deckhand: Your AI Crew for Conference-Quality Decks",
+      "body_points": [
+        "How an AI-First Skill Suite Turns Ideas into Presentations"
+      ],
+      "narrative_beat": "hook",
+      "visual_direction": "Nautical title card with ship's wheel or brass compass motif against deep navy background, gold accents, parchment texture",
+      "visual_type": "hero_image"
+    },
+    {
+      "slide_number": 2,
+      "slide_type": "content",
+      "headline": "Presentations Are the Dark Matter of Business Communication",
+      "body_points": [
+        "Hours spent arranging slides instead of thinking about what to say",
+        "Design inconsistency, image hunting, copy-paste from old decks",
+        "Speaker notes as an afterthought \u2014 or not at all",
+        "The result: mediocre decks that don't serve the speaker or the audience"
+      ],
+      "narrative_beat": "situation",
+      "visual_direction": "Structured storm scene \u2014 scattered presentation slides caught in wind, a clock showing wasted time, a frustrated figure at a desk. Dark, dramatic atmosphere.",
+      "visual_type": "hero_image"
+    },
+    {
+      "slide_number": 3,
+      "slide_type": "content",
+      "headline": "One Brief In, Conference-Quality Deck Out",
+      "body_points": [
+        "You provide a talk brief: topic, audience, duration, tone",
+        "The system produces a complete .pptx with narrative structure and branded visuals",
+        "AI-generated images, intelligent data graphics, and timed speaker notes",
+        "All derived from your corporate identity and calibrated to your talk duration"
+      ],
+      "narrative_beat": "resolution",
+      "visual_direction": "Calm nautical scene \u2014 clear horizon, calm sea at golden hour, suggesting clarity after the storm of slide 2",
+      "visual_type": "hero_image"
+    },
+    {
+      "slide_number": 4,
+      "slide_type": "diagram",
+      "headline": "13 Steps from Brief to Deck",
+      "body_points": [
+        "Validate Brief \u2192 Brand Manager \u2192 Slide Stylist \u2192 Narrative Architect",
+        "SmartArt Selector \u2192 Strategy Map \u2192 SmartArt Extractor",
+        "Speaker Notes Writer \u2192 Image Generation Bridge \u2192 SmartArt Renderer",
+        "Chart Renderer \u2192 Deck Assembler \u2192 Deck QA"
+      ],
+      "narrative_beat": "evidence-1",
+      "visual_direction": "Pipeline flowchart showing the complete system",
+      "visual_intent": "Show the full pipeline as a flowchart",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 5,
+      "slide_type": "content",
+      "headline": "Built for Speakers Who Think, Not Designers Who Click",
+      "body_points": [
+        "Set A: Conference Speakers \u2014 need quality fast, focus on delivery not design",
+        "Set B: Technical Leaders \u2014 need architecture diagrams, data visualisations, system overviews",
+        "Set C: Business Presenters \u2014 need branded slides, chart-heavy decks, professional polish",
+        "Shared: Anyone who has content but not design time"
+      ],
+      "narrative_beat": "evidence-2",
+      "visual_direction": "Three overlapping audience groups with distinctive icons for each",
+      "visual_intent": "Show the target audiences as a Venn diagram with AI-generated icons for each audience",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 6,
+      "slide_type": "content",
+      "headline": "How Jack-Tar Compares",
+      "body_points": [
+        "Features: Narrative Intelligence, Image Gen, Brand, SmartArt, Notes, Assembly, QA",
+        "Jack-Tar: Yes, Yes, Yes, Yes, Yes, Yes, Yes",
+        "Manual PowerPoint: No, No, Manual, No, Manual, No, No",
+        "Canva AI: No, Yes, Partial, No, No, No, No",
+        "Beautiful.ai / Gamma.app: Partial capability across some dimensions"
+      ],
+      "narrative_beat": "evidence-3",
+      "visual_direction": "Clean comparison grid showing competitive advantage",
+      "visual_intent": "Show a feature comparison matrix",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 7,
+      "slide_type": "content",
+      "headline": "SWOT: Where Jack-Tar Stands",
+      "body_points": [
+        "Strengths: Deep narrative intelligence, 6 AI personas working in concert, 3 rendering engines for data graphics, Full brand awareness and enforcement",
+        "Weaknesses: Requires Claude Code environment, No graphical user interface, Learning curve for talk brief specification",
+        "Opportunities: Enterprise deck automation at scale, Conference speaker productivity tools, Education and training content generation",
+        "Threats: Native AI features arriving in PowerPoint and Google Slides, Canva's growing API ecosystem, Open-source slide generation tools"
+      ],
+      "narrative_beat": "evidence-4",
+      "visual_direction": "Strategic SWOT analysis with nautical themed AI rendering",
+      "visual_intent": "SWOT analysis of the Jack-Tar platform rendered as a full AI image",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 8,
+      "slide_type": "data_chart",
+      "headline": "Six Dimensions of Deck Quality",
+      "body_points": [
+        "Narrative Structure: 9, Visual Design: 8, Image Quality: 8",
+        "Data Visualisation: 9, Brand Consistency: 9, Speaker Support: 7"
+      ],
+      "narrative_beat": "evidence-5",
+      "visual_direction": "Radar chart showing capability scores across six dimensions",
+      "visual_intent": "Radar chart comparing Jack-Tar capabilities across 6 dimensions",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 9,
+      "slide_type": "section_divider",
+      "headline": "How It Works: Watch the Pipeline Build This Deck",
+      "body_points": [
+        "Compass \u2014 Navigate the brief",
+        "Telescope \u2014 Discover the brand",
+        "Ship's Wheel \u2014 Steer the narrative",
+        "Map \u2014 Chart the visuals"
+      ],
+      "narrative_beat": "transition",
+      "visual_direction": "Individual nautical elements \u2014 brass compass, telescope, ship's wheel, aged map \u2014 each generated separately and placed at exact positions with labels",
+      "visual_type": "hero_image"
+    },
+    {
+      "slide_number": 10,
+      "slide_type": "content",
+      "headline": "Every Deck Starts with a Brand",
+      "body_points": [
+        "The brand-manager accepts logos, PDF guidelines, .pptx templates, or manual hex input",
+        "It extracts a reusable BrandProfile that persists across deck sessions",
+        "This deck: navy #1B3A4B, gold #C67B2F, parchment #F5F0E8, Playfair Display headings",
+        "Nautical illustration style \u2014 aged maritime maps, brass instruments, rope textures",
+        "This slide's styling is proof the system works"
+      ],
+      "narrative_beat": "evidence-6",
+      "visual_direction": "Clean composed layout showing the brand profile data",
+      "visual_type": "none"
+    },
+    {
+      "slide_number": 11,
+      "slide_type": "diagram",
+      "headline": "The AI Doesn't Just Arrange Slides \u2014 It Thinks About Story",
+      "body_points": [
+        "Is the talk persuasive? Yes: hook-body-callback-cta",
+        "Is it problem-solving? Yes: situation-complication-resolution",
+        "Is it historical? Yes: chronological",
+        "Is it a technical deep-dive? Yes: deep-dive",
+        "Is it a comparison? Yes: compare-contrast"
+      ],
+      "narrative_beat": "evidence-7",
+      "visual_direction": "Decision tree showing narrative arc selection logic",
+      "visual_intent": "Show the decision tree for narrative arc selection",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 12,
+      "slide_type": "content",
+      "headline": "The Selector Sees Structure Where You See Bullets",
+      "body_points": [
+        "Features: Content Pattern, Graphic Type, Engine",
+        "Sequential steps: Flowchart, Mermaid. Decisions: Decision Tree, Mermaid. Schedule: Gantt, Mermaid",
+        "Values: Bar Chart, Vega-Lite. Trends: Line Chart, Vega-Lite. Multi-axis: Radar, Vega-Lite",
+        "SWOT: Custom SVG. Matrix: Custom SVG. Venn: Custom SVG. Timeline: Custom SVG. Funnel: Custom SVG"
+      ],
+      "narrative_beat": "evidence-8",
+      "visual_direction": "Content trigger to graphic type mapping table",
+      "visual_intent": "Show the 10 graphic types mapped to their content triggers as a feature matrix",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 13,
+      "slide_type": "content",
+      "headline": "From Prose to Structured Data \u2014 No LLM Required",
+      "body_points": [
+        "The extractor is pure Python \u2014 regex and string parsing, not AI reasoning",
+        "Deterministic, testable, and fast \u2014 'Q1: 120' becomes Vega-Lite, 'Research, Design' becomes Mermaid",
+        "'Strengths: Brand, Team' becomes a SWOT quadrant data structure",
+        "Overflow handling: truncate, paginate, summarise, or reject when data exceeds capacity"
+      ],
+      "narrative_beat": "evidence-9",
+      "visual_direction": "Clean composed layout explaining the extraction process",
+      "visual_type": "none"
+    },
+    {
+      "slide_number": 14,
+      "slide_type": "diagram",
+      "headline": "One Data Structure, Three Ways to Draw It",
+      "body_points": [
+        "Set A: Mermaid.js \u2014 flowcharts, decision trees, Gantt charts",
+        "Set B: Vega-Lite \u2014 bar charts, line charts, radar charts",
+        "Set C: Custom SVG \u2014 SWOT, matrices, Venn, timelines, funnels",
+        "Shared A+C: Flowcharts can render via both Mermaid and Custom SVG",
+        "Shared B+Matplotlib: Comparator runs both for bar/line charts"
+      ],
+      "narrative_beat": "evidence-10",
+      "visual_direction": "Three-circle Venn diagram showing engine capabilities and overlaps",
+      "visual_intent": "Show the three rendering engines as a Venn diagram",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 15,
+      "slide_type": "diagram",
+      "headline": "Draft Phase: Compete. Production Phase: Execute.",
+      "body_points": [
+        "All Eligible Engines Render: 100",
+        "Image Reviewer Scores Each: 60",
+        "Winner Selected by Score: 30",
+        "Production Renders Winner Only: 10"
+      ],
+      "narrative_beat": "evidence-11",
+      "visual_direction": "Funnel showing the narrowing from multiple engine candidates to single winner",
+      "visual_intent": "Show the draft-to-production funnel",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 16,
+      "slide_type": "diagram",
+      "headline": "From Clean SVG to Full AI Render",
+      "body_points": [
+        "T0 Pure Programmatic: Clean SVG styled with design tokens \u2014 free, fast, data-precise",
+        "T1 AI Background: Programmatic graphic over AI-generated atmospheric image \u2014 adds visual depth",
+        "T2 AI Elements: Programmatic structure with AI-generated icons per node \u2014 adds meaning",
+        "T3 Full AI Render: Entire graphic rendered as an AI image \u2014 maximum visual impact"
+      ],
+      "narrative_beat": "evidence-12",
+      "visual_direction": "Timeline showing enrichment progression from simplest to richest",
+      "visual_intent": "Show the enrichment tiers as a timeline from simplest to richest",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 17,
+      "slide_type": "diagram",
+      "headline": "Local Draft, Cloud Production \u2014 Try Cheap First",
+      "body_points": [
+        "Ollama Local Draft: 1000",
+        "Cloud Low-Tier 720p: 500",
+        "Cloud Full-Tier 2K+: 100",
+        "Production Approved: 20"
+      ],
+      "narrative_beat": "evidence-13",
+      "visual_direction": "Pipeline funnel showing render stages narrowing from many drafts to few production renders",
+      "visual_intent": "Show the render funnel stages as a pipeline funnel",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 18,
+      "slide_type": "data_chart",
+      "headline": "35 Automated Checks Before Any Human Sees It",
+      "body_points": [
+        "Contrast: 4, Margins: 3, Text Overflow: 3, Consistency: 5",
+        "Image Quality: 4, Placeholders: 2, Missing Content: 3",
+        "Accessibility: 3, Keynote: 3, SmartArt: 5"
+      ],
+      "narrative_beat": "evidence-14",
+      "visual_direction": "Bar chart showing QA check counts by category",
+      "visual_intent": "Show the QA categories as a bar chart",
+      "visual_type": "chart",
+      "data": {
+        "chart_type": "bar",
+        "data_source_label": "QA check distribution by category"
+      }
+    },
+    {
+      "slide_number": 19,
+      "slide_type": "diagram",
+      "headline": "Not One AI \u2014 A Crew",
+      "body_points": [
+        "Deck Conductor: Brief Validation through Final Delivery",
+        "SmartArt Selector: Selection phase. Prompt Engineer: Image Generation",
+        "Image Reviewer: Quality Gate. Presentation Reviewer: Final Review"
+      ],
+      "narrative_beat": "evidence-15",
+      "visual_direction": "Gantt chart showing when each AI persona is active in the pipeline",
+      "visual_intent": "Show the persona activity phases as a Gantt chart",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 20,
+      "slide_type": "stat_callout",
+      "headline": "From 3 Sentences to 28 Slides in Minutes",
+      "body_points": [
+        "28 slides, 1 nautical brand, 18 SmartArt graphics across 3 engines",
+        "4 enrichment tiers demonstrated, 6 rendering strategies exercised",
+        "35 QA checks passed \u2014 this deck was built by the system it describes"
+      ],
+      "narrative_beat": "callback",
+      "visual_direction": "Clean stat callout layout with key numbers highlighted",
+      "visual_type": "none"
+    },
+    {
+      "slide_number": 21,
+      "slide_type": "section_divider",
+      "headline": "Why This Architecture Wins",
+      "body_points": [
+        "The strategic advantages of AI-First presentation engineering"
+      ],
+      "narrative_beat": "transition",
+      "visual_direction": "Treasure map scene with figurative landmarks \u2014 a compass rose, dotted trail, X-marks-the-spot. Section title positioned by vision analysis against the map background.",
+      "visual_type": "hero_image"
+    },
+    {
+      "slide_number": 22,
+      "slide_type": "content",
+      "headline": "33 Services, 6 Personas, 60 Interactions",
+      "body_points": [
+        "Built on AI-First Business Service Architecture: 4 L1 domains",
+        "Content, Design, Image, Assembly & QA \u2014 each owns its decisions",
+        "The narrative-architect owns story, slide-stylist owns visuals, imagegen-bridge owns routing",
+        "Every service independently invocable \u2014 not just a pipeline"
+      ],
+      "narrative_beat": "evidence-16",
+      "visual_direction": "Clean composed layout \u2014 could embed the L1 architecture SVG diagram",
+      "visual_type": "none"
+    },
+    {
+      "slide_number": 23,
+      "slide_type": "data_chart",
+      "headline": "Conference Quality Doesn't Mean Conference Budget",
+      "body_points": [
+        "Ollama Drafts: 0, Cloud Drafts: 0.50, Production Images: 1.50",
+        "SmartArt Rendering: 0, QA and Review: 0",
+        "Total Typical Deck: 2.00"
+      ],
+      "narrative_beat": "evidence-17",
+      "visual_direction": "Bar chart showing cost breakdown by category in USD",
+      "visual_intent": "Show costs by category as a bar chart",
+      "visual_type": "chart",
+      "data": {
+        "chart_type": "bar",
+        "data_source_label": "Cost per deck by category (USD)"
+      }
+    },
+    {
+      "slide_number": 24,
+      "slide_type": "diagram",
+      "headline": "Three Layers of Review, Zero Tolerance for Mediocrity",
+      "body_points": [
+        "Image Reviewer \u2014 per-image quality gate with 5 criteria",
+        "Deck QA \u2014 35 automated anti-pattern checks with max 2 correction cycles",
+        "Presentation Reviewer \u2014 narrative coherence, visual storytelling, pacing, audience fit"
+      ],
+      "narrative_beat": "evidence-18",
+      "visual_direction": "Three-step flowchart showing the quality gate pipeline",
+      "visual_intent": "Show the quality pipeline as a flowchart",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 25,
+      "slide_type": "diagram",
+      "headline": "Six Ways to Build a Slide",
+      "body_points": [
+        "Composed: Standard PptxGenJS shapes and text. SmartArt: Data-driven graphics from 3 engines",
+        "Background: AI atmospheric image with text zones. Backdrop: Vision-detected positioning",
+        "Pragmatic Composition: Individual AI elements at exact coordinates",
+        "Full Render: Entire slide as a single AI-generated image"
+      ],
+      "narrative_beat": "evidence-19",
+      "visual_direction": "Timeline showing the 6 rendering strategies from simplest to most complex",
+      "visual_intent": "Show the 6 rendering strategies as a timeline from simplest to most complex",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 26,
+      "slide_type": "data_chart",
+      "headline": "From Research to 603 Tests in 6 Days",
+      "body_points": [
+        "11 implementation phases from foundation to SmartArt",
+        "Cumulative test count grew from 38 to 603",
+        "AI-First SDLC with TDD, subagent-driven development, and continuous architecture"
+      ],
+      "narrative_beat": "evidence-20",
+      "visual_direction": "Line chart showing cumulative test count growth across project phases",
+      "visual_intent": "Show the project phases as a line chart tracking cumulative tests over time",
+      "visual_type": "chart",
+      "data": {
+        "chart_type": "line",
+        "data_source_label": "Cumulative test count by phase"
+      }
+    },
+    {
+      "slide_number": 27,
+      "slide_type": "diagram",
+      "headline": "What's Next",
+      "body_points": [
+        "Phase A SmartArt v1: Now to Q2 2025",
+        "Phase B Complex Diagrams: Q2 to Q3 2025",
+        "Phase C Brand Kit Integration: Q3 to Q4 2025",
+        "Phase D Visual Regression: Q4 2025 to Q1 2026"
+      ],
+      "narrative_beat": "cta",
+      "visual_direction": "Gantt chart showing the four development phases with time ranges",
+      "visual_intent": "Show the roadmap as a Gantt chart",
+      "visual_type": "diagram"
+    },
+    {
+      "slide_number": 28,
+      "slide_type": "closing",
+      "headline": "Set Sail. Your Deck Awaits.",
+      "body_points": [
+        "Jack-Tar Deckhand \u2014 AI-First Presentation Engineering",
+        "github.com/SteveGJones/jack-tar-deckhand"
+      ],
+      "narrative_beat": "cta",
+      "visual_direction": "Nautical closing \u2014 tall ship at sunset with compass rose, gold and navy palette, sense of journey complete",
+      "visual_type": "hero_image"
+    }
+  ]
+}
