@@ -140,7 +140,7 @@ class TestContainerEngine:
         c = Container(0, 0, 100, 30, padding=0)
         fitted = c.fit_text("A very long text that cannot fit at large size", font_size=48, max_lines=1)
         assert fitted.font_size < 48
-        assert fitted.font_size >= 10  # minimum readable
+        assert fitted.font_size >= 12  # minimum readable
 
     def test_fit_text_preserves_size_when_fits(self):
         from src.smartart_svg.engine import Container
@@ -148,6 +148,19 @@ class TestContainerEngine:
         fitted = c.fit_text("Short", font_size=16, max_lines=1)
         assert fitted.font_size == 16
         assert fitted.overflow is False
+
+    def test_fit_text_never_below_12px(self):
+        from src.smartart_svg.engine import Container
+        c = Container(0, 0, 50, 20, padding=0)
+        fitted = c.fit_text("This text absolutely cannot fit", font_size=24, max_lines=1)
+        assert fitted.font_size >= 12
+        assert fitted.overflow is True
+
+    def test_fit_text_recommended_min(self):
+        from src.smartart_svg.engine import Container
+        c = Container(0, 0, 200, 30, padding=0)
+        fitted = c.fit_text("Medium length text here", font_size=16, max_lines=1, recommended_min=14)
+        assert fitted.font_size >= 12
 
     def test_split_grid_single_cell(self):
         from src.smartart_svg.engine import Container

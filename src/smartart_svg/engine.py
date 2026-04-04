@@ -82,36 +82,57 @@ class Container:
             cy += h + gap
         return parts
 
-    def fit_text(self, text: str, font_size: float = 16, max_lines: int = 1) -> FittedText:
+    def fit_text(self, text: str, font_size: float = 16, max_lines: int = 1, recommended_min: float = 0) -> FittedText:
         """Reduce font size until text fits within container width.
 
         Uses approximate character width (0.6 x font_size) for estimation.
-        Minimum font size is 10px.
+        Minimum font size is 12px. If recommended_min is provided, the algorithm
+        first tries to fit at recommended_min or above; if that fails it reduces
+        to the hard minimum of 12px, below which overflow is flagged.
         """
-        min_size = 10
-        current_size = font_size
-        while current_size >= min_size:
-            char_width = current_size * 0.6
-            chars_per_line = max(1, int(self.inner_width / char_width))
-            lines = []
-            words = text.split()
-            current_line = ""
-            for word in words:
-                test = (current_line + " " + word).strip()
-                if len(test) <= chars_per_line:
-                    current_line = test
-                else:
-                    if current_line:
-                        lines.append(current_line)
-                    current_line = word
-            if current_line:
-                lines.append(current_line)
+        min_size = 12
 
-            if len(lines) <= max_lines:
-                return FittedText(text=text, font_size=current_size, lines=lines, overflow=False)
-            current_size -= 1
+        def _attempt_fit(start_size: float, floor: float):
+            """Try to fit text reducing from start_size down to floor (inclusive).
 
-        # At minimum size, just truncate
+            Returns FittedText on success, None if text could not fit."""
+            current_size = start_size
+            while current_size >= floor:
+                char_width = current_size * 0.6
+                chars_per_line = max(1, int(self.inner_width / char_width))
+                lines = []
+                words = text.split()
+                current_line = ""
+                for word in words:
+                    test = (current_line + " " + word).strip()
+                    if len(test) <= chars_per_line:
+                        current_line = test
+                    else:
+                        if current_line:
+                            lines.append(current_line)
+                        current_line = word
+                if current_line:
+                    lines.append(current_line)
+
+                if len(lines) <= max_lines:
+                    return FittedText(text=text, font_size=current_size, lines=lines, overflow=False)
+                current_size -= 1
+            return None
+
+        # If recommended_min is set, first attempt to stay at or above it.
+        effective_start = font_size
+        if recommended_min > min_size:
+            result = _attempt_fit(effective_start, recommended_min)
+            if result is not None:
+                return result
+            # Failed at recommended_min floor; now try down to hard min.
+            effective_start = recommended_min - 1
+
+        result = _attempt_fit(effective_start, min_size)
+        if result is not None:
+            return result
+
+        # At hard minimum size, truncate and flag overflow.
         char_width = min_size * 0.6
         chars_per_line = max(1, int(self.inner_width / char_width))
         return FittedText(
