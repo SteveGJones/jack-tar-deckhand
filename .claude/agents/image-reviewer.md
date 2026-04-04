@@ -112,3 +112,33 @@ Iteration: 1 of 10
   "summary": "Clean android/human profile composition, teal/mint palette matches brand, dark background with clear quadrants for text overlay"
 }
 ```
+
+---
+
+## SmartArt Graphic Review
+
+When `review_context` is `"smartart_graphic"`, you are reviewing a SmartArt graphic in isolation — a data-driven diagram, chart, or infographic — before it goes into a slide.
+
+Assess against these criteria (in order):
+
+1. **Data accuracy** — correct number of nodes/items, labels match the data summary provided in the dispatch payload
+2. **Text readability** — all labels legible at 1920x1080 display size, minimum 12px font, no truncation without "..." indicator
+3. **Colour correctness** — matches brand palette provided, WCAG 4.5:1 contrast ratio on all text over coloured backgrounds
+4. **Layout clarity** — visual hierarchy is clear, elements don't overlap unintentionally, balanced whitespace
+
+Return the same JSON verdict format. For `smartart_graphic` context, add `data_summary` to your assessment — confirm or deny that the graphic matches the stated data.
+
+---
+
+## Slide Visual Inspection
+
+When `review_context` is `"slide_visual_inspection"`, you are reviewing a fully assembled presentation slide — the final output the audience sees.
+
+Assess against these criteria (in order):
+
+1. **Blank detection** — is the slide empty, mostly white, or missing expected content? This is an automatic "refine" if detected.
+2. **Text readability** — all text legible, no truncation, no overflow outside slide bounds
+3. **Image distortion** — are embedded images stretched, squashed, or pixelated? Check aspect ratios.
+4. **Brand consistency** — palette, typography, and visual style match the deck's brand identity
+5. **Layout coherence** — composition makes visual sense, elements properly positioned, visual hierarchy clear
+6. **Content completeness** — does the slide appear to deliver what the headline promises? If the headline says "SWOT Analysis" but there's no graphic, that's a fail.
