@@ -98,6 +98,11 @@ async function assembleDeck() {
         ? JSON.parse(fs.readFileSync(strategyMapPath, 'utf-8'))
         : null;
 
+    // Load SmartArt manifest (optional — only present when smartart strategy is used)
+    const smartartManifest = fs.existsSync(path.join(DECK_DIR, 'smartart-manifest.json'))
+        ? loadContract('smartart-manifest')
+        : { graphics: [] };
+
     // Build a lookup: slide_number -> effective strategy
     const slideStrategies = {};
     if (strategyMap) {
@@ -191,6 +196,19 @@ async function assembleDeck() {
                 ? (strategyMap.slides || []).find(e => e.slide_number === slideData.slide_number)
                 : null;
             buildPragmaticSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageManifest, strategyEntry });
+            continue;
+        }
+        if (strategy === 'smartart') {
+            const saEntry = smartartManifest.graphics.find(g => g.slide_number === slideData.slide_number);
+            if (saEntry) {
+                const enrichmentImgs = (imageManifest.images || []).filter(
+                    i => i.smartart_ref === saEntry.smartart_id
+                );
+                buildSmartArtSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, saEntry, enrichmentImgs });
+            } else {
+                // Fallback to composed if no SmartArt entry found
+                buildContentSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
+            }
             continue;
         }
 
@@ -1283,6 +1301,107 @@ function buildBackdropSlide(pptx, slideData, ctx) {
     });
 
     addFooterLogo(slide, ctx);
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
+/**
+ * SmartArt slide: renders a SmartArt graphic with one of 4 enrichment tiers.
+ *
+ * Tiers:
+ *   full_ai_render      — T3: full-bleed AI image (same pattern as full_render)
+ *   ai_background       — T1: atmospheric AI background + SmartArt centred with backing rect
+ *   ai_elements         — T2: SmartArt with AI-composited element icons (graphic only)
+ *   pure_programmatic   — T0: pure programmatic SVG/PNG graphic only
+ *
+ * The SmartArt graphic file path is taken from the SmartArt manifest entry (saEntry).
+ * Enrichment images (AI background for ai_background tier) are matched via smartart_ref.
+ */
+function buildSmartArtSlide(pptx, slideData, ctx) {
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, saEntry, enrichmentImgs } = ctx;
+
+    const slide = pptx.addSlide();
+    const tier = saEntry.enrichment_tier;
+    const bgColor = slidePalette?.content_slides?.background || palette.background || 'FFFFFF';
+    const textColor = slidePalette?.content_slides?.text || palette.text_primary || '1A1A1A';
+
+    slide.background = { color: bgColor };
+
+    if (tier === 'full_ai_render') {
+        // T3: full-bleed AI image — the graphic IS the entire slide
+        const imgPath = resolveImagePath(saEntry.file_path);
+        if (fs.existsSync(imgPath)) {
+            slide.addImage({
+                path: imgPath,
+                x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+                sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                altText: saEntry.alt_text || slideData.headline || '',
+            });
+        }
+    } else if (tier === 'ai_background') {
+        // T1: atmospheric AI background + SmartArt centred with semi-transparent backing rect
+        const bgImage = enrichmentImgs.find(i => i.smartart_ref === saEntry.smartart_id);
+        if (bgImage) {
+            const bgPath = resolveImagePath(bgImage.file_path);
+            if (fs.existsSync(bgPath)) {
+                slide.addImage({
+                    path: bgPath,
+                    x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+                    sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                    altText: 'Background',
+                });
+            }
+        }
+        // Semi-transparent backing rectangle behind the graphic
+        const backingColor = palette.background || 'FFFFFF';
+        slide.addShape(pptx.ShapeType.rect, {
+            x: SLIDE_W * 0.125, y: SLIDE_H * 0.14,
+            w: SLIDE_W * 0.75, h: SLIDE_H * 0.80,
+            fill: { color: backingColor, transparency: 15 },
+            line: { color: 'CCCCCC', width: 0.5 },
+        });
+        // SmartArt graphic on top of the backing rectangle
+        const saPath = resolveImagePath(saEntry.file_path);
+        if (fs.existsSync(saPath)) {
+            slide.addImage({
+                path: saPath,
+                x: SLIDE_W * 0.125, y: SLIDE_H * 0.14,
+                w: SLIDE_W * 0.75, h: SLIDE_H * 0.80,
+                altText: saEntry.alt_text || slideData.headline || '',
+            });
+        }
+    } else {
+        // T0 (pure_programmatic) and T2 (ai_elements — icons already composited into the graphic)
+        const saPath = resolveImagePath(saEntry.file_path);
+        if (fs.existsSync(saPath)) {
+            slide.addImage({
+                path: saPath,
+                x: SLIDE_W * 0.075, y: SLIDE_H * 0.14,
+                w: SLIDE_W * 0.85, h: SLIDE_H * 0.80,
+                altText: saEntry.alt_text || slideData.headline || '',
+            });
+        }
+    }
+
+    // Headline text box — top of slide, always rendered on SmartArt slides
+    const headingFont = typo?.heading_font || 'Arial';
+    const headingSize = typo?.heading_sizes?.slide_heading || 28;
+    slide.addText(slideData.headline || '', {
+        x: SLIDE_W * 0.05, y: SLIDE_H * 0.02,
+        w: SLIDE_W * 0.90, h: SLIDE_H * 0.10,
+        fontSize: headingSize,
+        fontFace: headingFont,
+        color: tier === 'full_ai_render' ? 'FFFFFF' : textColor,
+        bold: true,
+        valign: 'middle',
+        wrap: true,
+    });
+
+    // Footer logo (bottom-right, every slide)
+    addFooterLogo(slide, ctx);
+
+    // Speaker notes
     if (noteData) {
         slide.addNotes(noteData.text);
     }
