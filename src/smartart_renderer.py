@@ -602,7 +602,9 @@ def render(spec, style_guide, phase, output_dir):
                 graphic_type=graphic_type,
                 node_count=spec.get('node_count', 0),
             )
-            pa_findings += validate_svg_font_sizes(_svg_content, slide_number)
+            # PA-03 only for custom_svg — Vega-Lite uses 10px for axis labels internally
+            if primary_engine == 'custom_svg':
+                pa_findings += validate_svg_font_sizes(_svg_content, slide_number)
         except Exception:  # noqa: BLE001
             pass
     elif primary_engine == 'mermaid':
