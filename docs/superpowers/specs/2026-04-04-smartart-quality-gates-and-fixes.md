@@ -96,13 +96,18 @@ Catch rendering defects at the point they're produced, before they reach the ass
 - For all types: WARN if zero text elements found
 - FAIL triggers status: "failed" in manifest entry
 
-### PA-03: Minimum Font Size Enforcement
+### PA-03: Minimum DISPLAYED Font Size Enforcement
 
 **Location:** `src/smartart_renderer.py`, after every custom SVG render.
 
+**CRITICAL LEARNING (2026-04-04):** SVG source font sizes are NOT what the reader sees. A 1920x1080 SVG placed in an 85% slide zone (8.5" × 4.5") has a scale factor of 0.30. A 12px source font = 3.6pt displayed = UNREADABLE.
+
+- Parse SVG dimensions (viewBox or width/height)
 - Parse all `font-size` attributes from SVG content
-- FAIL if any font-size < 12px
-- The renderer should never produce < 12px — this is a safety net
+- Calculate displayed point size: `displayed_pt = source_px × (display_inches × 72) / source_dimension_px`
+- FAIL if any displayed font < 8pt
+- For a 1920x1080 SVG in the standard graphic zone, minimum source font is ~28px
+- The cleanest fix: render SVGs at display size in points (~612×324) so scale ≈ 1:1
 - FAIL triggers status: "failed" in manifest entry
 
 ### PA-04: Mermaid Rasterisation Gate
