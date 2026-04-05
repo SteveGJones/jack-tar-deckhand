@@ -856,6 +856,31 @@ function buildFullRenderSlide(pptx, slideData, ctx) {
         slide.background = { color: bgColor };
     }
 
+    // Title overlay with semi-transparent backing
+    if (slideData.headline) {
+        const titleH = 0.9;
+        const titleY = SLIDE_H * 0.75;
+
+        // Semi-transparent backing strip
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: titleY - 0.1,
+            w: SLIDE_W, h: titleH + 0.2,
+            fill: { color: '000000', transparency: 50 },
+        });
+
+        // Title text
+        slide.addText(slideData.headline, {
+            x: MARGIN, y: titleY,
+            w: SLIDE_W - 2 * MARGIN, h: titleH,
+            fontSize: typo.heading_sizes?.slide_heading || 36,
+            fontFace: typo.heading_font,
+            color: 'FFFFFF',
+            bold: true,
+            valign: 'middle',
+            wrap: true,
+        });
+    }
+
     // Footer logo (bottom-right, every slide)
     addFooterLogo(slide, ctx);
 
@@ -1406,8 +1431,8 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
     const headingFont = typo?.heading_font || 'Arial';
     const headingSize = typo?.heading_sizes?.slide_heading || 28;
     slide.addText(slideData.headline || '', {
-        x: SLIDE_W * 0.05, y: SLIDE_H * 0.02,
-        w: SLIDE_W * 0.90, h: SLIDE_H * 0.10,
+        x: MARGIN, y: SLIDE_H * 0.02,
+        w: SLIDE_W - 2 * MARGIN, h: SLIDE_H * 0.10,
         fontSize: headingSize,
         fontFace: headingFont,
         color: tier === 'full_ai_render' ? 'FFFFFF' : textColor,
