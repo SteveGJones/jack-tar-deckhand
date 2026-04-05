@@ -50,9 +50,23 @@ def svg_group(children, transform=None, role=None, aria_label=None):
     return f'<g{attrs}>\n{inner}\n</g>'
 
 
-def svg_document(width, height, children, title="", desc=""):
+def svg_document(width, height, children, title="", desc="",
+                 render_width=None, render_height=None):
+    """Create a complete SVG document with accessibility tags.
+
+    Args:
+        width: Logical width (viewBox coordinate space — use points for 1:1 display mapping)
+        height: Logical height (viewBox coordinate space)
+        children: List of SVG element strings
+        title: Accessibility title
+        desc: Accessibility description
+        render_width: Pixel width for rendering resolution (defaults to width)
+        render_height: Pixel height for rendering resolution (defaults to height)
+    """
+    rw = render_width or width
+    rh = render_height or height
     inner = "\n".join(children)
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{rw}" height="{rh}" '
             f'viewBox="0 0 {width} {height}">\n'
             f'<title>{title}</title>\n'
             f'<desc>{desc}</desc>\n'
