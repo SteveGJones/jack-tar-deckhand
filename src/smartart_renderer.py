@@ -302,10 +302,10 @@ def render_custom_svg_engine(spec, style_guide, output_dir):
 def render_mermaid(spec, style_guide, output_dir):
     """Render a Mermaid diagram using the Mermaid CLI (mmdc via npx).
 
-    Injects brand theme variables before running the CLI.  The SVG output is
-    post-processed to embed explicit pixel dimensions from its viewBox, then
-    rasterised to PNG.  The SVG source is kept alongside the PNG for debugging
-    and re-rendering.
+    Uses two-pass rendering:
+    1. SVG pass — for source file preservation and dimension extraction
+    2. PNG pass — mmdc renders directly to PNG via its own Puppeteer instance,
+       which correctly handles foreignObject HTML text that cairosvg/Sharp cannot.
 
     Args:
         spec: SmartArt spec dict; spec['data']['syntax'] must contain Mermaid syntax.
@@ -341,21 +341,26 @@ def render_mermaid(spec, style_guide, output_dir):
     with open(mmd_path, 'w', encoding='utf-8') as f:
         f.write(full_syntax)
 
-    result = subprocess.run(
+    # Pass 1: Render to SVG (source preservation + dimension extraction)
+    svg_result = subprocess.run(
         ['npx', 'mmdc', '-i', mmd_path, '-o', svg_path,
          '-b', 'transparent', '--width', '1600'],
-        capture_output=True,
-        text=True,
-        timeout=30,
+        capture_output=True, text=True, timeout=30,
     )
-    if result.returncode != 0:
-        raise RuntimeError(f"Mermaid CLI failed: {result.stderr}")
-
-    # Post-process SVG: replace width="100%" with explicit pixel dimensions
+    if svg_result.returncode != 0:
+        raise RuntimeError(f"Mermaid CLI (SVG) failed: {svg_result.stderr}")
     _postprocess_mermaid_svg(svg_path)
 
-    # Rasterise SVG → PNG (mandatory — PowerPoint can't render SVG <foreignObject>)
-    _rasterise_svg_to_png(svg_path, png_path)
+    # Pass 2: Render directly to PNG (Mermaid's Puppeteer handles foreignObject text)
+    # Use -s 4 scale factor to produce high-resolution output suitable for slides
+    png_result = subprocess.run(
+        ['npx', 'mmdc', '-i', mmd_path, '-o', png_path,
+         '-b', 'transparent', '--width', '1600', '-s', '4'],
+        capture_output=True, text=True, timeout=30,
+    )
+    if png_result.returncode != 0:
+        # Fallback: rasterise SVG (may lose foreignObject text but won't crash)
+        _rasterise_svg_to_png(svg_path, png_path)
 
     return png_path
 

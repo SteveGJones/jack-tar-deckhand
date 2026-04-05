@@ -202,6 +202,44 @@ class TestMermaidFixes:
             assert len(svg_files) >= 1, "SVG source should exist"
 
 
+class TestMermaidPngDirect:
+    def test_mermaid_png_direct_has_content(self):
+        """mmdc --outputFormat png should produce a non-blank PNG with text."""
+        from src.smartart_renderer import render_mermaid
+        spec = {
+            'data': {
+                'syntax': 'graph TD\n    A[Start] --> B[End]'
+            }
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'text_primary': '1a1a1a'},
+            'typography': {'body_font': 'sans-serif'}
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = render_mermaid(spec, style_guide, tmpdir)
+            assert result.endswith('.png')
+            assert os.path.exists(result)
+            # PNG should be non-trivial size — Puppeteer renders real content
+            assert os.path.getsize(result) > 2000
+
+    def test_mermaid_svg_source_preserved(self):
+        """SVG source file should be kept alongside the PNG for debugging."""
+        from src.smartart_renderer import render_mermaid
+        spec = {
+            'data': {
+                'syntax': 'graph LR\n    A[Hello] --> B[World]'
+            }
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'text_primary': '1a1a1a'},
+            'typography': {'body_font': 'sans-serif'}
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            png_path = render_mermaid(spec, style_guide, tmpdir)
+            svg_path = png_path.replace('.png', '.svg')
+            assert os.path.exists(svg_path), "SVG source should be preserved alongside PNG"
+
+
 class TestRender:
     def test_render_dispatches_custom_svg(self):
         from src.smartart_renderer import render
