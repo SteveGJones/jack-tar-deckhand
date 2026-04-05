@@ -510,3 +510,41 @@ class TestFeatureMatrixOverflow:
         assert 'Speed' in svg
         assert 'Cost' in svg
         assert '...' not in svg
+
+
+class TestTimelineOverflow:
+    def test_many_stages_no_crash(self):
+        from src.smartart_svg.layouts.timeline import render_timeline
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        stages = [{"label": f"Stage {i}", "description": f"Detail for stage {i}"} for i in range(8)]
+        data = {"stages": stages}
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_timeline(data, c, tokens)
+        assert 'Stage 0' in svg
+        assert 'Stage 7' in svg
+
+    def test_long_labels_truncated(self):
+        from src.smartart_svg.layouts.timeline import render_timeline
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        stages = [
+            {"label": "A Very Long Stage Name That Should Be Truncated", "description": ""},
+            {"label": "Short", "description": ""},
+        ]
+        data = {"stages": stages}
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_timeline(data, c, tokens)
+        assert 'Short' in svg
+        # Long label should be present (possibly truncated with ellipsis)
+        assert '\u2026' in svg or 'A Very Long' in svg

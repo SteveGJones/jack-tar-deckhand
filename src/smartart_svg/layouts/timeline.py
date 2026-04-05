@@ -5,13 +5,19 @@ from src.smartart_svg.primitives import svg_rect, svg_circle, svg_text, svg_grou
 from src.smartart_svg.tokens import resolve_text_colour
 
 
+def _truncate(text, max_chars):
+    """Truncate text to max_chars with ellipsis if needed."""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars - 1] + '\u2026'
+
+
 def render_timeline(data, container, tokens):
     """Render a horizontal timeline as an SVG fragment.
 
     A thin horizontal spine runs through the vertical centre.
     Equal columns house each stage. Circle nodes sit on the spine.
-    Labels alternate above/below the spine to avoid crowding.
-    Descriptions appear on the opposite side from the label.
+    Labels alternate above/below. Text is truncated to fit column width.
     """
     stages = data.get('stages', [])
     if not stages:
@@ -23,22 +29,28 @@ def render_timeline(data, container, tokens):
     font = tokens['font_family']
     heading_font = tokens['heading_font']
 
-    # Vertical midpoint of the container for the spine
     spine_y = container.inner_y + container.inner_height / 2
 
-    # Spine rectangle — full width, 4px tall
     spine = svg_rect(
         container.inner_x, spine_y - 2,
         container.inner_width, 4,
         fill=primary
     )
 
-    # Split into n equal horizontal columns
-    cols = container.split_horizontal([1] * n, gap=0)
+    cols = container.split_horizontal([1] * n, gap=4)
 
-    node_r = 14
-    label_offset = 40     # distance from spine centre to label baseline
-    desc_offset = 70      # distance from spine centre to description baseline
+    node_r = min(12, container.inner_height * 0.04)
+
+    half_h = container.inner_height / 2
+    label_offset = min(half_h * 0.30, 36)
+    desc_offset = min(half_h * 0.55, 60)
+
+    label_font_size = max(12, min(16, cols[0].width / 5))
+    desc_font_size = max(12, min(13, cols[0].width / 6))
+    char_width_label = label_font_size * 0.6
+    char_width_desc = desc_font_size * 0.6
+    max_label_chars = max(6, int(cols[0].width / char_width_label))
+    max_desc_chars = max(8, int(cols[0].width / char_width_desc))
 
     elements = [spine]
 
@@ -48,32 +60,30 @@ def render_timeline(data, container, tokens):
 
         node_cx, _ = col.center_point()
 
-        # Draw node circle on the spine
         elements.append(svg_circle(node_cx, spine_y, node_r, fill=primary))
 
-        # Alternate: even stages label above, odd below
         above = (i % 2 == 0)
 
-        # Label
-        label_y = spine_y - label_offset if above else spine_y + label_offset + 14
+        truncated_label = _truncate(label, max_label_chars)
+        label_y = spine_y - label_offset if above else spine_y + label_offset + label_font_size
         elements.append(svg_text(
             node_cx, label_y,
-            label,
+            truncated_label,
             font_family=heading_font,
-            font_size=16,
+            font_size=label_font_size,
             fill=text_col,
             anchor='middle',
             weight='bold'
         ))
 
-        # Description — on opposite side from label
         if description:
-            desc_y = spine_y + desc_offset if above else spine_y - desc_offset + 14
+            truncated_desc = _truncate(description, max_desc_chars)
+            desc_y = spine_y + desc_offset if above else spine_y - desc_offset + desc_font_size
             elements.append(svg_text(
                 node_cx, desc_y,
-                description,
+                truncated_desc,
                 font_family=font,
-                font_size=13,
+                font_size=desc_font_size,
                 fill=text_col,
                 anchor='middle'
             ))
