@@ -466,9 +466,9 @@ def _extract_generic_spatial(body_points):
 # 4. extract (dispatcher)
 # ---------------------------------------------------------------------------
 
-_MERMAID_GRAPHIC_TYPES = {'flowchart', 'decision_tree', 'gantt'}
+_MERMAID_GRAPHIC_TYPES = {'flowchart', 'decision_tree'}
 _VEGA_GRAPHIC_TYPES = {'bar_chart', 'line_chart', 'radar_chart'}
-_SPATIAL_GRAPHIC_TYPES = {'swot', 'timeline', 'pipeline_funnel', 'feature_matrix', 'venn'}
+_SPATIAL_GRAPHIC_TYPES = {'swot', 'timeline', 'pipeline_funnel', 'feature_matrix', 'venn', 'gantt'}
 
 
 def _build_vega_from_inline(inline_data, graphic_type, engine='vega_lite'):
@@ -540,7 +540,7 @@ def extract(slide, selection, style_guide):
         elif engine == 'matplotlib':
             extracted_data = _build_matplotlib_from_inline(inline_data, graphic_type)
         elif graphic_type == 'gantt':
-            extracted_data = _extract_gantt(body_points, inline_data=inline_data)
+            extracted_data = {'engine': 'custom_svg', 'graphic_type': graphic_type, 'data': inline_data}
         elif graphic_type in _VEGA_GRAPHIC_TYPES:
             extracted_data = _build_vega_from_inline(inline_data, graphic_type, engine)
         else:

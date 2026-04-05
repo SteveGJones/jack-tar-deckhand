@@ -325,3 +325,61 @@ class TestRenderCustomSvgPublicAPI:
         spec = {'graphic_type': 'unsupported', 'data': {}}
         with pytest.raises(ValueError, match="Unsupported graphic type"):
             render_custom_svg(spec, {})
+
+
+class TestGanttLayout:
+    def test_renders_gantt_chart(self):
+        from src.smartart_svg.layouts.gantt import render_gantt
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "tasks": [
+                {"label": "Research", "start": "2026-01-01", "end": "2026-02-15"},
+                {"label": "Design", "start": "2026-02-01", "end": "2026-03-15"},
+                {"label": "Build", "start": "2026-03-01", "end": "2026-05-01"},
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a', 'chart_series': ['2B6CB0', 'ED8936', '38A169']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_gantt(data, c, tokens)
+        assert 'Research' in svg
+        assert 'Design' in svg
+        assert 'Build' in svg
+        assert '<rect' in svg
+
+    def test_gantt_single_task(self):
+        from src.smartart_svg.layouts.gantt import render_gantt
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "tasks": [{"label": "Solo Task", "start": "2026-01-01", "end": "2026-06-01"}]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a'},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_gantt(data, c, tokens)
+        assert 'Solo Task' in svg
+
+    def test_gantt_empty(self):
+        from src.smartart_svg.layouts.gantt import render_gantt
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {"tasks": []}
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a'},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_gantt(data, c, tokens)
+        assert 'Empty Gantt chart' in svg
