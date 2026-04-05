@@ -383,3 +383,90 @@ class TestGanttLayout:
         c = Container(0, 0, 612, 324, padding=16)
         svg = render_gantt(data, c, tokens)
         assert 'Empty Gantt chart' in svg
+
+
+class TestVennOverlap:
+    def test_exclusive_regions_visible(self):
+        """Each set's exclusive region should be clearly visible."""
+        from src.smartart_svg.layouts.venn import render_venn
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        import re
+        data = {
+            "sets": [
+                {"label": "Set A", "items": ["Only A1", "Only A2", "Only A3"]},
+                {"label": "Set B", "items": ["Only B1", "Only B2"]}
+            ],
+            "intersection": {"items": ["Shared"]}
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a',
+                        'chart_series': ['2B6CB0', 'ED8936']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_venn(data, c, tokens)
+        circles = re.findall(r'<circle cx="([\d.]+)"', svg)
+        assert len(circles) >= 2
+        left_cx = float(circles[0])
+        right_cx = float(circles[1])
+        radii = re.findall(r'r="([\d.]+)"', svg)
+        r = float(radii[0])
+        separation = right_cx - left_cx
+        overlap = 2 * r - separation
+        assert overlap < r * 1.4, f"Overlap {overlap:.1f} too large for radius {r:.1f}"
+        assert overlap > 0, "Circles should overlap"
+
+    def test_no_intersection_minimal_overlap(self):
+        """With no shared items, circles should barely overlap."""
+        from src.smartart_svg.layouts.venn import render_venn
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        import re
+        data = {
+            "sets": [
+                {"label": "A", "items": ["A1", "A2"]},
+                {"label": "B", "items": ["B1", "B2"]}
+            ],
+            "intersection": {"items": []}
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a',
+                        'chart_series': ['2B6CB0', 'ED8936']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_venn(data, c, tokens)
+        circles = re.findall(r'<circle cx="([\d.]+)"', svg)
+        radii = re.findall(r'r="([\d.]+)"', svg)
+        r = float(radii[0])
+        separation = float(circles[1]) - float(circles[0])
+        overlap = 2 * r - separation
+        assert overlap < r * 0.5, f"Should have minimal overlap with no shared items"
+
+    def test_all_labels_present(self):
+        from src.smartart_svg.layouts.venn import render_venn
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "sets": [
+                {"label": "Alpha", "items": ["Exclusive1"]},
+                {"label": "Beta", "items": ["Exclusive2"]}
+            ],
+            "intersection": {"items": ["Common"]}
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a',
+                        'chart_series': ['2B6CB0', 'ED8936']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_venn(data, c, tokens)
+        assert 'Alpha' in svg
+        assert 'Beta' in svg
+        assert 'Exclusive1' in svg
+        assert 'Exclusive2' in svg
+        assert 'Common' in svg
