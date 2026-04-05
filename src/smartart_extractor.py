@@ -529,13 +529,20 @@ def extract(slide, selection, style_guide):
     overflow_applied = 'none'
 
     # Prefer inline_data when present — structured data that bypasses regex parsing
+    # IMPORTANT: check explicit engine first, not graphic_type membership,
+    # because a graphic_type like radar_chart can be routed to custom_svg
     if inline_data is not None:
-        if engine == 'vega_lite' or graphic_type in _VEGA_GRAPHIC_TYPES:
+        if engine == 'custom_svg':
+            # Pass inline_data through directly — custom SVG layouts read it as-is
+            extracted_data = {'engine': engine, 'graphic_type': graphic_type, 'data': inline_data}
+        elif engine == 'vega_lite':
             extracted_data = _build_vega_from_inline(inline_data, graphic_type, engine)
         elif engine == 'matplotlib':
             extracted_data = _build_matplotlib_from_inline(inline_data, graphic_type)
         elif graphic_type == 'gantt':
             extracted_data = _extract_gantt(body_points, inline_data=inline_data)
+        elif graphic_type in _VEGA_GRAPHIC_TYPES:
+            extracted_data = _build_vega_from_inline(inline_data, graphic_type, engine)
         else:
             # For other engines, inline_data is passed through as-is
             extracted_data = {'engine': engine, 'graphic_type': graphic_type, 'data': inline_data}

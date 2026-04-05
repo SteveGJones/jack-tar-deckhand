@@ -5,6 +5,7 @@ from src.smartart_svg.layouts.feature_matrix import render_feature_matrix
 from src.smartart_svg.layouts.venn import render_venn
 from src.smartart_svg.layouts.timeline import render_timeline
 from src.smartart_svg.layouts.pipeline_funnel import render_pipeline_funnel
+from src.smartart_svg.layouts.radar_chart import render_radar_chart
 
 LAYOUT_REGISTRY = {
     'swot': render_swot,
@@ -12,4 +13,5 @@ LAYOUT_REGISTRY = {
     'venn': render_venn,
     'timeline': render_timeline,
     'pipeline_funnel': render_pipeline_funnel,
+    'radar_chart': render_radar_chart,
 }
