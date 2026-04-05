@@ -333,3 +333,67 @@ class TestPreAssemblyChecks:
             findings = validate_png_not_blank(f.name, 5)
         errors = [f for f in findings if f['severity'] == 'error']
         assert len(errors) == 0
+
+
+class TestVegaLiteFontConfig:
+    def test_axis_font_sizes_injected(self):
+        """Vega-Lite spec should have axis/legend/title font sizes after render."""
+        from src.smartart_renderer import render_vega_lite
+        spec = {
+            'data': {
+                'spec': {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {"field": "label", "type": "ordinal"},
+                        "y": {"field": "value", "type": "quantitative"}
+                    },
+                    "data": {"values": [{"label": "Q1", "value": 100}]}
+                }
+            }
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'body_font': 'Inter'}
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            render_vega_lite(spec, style_guide, tmpdir)
+            spec_files = [f for f in os.listdir(tmpdir) if f.startswith('vl-spec-')]
+            assert len(spec_files) == 1
+            with open(os.path.join(tmpdir, spec_files[0])) as f:
+                written_spec = json.load(f)
+            assert written_spec['config']['axis']['labelFontSize'] >= 14
+            assert written_spec['config']['axis']['titleFontSize'] >= 16
+            assert written_spec['config']['legend']['labelFontSize'] >= 14
+            assert written_spec['config']['title']['fontSize'] >= 18
+
+    def test_user_font_sizes_not_overwritten(self):
+        """User-provided font sizes in the spec should be preserved."""
+        from src.smartart_renderer import render_vega_lite
+        spec = {
+            'data': {
+                'spec': {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {"field": "label", "type": "ordinal"},
+                        "y": {"field": "value", "type": "quantitative"}
+                    },
+                    "data": {"values": [{"label": "Q1", "value": 100}]},
+                    "config": {
+                        "axis": {"labelFontSize": 20}
+                    }
+                }
+            }
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'body_font': 'Inter'}
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            render_vega_lite(spec, style_guide, tmpdir)
+            spec_files = [f for f in os.listdir(tmpdir) if f.startswith('vl-spec-')]
+            with open(os.path.join(tmpdir, spec_files[0])) as f:
+                written_spec = json.load(f)
+            # User's 20 should be preserved, not overwritten to 14
+            assert written_spec['config']['axis']['labelFontSize'] == 20
