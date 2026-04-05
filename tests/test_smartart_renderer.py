@@ -4,6 +4,7 @@ import os
 import json
 import tempfile
 import pytest
+from PIL import Image
 
 
 class TestRenderCustomSvgEngine:
@@ -230,3 +231,67 @@ class TestRender:
             assert entry['smartart_id'].startswith('sa-slide-5')
             assert entry['status'] in ('rendered', 'compared')
             assert entry['engine_used'] == 'custom_svg'
+
+
+class TestPreAssemblyChecks:
+    def test_pa01_rejects_zero_dimensions(self):
+        from src.smartart_renderer import validate_svg_dimensions
+        findings = validate_svg_dimensions('<svg width="0" height="0"></svg>', 5)
+        assert any(f['severity'] == 'error' for f in findings)
+
+    def test_pa01_accepts_valid_dimensions(self):
+        from src.smartart_renderer import validate_svg_dimensions
+        findings = validate_svg_dimensions(
+            '<svg width="1600" height="900" viewBox="0 0 1600 900"></svg>', 5)
+        errors = [f for f in findings if f['severity'] == 'error']
+        assert len(errors) == 0
+
+    def test_pa01_rejects_bad_aspect(self):
+        from src.smartart_renderer import validate_svg_dimensions
+        findings = validate_svg_dimensions(
+            '<svg width="400" height="800" viewBox="0 0 400 800"></svg>', 5)
+        assert any('aspect' in f['description'].lower() for f in findings)
+
+    def test_pa02_rejects_flowchart_no_text(self):
+        from src.smartart_renderer import validate_svg_text_content
+        findings = validate_svg_text_content(
+            '<svg><rect/></svg>', 5, graphic_type='flowchart', node_count=4)
+        assert any(f['severity'] == 'error' for f in findings)
+
+    def test_pa02_accepts_with_text(self):
+        from src.smartart_renderer import validate_svg_text_content
+        svg = '<svg><text>A</text><text>B</text><text>C</text><text>D</text></svg>'
+        findings = validate_svg_text_content(svg, 5, graphic_type='flowchart', node_count=4)
+        errors = [f for f in findings if f['severity'] == 'error']
+        assert len(errors) == 0
+
+    def test_pa03_rejects_small_font(self):
+        from src.smartart_renderer import validate_svg_font_sizes
+        findings = validate_svg_font_sizes('<svg><text font-size="8">Tiny</text></svg>', 5)
+        assert any(f['severity'] == 'error' for f in findings)
+
+    def test_pa03_accepts_valid_font(self):
+        from src.smartart_renderer import validate_svg_font_sizes
+        findings = validate_svg_font_sizes('<svg><text font-size="14">OK</text></svg>', 5)
+        errors = [f for f in findings if f['severity'] == 'error']
+        assert len(errors) == 0
+
+    def test_pa04_rejects_blank_png(self):
+        from src.smartart_renderer import validate_png_not_blank
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+            img = Image.new('RGB', (100, 100), (255, 255, 255))
+            img.save(f.name)
+            findings = validate_png_not_blank(f.name, 5)
+        assert any(f['severity'] == 'error' for f in findings)
+
+    def test_pa04_accepts_content_png(self):
+        from src.smartart_renderer import validate_png_not_blank
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+            img = Image.new('RGB', (100, 100), (255, 255, 255))
+            for x in range(20, 80):
+                for y in range(20, 80):
+                    img.putpixel((x, y), (30, 60, 90))
+            img.save(f.name)
+            findings = validate_png_not_blank(f.name, 5)
+        errors = [f for f in findings if f['severity'] == 'error']
+        assert len(errors) == 0

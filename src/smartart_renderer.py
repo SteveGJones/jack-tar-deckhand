@@ -79,6 +79,204 @@ def _rasterise_svg_to_png(svg_path, png_path, width=1600, height=900):
 
 
 # ---------------------------------------------------------------------------
+# Pre-assembly validation checks (PA-01 to PA-04)
+# ---------------------------------------------------------------------------
+
+def validate_svg_dimensions(svg_content, slide_number):
+    """PA-01: Validate SVG width/height and aspect ratio.
+
+    Parses width and height from SVG attributes or falls back to the viewBox.
+    Returns error findings if dimensions are 0x0, missing, or the aspect ratio
+    deviates more than 20% from 16:9 (1.778).
+
+    Args:
+        svg_content: SVG XML string.
+        slide_number: Integer slide number for finding metadata.
+
+    Returns:
+        List of finding dicts (may be empty).
+    """
+    findings = []
+
+    def _make(severity, desc):
+        return {
+            'slide_number': slide_number,
+            'severity': severity,
+            'category': 'smartart',
+            'description': desc,
+        }
+
+    # Try to extract explicit width/height attributes
+    w_match = re.search(r'<svg[^>]*\bwidth="([^"]*)"', svg_content)
+    h_match = re.search(r'<svg[^>]*\bheight="([^"]*)"', svg_content)
+
+    width = height = None
+
+    def _to_float(val):
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return None
+
+    if w_match and h_match:
+        width = _to_float(w_match.group(1))
+        height = _to_float(h_match.group(1))
+
+    # Fall back to viewBox if attributes are missing or non-numeric
+    if width is None or height is None:
+        vb_match = re.search(
+            r'<svg[^>]*\bviewBox="[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)"', svg_content
+        )
+        if vb_match:
+            width = _to_float(vb_match.group(1))
+            height = _to_float(vb_match.group(2))
+
+    if width is None or height is None:
+        findings.append(_make('error', 'PA-01: SVG missing width/height dimensions'))
+        return findings
+
+    if width == 0 or height == 0:
+        findings.append(_make('error', 'PA-01: SVG has zero dimensions'))
+        return findings
+
+    # Aspect ratio check — 16:9 = 1.778, allow ±20%
+    ratio = width / height
+    target = 16 / 9  # 1.7778
+    if abs(ratio - target) / target > 0.20:
+        findings.append(_make(
+            'error',
+            f'PA-01: SVG aspect ratio {ratio:.2f} deviates >20% from 16:9 (1.78)'
+        ))
+
+    return findings
+
+
+def validate_svg_text_content(svg_content, slide_number, graphic_type='', node_count=0):
+    """PA-02: Validate that SVG contains sufficient text elements.
+
+    For flowchart and decision_tree graphic types the text element count must
+    be >= node_count.  Any SVG with zero text elements generates a warning.
+
+    Args:
+        svg_content: SVG XML string.
+        slide_number: Integer slide number for finding metadata.
+        graphic_type: SmartArt graphic type string (e.g. 'flowchart').
+        node_count: Expected minimum number of text elements for node-based types.
+
+    Returns:
+        List of finding dicts (may be empty).
+    """
+    findings = []
+
+    def _make(severity, desc):
+        return {
+            'slide_number': slide_number,
+            'severity': severity,
+            'category': 'smartart',
+            'description': desc,
+        }
+
+    text_count = len(re.findall(r'<text[\s>]', svg_content))
+    tspan_count = len(re.findall(r'<tspan[\s>]', svg_content))
+    foreign_count = len(re.findall(r'<foreignObject[\s>]', svg_content))
+    total = text_count + tspan_count + foreign_count
+
+    if total == 0:
+        findings.append(_make('warning', 'PA-02: SVG contains zero text elements'))
+
+    node_based = graphic_type in ('flowchart', 'decision_tree')
+    if node_based and node_count > 0 and text_count < node_count:
+        findings.append(_make(
+            'error',
+            f'PA-02: {graphic_type} has {text_count} <text> elements but node_count={node_count}'
+        ))
+
+    return findings
+
+
+def validate_svg_font_sizes(svg_content, slide_number):
+    """PA-03: Validate that no font-size attribute is below 12px.
+
+    Parses all font-size attribute values from the SVG.  Any value below 12
+    generates an error finding.
+
+    Args:
+        svg_content: SVG XML string.
+        slide_number: Integer slide number for finding metadata.
+
+    Returns:
+        List of finding dicts (may be empty).
+    """
+    findings = []
+
+    for match in re.finditer(r'font-size="([^"]+)"', svg_content):
+        raw = match.group(1).strip()
+        # Strip 'px' suffix if present
+        numeric = raw.replace('px', '').strip()
+        try:
+            size = float(numeric)
+        except ValueError:
+            continue
+        if size < 12:
+            findings.append({
+                'slide_number': slide_number,
+                'severity': 'error',
+                'category': 'smartart',
+                'description': f'PA-03: font-size {size}px is below minimum 12px',
+            })
+
+    return findings
+
+
+def validate_png_not_blank(png_path, slide_number):
+    """PA-04: Detect blank (all-white) PNG images.
+
+    Opens the PNG with Pillow and counts white pixels.  If more than 95% of
+    pixels are white the image is considered blank and an error is returned.
+
+    Args:
+        png_path: Absolute path to the PNG file.
+        slide_number: Integer slide number for finding metadata.
+
+    Returns:
+        List of finding dicts (may be empty).
+    """
+    from PIL import Image as PILImage
+
+    findings = []
+    try:
+        img = PILImage.open(png_path).convert('RGB')
+        pixels = list(img.getdata())
+        total = len(pixels)
+        if total == 0:
+            findings.append({
+                'slide_number': slide_number,
+                'severity': 'error',
+                'category': 'smartart',
+                'description': 'PA-04: PNG has no pixels',
+            })
+            return findings
+        white = sum(1 for r, g, b in pixels if r >= 250 and g >= 250 and b >= 250)
+        ratio = white / total
+        if ratio > 0.95:
+            findings.append({
+                'slide_number': slide_number,
+                'severity': 'error',
+                'category': 'smartart',
+                'description': f'PA-04: PNG is {ratio:.1%} white — likely blank',
+            })
+    except Exception as exc:  # noqa: BLE001
+        findings.append({
+            'slide_number': slide_number,
+            'severity': 'error',
+            'category': 'smartart',
+            'description': f'PA-04: Could not open PNG for blank check — {exc}',
+        })
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Engine implementations
 # ---------------------------------------------------------------------------
 
@@ -391,6 +589,30 @@ def render(spec, style_guide, phase, output_dir):
             alt_text=alt_text,
             status='failed',
         )
+
+    # Pre-assembly checks (PA-01 to PA-04)
+    pa_findings = []
+    if primary_engine in ('custom_svg', 'vega_lite'):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as _f:
+                _svg_content = _f.read()
+            pa_findings += validate_svg_dimensions(_svg_content, slide_number)
+            pa_findings += validate_svg_text_content(
+                _svg_content, slide_number,
+                graphic_type=graphic_type,
+                node_count=spec.get('node_count', 0),
+            )
+            pa_findings += validate_svg_font_sizes(_svg_content, slide_number)
+        except Exception:  # noqa: BLE001
+            pass
+    elif primary_engine == 'mermaid':
+        try:
+            pa_findings += validate_png_not_blank(file_path, slide_number)
+        except Exception:  # noqa: BLE001
+            pass
+
+    if any(f['severity'] == 'error' for f in pa_findings):
+        primary_status = 'failed'
 
     # Handle comparator pattern
     if comparator_engines:
