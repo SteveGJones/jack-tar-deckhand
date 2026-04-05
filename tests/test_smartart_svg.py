@@ -470,3 +470,43 @@ class TestVennOverlap:
         assert 'Exclusive1' in svg
         assert 'Exclusive2' in svg
         assert 'Common' in svg
+
+
+class TestFeatureMatrixOverflow:
+    def test_many_columns_truncated(self):
+        from src.smartart_svg.layouts.feature_matrix import render_feature_matrix
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        columns = [f"Feature {chr(65+i)}" for i in range(10)]
+        rows = [{"label": "Product 1", "values": [True] * 10}]
+        data = {"columns": columns, "rows": rows}
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a',
+                        'chart_series': ['2B6CB0']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_feature_matrix(data, c, tokens)
+        assert 'Feature A' in svg
+        assert '...' in svg or '+' in svg
+
+    def test_few_columns_all_shown(self):
+        from src.smartart_svg.layouts.feature_matrix import render_feature_matrix
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "columns": ["Speed", "Cost"],
+            "rows": [{"label": "Option A", "values": [True, False]}]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'background': 'ffffff', 'text_primary': '1a1a1a',
+                        'chart_series': ['2B6CB0']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_feature_matrix(data, c, tokens)
+        assert 'Speed' in svg
+        assert 'Cost' in svg
+        assert '...' not in svg

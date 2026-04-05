@@ -4,24 +4,42 @@ from src.smartart_svg.engine import Container
 from src.smartart_svg.primitives import svg_rect, svg_text, svg_group
 from src.smartart_svg.tokens import resolve_text_colour
 
+_MIN_COL_WIDTH = 60
+
 
 def render_feature_matrix(data, container, tokens):
     """Render a feature matrix as an SVG fragment.
 
     Row 0 = column headers. Column 0 = row labels.
     Inner cells show ✓ / ✗ for boolean values, raw string for others.
-    Alternating rows get a light tint background.
+    When columns exceed available width at min column width, excess
+    columns are dropped and a '+N...' overflow indicator is shown.
     """
     columns = data.get('columns', [])
     rows = data.get('rows', [])
 
-    num_rows = len(rows) + 1   # +1 for header row
-    num_cols = len(columns) + 1  # +1 for label column
+    label_col_width = max(100, container.inner_width * 0.18)
+    available_for_data = container.inner_width - label_col_width
+    max_data_cols = max(1, int(available_for_data / _MIN_COL_WIDTH))
+
+    truncated = len(columns) > max_data_cols
+    if truncated:
+        n_real = max_data_cols - 1
+        visible_columns = columns[:n_real]
+        overflow_label = f"+{len(columns) - n_real}..."
+    else:
+        visible_columns = columns
+        n_real = len(visible_columns)
+        overflow_label = None
+
+    display_columns = visible_columns + ([overflow_label] if truncated else [])
+
+    num_rows = len(rows) + 1
+    num_cols = len(display_columns) + 1
 
     cells = container.split_grid(num_rows, num_cols, gap=2)
 
     primary = tokens['primary_color']
-    bg = tokens['background_color']
     text_col = tokens['text_color']
 
     elements = []
@@ -29,12 +47,12 @@ def render_feature_matrix(data, container, tokens):
     def cell_at(row, col):
         return cells[row * num_cols + col]
 
-    # Header row background
-    for col_idx, col_label in enumerate(columns):
+    # Header row
+    for col_idx, col_label in enumerate(display_columns):
         c = cell_at(0, col_idx + 1)
         elements.append(svg_rect(c.x, c.y, c.width, c.height, fill=primary, rx=4))
         header_text_col = resolve_text_colour(primary, '#ffffff', None)
-        fitted = c.fit_text(col_label, font_size=16, max_lines=2)
+        fitted = c.fit_text(col_label, font_size=14, max_lines=2)
         cx, cy = c.center_point()
         elements.append(svg_text(
             cx, cy + fitted.font_size / 2,
@@ -46,7 +64,7 @@ def render_feature_matrix(data, container, tokens):
             weight='bold'
         ))
 
-    # Top-left corner cell — styled as header
+    # Top-left corner
     corner = cell_at(0, 0)
     elements.append(svg_rect(corner.x, corner.y, corner.width, corner.height, fill=primary, rx=4))
 
@@ -56,21 +74,16 @@ def render_feature_matrix(data, container, tokens):
         values = row.get('values', [])
         actual_row = row_idx + 1
 
-        # Alternating row tint
         tint = 'rgba(26,115,232,0.06)' if row_idx % 2 == 0 else 'rgba(0,0,0,0)'
         row_cells_start = actual_row * num_cols
         first_cell = cells[row_cells_start]
         last_cell = cells[row_cells_start + num_cols - 1]
         row_w = last_cell.x + last_cell.width - first_cell.x
-        elements.append(svg_rect(
-            first_cell.x, first_cell.y,
-            row_w, first_cell.height,
-            fill=tint
-        ))
+        elements.append(svg_rect(first_cell.x, first_cell.y, row_w, first_cell.height, fill=tint))
 
-        # Row label cell
+        # Row label
         lc = cell_at(actual_row, 0)
-        fitted = lc.fit_text(row_label, font_size=15, max_lines=1)
+        fitted = lc.fit_text(row_label, font_size=14, max_lines=1)
         lx, ly = lc.center_point()
         elements.append(svg_text(
             lx, ly + fitted.font_size / 2,
@@ -83,31 +96,37 @@ def render_feature_matrix(data, container, tokens):
         ))
 
         # Value cells
-        for col_idx, value in enumerate(values):
+        for col_idx in range(n_real):
+            if col_idx >= len(values):
+                break
+            value = values[col_idx]
             vc = cell_at(actual_row, col_idx + 1)
             vx, vy = vc.center_point()
             if isinstance(value, bool):
                 symbol = '\u2713' if value else '\u2717'
                 symbol_colour = '#38A169' if value else '#E53E3E'
                 elements.append(svg_text(
-                    vx, vy + 8,
-                    symbol,
-                    font_family=tokens['font_family'],
-                    font_size=20,
-                    fill=symbol_colour,
-                    anchor='middle',
-                    weight='bold'
+                    vx, vy + 8, symbol,
+                    font_family=tokens['font_family'], font_size=18,
+                    fill=symbol_colour, anchor='middle', weight='bold'
                 ))
             else:
                 cell_val = str(value)
-                fitted = vc.fit_text(cell_val, font_size=14, max_lines=1)
+                fitted = vc.fit_text(cell_val, font_size=13, max_lines=1)
                 elements.append(svg_text(
-                    vx, vy + fitted.font_size / 2,
-                    cell_val,
-                    font_family=tokens['font_family'],
-                    font_size=fitted.font_size,
-                    fill=text_col,
-                    anchor='middle'
+                    vx, vy + fitted.font_size / 2, cell_val,
+                    font_family=tokens['font_family'], font_size=fitted.font_size,
+                    fill=text_col, anchor='middle'
                 ))
+
+        # Overflow indicator cell
+        if truncated:
+            oc = cell_at(actual_row, num_cols - 1)
+            ox, oy = oc.center_point()
+            elements.append(svg_text(
+                ox, oy + 6, '...',
+                font_family=tokens['font_family'], font_size=14,
+                fill=text_col, anchor='middle'
+            ))
 
     return svg_group(elements, role='img', aria_label='Feature matrix diagram')
