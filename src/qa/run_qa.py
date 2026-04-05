@@ -202,6 +202,27 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
             if svg_content:
                 findings.extend(check_accessibility(svg_content, entry, slide_number=sn))
 
+    # Step 1d: Post-assembly visual inspection (rasterise + blank/brand checks)
+    # Enabled when 'visual_inspection_enabled' is True in config (or key absent — opt-in).
+    if cfg.get('visual_inspection_enabled', False):
+        from src.qa.checks.visual_inspection import run_visual_inspection
+        import tempfile
+
+        outline_path = os.path.join(deck_dir, 'outline.json')
+        vi_outline = {}
+        if os.path.exists(outline_path):
+            with open(outline_path) as f:
+                vi_outline = json.load(f)
+
+        brand_style_guide = {}
+        if os.path.exists(brand_profile_path):
+            with open(brand_profile_path) as f:
+                bp_vi = json.load(f)
+            brand_style_guide = {'palette': bp_vi.get('palette', {})}
+
+        vi_output_dir = tempfile.mkdtemp(prefix='qa_vi_')
+        findings.extend(run_visual_inspection(pptx_path, vi_outline, brand_style_guide, vi_output_dir))
+
     # Step 2: Deck-level structural checks
     for check_fn in DECK_STRUCTURAL_CHECKS:
         findings.extend(check_fn(prs, config=cfg))
