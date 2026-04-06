@@ -1086,16 +1086,19 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
         fill: { color: '000000', transparency: zone.transparency },
     });
 
-    // Heading
-    const headingH = 0.7;
+    // Heading — taller box (1.6") allows up to ~4 lines at 28pt; valign top
+    // ensures text grows downward (not upward off the slide top edge).
+    // autoFit lets PptxGenJS shrink the text if it still exceeds the box.
+    const headingH = 1.6;
     slide.addText(slideData.headline, {
         x: zone.tx, y: zone.ty, w: zone.tw, h: headingH,
         fontSize: typo.heading_sizes?.slide_heading || 32,
         fontFace: typo.heading_font,
         color: 'FFFFFF',
         bold: true,
-        valign: 'bottom',
+        valign: 'top',
         wrap: true,
+        autoFit: true,
     });
 
     // Body points
@@ -1130,6 +1133,7 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
                     }], {
                         x: positions[i].x, y: positions[i].y, w: colW, h: rowH,
                         valign: 'top',
+                        autoFit: true,
                     });
                 }
             });
@@ -1150,6 +1154,7 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
             slide.addText(bodyText, {
                 x: zone.tx, y: bodyY, w: zone.tw, h: Math.max(bodyH, 1.0),
                 valign: 'top',
+                autoFit: true,
             });
         }
     }
