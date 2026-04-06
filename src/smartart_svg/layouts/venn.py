@@ -15,7 +15,7 @@ def render_venn(data, container, tokens):
     intersection_items = intersection.get('items', [])
 
     cx, cy = container.center_point()
-    r = min(container.inner_width, container.inner_height) * 0.30
+    r = min(container.inner_width, container.inner_height) * 0.40
 
     left_items = sets[0].get('items', []) if len(sets) >= 1 else []
     right_items = sets[1].get('items', []) if len(sets) >= 2 else []
@@ -49,19 +49,19 @@ def render_venn(data, container, tokens):
         elements.append(svg_text(
             left_cx, cy - r - 12,
             sets[0].get('label', ''),
-            font_family=heading_font, font_size=18,
+            font_family=heading_font, font_size=22,
             fill=text_col, anchor='middle', weight='bold'
         ))
     if len(sets) >= 2:
         elements.append(svg_text(
             right_cx, cy - r - 12,
             sets[1].get('label', ''),
-            font_family=heading_font, font_size=18,
+            font_family=heading_font, font_size=22,
             fill=text_col, anchor='middle', weight='bold'
         ))
 
     line_h = 18
-    font_size = 13
+    font_size = 15
 
     if left_items:
         excl_x = left_cx - r * 0.45
