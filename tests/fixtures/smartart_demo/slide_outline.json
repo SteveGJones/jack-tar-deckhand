@@ -158,7 +158,8 @@
       ],
       "narrative_beat": "transition",
       "visual_direction": "Individual nautical elements \u2014 brass compass, telescope, ship's wheel, aged map \u2014 each generated separately and placed at exact positions with labels",
-      "visual_type": "none"
+      "visual_intent": "Show 4 nautical instruments as individual positioned elements with labels \u2014 pragmatic_composition strategy demonstrating multi-element assembly",
+      "visual_type": "pragmatic_composition"
     },
     {
       "slide_number": 10,
