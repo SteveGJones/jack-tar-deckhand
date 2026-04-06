@@ -297,7 +297,12 @@ function buildTitleSlide(pptx, slideData, ctx) {
 
     // Text zone (left side) -- from StyleGuide layout template, adjusted for safe margins
     const titleSafeX = Math.max(MARGIN, SLIDE_W * 0.05);
-    const textZone = layouts.title_slide?.text_zone || { x: titleSafeX, y: 1.0, w: 6.0, h: 4.5 };
+    const textZone = layouts.title_slide?.text_zone || {
+        x: titleSafeX,
+        y: SLIDE_H * 0.13,
+        w: SLIDE_W * 0.45,
+        h: SLIDE_H * 0.60,
+    };
 
     // Title text
     slide.addText(slideData.headline, {
@@ -332,7 +337,12 @@ function buildTitleSlide(pptx, slideData, ctx) {
     if (imageData) {
         const imgPath = resolveImagePath(imageData.file_path);
         if (fs.existsSync(imgPath)) {
-            const imgZone = layouts.title_slide?.image_zone || { x: 6.8, y: 0, w: 6.533, h: 7.5 };
+            const imgZone = layouts.title_slide?.image_zone || {
+                x: SLIDE_W * 0.51,
+                y: 0,
+                w: SLIDE_W * 0.49,
+                h: SLIDE_H,
+            };
             // For the title hero, we want the image to fill the zone (cover/crop),
             // but we need to set w/h to the zone dimensions with cover sizing
             slide.addImage({
@@ -390,7 +400,12 @@ function buildContentSlide(pptx, slideData, ctx) {
     const hasImage = imageData && fs.existsSync(resolveImagePath(imageData.file_path));
     const layoutKey = hasImage ? 'content_with_image' : 'content_only';
     const layout = layouts[layoutKey] || {};
-    const textZone = layout.text_zone || { x: 0.6, y: 1.2, w: hasImage ? 6.0 : 12.133, h: 5.5 };
+    const textZone = layout.text_zone || {
+        x: MARGIN,
+        y: SLIDE_H * 0.16,
+        w: hasImage ? (SLIDE_W * 0.45) : (SLIDE_W - 2 * MARGIN),
+        h: SLIDE_H * 0.74,
+    };
 
     // Safe margins: use MARGIN constant (typically 0.6") to ensure text stays within bounds
     const safeX = Math.max(textZone.x, MARGIN);
@@ -441,7 +456,12 @@ function buildContentSlide(pptx, slideData, ctx) {
     // Image (right side) -- use aspect-preserving dimensions
     if (hasImage) {
         const imgPath = resolveImagePath(imageData.file_path);
-        const imgZone = layout.image_zone || { x: 7.0, y: 0.8, w: 5.7, h: 5.9 };
+        const imgZone = layout.image_zone || {
+            x: SLIDE_W * 0.525,
+            y: SLIDE_H * 0.107,
+            w: SLIDE_W * 0.428,
+            h: SLIDE_H * 0.787,
+        };
         // Calculate image dimensions to preserve 16:9 aspect ratio within zone
         const imgNativeRatio = (imageData.dimensions?.width || 1024) / (imageData.dimensions?.height || 576);
         const zoneRatio = imgZone.w / imgZone.h;
@@ -495,7 +515,12 @@ function buildSectionDivider(pptx, slideData, ctx) {
         line: { width: 0 },
     });
 
-    const textZone = layouts.section_divider?.text_zone || { x: 1.5, y: 2.0, w: 10.333, h: 3.5 };
+    const textZone = layouts.section_divider?.text_zone || {
+        x: MARGIN,
+        y: SLIDE_H * 0.30,
+        w: SLIDE_W - 2 * MARGIN,
+        h: SLIDE_H * 0.40,
+    };
 
     slide.addText(slideData.headline, {
         x: textZone.x,
@@ -542,8 +567,18 @@ function buildDiagramSlide(pptx, slideData, ctx) {
     });
 
     const layout = layouts.architecture_diagram || {};
-    const textZone = layout.text_zone || { x: 0.6, y: 0.4, w: 12.133, h: 1.2 };
-    const imgZone = layout.image_zone || { x: 0.6, y: 1.8, w: 12.133, h: 5.2 };
+    const textZone = layout.text_zone || {
+        x: MARGIN,
+        y: SLIDE_H * 0.053,
+        w: SLIDE_W - 2 * MARGIN,
+        h: SLIDE_H * 0.16,
+    };
+    const imgZone = layout.image_zone || {
+        x: MARGIN,
+        y: SLIDE_H * 0.24,
+        w: SLIDE_W - 2 * MARGIN,
+        h: SLIDE_H * 0.69,
+    };
     const diagSafeX = Math.max(textZone.x, SLIDE_W * 0.05);
     const diagSafeY = Math.max(textZone.y, SLIDE_H * 0.05);
     const diagSafeMaxW = Math.min(textZone.w, SLIDE_W - 2 * diagSafeX);
@@ -665,8 +700,18 @@ function buildDataChartSlide(pptx, slideData, ctx) {
 
     // Reuse architecture_diagram layout (same heading + large image pattern)
     const layout = layouts.architecture_diagram || {};
-    const textZone = layout.text_zone || { x: 0.6, y: 0.4, w: 12.133, h: 1.2 };
-    const imgZone = layout.image_zone || { x: 0.6, y: 1.8, w: 12.133, h: 5.2 };
+    const textZone = layout.text_zone || {
+        x: MARGIN,
+        y: SLIDE_H * 0.053,
+        w: SLIDE_W - 2 * MARGIN,
+        h: SLIDE_H * 0.16,
+    };
+    const imgZone = layout.image_zone || {
+        x: MARGIN,
+        y: SLIDE_H * 0.24,
+        w: SLIDE_W - 2 * MARGIN,
+        h: SLIDE_H * 0.69,
+    };
     const safeX = Math.max(textZone.x, SLIDE_W * 0.05);
     const safeY = Math.max(MARGIN, SLIDE_H * 0.05);
 
@@ -721,7 +766,12 @@ function buildCodeSlide(pptx, slideData, ctx) {
     slide.background = { color: bgColor };
 
     const layout = layouts.code_slide || {};
-    const textZone = layout.text_zone || { x: 0.6, y: 1.2, w: 12.133, h: 5.5 };
+    const textZone = layout.text_zone || {
+        x: MARGIN,
+        y: SLIDE_H * 0.16,
+        w: SLIDE_W - 2 * MARGIN,
+        h: SLIDE_H * 0.74,
+    };
     const safeX = Math.max(textZone.x, SLIDE_W * 0.05);
     const safeY = Math.max(MARGIN, SLIDE_H * 0.05);
 
@@ -782,7 +832,12 @@ function buildClosingSlide(pptx, slideData, ctx) {
         line: { width: 0 },
     });
 
-    const textZone = layouts.closing_slide?.text_zone || { x: 1.5, y: 1.5, w: 10.333, h: 4.5 };
+    const textZone = layouts.closing_slide?.text_zone || {
+        x: MARGIN,
+        y: SLIDE_H * 0.20,
+        w: SLIDE_W - 2 * MARGIN,
+        h: SLIDE_H * 0.60,
+    };
 
     // Headline
     slide.addText(slideData.headline, {
