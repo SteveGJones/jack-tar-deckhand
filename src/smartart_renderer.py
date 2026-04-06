@@ -321,12 +321,17 @@ def render_mermaid(spec, style_guide, output_dir):
     syntax = spec['data']['syntax']
     palette = style_guide.get('palette', {})
 
-    # Build Mermaid theme directive with brand colours
+    # Build Mermaid theme directive with brand colours.
+    # primaryTextColor must contrast against primaryColor (the node fill).
+    # Dark fills need white text; light fills need dark text.
+    primary_hex = palette.get('primary', '1a73e8')
     theme_vars = {
-        'primaryColor': '#' + palette.get('primary', '1a73e8'),
-        'primaryTextColor': '#' + palette.get('text_primary', '1a1a1a'),
+        'primaryColor': '#' + primary_hex,
+        'primaryTextColor': '#ffffff',
+        'primaryBorderColor': '#' + palette.get('accent', 'C67B2F'),
         'lineColor': '#' + palette.get('text_primary', '666666'),
         'fontFamily': style_guide.get('typography', {}).get('body_font', 'sans-serif'),
+        'fontSize': '16px',
     }
     theme_directive = (
         f"%%{{init: {{'theme': 'base', 'themeVariables': {json.dumps(theme_vars)}}}}}%%\n"
@@ -405,6 +410,8 @@ def render_vega_lite(spec, style_guide, output_dir):
     vl_spec['config'].setdefault('axis', {})
     vl_spec['config']['axis'].setdefault('labelFontSize', 14)
     vl_spec['config']['axis'].setdefault('titleFontSize', 16)
+    vl_spec['config']['axis'].setdefault('labelAngle', -45)
+    vl_spec['config']['axis'].setdefault('labelLimit', 120)
 
     vl_spec['config'].setdefault('legend', {})
     vl_spec['config']['legend'].setdefault('labelFontSize', 14)

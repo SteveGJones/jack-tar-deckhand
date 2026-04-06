@@ -392,8 +392,8 @@ function buildContentSlide(pptx, slideData, ctx) {
     const layout = layouts[layoutKey] || {};
     const textZone = layout.text_zone || { x: 0.6, y: 1.2, w: hasImage ? 6.0 : 12.133, h: 5.5 };
 
-    // Safe margins: 5% of slide dimensions ensures no element bleeds to edge
-    const safeX = Math.max(textZone.x, SLIDE_W * 0.05);
+    // Safe margins: use MARGIN constant (typically 0.6") to ensure text stays within bounds
+    const safeX = Math.max(textZone.x, MARGIN);
     const safeY = Math.max(MARGIN, SLIDE_H * 0.05);
     const safeMaxW = SLIDE_W - 2 * safeX;
 

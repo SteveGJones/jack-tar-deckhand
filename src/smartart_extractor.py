@@ -74,7 +74,7 @@ def extract_graph_data(body_points, graphic_type):
 
 
 def _extract_flowchart(body_points):
-    lines = ['graph TD']
+    lines = ['graph LR']
     node_ids = []
     for i, point in enumerate(body_points):
         nid = _node_id(i)
@@ -100,7 +100,7 @@ def _extract_decision_tree(body_points):
     or "Yes ..."/"No ..." prefixes become branches. All others treated as
     sequential children of the root.
     """
-    lines = ['graph TD']
+    lines = ['graph LR']
     nodes = []
 
     # Root node

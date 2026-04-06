@@ -62,10 +62,9 @@
       "slide_type": "content",
       "headline": "Built for Speakers Who Think, Not Designers Who Click",
       "body_points": [
-        "Set A: Conference Speakers \u2014 need quality fast, focus on delivery not design",
-        "Set B: Technical Leaders \u2014 need architecture diagrams, data visualisations, system overviews",
-        "Set C: Business Presenters \u2014 need branded slides, chart-heavy decks, professional polish",
-        "Shared: Anyone who has content but not design time"
+        "Set A: Speakers \u2014 fast delivery, visual impact",
+        "Set B: Technical \u2014 diagrams, data viz, systems",
+        "Shared: Content-rich, time-poor professionals"
       ],
       "narrative_beat": "evidence-2",
       "visual_direction": "Three overlapping audience groups with distinctive icons for each",
@@ -77,11 +76,11 @@
       "slide_type": "content",
       "headline": "How Jack-Tar Compares",
       "body_points": [
-        "Features: Narrative Intelligence, Image Gen, Brand, SmartArt, Notes, Assembly, QA",
+        "Features: Narrative, Image Gen, Brand, SmartArt, Notes, Assembly, QA",
         "Jack-Tar: Yes, Yes, Yes, Yes, Yes, Yes, Yes",
         "Manual PowerPoint: No, No, Manual, No, Manual, No, No",
         "Canva AI: No, Yes, Partial, No, No, No, No",
-        "Beautiful.ai / Gamma.app: Partial capability across some dimensions"
+        "Beautiful.ai: Partial, Yes, Partial, No, No, No, No"
       ],
       "narrative_beat": "evidence-3",
       "visual_direction": "Clean comparison grid showing competitive advantage",
@@ -93,10 +92,10 @@
       "slide_type": "content",
       "headline": "SWOT: Where Jack-Tar Stands",
       "body_points": [
-        "Strengths: Deep narrative intelligence, 6 AI personas working in concert, 3 rendering engines for data graphics, Full brand awareness and enforcement",
-        "Weaknesses: Requires Claude Code environment, No graphical user interface, Learning curve for talk brief specification",
-        "Opportunities: Enterprise deck automation at scale, Conference speaker productivity tools, Education and training content generation",
-        "Threats: Native AI features arriving in PowerPoint and Google Slides, Canva's growing API ecosystem, Open-source slide generation tools"
+        "Strengths: Deep narrative AI, 6 personas, 3 render engines, Brand enforcement",
+        "Weaknesses: Requires Claude Code, No GUI, Brief learning curve",
+        "Opportunities: Enterprise automation, Speaker tools, Training content",
+        "Threats: Native PowerPoint AI, Canva API, Open-source tools"
       ],
       "narrative_beat": "evidence-4",
       "visual_direction": "Strategic SWOT analysis with nautical themed AI rendering",
@@ -197,10 +196,11 @@
       "slide_type": "content",
       "headline": "The Selector Sees Structure Where You See Bullets",
       "body_points": [
-        "Features: Content Pattern, Graphic Type, Engine",
-        "Sequential steps: Flowchart, Mermaid. Decisions: Decision Tree, Mermaid. Schedule: Gantt, Mermaid",
-        "Values: Bar Chart, Vega-Lite. Trends: Line Chart, Vega-Lite. Multi-axis: Radar, Vega-Lite",
-        "SWOT: Custom SVG. Matrix: Custom SVG. Venn: Custom SVG. Timeline: Custom SVG. Funnel: Custom SVG"
+        "Features: Pattern, Type, Engine",
+        "Steps: Sequential, Flowchart, Mermaid",
+        "Decisions: Branch, Decision Tree, Mermaid",
+        "Data: Values, Bar/Line Chart, Vega-Lite",
+        "Spatial: Layout, SWOT/Matrix/Venn, Custom SVG"
       ],
       "narrative_beat": "evidence-8",
       "visual_direction": "Content trigger to graphic type mapping table",
@@ -272,10 +272,10 @@
       "slide_type": "diagram",
       "headline": "Local Draft, Cloud Production \u2014 Try Cheap First",
       "body_points": [
-        "Ollama Local Draft: 1000",
-        "Cloud Low-Tier 720p: 500",
-        "Cloud Full-Tier 2K+: 100",
-        "Production Approved: 20"
+        "Ollama Draft: 1000",
+        "Cloud 720p: 500",
+        "Cloud 2K+: 100",
+        "Approved: 20"
       ],
       "narrative_beat": "evidence-13",
       "visual_direction": "Pipeline funnel showing render stages narrowing from many drafts to few production renders",

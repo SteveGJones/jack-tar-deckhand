@@ -54,7 +54,9 @@ def render_pipeline_funnel(data, container, tokens):
         fill = _interpolate_colour(primary, accent, t)
 
         ratio = value / max_val if max_val > 0 else 1.0
-        bar_w = row.inner_width * ratio
+        # Minimum bar width: 20% of container so text always fits
+        effective_ratio = max(0.20, ratio)
+        bar_w = row.inner_width * effective_ratio
         bar_x = row.inner_x + (row.inner_width - bar_w) / 2
         bar_y = row.inner_y
         bar_h = row.inner_height

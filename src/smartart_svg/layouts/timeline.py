@@ -12,6 +12,24 @@ def _truncate(text, max_chars):
     return text[:max_chars - 1] + '\u2026'
 
 
+def _wrap_text(text, max_chars):
+    """Word-wrap text into lines of max_chars. Returns list of lines."""
+    words = text.split()
+    lines = []
+    current = ''
+    for word in words:
+        test = (current + ' ' + word).strip()
+        if len(test) <= max_chars:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+            current = word if len(word) <= max_chars else _truncate(word, max_chars)
+    if current:
+        lines.append(current)
+    return lines if lines else [text[:max_chars]]
+
+
 def render_timeline(data, container, tokens):
     """Render a horizontal timeline as an SVG fragment.
 
@@ -64,28 +82,33 @@ def render_timeline(data, container, tokens):
 
         above = (i % 2 == 0)
 
-        truncated_label = _truncate(label, max_label_chars)
-        label_y = spine_y - label_offset if above else spine_y + label_offset + label_font_size
-        elements.append(svg_text(
-            node_cx, label_y,
-            truncated_label,
-            font_family=heading_font,
-            font_size=label_font_size,
-            fill=text_col,
-            anchor='middle',
-            weight='bold'
-        ))
+        # Allow 2-line labels: split into lines that fit column width
+        label_lines = _wrap_text(label, max_label_chars)
+        base_label_y = spine_y - label_offset if above else spine_y + label_offset + label_font_size
+        for li, line in enumerate(label_lines[:2]):  # Max 2 lines
+            ly = base_label_y + li * (label_font_size + 2)
+            elements.append(svg_text(
+                node_cx, ly,
+                line,
+                font_family=heading_font,
+                font_size=label_font_size,
+                fill=text_col,
+                anchor='middle',
+                weight='bold'
+            ))
 
         if description:
-            truncated_desc = _truncate(description, max_desc_chars)
-            desc_y = spine_y + desc_offset if above else spine_y - desc_offset + desc_font_size
-            elements.append(svg_text(
-                node_cx, desc_y,
-                truncated_desc,
-                font_family=font,
-                font_size=desc_font_size,
-                fill=text_col,
-                anchor='middle'
-            ))
+            desc_lines = _wrap_text(description, max_desc_chars)
+            base_desc_y = spine_y + desc_offset if above else spine_y - desc_offset + desc_font_size
+            for di, dline in enumerate(desc_lines[:2]):  # Max 2 lines
+                dy = base_desc_y + di * (desc_font_size + 2)
+                elements.append(svg_text(
+                    node_cx, dy,
+                    dline,
+                    font_family=font,
+                    font_size=desc_font_size,
+                    fill=text_col,
+                    anchor='middle'
+                ))
 
     return svg_group(elements, role='img', aria_label='Timeline diagram')

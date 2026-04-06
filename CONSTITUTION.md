@@ -85,6 +85,13 @@ Check your level: `python tools/automation/sdlc-level.py check`
 9.1. Review all artifacts (proposals, code, tests, docs) against requirements before presenting.
 9.2. Internal review process — users see only the final version.
 9.3. Use mathematical/systematic solutions, not magic number patches.
+9.4. **Visual Output Mandatory Review**: Every visual artifact (image, graphic, slide, deck) MUST be visually inspected before returning to the user. No exceptions.
+  - View each image immediately after generation (render, Ollama, cloud API).
+  - View each image after rasterisation (SVG-to-PNG, PDF-to-PNG).
+  - View each assembled slide after deck assembly (rasterise .pptx to PNG if needed).
+  - Compare each visual against the original intent (visual_direction, enrichment_tier, strategy).
+  - Never declare a visual pipeline "done" without having viewed every output.
+  - "It compiled" or "file exists" is NOT a review.
 
 ## Article 10: Progressive Levels
 

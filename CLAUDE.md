@@ -2,6 +2,17 @@
 
 All rules are in **CONSTITUTION.md**. Core instructions are in **CLAUDE-CORE.md**.
 
+## MANDATORY: Visual Output Review (Constitution Article 9.4)
+
+**NEVER return visual artifacts to the user without reviewing every output first.** This means:
+- View each generated image (SmartArt, Ollama, cloud) immediately after creation
+- View each rasterised PNG after SVG-to-PNG conversion
+- View assembled slides after deck assembly (rasterise .pptx to PNG if needed)
+- Compare every visual against the original intent
+- "File exists" or "pipeline completed" is NOT a review
+
+This rule exists because visual review was skipped THREE TIMES across multiple conversations, each time producing decks with blank slides, missing text, or broken graphics that the user had to catch.
+
 ## Project: Jack-Tar Deckhand
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.

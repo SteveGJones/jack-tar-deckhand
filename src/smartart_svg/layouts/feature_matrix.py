@@ -4,7 +4,7 @@ from src.smartart_svg.engine import Container
 from src.smartart_svg.primitives import svg_rect, svg_text, svg_group
 from src.smartart_svg.tokens import resolve_text_colour
 
-_MIN_COL_WIDTH = 60
+_MIN_COL_WIDTH = 50
 
 
 def render_feature_matrix(data, container, tokens):
@@ -18,7 +18,7 @@ def render_feature_matrix(data, container, tokens):
     columns = data.get('columns', [])
     rows = data.get('rows', [])
 
-    label_col_width = max(100, container.inner_width * 0.18)
+    label_col_width = max(80, container.inner_width * 0.15)
     available_for_data = container.inner_width - label_col_width
     max_data_cols = max(1, int(available_for_data / _MIN_COL_WIDTH))
 
@@ -52,7 +52,7 @@ def render_feature_matrix(data, container, tokens):
         c = cell_at(0, col_idx + 1)
         elements.append(svg_rect(c.x, c.y, c.width, c.height, fill=primary, rx=4))
         header_text_col = resolve_text_colour(primary, '#ffffff', None)
-        fitted = c.fit_text(col_label, font_size=14, max_lines=2)
+        fitted = c.fit_text(col_label, font_size=13, max_lines=2)
         cx, cy = c.center_point()
         elements.append(svg_text(
             cx, cy + fitted.font_size / 2,
@@ -81,19 +81,24 @@ def render_feature_matrix(data, container, tokens):
         row_w = last_cell.x + last_cell.width - first_cell.x
         elements.append(svg_rect(first_cell.x, first_cell.y, row_w, first_cell.height, fill=tint))
 
-        # Row label
+        # Row label — allow 2 lines and use fitted text (may truncate)
         lc = cell_at(actual_row, 0)
-        fitted = lc.fit_text(row_label, font_size=14, max_lines=1)
+        fitted = lc.fit_text(row_label, font_size=13, max_lines=2)
         lx, ly = lc.center_point()
-        elements.append(svg_text(
-            lx, ly + fitted.font_size / 2,
-            row_label,
-            font_family=tokens['font_family'],
-            font_size=fitted.font_size,
-            fill=text_col,
-            anchor='middle',
-            weight='bold'
-        ))
+        # Render each fitted line
+        n_lines = len(fitted.lines)
+        line_h = fitted.font_size + 2
+        start_ly = ly - (n_lines - 1) * line_h / 2 + fitted.font_size * 0.35
+        for li, line in enumerate(fitted.lines):
+            elements.append(svg_text(
+                lx, start_ly + li * line_h,
+                line,
+                font_family=tokens['font_family'],
+                font_size=fitted.font_size,
+                fill=text_col,
+                anchor='middle',
+                weight='bold'
+            ))
 
         # Value cells
         for col_idx in range(n_real):
