@@ -94,42 +94,60 @@ def _extract_flowchart(body_points):
 
 
 def _extract_decision_tree(body_points):
-    """Parse decision tree from body_points.
+    """Parse decision tree from body_points into a branching Mermaid graph.
 
-    Heuristic: first point is root question; subsequent points with "Yes:"/"No:"
-    or "Yes ..."/"No ..." prefixes become branches. All others treated as
-    sequential children of the root.
+    Each body_point is parsed as 'question? Yes: outcome' (or similar). The
+    output is a top-down (graph TB) tree where each question is a diamond
+    node, each outcome is a rectangle leaf, the Yes branch leads to the
+    outcome, and the No branch cascades to the next question.
     """
-    lines = ['graph LR']
-    nodes = []
+    lines = ['graph TB']
 
-    # Root node
-    root_label = _clean_label(body_points[0]) if body_points else 'Start'
-    root_id = _node_id(0)
-    lines.append(f'  {root_id}{{"{root_label}"}}')
-    nodes.append(root_id)
+    if not body_points:
+        return {
+            'engine': 'mermaid',
+            'syntax': '\n'.join(lines),
+            'diagram_type': 'decision_tree',
+            'node_count': 0,
+        }
 
-    for i, point in enumerate(body_points[1:], start=1):
-        nid = _node_id(i)
-        label = _clean_label(point)
-        # Try "Yes:" or "No:" pattern
-        m = re.match(r'^(Yes|No)\s*:\s*(.+)$', point.strip(), re.IGNORECASE)
-        if m:
-            edge_label = m.group(1)
-            node_label = _clean_label(m.group(2))
-            lines.append(f'  {nid}["{node_label}"]')
-            lines.append(f'  {root_id} -- {edge_label} --> {nid}')
+    for i, point in enumerate(body_points):
+        q_id = f'Q{i + 1}'
+        o_id = f'O{i + 1}'
+
+        # Parse "Is X? Yes: outcome" format
+        if '?' in point:
+            question, after = point.split('?', 1)
+            question = _clean_label(question.strip()) + '?'
+            outcome = after
+            for prefix in ['Yes:', 'Yes ', 'yes:', 'yes ']:
+                if prefix in after:
+                    outcome = after.split(prefix, 1)[1].strip()
+                    break
+            outcome = _clean_label(outcome).rstrip('.')
+            if not outcome:
+                outcome = 'Decision'
         else:
-            lines.append(f'  {nid}["{label}"]')
-            lines.append(f'  {nodes[-1]} --> {nid}')
-        nodes.append(nid)
+            question = _clean_label(point)
+            outcome = 'Decision'
+
+        # Diamond question node
+        lines.append(f'  {q_id}{{"{question}"}}')
+        # Rectangle outcome leaf
+        lines.append(f'  {o_id}["{outcome}"]')
+        # Yes branch leads to the outcome
+        lines.append(f'  {q_id} -->|Yes| {o_id}')
+        # No branch cascades to the next question (if any)
+        if i < len(body_points) - 1:
+            next_q_id = f'Q{i + 2}'
+            lines.append(f'  {q_id} -->|No| {next_q_id}')
 
     syntax = '\n'.join(lines)
     return {
         'engine': 'mermaid',
         'syntax': syntax,
         'diagram_type': 'decision_tree',
-        'node_count': len(body_points),
+        'node_count': len(body_points) * 2,
     }
 
 

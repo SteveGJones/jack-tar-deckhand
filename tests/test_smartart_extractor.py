@@ -15,10 +15,37 @@ class TestExtractGraphData:
 
     def test_extract_decision_tree(self):
         from src.smartart_extractor import extract_graph_data
-        body_points = ["Is budget > $100K?", "Yes: Full campaign", "No: Digital only"]
+        body_points = [
+            "Is the talk persuasive? Yes: hook-body-callback-cta",
+            "Is it problem-solving? Yes: situation-complication-resolution",
+            "Is it historical? Yes: chronological",
+        ]
         result = extract_graph_data(body_points, "decision_tree")
         assert result['engine'] == 'mermaid'
-        assert result['node_count'] >= 3
+        syntax = result['syntax']
+        # Top-down branching tree, not a sequential left-right flowchart
+        assert syntax.startswith('graph TB')
+        assert 'graph LR' not in syntax
+        # Yes/No edge labels
+        assert '-->|Yes|' in syntax
+        assert '-->|No|' in syntax
+        # Diamond question nodes and rectangle outcome leaves
+        assert 'Q1{"Is the talk persuasive?"}' in syntax
+        assert 'O1["hook-body-callback-cta"]' in syntax
+        assert 'Q2{"Is it problem-solving?"}' in syntax
+        assert 'O2["situation-complication-resolution"]' in syntax
+        assert 'Q3{"Is it historical?"}' in syntax
+        assert 'O3["chronological"]' in syntax
+        # Yes branches go to outcomes; No branches cascade to the next question
+        assert 'Q1 -->|Yes| O1' in syntax
+        assert 'Q1 -->|No| Q2' in syntax
+        assert 'Q2 -->|Yes| O2' in syntax
+        assert 'Q2 -->|No| Q3' in syntax
+        assert 'Q3 -->|Yes| O3' in syntax
+        # Final question has no No branch (no further question to cascade to)
+        assert 'Q3 -->|No|' not in syntax
+        # node_count = questions + outcomes
+        assert result['node_count'] == 6
 
     def test_extract_gantt_data(self):
         from src.smartart_extractor import extract_graph_data
