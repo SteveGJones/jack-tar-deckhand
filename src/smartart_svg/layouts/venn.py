@@ -1,10 +1,22 @@
-"""Venn diagram layout — two overlapping semi-transparent circles."""
+"""Venn diagram layout — two or three overlapping semi-transparent circles."""
 
 from src.smartart_svg.primitives import svg_circle, svg_text, svg_group
 from src.smartart_svg.tokens import resolve_text_colour
 
 
 def render_venn(data, container, tokens):
+    """Render a Venn diagram as an SVG fragment.
+
+    Dispatches to 2-set or 3-set implementation based on the number of
+    sets in the data.
+    """
+    sets = data.get('sets', [])
+    if len(sets) >= 3:
+        return _render_venn_3set(data, container, tokens)
+    return _render_venn_2set(data, container, tokens)
+
+
+def _render_venn_2set(data, container, tokens):
     """Render a 2-set Venn diagram as an SVG fragment.
 
     Overlap is proportional to intersection/total item ratio.
@@ -83,6 +95,127 @@ def render_venn(data, container, tokens):
                 fill=text_col, anchor='middle'
             ))
 
+    if intersection_items:
+        start_y = cy - (len(intersection_items) - 1) * line_h / 2
+        for i, item in enumerate(intersection_items):
+            elements.append(svg_text(
+                cx, start_y + i * line_h, item,
+                font_family=font, font_size=font_size,
+                fill=text_col, anchor='middle', weight='bold'
+            ))
+
+    return svg_group(elements, role='img', aria_label='Venn diagram')
+
+
+def _render_venn_3set(data, container, tokens):
+    """Render a 3-set Venn diagram as an SVG fragment.
+
+    Three circles are arranged in a triangle: top-centre, bottom-left,
+    bottom-right. Each circle's exclusive items are placed inside its
+    own circle but offset away from the triangle centroid. The central
+    3-way intersection items are placed at the container centre.
+    Pairwise intersections are not rendered in v1.
+    """
+    sets = data.get('sets', [])
+    intersection = data.get('intersection', {})
+    intersection_items = intersection.get('items', [])
+
+    cx, cy = container.center_point()
+    r = min(container.inner_width, container.inner_height) * 0.32
+    offset = r * 0.55
+
+    # Triangle circle centres
+    top_cx = cx
+    top_cy = cy - offset
+    bl_cx = cx - offset * 0.866
+    bl_cy = cy + offset * 0.5
+    br_cx = cx + offset * 0.866
+    br_cy = cy + offset * 0.5
+
+    series = tokens.get('chart_series', ['#2B6CB0', '#ED8936', '#6B7280'])
+    fill0 = series[0] if len(series) > 0 else '#2B6CB0'
+    fill1 = series[1] if len(series) > 1 else '#ED8936'
+    fill2 = series[2] if len(series) > 2 else '#6B7280'
+
+    elements = []
+    elements.append(svg_circle(top_cx, top_cy, r, fill=fill0, opacity=0.4))
+    elements.append(svg_circle(bl_cx, bl_cy, r, fill=fill1, opacity=0.4))
+    elements.append(svg_circle(br_cx, br_cy, r, fill=fill2, opacity=0.4))
+
+    font = tokens['font_family']
+    heading_font = tokens['heading_font']
+    text_col = tokens['text_color']
+
+    # Set labels OUTSIDE each circle
+    # Top: above the top circle
+    if len(sets) >= 1:
+        elements.append(svg_text(
+            top_cx, top_cy - r - 12,
+            sets[0].get('label', ''),
+            font_family=heading_font, font_size=22,
+            fill=text_col, anchor='middle', weight='bold'
+        ))
+    # Bottom-left: to the left of the bottom-left circle
+    if len(sets) >= 2:
+        elements.append(svg_text(
+            bl_cx - r - 8, bl_cy + 6,
+            sets[1].get('label', ''),
+            font_family=heading_font, font_size=22,
+            fill=text_col, anchor='end', weight='bold'
+        ))
+    # Bottom-right: to the right of the bottom-right circle
+    if len(sets) >= 3:
+        elements.append(svg_text(
+            br_cx + r + 8, br_cy + 6,
+            sets[2].get('label', ''),
+            font_family=heading_font, font_size=22,
+            fill=text_col, anchor='start', weight='bold'
+        ))
+
+    line_h = 18
+    font_size = 15
+
+    # Exclusive items: offset from each circle centre in the direction
+    # OPPOSITE the triangle centroid (which is (cx, cy)).
+    # Top circle: offset upward
+    # Bottom-left: offset down-left
+    # Bottom-right: offset down-right
+    exclusive_factor = 0.55
+
+    def _place_items(items, anchor_x, anchor_y):
+        start_y = anchor_y - (len(items) - 1) * line_h / 2
+        for i, item in enumerate(items):
+            elements.append(svg_text(
+                anchor_x, start_y + i * line_h, item,
+                font_family=font, font_size=font_size,
+                fill=text_col, anchor='middle'
+            ))
+
+    if len(sets) >= 1:
+        top_items = sets[0].get('items', [])
+        if top_items:
+            # Direction from centroid to top circle centre is (0, -offset)
+            ex = top_cx
+            ey = top_cy - r * exclusive_factor
+            _place_items(top_items, ex, ey)
+
+    if len(sets) >= 2:
+        bl_items = sets[1].get('items', [])
+        if bl_items:
+            # Direction from centroid to bl circle centre: (-0.866, +0.5)
+            ex = bl_cx - r * exclusive_factor * 0.866
+            ey = bl_cy + r * exclusive_factor * 0.5
+            _place_items(bl_items, ex, ey)
+
+    if len(sets) >= 3:
+        br_items = sets[2].get('items', [])
+        if br_items:
+            # Direction from centroid to br circle centre: (+0.866, +0.5)
+            ex = br_cx + r * exclusive_factor * 0.866
+            ey = br_cy + r * exclusive_factor * 0.5
+            _place_items(br_items, ex, ey)
+
+    # Central 3-way intersection at container centre
     if intersection_items:
         start_y = cy - (len(intersection_items) - 1) * line_h / 2
         for i, item in enumerate(intersection_items):

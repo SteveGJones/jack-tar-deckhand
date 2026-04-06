@@ -517,6 +517,42 @@ class TestVennOverlap:
         assert 'Common' in svg
 
 
+class TestVenn3Set:
+    def test_three_sets_render(self):
+        from src.smartart_svg.layouts.venn import render_venn
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        import re
+        data = {
+            "sets": [
+                {"label": "Mermaid", "items": ["Flowcharts"]},
+                {"label": "Vega-Lite", "items": ["Bar charts"]},
+                {"label": "Custom SVG", "items": ["SWOT", "Timeline"]}
+            ],
+            "intersection": {"items": ["All produce SVG"]}
+        }
+        style = {
+            'palette': {'primary': '1B3A4B', 'background': 'F5F0E8', 'text_primary': '1A1A1A',
+                        'chart_series': ['1B3A4B', 'C67B2F', '6B7280']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_venn(data, c, tokens)
+        # All three set labels visible
+        assert 'Mermaid' in svg
+        assert 'Vega-Lite' in svg
+        assert 'Custom SVG' in svg
+        # Items visible
+        assert 'Flowcharts' in svg
+        assert 'Bar charts' in svg
+        assert 'SWOT' in svg
+        assert 'All produce SVG' in svg
+        # Three circles
+        circles = re.findall(r'<circle ', svg)
+        assert len(circles) == 3
+
+
 class TestFeatureMatrixOverflow:
     def test_many_columns_truncated(self):
         from src.smartart_svg.layouts.feature_matrix import render_feature_matrix
