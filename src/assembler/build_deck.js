@@ -1399,18 +1399,18 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
         // Semi-transparent backing rectangle behind the graphic
         const backingColor = palette.background || 'FFFFFF';
         slide.addShape(pptx.ShapeType.rect, {
-            x: SLIDE_W * 0.125, y: SLIDE_H * 0.14,
-            w: SLIDE_W * 0.75, h: SLIDE_H * 0.80,
-            fill: { color: backingColor, transparency: 15 },
-            line: { color: 'CCCCCC', width: 0.5 },
+            x: SLIDE_W * 0.125, y: SLIDE_H * 0.18,
+            w: SLIDE_W * 0.75, h: SLIDE_H * 0.76,
+            fill: { color: backingColor, transparency: 60 },
         });
         // SmartArt graphic on top of the backing rectangle
         const saPath = resolveImagePath(saEntry.file_path);
         if (fs.existsSync(saPath)) {
             slide.addImage({
                 path: saPath,
-                x: SLIDE_W * 0.125, y: SLIDE_H * 0.14,
-                w: SLIDE_W * 0.75, h: SLIDE_H * 0.80,
+                x: SLIDE_W * 0.125, y: SLIDE_H * 0.18,
+                w: SLIDE_W * 0.75, h: SLIDE_H * 0.76,
+                sizing: { type: 'contain', w: SLIDE_W * 0.75, h: SLIDE_H * 0.76 },
                 altText: saEntry.alt_text || slideData.headline || '',
             });
         }
@@ -1420,8 +1420,9 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
         if (fs.existsSync(saPath)) {
             slide.addImage({
                 path: saPath,
-                x: SLIDE_W * 0.075, y: SLIDE_H * 0.14,
-                w: SLIDE_W * 0.85, h: SLIDE_H * 0.80,
+                x: SLIDE_W * 0.075, y: SLIDE_H * 0.18,
+                w: SLIDE_W * 0.85, h: SLIDE_H * 0.76,
+                sizing: { type: 'contain', w: SLIDE_W * 0.85, h: SLIDE_H * 0.76 },
                 altText: saEntry.alt_text || slideData.headline || '',
             });
         }
@@ -1430,12 +1431,19 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
     // Headline text box — top of slide, always rendered on SmartArt slides
     const headingFont = typo?.heading_font || 'Arial';
     const headingSize = typo?.heading_sizes?.slide_heading || 28;
+    if (tier === 'ai_background' || tier === 'full_ai_render') {
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: SLIDE_H * 0.01,
+            w: SLIDE_W, h: SLIDE_H * 0.14,
+            fill: { color: '000000', transparency: 50 },
+        });
+    }
     slide.addText(slideData.headline || '', {
-        x: MARGIN, y: SLIDE_H * 0.02,
+        x: MARGIN, y: MARGIN,
         w: SLIDE_W - 2 * MARGIN, h: SLIDE_H * 0.10,
         fontSize: headingSize,
         fontFace: headingFont,
-        color: tier === 'full_ai_render' ? 'FFFFFF' : textColor,
+        color: (tier === 'full_ai_render' || tier === 'ai_background') ? 'FFFFFF' : textColor,
         bold: true,
         valign: 'middle',
         wrap: true,
