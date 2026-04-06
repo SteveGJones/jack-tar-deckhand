@@ -98,9 +98,23 @@ def render_timeline(data, container, tokens):
             ))
 
         if description:
+            # Calculate available description lines based on container
+            half_h_for_desc = max(0, container.inner_height / 2 - desc_offset)
+            max_desc_lines = max(1, min(3, int(half_h_for_desc / (desc_font_size + 2))))
+
             desc_lines = _wrap_text(description, max_desc_chars)
+            visible_lines = desc_lines[:max_desc_lines]
+
+            # If truncated, add ellipsis to last visible line
+            if len(desc_lines) > max_desc_lines and visible_lines:
+                last = visible_lines[-1]
+                # Trim to make room for ellipsis
+                if len(last) > max_desc_chars - 1:
+                    last = last[:max_desc_chars - 1]
+                visible_lines[-1] = last + '\u2026'
+
             base_desc_y = spine_y + desc_offset if above else spine_y - desc_offset + desc_font_size
-            for di, dline in enumerate(desc_lines[:2]):  # Max 2 lines
+            for di, dline in enumerate(visible_lines):
                 dy = base_desc_y + di * (desc_font_size + 2)
                 elements.append(svg_text(
                     node_cx, dy,
