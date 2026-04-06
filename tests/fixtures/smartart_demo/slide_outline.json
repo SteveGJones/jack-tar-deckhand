@@ -581,10 +581,10 @@
       "slide_type": "diagram",
       "headline": "What's Next",
       "body_points": [
-        "Phase A SmartArt v1: Now to Q2 2025",
-        "Phase B Complex Diagrams: Q2 to Q3 2025",
-        "Phase C Brand Kit Integration: Q3 to Q4 2025",
-        "Phase D Visual Regression: Q4 2025 to Q1 2026"
+        "Phase A SmartArt v1: 2026-05-01 to 2026-05-15",
+        "Phase B Complex Diagrams: 2026-05-15 to 2026-06-15",
+        "Phase C Brand Kit: 2026-06-15 to 2026-07-15",
+        "Phase D Visual Regression: 2026-07-15 to 2026-08-15"
       ],
       "narrative_beat": "cta",
       "visual_direction": "Gantt chart showing the four development phases with time ranges",
@@ -597,24 +597,24 @@
           "tasks": [
             {
               "label": "Phase A SmartArt v1",
-              "start": "2025-01-01",
-              "end": "2025-06-30",
+              "start": "2026-05-01",
+              "end": "2026-05-15",
               "status": "active"
             },
             {
               "label": "Phase B Complex Diagrams",
-              "start": "2025-04-01",
-              "end": "2025-09-30"
+              "start": "2026-05-15",
+              "end": "2026-06-15"
             },
             {
               "label": "Phase C Brand Kit",
-              "start": "2025-07-01",
-              "end": "2025-12-31"
+              "start": "2026-06-15",
+              "end": "2026-07-15"
             },
             {
               "label": "Phase D Visual Regression",
-              "start": "2025-10-01",
-              "end": "2026-03-31"
+              "start": "2026-07-15",
+              "end": "2026-08-15"
             }
           ]
         }

@@ -385,6 +385,51 @@ class TestGanttLayout:
         assert 'Empty Gantt chart' in svg
 
 
+class TestGanttSequence:
+    def test_show_dates_false_skips_axis(self):
+        from src.smartart_svg.layouts.gantt import render_gantt
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "show_dates": False,
+            "tasks": [
+                {"label": "Task A", "start": "2026-01-01", "end": "2026-02-01"},
+                {"label": "Task B", "start": "2026-02-01", "end": "2026-03-01"},
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_gantt(data, c, tokens)
+        assert 'Task A' in svg
+        assert 'Task B' in svg
+        # Date labels should NOT appear
+        assert 'Jan' not in svg
+        assert 'Feb' not in svg
+
+    def test_long_labels_wider_column(self):
+        from src.smartart_svg.layouts.gantt import render_gantt
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "tasks": [
+                {"label": "A Very Long Task Label That Needs Space", "start": "2026-01-01", "end": "2026-02-01"},
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff', 'text_primary': '1a1a1a'},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 612, 324, padding=16)
+        svg = render_gantt(data, c, tokens)
+        # Just verify it renders without error and contains the label
+        assert 'A Very Long' in svg
+
+
 class TestVennOverlap:
     def test_exclusive_regions_visible(self):
         """Each set's exclusive region should be clearly visible."""

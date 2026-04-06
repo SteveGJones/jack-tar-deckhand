@@ -26,14 +26,41 @@ def _interpolate_colour(hex1, hex2, t):
     return f'#{r:02x}{g:02x}{b:02x}'
 
 
+def _compute_label_width(parsed, container):
+    """Compute dynamic label column width based on the longest task label.
+
+    Returns at least 22% of container width and at most 40% to prevent the
+    label column from dominating the chart area.
+    """
+    char_width = 13 * 0.6
+    longest_label_chars = max((len(t['label']) for t in parsed), default=10)
+    estimated_label_width = longest_label_chars * char_width + 12  # padding
+    return max(
+        container.inner_width * 0.22,
+        min(container.inner_width * 0.40, estimated_label_width),
+    )
+
+
 def render_gantt(data, container, tokens):
     """Render a Gantt chart as an SVG fragment.
 
     Args:
-        data: dict with 'tasks' list of {'label': str, 'start': 'YYYY-MM-DD', 'end': 'YYYY-MM-DD'}
+        data: dict with:
+            - 'tasks' list of {'label': str, 'start': 'YYYY-MM-DD', 'end': 'YYYY-MM-DD'}
+            - 'show_dates' bool (default True). When False, render a sequential
+              bar layout with no date axis — suitable for logical sequences
+              (handoffs, roadmap phases) rather than real schedules.
         container: Container for layout bounds
         tokens: Style tokens from extract_style_tokens()
     """
+    show_dates = data.get('show_dates', True)
+    if not show_dates:
+        return _render_gantt_sequence(data, container, tokens)
+    return _render_gantt_timeline(data, container, tokens)
+
+
+def _render_gantt_timeline(data, container, tokens):
+    """Render a Gantt chart with a real date axis."""
     tasks = data.get('tasks', [])
     if not tasks:
         return svg_group([], role='img', aria_label='Empty Gantt chart')
@@ -56,7 +83,7 @@ def render_gantt(data, container, tokens):
     # Layout regions
     title_h = container.inner_height * 0.08
     axis_h = 28
-    label_w = container.inner_width * 0.22
+    label_w = _compute_label_width(parsed, container)
     chart_x = container.inner_x + label_w
     chart_y = container.inner_y + title_h
     chart_w = container.inner_width - label_w
@@ -118,3 +145,80 @@ def render_gantt(data, container, tokens):
             current = date(current.year, current.month + 1, 1)
 
     return svg_group(elements, role='img', aria_label='Gantt chart')
+
+
+def _render_gantt_sequence(data, container, tokens):
+    """Render a Gantt-style chart as a sequential bar layout (no date axis).
+
+    Used for logical sequences (handoffs, roadmap phases) where dates would
+    falsely imply real timing. Each task takes a 1/N slice of the chart
+    width, or proportional widths if a 'weight' field is provided.
+    """
+    tasks = data.get('tasks', [])
+    if not tasks:
+        return svg_group([], role='img', aria_label='Empty Gantt chart')
+
+    parsed = []
+    for t in tasks:
+        parsed.append({
+            'label': t.get('label', ''),
+            'weight': float(t.get('weight', 1)),
+        })
+
+    n = len(parsed)
+    if n == 0:
+        return svg_group([], role='img', aria_label='Empty Gantt chart')
+
+    # Layout regions — no axis, so reclaim that vertical space.
+    title_h = container.inner_height * 0.08
+    label_w = _compute_label_width(parsed, container)
+    chart_x = container.inner_x + label_w
+    chart_y = container.inner_y + title_h
+    chart_w = container.inner_width - label_w
+    chart_h = container.inner_height - title_h
+
+    row_h = min(chart_h / n, 40)
+    bar_h = row_h * 0.6
+    gap = row_h * 0.2
+
+    primary = tokens['primary_color']
+    accent = tokens['accent_color']
+    text_col = tokens['text_color']
+    heading_font = tokens['heading_font']
+    rx = tokens.get('border_radius', 4)
+
+    total_weight = sum(t['weight'] for t in parsed) or float(n)
+    use_weights = any(t['weight'] != 1 for t in parsed)
+
+    elements = []
+
+    for i, task in enumerate(parsed):
+        row_y = chart_y + i * row_h + gap / 2
+
+        label_x = container.inner_x + 4
+        label_y = row_y + bar_h / 2 + 4
+        elements.append(svg_text(
+            label_x, label_y, task['label'],
+            font_family=heading_font, font_size=13,
+            fill=text_col, anchor='start', weight='bold'
+        ))
+
+        if use_weights:
+            offset_units = sum(p['weight'] for p in parsed[:i])
+            start_frac = offset_units / total_weight
+            width_frac = task['weight'] / total_weight
+        else:
+            start_frac = i / n
+            width_frac = 1.0 / n
+
+        bar_x = chart_x + chart_w * start_frac
+        bar_w = max(4, chart_w * width_frac * 0.9)
+
+        t_ratio = i / max(n - 1, 1)
+        fill = _interpolate_colour(primary, accent, t_ratio)
+        elements.append(svg_rect(bar_x, row_y, bar_w, bar_h, rx=rx, fill=fill))
+
+        if i > 0:
+            elements.append(svg_rect(chart_x, chart_y + i * row_h, chart_w, 1, fill=text_col))
+
+    return svg_group(elements, role='img', aria_label='Gantt chart (sequence)')
