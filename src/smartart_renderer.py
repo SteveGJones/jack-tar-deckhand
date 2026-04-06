@@ -405,6 +405,19 @@ def render_vega_lite(spec, style_guide, output_dir):
         vl_spec['config'].setdefault('range', {})
         vl_spec['config']['range']['category'] = ['#' + c for c in chart_series]
 
+    # Default mark colour from brand primary — affects simple bar/line charts
+    # that have no `color` encoding (which would otherwise pick the VL default blue).
+    primary_hex = palette.get('primary', '1a73e8')
+    vl_spec['config'].setdefault('mark', {})
+    vl_spec['config']['mark'].setdefault('color', '#' + primary_hex)
+
+    # Also set bar and line specifically (some VL versions need these)
+    vl_spec['config'].setdefault('bar', {})
+    vl_spec['config']['bar'].setdefault('color', '#' + primary_hex)
+    vl_spec['config'].setdefault('line', {})
+    vl_spec['config']['line'].setdefault('color', '#' + primary_hex)
+    vl_spec['config']['line'].setdefault('strokeWidth', 3)
+
     # Inject readable font sizes for axes, legends, and titles.
     # Vega-Lite defaults to 10px which becomes ~3pt at slide scale.
     vl_spec['config'].setdefault('axis', {})
