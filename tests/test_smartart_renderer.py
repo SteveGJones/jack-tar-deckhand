@@ -395,5 +395,47 @@ class TestVegaLiteFontConfig:
             spec_files = [f for f in os.listdir(tmpdir) if f.startswith('vl-spec-')]
             with open(os.path.join(tmpdir, spec_files[0])) as f:
                 written_spec = json.load(f)
-            # User's 20 should be preserved, not overwritten to 14
+            # User's 20 should be preserved, not overwritten
             assert written_spec['config']['axis']['labelFontSize'] == 20
+
+
+class TestVegaLiteEditorial:
+    def test_axis_titles_from_inline_data(self):
+        from src.smartart_extractor import _build_vega_from_inline
+        inline_data = {
+            'x_axis_title': 'Phase',
+            'y_axis_title': 'Tests',
+            'series': [{'label': 'P1', 'value': 10}, {'label': 'P2', 'value': 20}]
+        }
+        result = _build_vega_from_inline(inline_data, 'bar_chart')
+        assert result['spec']['encoding']['x']['axis']['title'] == 'Phase'
+        assert result['spec']['encoding']['y']['axis']['title'] == 'Tests'
+
+    def test_integer_data_gets_integer_ticks(self):
+        from src.smartart_extractor import _build_vega_from_inline
+        inline_data = {
+            'series': [{'label': 'A', 'value': 5}, {'label': 'B', 'value': 10}]
+        }
+        result = _build_vega_from_inline(inline_data, 'bar_chart')
+        assert result['spec']['encoding']['y']['axis']['format'] == 'd'
+        assert result['spec']['encoding']['y']['axis']['tickMinStep'] == 1
+
+    def test_highlight_label_creates_conditional_encoding(self):
+        from src.smartart_extractor import _build_vega_from_inline
+        inline_data = {
+            'highlight_label': 'Total',
+            'series': [{'label': 'A', 'value': 10}, {'label': 'Total', 'value': 30}]
+        }
+        result = _build_vega_from_inline(inline_data, 'bar_chart')
+        assert 'color' in result['spec']['encoding']
+        assert 'condition' in result['spec']['encoding']['color']
+
+    def test_no_axis_title_when_not_provided(self):
+        from src.smartart_extractor import _build_vega_from_inline
+        inline_data = {
+            'series': [{'label': 'A', 'value': 10}]
+        }
+        result = _build_vega_from_inline(inline_data, 'bar_chart')
+        # Should be None (hidden), not the generic field name
+        assert result['spec']['encoding']['x']['axis']['title'] is None
+        assert result['spec']['encoding']['y']['axis']['title'] is None

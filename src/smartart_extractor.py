@@ -482,15 +482,51 @@ def _build_vega_from_inline(inline_data, graphic_type, engine='vega_lite'):
     elif graphic_type == 'radar_chart':
         mark = 'point'
 
+    # Optional editorial fields from inline_data
+    x_title = inline_data.get('x_axis_title')  # None or "" hides
+    y_title = inline_data.get('y_axis_title')
+    y_format = inline_data.get('y_format')      # e.g., 'd' for integer, '$,' for currency
+    highlight_label = inline_data.get('highlight_label')
+
+    # Detect integer-only data -> force integer ticks
+    all_int = all(isinstance(v['value'], int) for v in values) if values else False
+
+    x_encoding = {'field': 'label', 'type': 'ordinal'}
+    y_encoding = {'field': 'value', 'type': 'quantitative'}
+
+    # Apply axis titles (None = hidden)
+    x_encoding['axis'] = {'title': x_title if x_title else None}
+    y_axis = {'title': y_title if y_title else None}
+
+    # Integer formatting
+    if all_int and not y_format:
+        y_axis['format'] = 'd'
+        y_axis['tickMinStep'] = 1
+    elif y_format:
+        y_axis['format'] = y_format
+    y_encoding['axis'] = y_axis
+
     spec = {
         '$schema': 'https://vega.github.io/schema/vega-lite/v5.json',
         'mark': mark,
         'data': {'values': values},
         'encoding': {
-            'x': {'field': 'label', 'type': 'ordinal'},
-            'y': {'field': 'value', 'type': 'quantitative'}
+            'x': x_encoding,
+            'y': y_encoding
         }
     }
+
+    # Highlight encoding for total/sum bars
+    if highlight_label:
+        # Use Vega-Lite conditional encoding to colour the highlighted bar differently
+        spec['encoding']['color'] = {
+            'condition': {
+                'test': f"datum.label === '{highlight_label}'",
+                'value': '#C67B2F'  # accent colour
+            },
+            'value': '#1B3A4B'  # primary colour
+        }
+
     return {
         'engine': engine,
         'chart_type': graphic_type,

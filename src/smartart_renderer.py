@@ -408,17 +408,17 @@ def render_vega_lite(spec, style_guide, output_dir):
     # Inject readable font sizes for axes, legends, and titles.
     # Vega-Lite defaults to 10px which becomes ~3pt at slide scale.
     vl_spec['config'].setdefault('axis', {})
-    vl_spec['config']['axis'].setdefault('labelFontSize', 14)
-    vl_spec['config']['axis'].setdefault('titleFontSize', 16)
+    vl_spec['config']['axis'].setdefault('labelFontSize', 18)
+    vl_spec['config']['axis'].setdefault('titleFontSize', 22)
     vl_spec['config']['axis'].setdefault('labelAngle', -45)
-    vl_spec['config']['axis'].setdefault('labelLimit', 120)
+    vl_spec['config']['axis'].setdefault('labelLimit', 200)
 
     vl_spec['config'].setdefault('legend', {})
-    vl_spec['config']['legend'].setdefault('labelFontSize', 14)
-    vl_spec['config']['legend'].setdefault('titleFontSize', 16)
+    vl_spec['config']['legend'].setdefault('labelFontSize', 16)
+    vl_spec['config']['legend'].setdefault('titleFontSize', 18)
 
     vl_spec['config'].setdefault('title', {})
-    vl_spec['config']['title'].setdefault('fontSize', 18)
+    vl_spec['config']['title'].setdefault('fontSize', 24)
 
     run_id = uuid.uuid4().hex[:8]
     spec_path = os.path.join(output_dir, f'vl-spec-{run_id}.json')

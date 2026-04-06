@@ -299,6 +299,7 @@
         "chart_type": "bar",
         "data_source_label": "QA check distribution by category",
         "inline_data": {
+          "y_axis_title": "Number of Checks",
           "series": [
             {
               "label": "Contrast",
@@ -452,6 +453,9 @@
         "chart_type": "bar",
         "data_source_label": "Cost per deck by category (USD)",
         "inline_data": {
+          "y_axis_title": "Cost (USD)",
+          "y_format": "$,.2f",
+          "highlight_label": "Total",
           "series": [
             {
               "label": "Ollama Drafts",
@@ -527,6 +531,8 @@
         "chart_type": "line",
         "data_source_label": "Cumulative test count by phase",
         "inline_data": {
+          "x_axis_title": "Implementation Phase",
+          "y_axis_title": "Cumulative Tests",
           "series": [
             {
               "label": "Phase 1",
