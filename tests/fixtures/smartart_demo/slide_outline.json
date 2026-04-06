@@ -156,9 +156,9 @@
         "Map \u2014 Chart the visuals"
       ],
       "narrative_beat": "transition",
-      "visual_direction": "Individual nautical elements \u2014 brass compass, telescope, ship's wheel, aged map \u2014 each generated separately and placed at exact positions with labels",
-      "visual_intent": "Show 4 nautical instruments as individual positioned elements with labels \u2014 pragmatic_composition strategy demonstrating multi-element assembly",
-      "visual_type": "pragmatic_composition"
+      "visual_direction": "Four nautical instruments rendered as bullet points: compass, telescope, ship's wheel, and aged map",
+      "visual_intent": "Section divider listing the four pipeline stages \u2014 composed strategy (no AI imagery required)",
+      "visual_type": "none"
     },
     {
       "slide_number": 10,

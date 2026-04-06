@@ -310,6 +310,134 @@ def test_ap31_long_text_in_narrow_box_warns():
     assert len(warnings) >= 1
 
 
+# --- AP-32: Element image completeness ---
+
+def test_ap32_pragmatic_composition_missing_images():
+    """AP-32 errors when a pragmatic_composition slide has no element images."""
+    from src.qa.checks.element_layout import check_element_image_completeness
+    strategy_entry = {
+        'slide_number': 9,
+        'strategy': 'pragmatic_composition',
+        'element_layout': {
+            'template': 'quad',
+            'elements': [
+                {'id': 'elem_1', 'label_source': 'body_points[0]', 'x': 0.05, 'y': 0.20, 'w': 0.42, 'h': 0.35},
+                {'id': 'elem_2', 'label_source': 'body_points[1]', 'x': 0.53, 'y': 0.20, 'w': 0.42, 'h': 0.35},
+            ],
+        },
+    }
+    image_manifest = {'images': []}  # No images at all
+    findings = check_element_image_completeness(strategy_entry, image_manifest)
+    errors = [f for f in findings if f['severity'] == 'error']
+    assert len(errors) == 1
+    assert errors[0]['category'] == 'element_image_completeness'
+    assert errors[0]['slide_number'] == 9
+    assert '2' in errors[0]['description']  # references missing count
+
+
+def test_ap32_pragmatic_composition_partial_images():
+    """AP-32 errors when only some element images are present."""
+    from src.qa.checks.element_layout import check_element_image_completeness
+    strategy_entry = {
+        'slide_number': 9,
+        'strategy': 'pragmatic_composition',
+        'element_layout': {
+            'template': 'quad',
+            'elements': [
+                {'id': 'elem_1'},
+                {'id': 'elem_2'},
+                {'id': 'elem_3'},
+                {'id': 'elem_4'},
+            ],
+        },
+    }
+    image_manifest = {
+        'images': [
+            {'slide_number': 9, 'element_id': 'elem_1', 'file_path': 'a.png'},
+            {'slide_number': 9, 'element_id': 'elem_2', 'file_path': 'b.png'},
+        ],
+    }
+    findings = check_element_image_completeness(strategy_entry, image_manifest)
+    errors = [f for f in findings if f['severity'] == 'error']
+    assert len(errors) == 1
+
+
+def test_ap32_pragmatic_composition_with_all_images_passes():
+    """AP-32 returns no findings when every element has an image."""
+    from src.qa.checks.element_layout import check_element_image_completeness
+    strategy_entry = {
+        'slide_number': 9,
+        'strategy': 'pragmatic_composition',
+        'element_layout': {
+            'template': 'two_column',
+            'elements': [
+                {'id': 'elem_1'},
+                {'id': 'elem_2'},
+            ],
+        },
+    }
+    image_manifest = {
+        'images': [
+            {'slide_number': 9, 'element_id': 'elem_1', 'file_path': 'foo.png'},
+            {'slide_number': 9, 'element_id': 'elem_2', 'file_path': 'bar.png'},
+        ],
+    }
+    findings = check_element_image_completeness(strategy_entry, image_manifest)
+    assert len(findings) == 0
+
+
+def test_ap32_skips_non_pragmatic_slides():
+    """AP-32 produces no findings for slides that don't use pragmatic_composition."""
+    from src.qa.checks.element_layout import check_element_image_completeness
+    strategy_entry = {
+        'slide_number': 5,
+        'strategy': 'composed',
+        'element_layout': {
+            'elements': [
+                {'id': 'elem_1'},
+            ],
+        },
+    }
+    image_manifest = {'images': []}
+    findings = check_element_image_completeness(strategy_entry, image_manifest)
+    assert len(findings) == 0
+
+
+def test_ap32_skips_backdrop_slides():
+    """AP-32 produces no findings for backdrop slides (only pragmatic_composition)."""
+    from src.qa.checks.element_layout import check_element_image_completeness
+    strategy_entry = {
+        'slide_number': 5,
+        'strategy': 'backdrop',
+        'element_layout': {
+            'elements': [
+                {'id': 'elem_1'},
+                {'id': 'elem_2'},
+            ],
+        },
+    }
+    image_manifest = {'images': []}
+    findings = check_element_image_completeness(strategy_entry, image_manifest)
+    assert len(findings) == 0
+
+
+def test_ap32_respects_speaker_override():
+    """AP-32 honours speaker_override when determining slide strategy."""
+    from src.qa.checks.element_layout import check_element_image_completeness
+    strategy_entry = {
+        'slide_number': 9,
+        'strategy': 'composed',
+        'speaker_override': 'pragmatic_composition',
+        'element_layout': {
+            'elements': [{'id': 'elem_1'}],
+        },
+    }
+    image_manifest = {'images': []}
+    findings = check_element_image_completeness(strategy_entry, image_manifest)
+    errors = [f for f in findings if f['severity'] == 'error']
+    assert len(errors) == 1
+
+
 def test_ap31_detected_width_used_when_available():
     """When detected positions exist, their width should be used for fit check."""
     from src.qa.checks.element_layout import check_label_text_fit

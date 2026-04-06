@@ -101,13 +101,14 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
                 except Exception:
                     pass
 
-    # Step 1b: Element layout checks (AP-27 to AP-30)
+    # Step 1b: Element layout checks (AP-27 to AP-32)
     from src.qa.checks.element_layout import (
         check_element_layout,
         check_vision_confidence,
         check_text_element_alignment,
         check_grid_reading_order,
         check_label_text_fit,
+        check_element_image_completeness,
     )
 
     # Load image manifest for alignment checks
@@ -144,6 +145,9 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
                     findings.extend(check_text_element_alignment(entry, image_entry))
                 # AP-31: Label text fit
                 findings.extend(check_label_text_fit(entry, outline_slide, image_entry))
+            # AP-32: Element image completeness (pragmatic_composition only)
+            if strategy == 'pragmatic_composition':
+                findings.extend(check_element_image_completeness(entry, im_data))
             # AP-30: Grid reading order (any strategy with grid layout)
             if entry.get('element_layout', {}).get('template') == 'grid_2x2' or \
                entry.get('body_layout') == 'grid_2x2':

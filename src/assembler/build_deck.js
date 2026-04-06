@@ -1243,7 +1243,11 @@ function buildPragmaticSlide(pptx, slideData, ctx) {
                     sizing: { type: 'cover', w: ew, h: eh },
                     altText: elem.id,
                 });
+            } else {
+                console.warn(`[WARN] pragmatic_composition slide ${slideData.slide_number}: element '${elem.id}' image file missing on disk (${elemImage.file_path}) — text label only`);
             }
+        } else {
+            console.warn(`[WARN] pragmatic_composition slide ${slideData.slide_number}: element '${elem.id}' has no image in manifest — text label only`);
         }
 
         // 3. Text label — below element (or above if in bottom third)
