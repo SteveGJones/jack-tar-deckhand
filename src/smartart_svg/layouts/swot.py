@@ -69,7 +69,7 @@ def render_swot(data, container, tokens):
         ))
 
         # Header background band
-        header_h = 44
+        header_h = 36
         elements.append(svg_rect(
             cell.x, cell.y, cell.width, header_h,
             rx=tokens.get('border_radius', 8),
@@ -81,7 +81,7 @@ def render_swot(data, container, tokens):
         text_colour = resolve_text_colour(bg_colour, tokens['text_color'], None)
         elements.append(svg_text(
             cell.x + cell.width / 2,
-            cell.y + 28,
+            cell.y + 24,
             label,
             font_family=tokens['heading_font'],
             font_size=20,
@@ -91,9 +91,9 @@ def render_swot(data, container, tokens):
         ))
 
         # Bullet items — each on its own line
-        item_font_size = 15
-        line_height = item_font_size + 6
-        start_y = cell.y + header_h + 20
+        item_font_size = 13
+        line_height = item_font_size + 4
+        start_y = cell.y + header_h + 16
         for j, item in enumerate(items):
             iy = start_y + j * line_height
             if iy + item_font_size > cell.y + cell.height:

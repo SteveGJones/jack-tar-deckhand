@@ -61,10 +61,10 @@ def render_timeline(data, container, tokens):
 
     half_h = container.inner_height / 2
     label_offset = min(half_h * 0.30, 36)
-    desc_offset = min(half_h * 0.55, 60)
+    desc_offset = min(half_h * 0.35, 42)
 
     label_font_size = max(12, min(16, cols[0].width / 5))
-    desc_font_size = max(12, min(13, cols[0].width / 6))
+    desc_font_size = max(11, min(13, cols[0].width / 7))
     char_width_label = label_font_size * 0.6
     char_width_desc = desc_font_size * 0.6
     max_label_chars = max(6, int(cols[0].width / char_width_label))
