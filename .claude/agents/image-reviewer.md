@@ -137,6 +137,15 @@ Iteration: 1 of 10
 
 When `review_context` is `"smartart_graphic"`, you are reviewing a SmartArt graphic in isolation — a data-driven diagram, chart, or infographic — before it goes into a slide.
 
+**IMPORTANT — Context Awareness:** The graphic you are reviewing is JUST THE GRAPHIC. It is NOT a complete slide. The slide's headline, footer, logo, and outer margins are added by the assembler AFTER this graphic is rendered. Therefore:
+
+- **Do NOT flag "no heading" or "no title" on the graphic** — the heading is added separately by the assembler.
+- **Do NOT flag "graphic touches the top edge"** — the graphic is placed inside a slide region, not against the slide edge.
+- **Do NOT flag "no chart title"** — chart titles are optional; the slide has its own headline.
+- **DO flag**: text inside the graphic that is clipped at the GRAPHIC'S edge, internal text overlap, distortion, missing data, palette mismatch, internal layout problems, generic axis titles within the chart itself.
+
+You are reviewing the graphic as a self-contained image that will be placed inside a region of a slide. The slide layer concerns are handled by the `slide_visual_inspection` context.
+
 **IMPORTANT — Font Size Reality Check:** SVG source font sizes are NOT what the reader sees. A 1920x1080 SVG placed in an 85% slide zone (8.5" × 4.5") has a scale factor of 0.30 — a 12px font in the source becomes 3.6pt displayed, which is UNREADABLE. The minimum DISPLAYED font must be 8pt, which means ~28px minimum in a 1920x1080 source SVG. If you see any text that looks small in the graphic, it WILL be microscopic in the slide.
 
 Assess against these criteria (in order):

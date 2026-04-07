@@ -45,12 +45,12 @@
     {
       "slide_number": 4,
       "slide_type": "diagram",
-      "headline": "13 Steps from Brief to Deck",
+      "headline": "From Brief to Deck in Four Phases",
       "body_points": [
-        "Validate Brief \u2192 Brand Manager \u2192 Slide Stylist \u2192 Narrative Architect",
-        "SmartArt Selector \u2192 Strategy Map \u2192 SmartArt Extractor",
-        "Speaker Notes Writer \u2192 Image Generation Bridge \u2192 SmartArt Renderer",
-        "Chart Renderer \u2192 Deck Assembler \u2192 Deck QA"
+        "Phase 1 \u2014 Setup: Validate Brief, Brand Manager, Slide Stylist, Narrative Architect",
+        "Phase 2 \u2014 Plan: SmartArt Selector, Strategy Map, SmartArt Extractor",
+        "Phase 3 \u2014 Generate: Speaker Notes, Image Bridge, SmartArt Renderer",
+        "Phase 4 \u2014 Build: Chart Renderer, Deck Assembler, Deck QA"
       ],
       "narrative_beat": "evidence-1",
       "visual_direction": "Pipeline flowchart showing the complete system",
