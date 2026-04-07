@@ -146,27 +146,28 @@ def _render_venn_3set(data, container, tokens):
     heading_font = tokens['heading_font']
     text_col = tokens['text_color']
 
-    # Set labels OUTSIDE each circle
-    # Top: above the top circle
+    # Set labels OUTSIDE each circle with generous clearance so they
+    # never collide with exclusive item text rendered inside the circles.
+    # Top: well above the top circle
     if len(sets) >= 1:
         elements.append(svg_text(
-            top_cx, top_cy - r - 12,
+            top_cx, top_cy - r - 20,
             sets[0].get('label', ''),
             font_family=heading_font, font_size=22,
             fill=text_col, anchor='middle', weight='bold'
         ))
-    # Bottom-left: to the left of the bottom-left circle
+    # Bottom-left: further left of the bottom-left circle
     if len(sets) >= 2:
         elements.append(svg_text(
-            bl_cx - r - 8, bl_cy + 6,
+            bl_cx - r * 1.1, bl_cy + 6,
             sets[1].get('label', ''),
             font_family=heading_font, font_size=22,
             fill=text_col, anchor='end', weight='bold'
         ))
-    # Bottom-right: to the right of the bottom-right circle
+    # Bottom-right: further right of the bottom-right circle
     if len(sets) >= 3:
         elements.append(svg_text(
-            br_cx + r + 8, br_cy + 6,
+            br_cx + r * 1.1, br_cy + 6,
             sets[2].get('label', ''),
             font_family=heading_font, font_size=22,
             fill=text_col, anchor='start', weight='bold'
@@ -176,11 +177,13 @@ def _render_venn_3set(data, container, tokens):
     font_size = 15
 
     # Exclusive items: offset from each circle centre in the direction
-    # OPPOSITE the triangle centroid (which is (cx, cy)).
+    # OPPOSITE the triangle centroid (which is (cx, cy)). A larger factor
+    # pushes items toward the outer edge of each circle so they sit clear
+    # of the central intersection text and leave room for outside labels.
     # Top circle: offset upward
     # Bottom-left: offset down-left
     # Bottom-right: offset down-right
-    exclusive_factor = 0.55
+    exclusive_factor = 0.70
 
     def _place_items(items, anchor_x, anchor_y):
         start_y = anchor_y - (len(items) - 1) * line_h / 2

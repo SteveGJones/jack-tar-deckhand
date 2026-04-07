@@ -62,13 +62,14 @@
       "slide_type": "content",
       "headline": "Built for Speakers Who Think, Not Designers Who Click",
       "body_points": [
-        "Set A: Speakers \u2014 fast delivery, visual impact",
-        "Set B: Technical \u2014 diagrams, data viz, systems",
-        "Shared: Content-rich, time-poor professionals"
+        "Set A: Conference Speakers \u2014 fast delivery, visual impact",
+        "Set B: Technical Leaders \u2014 diagrams, data viz, systems",
+        "Set C: Business Executives \u2014 branded slides, charts, polish",
+        "Shared: All three need conference-quality decks fast"
       ],
       "narrative_beat": "evidence-2",
       "visual_direction": "Three overlapping audience groups with distinctive icons for each",
-      "visual_intent": "Show the target audiences as a Venn diagram with AI-generated icons for each audience",
+      "visual_intent": "Show the target audiences as a three-set Venn diagram with AI-generated icons for each audience",
       "visual_type": "diagram"
     },
     {
@@ -502,16 +503,16 @@
     {
       "slide_number": 25,
       "slide_type": "diagram",
-      "headline": "Six Ways to Build a Slide",
+      "headline": "Four Strategies, Six Variants",
       "body_points": [
-        "Composed: Standard PptxGenJS shapes and text. SmartArt: Data-driven graphics from 3 engines",
-        "Background: AI atmospheric image with text zones. Backdrop: Vision-detected positioning",
+        "Composed: Standard PptxGenJS shapes, text, and SmartArt graphics",
+        "Background: AI atmospheric image with text zones or vision-detected positioning",
         "Pragmatic Composition: Individual AI elements at exact coordinates",
         "Full Render: Entire slide as a single AI-generated image"
       ],
       "narrative_beat": "evidence-19",
-      "visual_direction": "Timeline showing the 6 rendering strategies from simplest to most complex",
-      "visual_intent": "Show the 6 rendering strategies as a timeline from simplest to most complex",
+      "visual_direction": "Timeline showing the 4 rendering strategies from simplest to most complex",
+      "visual_intent": "Show the 4 rendering strategies as a timeline from simplest to most complex",
       "visual_type": "diagram"
     },
     {
