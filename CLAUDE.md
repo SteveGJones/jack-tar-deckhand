@@ -13,6 +13,18 @@ All rules are in **CONSTITUTION.md**. Core instructions are in **CLAUDE-CORE.md*
 
 This rule exists because visual review was skipped THREE TIMES across multiple conversations, each time producing decks with blank slides, missing text, or broken graphics that the user had to catch.
 
+## MANDATORY: Agent Definition Reloading
+
+**Agent definitions in `.claude/agents/*.md` are loaded at session start, NOT on every dispatch.** When you modify an agent's protocol (e.g., `image-reviewer.md`):
+- The change is NOT picked up by the actual subagent until Claude Code is restarted
+- The `general-purpose` agent reads prompts fresh each call, so prompt-injected protocols work without restart
+- For iterative reviewer development: test via `general-purpose` agent first, then restart and validate the actual subagent picks up the new definition
+- Always tell the user to restart Claude Code after modifying agent definitions if you need the changes to take effect this session
+
+**Validation pattern**: After updating `.claude/agents/<name>.md`, dispatch the subagent and check whether its responses reflect the new criteria. If they don't, the definition is cached and a restart is required.
+
+**Vision capability note**: The `image-reviewer` agent uses Haiku, which has visual perception limitations (e.g., misjudging proportional widths in tapered shapes). For high-accuracy visual review, the `general-purpose` agent (Sonnet/Opus) is more reliable. Use both in parallel for cross-validation when possible.
+
 ## Project: Jack-Tar Deckhand
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
