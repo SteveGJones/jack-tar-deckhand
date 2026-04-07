@@ -87,7 +87,9 @@
       "Bash(brew info:*)",
       "Bash(source .venv/bin/activate:*)",
       "Bash(pdftoppm:*)",
-      "Skill(update-config)"
+      "Skill(update-config)",
+      "Bash(for b:*)",
+      "Bash(do echo:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",

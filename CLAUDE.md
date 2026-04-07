@@ -29,7 +29,7 @@ This rule exists because visual review was skipped THREE TIMES across multiple c
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-04-03)
+### Current Status (2026-04-07)
 
 - **BSA Architecture:** v1.4.0, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
@@ -39,28 +39,25 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
   - Create `research/synthesis-[skill-name].md` before implementing any skill
 
-- **All Phases COMPLETE — 518 tests passing**
-  - Phase 1: Foundation — 38 tests
-  - Phase 2: Design Services (brand-manager, slide-stylist) — 27 tests
-  - Phase 3: Content Services (narrative-architect, speaker-notes-writer) — 12 tests
-  - Phase 4A: Image Utilities — 98 tests
-  - Phase 4B: Cloud Generation — 89 tests
-  - Phase 4C: Routing & Advisory — 46 tests
-  - Phase 5: Assembly & QA (deck-assembler, deck-qa, presentation-reviewer) — 67 tests
-  - Phase 6: Orchestration (deck-conductor) — 19 tests
+- **All Phases COMPLETE — 650 tests passing**
+  - Phases 1-6: Foundation through Orchestration (518 tests)
+  - SmartArt Intelligent Graphics: 10 graphic types, 3 engines, 4 enrichment tiers (132 tests)
+  - SmartArt feature merged via PR #21 on 2026-04-07. Branch deleted.
 
 - **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **smartart-selector** → **strategy-map** → **smartart-extractor** → speaker-notes-writer → imagegen-bridge → **smartart-renderer** → chart-renderer → deck-assembler → deck-qa → presentation-reviewer
 
-- **SmartArt Intelligent Graphics (2026-04-03):** AI-driven templated graphic generation
+- **SmartArt Intelligent Graphics (merged 2026-04-07, PR #21):** AI-driven templated graphic generation
   - 10 v1 graphic types: flowchart, decision tree, bar/line chart, radar chart, SWOT, feature matrix, Venn, timeline, pipeline/funnel, Gantt
   - 3 rendering engines: Mermaid.js (graph-based), Vega-Lite (data viz), Custom SVG (spatial/infographic)
   - 4 enrichment tiers: T0 pure programmatic, T1 AI background, T2 AI element icons, T3 full AI render
   - Draft-phase comparator: competing engines render same data, image-reviewer scores, winner locked for production
   - Negotiation pattern: smartart-selector proposes graphic types, narrative-architect approves/rejects (max 2 rounds)
   - New AI persona: SmartArt Selector (Haiku default, Sonnet escalation)
+  - **Auto-routing for poor aspect ratios:** 4+ node flowcharts route from Mermaid LR to `src/smartart_svg/layouts/flowchart.py` (2x2/2x3/3x3 grid). 3+ rule decision trees route from Mermaid TB to `src/smartart_svg/layouts/decision_tree.py` (2-column "if/then" layout). Routing logic in `extract()` in `src/smartart_extractor.py`.
   - **Design spec:** `docs/superpowers/specs/2026-04-03-smartart-intelligent-graphics-design.md`
   - **Research:** `research/ai-driven-templated-graphic-generation-research.md`
-  - **GitHub issue:** #17
+  - **Latest demo deck:** `output/jack-tar-deckhand-smartart-demo-v7.pptx` (16.2 MB, 28 slides reviewed)
+  - **GitHub issue:** #17 (closed)
 
 - **Keynote Pipeline:** Five rendering strategies per slide (expanded from 3, 2026-03-30):
   - `full_render` — entire slide as AI-generated image (title, section divider, closing)
@@ -102,6 +99,12 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 - **Existing ollama-* skills are upstream — do NOT fork or modify them.** The imagegen-bridge handles all DeckContext integration.
 
 - **Local config:** `local-config.json` (gitignored) contains machine-specific settings — Ollama model tags, timeouts. Always read this before Ollama commands. Never hardcode model names without tags.
+
+- **Claude Code permissions:** `.claude/settings.local.json` (tracked, per-developer overrides) controls which commands Claude can run silently vs prompts for. The free iteration loop (Ollama draft + slide review) needs minimal prompting — see `docs/dev/claude-permissions-guide.md` for the three-tier model and the exact commands the SmartArt loop needs. Use wildcard prefix matches (`Bash(tool:*)`) over exact strings.
+
+- **CI is pre-existing broken:** The `AI-First SDLC Validation` GitHub Actions workflow fails on every commit (including main itself) because it references a `tools/` directory that doesn't exist. The failures predate any feature work. Don't try to fix this as part of feature PRs. The substantive `Code Quality Analysis` check passes — that's the one to watch. When merging, `mergeStateStatus: UNSTABLE` from these failing checks is expected.
+
+- **Merge convention:** Use `gh pr merge <n> --merge` (merge commit), never `--squash`. This project ships features through many small fix commits during iteration rounds, and squashing destroys the per-fix granularity.
 
 ### Implementation Status
 
