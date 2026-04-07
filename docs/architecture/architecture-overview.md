@@ -1,7 +1,7 @@
 # Architecture Overview -- Jack-Tar Deckhand
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.1.0
-> Date: 2026-03-29
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
+> Date: 2026-04-03
 > Status: Draft -- pre-implementation review document
 
 ---
@@ -38,6 +38,8 @@ L0  Presentation Engineering
     +-- L1  Content Services
     |   +-- L2  Outline Generation        [skill: narrative-architect]
     |   +-- L2  Speaker Notes             [skill: speaker-notes-writer]
+    |   +-- L2  SmartArt Selection          [AI Persona: smartart-selector]
+    |   +-- L2  SmartArt Data Extraction    [skill: smartart-extractor]
     |
     +-- L1  Image Services
     |   +-- L2  Image Routing & Discovery     [skill: imagegen-bridge]
@@ -54,6 +56,7 @@ L0  Presentation Engineering
     |   +-- L2  Image Generation Expert       [AI Persona - Advisory]
     |   +-- L2  Image Reviewer                [AI Persona - Quality]
     |   +-- L2  Prompt Engineer               [AI Persona - Prompt Engineering]
+    |   +-- L2  SmartArt Rendering            [skill: smartart-renderer]
     |
     +-- L1  Assembly & QA Services
         +-- L2  PPTX Build               [skill: deck-assembler]
@@ -62,7 +65,7 @@ L0  Presentation Engineering
         +-- L2  Presentation Reviewer     [AI Persona - Advisory]
 ```
 
-**Totals:** 1 L0, 5 L1, 23 L2 (15 skills, 3 capabilities, 5 AI Personas)
+**Totals:** 1 L0, 5 L1, 26 L2 (17 skills, 3 capabilities, 6 AI Personas)
 
 ### Architecture Diagrams
 
@@ -77,7 +80,7 @@ Drill-down diagrams for each L1 domain:
 
 ---
 
-## The Five AI Personas
+## The Six AI Personas
 
 ### 1. Deck Conductor (L1 -- Orchestrator)
 
@@ -109,6 +112,12 @@ An advisory persona that reviews assembled decks against conference presentation
 
 Visual quality gate for generated images. Dispatched per image, returns pass/refine verdict. Haiku default, Sonnet escalation.
 
+### 6. SmartArt Selector (L2 -- Content Selection)
+
+**Authority:** Invoker (proposes options, narrative-architect decides)
+
+An AI agent that recommends graphic type and enrichment tier for SmartArt-candidate slides. Analyses content semantics, considers audience context, budget state, and adjacent slide strategies. Proposes 2-3 ranked recommendations per slide, negotiates with the narrative-architect through an approval/rejection loop (max 2 rounds). Dispatched at Haiku by default; escalated to Sonnet after 2 rejections.
+
 ---
 
 ## Pipeline Execution Flow
@@ -120,7 +129,8 @@ The pipeline operates in two phases: **Draft** and **Production**. The Speaker i
 Each draft cycle runs the full pipeline to produce a reviewable deck. The Speaker iterates on narrative, layout, slide structure, and visual direction across multiple cycles:
 
 - **Design + Content**: Run at full quality (LLM text generation, no cost difference between draft and production). The brand-manager runs first to obtain or create a BrandProfile, then the slide-stylist derives the StyleGuide from it
-- **Strategy Map**: The slide prompt composer classifies each slide's rendering strategy (full_render, background, backdrop, pragmatic_composition, or composed), the prompt engineer generates prompts, and the Speaker approves
+- **SmartArt Selection & Extraction**: After outline generation, the smartart-selector negotiates graphic types with the narrative-architect. Once approved, the smartart-extractor transforms content into engine-specific data. Strategy-map then classifies SmartArt slides with the `smartart` strategy.
+- **Strategy Map**: The slide prompt composer classifies each slide's rendering strategy (full_render, background, backdrop, pragmatic_composition, smartart, or composed), the prompt engineer generates prompts, and the Speaker approves
 - **Image**: Uses draft-quality rendering — Ollama for structural placeholders, or cloud providers at reduced size/quality for prompt refinement
 - **Assembly + QA + Review**: Build and review the draft deck
 
@@ -149,6 +159,9 @@ Once the Speaker approves the draft:
 | Design | TalkBrief, BrandProfile | StyleGuide |
 | Content | TalkBrief, StyleGuide | SlideOutline, SpeakerNotes |
 | Strategy Map | SlideOutline, StyleGuide | RenderStrategy per slide, image prompts (Speaker approved) |
+| SmartArt Selection | SlideOutline, StyleGuide, TalkBrief, BudgetState | SmartArtRecommendations |
+| SmartArt Extraction | SlideOutline, SmartArtRecommendations, StrategyMap | SmartArtSpec |
+| SmartArt Rendering | SmartArtSpec, StyleGuide, ImageManifest (enrichment) | SmartArtManifest |
 | Image (draft) | SlideOutline, StyleGuide, AvailableProviders, RenderStrategy | ImageManifest (low-res) |
 | Image (production) | SlideOutline, StyleGuide, AvailableProviders, RenderStrategy, Speaker approval | ImageManifest (full quality) |
 | Assembly | SlideOutline, StyleGuide, ImageManifest, ChartManifest, SpeakerNotes | .pptx |
@@ -220,9 +233,9 @@ The Visual QA (deck-qa) runs 27 automated, machine-checkable anti-pattern checks
 
 Iteration happens at the cheapest stages (Ollama free, cloud low-tier cheap). Production renders use proven prompts only.
 
-### 10. Five Rendering Strategies
+### 10. Six Rendering Strategies
 
-The pipeline supports five rendering strategies, each serving a distinct use case. Strategy selection is per-slide, recorded in the StrategyMap, and can be overridden by the Speaker.
+The pipeline supports six rendering strategies, each serving a distinct use case. Strategy selection is per-slide, recorded in the StrategyMap, and can be overridden by the Speaker.
 
 | Strategy | Description | Best For |
 |---|---|---|
@@ -231,6 +244,7 @@ The pipeline supports five rendering strategies, each serving a distinct use cas
 | `backdrop` | AI generates a structured scene with figurative visual elements. A vision model (Claude vision) analyses the generated image to detect where those elements actually landed. The assembler places PptxGenJS text boxes at the detected positions with small semi-transparent backing pills. | Structured scenes with labelled elements (annotated processes, network diagrams) |
 | `pragmatic_composition` | Individual element images are generated separately, then placed at exact pixel positions by the assembler on top of an atmospheric background image. Text labels are placed at predetermined positions adjacent to each element. No vision analysis needed -- positions are deterministic. | Precise grids/flows with multiple distinct items, feature showcases |
 | `composed` | Standard PptxGenJS assembly. Shapes, text boxes, optional images placed programmatically. | Diagrams, data charts, code slides, text-heavy content |
+| `smartart` | Programmatic graphic (SVG) from structured data, optionally composited with AI-generated enrichment (background, element icons, or full AI render). Three rendering engines (Mermaid.js, Vega-Lite, Custom SVG) with draft-phase comparator. | Data visualisations, process flows, matrices, diagrams, infographics |
 
 #### backGROUND Template Zones
 
@@ -261,6 +275,7 @@ The `pragmatic_composition` strategy avoids the position detection problem entir
 | Structured scene with labelled elements | `backdrop` | Vision-detected element positioning |
 | Precise grid/flow with multiple distinct items | `pragmatic_composition` | Deterministic positioning, style control |
 | Diagrams, charts, data, code | `composed` | Programmatic precision |
+| Structured data, processes, comparisons, hierarchies | `smartart` | Programmatic precision with optional AI enrichment |
 
 #### Backward Compatibility
 
@@ -292,10 +307,10 @@ The original `backdrop_render` strategy value is retained in the StrategyMap sch
 
 | Document | Path | Description |
 |---|---|---|
-| Service Catalogue | [service-catalogue.md](service-catalogue.md) | Full listing of all 28 services with hierarchy |
+| Service Catalogue | [service-catalogue.md](service-catalogue.md) | Full listing of all 31 services with hierarchy |
 | AI Persona Summaries | [ai-persona-summaries.md](ai-persona-summaries.md) | Detailed persona specifications |
-| Interaction Matrix | [interaction-matrix.md](interaction-matrix.md) | All 31 interactions between entities |
+| Interaction Matrix | [interaction-matrix.md](interaction-matrix.md) | All 50 interactions between entities |
 | System Actor Registry | [system-actor-registry.md](system-actor-registry.md) | External systems, configuration, discovery |
-| Data Contracts | [data-contracts.md](data-contracts.md) | All 11 data contracts with schemas |
+| Data Contracts | [data-contracts.md](data-contracts.md) | All 14 data contracts with schemas |
 | Canonical Model | [../../.bsa/models/jack-tar-deckhand.json](../../.bsa/models/jack-tar-deckhand.json) | Machine-readable source of truth |
 | DeckContext Research | [../../research/12-deckcontext-state-management.md](../../research/12-deckcontext-state-management.md) | Full JSON schemas and state management design |

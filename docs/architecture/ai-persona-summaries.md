@@ -1,9 +1,9 @@
 # AI Persona Summaries -- Jack-Tar Deckhand
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.1.0
-> Date: 2026-03-30
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
+> Date: 2026-04-03
 
-This document provides the full specification for each of the 5 AI Personas defined in the canonical model. These personas govern how autonomous agents behave within the pipeline, what they are permitted to do, and when they must escalate to a human or higher-authority agent.
+This document provides the full specification for each of the 6 AI Personas defined in the canonical model. These personas govern how autonomous agents behave within the pipeline, what they are permitted to do, and when they must escalate to a human or higher-authority agent.
 
 ---
 
@@ -361,16 +361,82 @@ Acts on behalf of the imagegen-bridge. Returns verdicts directly to the bridge, 
 
 ---
 
+## 6. SmartArt Selector
+
+**Persona ID:** `persona-smartart-selector`
+**Service ID:** `content-smartart-selection`
+
+### Service Location
+
+| Field | Value |
+|---|---|
+| **Level** | L2 |
+| **Parent** | content-services (L1) |
+| **Role** | SmartArt graphic type and enrichment tier recommendation |
+
+### Description
+
+AI agent that recommends graphic type and enrichment tier for SmartArt-candidate slides. Analyses slide content semantics (historical data triggers timeline, comparisons trigger matrix/radar, processes trigger flowchart), considers audience context from TalkBrief, budget state from the Conductor, and adjacent slide strategies to avoid graphic fatigue. Proposes 2-3 ranked recommendations per slide, each with graphic_type, enrichment_tier, target engine, rationale, and confidence score. Negotiates with the narrative-architect through an approval/rejection loop (max 2 rounds). Dispatched at Haiku by default for cost efficiency; escalated to Sonnet after 2 consecutive rejections.
+
+### Authority Model
+
+| Field | Value |
+|---|---|
+| **Model** | Invoker |
+| **Autonomous Confidence Minimum** | 0.6 |
+| **Escalation Target** | Deck Conductor (persona-deck-conductor) |
+
+### Scope: Permitted Actions
+
+- Analyse slide content to determine appropriate graphic type from 10 v1 types (flowchart, decision_tree, bar_chart, line_chart, radar_chart, swot, feature_matrix, venn, timeline, pipeline_funnel, gantt) plus none
+- Recommend enrichment tier (pure_programmatic, ai_background, ai_elements, full_ai_render) based on content type, audience, and budget
+- Consider adjacent slide strategies to avoid visual repetition
+- Propose 2-3 ranked recommendations with rationale and confidence
+- Accept feedback from narrative-architect rejection and adjust recommendations
+- Force enrichment to T0 when budget state is degrade or typography_only
+
+### Scope: Prohibited Actions
+
+- Must not extract structured data -- that is the smartart-extractor's role
+- Must not render graphics -- that is the smartart-renderer's role
+- Must not modify SlideOutline or any DeckContext contract
+- Must not communicate with Speaker directly
+- Must not make budget decisions -- only considers budget state in recommendations
+
+### Escalation Triggers
+
+1. Narrative-architect rejects recommendations twice -- escalate to Sonnet model
+2. No suitable graphic type found for slide with explicit visual_intent -- flag to conductor
+
+### Data Sources
+
+| Source | Name | Access | Description |
+|---|---|---|---|
+| `content-outline-generation` | SlideOutline | read | Full deck outline with visual_intent for SmartArt candidate identification |
+| `design-style-derivation` | StyleGuide | read | Design tokens for feasibility assessment |
+| `actor-speaker` | TalkBrief | read | Audience and tone context for enrichment tier selection |
+
+### Key Interactions
+
+| Direction | Target | Type | Data |
+|---|---|---|---|
+| Receives from | narrative-architect | invocation | SlideOutline with visual_intent |
+| Returns to | narrative-architect | feedback | 2-3 ranked recommendations per slide |
+| Receives from | narrative-architect | feedback | Approval/rejection with adjustment feedback |
+| Escalates to | Deck Conductor | escalation | When negotiations fail after 2 rounds |
+
+---
+
 ## Persona Comparison Matrix
 
-| Dimension | Deck Conductor | Image Generation Expert | Prompt Engineer | Presentation Reviewer | Image Reviewer |
-|---|---|---|---|---|---|
-| **Level** | L1 | L2 | L2 | L2 | L2 |
-| **Authority** | Hybrid | Invoker | Invoker | Invoker | Invoker |
-| **Confidence Min** | 0.8 | 0.7 | 0.6 | 0.7 | 0.7 |
-| **Escalates To** | Speaker | Deck Conductor | Deck Conductor | Deck Conductor | Deck Conductor |
-| **Generates Content?** | No (delegates) | No (advises) | Yes (prompts: atmospheric, spatial-intent, element-level) | No (reviews) | No (assesses) |
-| **Modifies Artefacts?** | No (re-invokes) | No | No | No | No |
-| **Data Write Access** | DeckContext (read-write) | None | None | None | None |
-| **Data Read Access** | All DeckContext + Speaker + Providers | StyleGuide + SlideOutline + BrandProfile | Structured Brief (incl. element metadata) | PPTX + Outline + StyleGuide + Notes + Brief | SlideOutline + BrandProfile |
-| **Pipeline Phase** | All phases | Image generation + vision analysis advisory | Image generation | Post-assembly (incl. text-to-element alignment) | Post-generation (image quality gate) |
+| Dimension | Deck Conductor | Image Generation Expert | Prompt Engineer | Presentation Reviewer | Image Reviewer | SmartArt Selector |
+|---|---|---|---|---|---|---|
+| **Level** | L1 | L2 | L2 | L2 | L2 | L2 |
+| **Authority** | Hybrid | Invoker | Invoker | Invoker | Invoker | Invoker |
+| **Confidence Min** | 0.8 | 0.7 | 0.6 | 0.7 | 0.7 | 0.6 |
+| **Escalates To** | Speaker | Deck Conductor | Deck Conductor | Deck Conductor | Deck Conductor | Deck Conductor |
+| **Generates Content?** | No (delegates) | No (advises) | Yes (prompts: atmospheric, spatial-intent, element-level) | No (reviews) | No (assesses) | No (recommends) |
+| **Modifies Artefacts?** | No (re-invokes) | No | No | No | No | No |
+| **Data Write Access** | DeckContext (read-write) | None | None | None | None | None |
+| **Data Read Access** | All DeckContext + Speaker + Providers | StyleGuide + SlideOutline + BrandProfile | Structured Brief (incl. element metadata) | PPTX + Outline + StyleGuide + Notes + Brief | SlideOutline + BrandProfile | SlideOutline + StyleGuide + TalkBrief |
+| **Pipeline Phase** | All phases | Image generation + vision analysis advisory | Image generation | Post-assembly (incl. text-to-element alignment) | Post-generation (image quality gate) | Post-outline (SmartArt selection negotiation) |

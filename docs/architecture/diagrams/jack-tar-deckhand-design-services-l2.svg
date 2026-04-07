@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 720" width="880" height="720">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 812 747" width="812" height="747">
   <title>Design Services — Level 2 Services</title>
   <desc>AI-First Business Service Architecture. Enterprise &gt; Presentation Engineering &gt; Design Services &gt; Level 2</desc>
 <defs>
@@ -50,94 +50,53 @@
     <path d="M 0 0 L 10 5 L 0 10 Z" fill="#2C5282"/>
   </marker>
 </defs>
-  <rect width="880" height="720" fill="#FAFBFC"/>
+  <rect width="812" height="747" fill="#FAFBFC"/>
   <text x="60" y="78" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="700" fill="#1A202C">Design Services — Level 2 Services</text>
   <text x="60" y="96" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="500" fill="#64748B" letter-spacing="0.3">Enterprise &gt; Presentation Engineering &gt; Design Services &gt; Level 2</text>
-
-  <!-- Data flow: TalkBrief + brand assets -> brand-manager -->
-  <g class="interaction" data-id="int-input-to-brand-manager">
-    <path d="M 162,195 L 162,235" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-data_flow)"/>
-    <text x="170" y="218" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#059669" font-style="italic">TalkBrief + brand assets</text>
-  </g>
-
-  <!-- Data flow: brand-manager -> BrandProfile -> slide-stylist -->
-  <g class="interaction" data-id="int-brand-manager-to-stylist">
-    <path d="M 262,290 L 445,290" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-data_flow)"/>
-    <text x="310" y="282" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#059669" font-style="italic">BrandProfile</text>
-  </g>
-
-  <!-- Data flow: slide-stylist -> StyleGuide output -->
-  <g class="interaction" data-id="int-stylist-to-output">
-    <path d="M 645,290 L 810,290" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#arr-data_flow)"/>
-    <text x="680" y="282" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#059669" font-style="italic">StyleGuide</text>
-  </g>
-
-  <!-- Invocation: slide-stylist -> Layout Intelligence (capability) -->
-  <g class="interaction" data-id="int-stylist-to-layout">
-    <path d="M 545,355 L 545,415" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
-  </g>
-
-  <!-- Input label box -->
-  <g class="input-label">
-    <rect x="60" y="148" width="205" height="44" rx="6" fill="white" stroke="#94A3B8" stroke-width="1" stroke-dasharray="4,3"/>
-    <text x="162" y="166" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#475569">Inputs: TalkBrief, brand assets</text>
-    <text x="162" y="180" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#94A3B8">(logo, PDF, .pptx, hex/font)</text>
-  </g>
-
-  <!-- Output label box -->
-  <g class="output-label">
-    <rect x="740" y="268" width="120" height="44" rx="6" fill="white" stroke="#94A3B8" stroke-width="1" stroke-dasharray="4,3"/>
-    <text x="800" y="286" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#475569">Output: StyleGuide</text>
-    <text x="800" y="300" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#94A3B8">(palette, fonts, layout)</text>
-  </g>
-
+  <!-- Interactions -->
+<g class="interaction" data-id="int-brand-manager-to-stylist">
+  <path d="M 320.4,291.4 C 297.1,264.0 280.6,246.2 264.7,233.8" fill="none" stroke="#2C5282" stroke-width="1.8" marker-end="url(#arr-capability_invocation)"/>
+</g>
   <!-- Services -->
-
-  <!-- Brand Profile Management [skill: brand-manager] -->
-<g class="service" data-id="design-brand-profile-management" filter="url(#shadow)">
-  <rect x="60" y="245" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="60" y="245" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="60" y="267" width="195" height="8" fill="#4A90E2"/>
-  <text x="157.5" y="261" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="600" fill="#FFFFFF">Brand Profile Management</text>
-  <text x="68" y="289" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Create, store, and serve reusable</text>
-  <text x="68" y="303" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">BrandProfile artefacts from brand</text>
-  <text x="68" y="317" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">guidelines, templates, and logos</text>
-  <rect x="68" y="326" width="90" height="10" rx="3" fill="#EBF8FF"/>
-  <text x="72" y="334" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="8" font-weight="600" fill="#2C5282">skill: brand-manager</text>
-</g>
-
-  <!-- Style Derivation [skill: slide-stylist] -->
 <g class="service" data-id="design-style-derivation" filter="url(#shadow)">
-  <rect x="450" y="245" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="450" y="245" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="450" y="267" width="195" height="8" fill="#4A90E2"/>
-  <text x="547.5" y="261" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Style Derivation</text>
-  <text x="458" y="289" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Derive a complete StyleGuide</text>
-  <text x="458" y="303" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">(palette, fonts, spacing,</text>
-  <text x="458" y="317" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">layout templates) from a talk</text>
-  <rect x="458" y="326" width="88" height="10" rx="3" fill="#EBF8FF"/>
-  <text x="462" y="334" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="8" font-weight="600" fill="#2C5282">skill: slide-stylist</text>
+  <rect x="59.998999999999995" y="146.86" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="59.998999999999995" y="146.86" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="59.998999999999995" y="168.86" width="195" height="8" fill="#4A90E2"/>
+  <text x="157.499" y="162.86" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Style Derivation</text>
+  <text x="67.999" y="190.86" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Derive a complete StyleGuide</text>
+  <text x="67.999" y="204.86" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">from a TalkBrief and</text>
+  <text x="67.999" y="218.86" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">BrandProfile. When no</text>
 </g>
-
-  <!-- Layout Intelligence [capability: slide-stylist] -->
+<g class="service" data-id="design-brand-profile-management" filter="url(#shadow)">
+  <rect x="262.98" y="291.86" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="262.98" y="291.86" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="262.98" y="313.86" width="195" height="8" fill="#4A90E2"/>
+  <text x="360.48" y="307.86" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Brand Profile Management</text>
+  <text x="270.98" y="335.86" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Create, store, and serve</text>
+  <text x="270.98" y="349.86" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">reusable BrandProfile artefacts</text>
+  <text x="270.98" y="363.86" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">from multiple input formats</text>
+</g>
 <g class="service" data-id="design-layout-intelligence" filter="url(#shadow)">
-  <rect x="450" y="420" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
-  <rect x="450" y="420" width="195" height="30" rx="8" fill="#4A90E2"/>
-  <rect x="450" y="442" width="195" height="8" fill="#4A90E2"/>
-  <text x="547.5" y="436" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Layout Intelligence</text>
-  <text x="458" y="464" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Apply machine-checkable layout</text>
-  <text x="458" y="478" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">rules: 12-column grid system,</text>
-  <text x="458" y="492" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">content zones, safe margins</text>
-  <rect x="458" y="500" width="108" height="10" rx="3" fill="#FFF7ED"/>
-  <text x="462" y="508" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="8" font-weight="600" fill="#92400E">capability: slide-stylist</text>
+  <rect x="357.0" y="125.0" width="195" height="95" rx="8" fill="#F8F9FA" stroke="#2C5282" stroke-width="2"/>
+  <rect x="357.0" y="125.0" width="195" height="30" rx="8" fill="#4A90E2"/>
+  <rect x="357.0" y="147.0" width="195" height="8" fill="#4A90E2"/>
+  <text x="454.5" y="141.0" text-anchor="middle" dominant-baseline="central" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Layout Intelligence</text>
+  <text x="365.0" y="169.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">Apply machine-checkable layout</text>
+  <text x="365.0" y="183.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">rules: 12-column grid system,</text>
+  <text x="365.0" y="197.0" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#475569">content zones, safe margins,</text>
 </g>
-
   <!-- Human Actors -->
+<g class="human-actor" data-id="actor-speaker">
+  <circle cx="393.57" cy="452.3" r="7.0" fill="none" stroke="#92400E" stroke-width="2.6"/>
+<line x1="393.57" y1="459.3" x2="393.57" y2="474.3" stroke="#92400E" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="381.2" y1="467.7" x2="405.9" y2="467.7" stroke="#92400E" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="393.57" y1="474.3" x2="383.9" y2="487.5" stroke="#92400E" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="393.57" y1="474.3" x2="403.2" y2="487.5" stroke="#92400E" stroke-width="2.6" stroke-linecap="round"/>
+  <text x="393.57" y="505.0" text-anchor="middle" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="500" fill="#1A202C">Speaker</text>
+</g>
   <!-- System Actors -->
   <!-- External Services -->
-
-  <!-- Legend -->
-<g class="legend" transform="translate(500,570)">
+<g class="legend" transform="translate(442,597)">
   <rect x="0" y="0" width="340" height="130" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1"/>
   <text x="12" y="18" font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#1A202C">Legend</text>
   <rect x="12" y="36" width="16" height="11" rx="3" fill="#F8F9FA" stroke="#2C5282" stroke-width="1.5"/>

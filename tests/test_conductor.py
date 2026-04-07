@@ -171,6 +171,20 @@ class TestSummary:
         assert result is None
 
 
+def test_init_pipeline_includes_smartart_steps():
+    import tempfile, os
+    from src.conductor import init_pipeline
+    with tempfile.TemporaryDirectory() as d:
+        init_pipeline(d)
+        import json
+        with open(os.path.join(d, 'pipeline-state.json')) as f:
+            state = json.load(f)
+        assert 'smartart-selector' in state['steps']
+        assert 'smartart-extractor' in state['steps']
+        assert 'smartart-renderer' in state['steps']
+        assert state['steps']['smartart-selector']['status'] == 'pending'
+
+
 def test_default_step_order_includes_strategy_map():
     from src.deckcontext import DEFAULT_STEP_ORDER
     assert 'strategy-map' in DEFAULT_STEP_ORDER

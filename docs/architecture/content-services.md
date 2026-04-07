@@ -1,7 +1,7 @@
 # Content Services -- L1 Service Document
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.0.0
-> Date: 2026-03-29
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
+> Date: 2026-04-03
 > Service ID: `content-services`
 > Parent: `presentation-engineering` (L0)
 
@@ -9,16 +9,17 @@
 
 ## Mission
 
-Transform briefs and topics into structured narratives, outlines, and speaker-ready text. Content Services produces the SlideOutline (the backbone of the deck) and SpeakerNotes (timed, transition-cued speaking script), which together define what the deck says and how the speaker delivers it.
+Transform briefs and topics into structured narratives, outlines, speaker-ready text, and intelligent visual data structures. Content Services produces the SlideOutline, SpeakerNotes, and SmartArt data specifications.
 
 ---
 
 ## Scope
 
-Content Services is the narrative authority for the pipeline. It answers two questions:
+Content Services is the narrative authority for the pipeline. It answers three questions:
 
 1. **What is the story structure?** (Outline Generation)
 2. **What does the speaker say?** (Speaker Notes)
+3. **What visual structures best represent the data?** (SmartArt Selection + Extraction)
 
 The domain receives the TalkBrief and StyleGuide as inputs and produces structured content artefacts that downstream services (Image Services, Assembly) consume. Content Services does not make visual or design decisions -- it works within the design parameters established by Design Services.
 
@@ -30,6 +31,8 @@ The domain receives the TalkBrief and StyleGuide as inputs and produces structur
 |---|---|---|---|---|
 | `content-outline-generation` | Outline Generation | Skill | `narrative-architect` | Transform a talk brief into a structured slide outline with per-slide type, headline, body points, narrative beat, and visual direction |
 | `content-speaker-notes` | Speaker Notes | Skill | `speaker-notes-writer` | Generate timed, transition-cued speaker notes calibrated to talk duration and audience profile |
+| `content-smartart-selection` | SmartArt Selection | AI Persona | `smartart-selector` | Recommend graphic type + enrichment tier for SmartArt-candidate slides via negotiation with narrative-architect |
+| `content-smartart-extraction` | SmartArt Data Extraction | Skill | `smartart-extractor` | Transform approved slide content into engine-specific structured data (Mermaid syntax, Vega-Lite JSON, custom SVG data) |
 
 ### L2 Diagram
 
@@ -106,6 +109,82 @@ The speaker-notes-writer gathers three lightweight preferences before autonomous
 
 ---
 
+## SmartArt Selection (`smartart-selector`)
+
+### Purpose
+
+Recommend graphic types and enrichment tiers for SmartArt-candidate slides through a negotiation workflow with the narrative-architect. The selector analyses slide content semantics, audience context, budget state, and adjacent slide strategies to produce ranked recommendations.
+
+### Key Responsibilities
+
+- **Content semantics analysis**: Identify slides whose content maps naturally to structured graphics (historical data triggers timeline, comparisons trigger matrix/radar, processes trigger flowchart, hierarchies trigger decision tree)
+- **Enrichment tier selection**: Recommend one of four tiers (T0: pure_programmatic, T1: ai_background, T2: ai_elements, T3: full_ai_render) based on content type, audience expectations, and budget constraints
+- **Adjacency awareness**: Consider adjacent slide rendering strategies to avoid graphic fatigue (e.g., avoid three consecutive SmartArt slides with the same graphic type)
+- **Budget-aware degradation**: Force enrichment to T0 (pure_programmatic) when budget state is `degrade` or `typography_only`
+
+### Negotiation Workflow
+
+The smartart-selector operates through a proposal/approval loop with the narrative-architect:
+
+1. **Round 1**: Selector analyses SlideOutline and proposes 2-3 ranked recommendations per SmartArt-candidate slide
+2. **Narrative-architect evaluates**: Approves, rejects with feedback, or marks slide as non-SmartArt
+3. **Round 2 (if rejected)**: Selector adjusts recommendations based on rejection feedback
+4. **Escalation**: If still rejected after Round 2, escalates to Deck Conductor. Selector model escalates from Haiku to Sonnet after 2 consecutive rejections.
+
+### Enrichment Tiers
+
+| Tier | Name | Description | Cost |
+|---|---|---|---|
+| T0 | `pure_programmatic` | Engine output only, styled with brand tokens. No AI imagery. | Free |
+| T1 | `ai_background` | Engine SVG composited over an AI-generated atmospheric background. | 1 image |
+| T2 | `ai_elements` | Individual diagram nodes/cells replaced with AI-generated icons or illustrations. | N images |
+| T3 | `full_ai_render` | Entire SmartArt concept rendered as a single AI image; programmatic version kept as fallback. | 1 image |
+
+---
+
+## SmartArt Data Extraction (`smartart-extractor`)
+
+### Purpose
+
+Transform approved slide content into engine-specific structured data ready for rendering. The extractor reads the SlideOutline and SmartArtRecommendations, then produces a SmartArtSpec with data formatted for the target rendering engine (Mermaid, Vega-Lite, or Custom SVG).
+
+### Key Responsibilities
+
+- **Graph extraction (Mermaid)**: Parse body points and visual_direction into Mermaid DSL syntax for flowcharts, decision trees, Gantt charts, and timelines
+- **Series extraction (Vega-Lite)**: Extract data series from body points, inline data, or data_sources into Vega-Lite JSON specifications for bar charts, line charts, and radar charts
+- **Spatial extraction (Custom SVG)**: Parse relationship data into node/edge/position structures for SWOT diagrams, feature matrices, Venn diagrams, and pipeline funnels
+- **Style token injection**: Apply brand palette, typography tokens, and sizing constraints from StyleGuide to the engine-specific data
+- **Comparator engine selection**: When multiple engines can handle the graphic type, mark both in the spec for draft-phase comparison
+
+### Overflow Handling
+
+When slide content exceeds the rendering capacity of the target graphic type:
+
+| Strategy | Description | Applied When |
+|---|---|---|
+| `truncate` | Show top N items with "and N more..." annotation | Lists > max items |
+| `paginate` | Split across multiple graphics on the same slide | Dense data with clear grouping |
+| `summarise` | Aggregate detail into higher-level categories | Deeply nested hierarchies |
+| `reject` | Flag as non-SmartArt, fall back to composed strategy | Content fundamentally unsuitable |
+
+### Supported Graphic Types (v1)
+
+| Graphic Type | Primary Engine | Fallback Engine | Description |
+|---|---|---|---|
+| `flowchart` | Mermaid | Custom SVG | Process flows, decision paths |
+| `decision_tree` | Mermaid | Custom SVG | Branching decision logic |
+| `bar_chart` | Vega-Lite | -- | Categorical comparisons |
+| `line_chart` | Vega-Lite | -- | Trends over time |
+| `radar_chart` | Vega-Lite | Custom SVG | Multi-dimensional comparisons |
+| `swot` | Custom SVG | -- | 2x2 strength/weakness/opportunity/threat |
+| `feature_matrix` | Custom SVG | -- | Feature comparison grids |
+| `venn` | Custom SVG | -- | Set overlap relationships |
+| `timeline` | Mermaid | Custom SVG | Chronological events |
+| `pipeline_funnel` | Custom SVG | -- | Stage-based volume reduction |
+| `gantt` | Mermaid | -- | Project schedule bars |
+
+---
+
 ## Data Contracts
 
 ### Consumed
@@ -121,6 +200,8 @@ The speaker-notes-writer gathers three lightweight preferences before autonomous
 |---|---|---|---|
 | SlideOutline | `./tmp/deck/outline.json` | speaker-notes-writer, imagegen-bridge, deck-assembler, Image Generation Expert, Presentation Reviewer | Ordered slide definitions: type, headline, body points, narrative beat, visual direction, layout template |
 | SpeakerNotes | `./tmp/deck/speaker-notes.json` | deck-assembler, Presentation Reviewer | Per-slide timed notes with interaction cues |
+| SmartArtRecommendations | `./tmp/deck/smartart-recommendations.json` | smartart-extractor, strategy-map | Approved graphic type + enrichment tier per SmartArt slide |
+| SmartArtSpec | `./tmp/deck/smartart-spec.json` | smartart-renderer | Engine-specific structured data ready for rendering |
 
 ---
 
@@ -133,12 +214,14 @@ The speaker-notes-writer gathers three lightweight preferences before autonomous
 | Deck Conductor | invocation | TalkBrief, StyleGuide |
 | Speaker | review/approval | Narrative arc selection, outline approval |
 | Speaker | consultation | Voice preferences, interaction style, experience level |
+| Deck Conductor | invocation | SlideOutline, StyleGuide, TalkBrief (for SmartArt selection) |
 
 ### Outbound
 
 | Target | Type | Data |
 |---|---|---|
 | Image Services | data-provision | SlideOutline (visual_direction field consumed by imagegen-bridge and Image Generation Expert) |
+| Image Services (SmartArt Rendering) | data-provision | SmartArtSpec consumed by smartart-renderer |
 | Assembly & QA Services | data-provision | SlideOutline + SpeakerNotes consumed by deck-assembler and Presentation Reviewer |
 
 ### Internal Flow
@@ -159,6 +242,22 @@ narrative-architect (Stage 2: Outline Execution)
   |
   | SlideOutline (outline.json)
   v
+smartart-selector (Round 1: Recommendations)
+  |
+  | 2-3 ranked recommendations per SmartArt-candidate slide
+  v
+narrative-architect evaluates (approve/reject)
+  |
+  | [if rejected] adjustment feedback
+  v
+smartart-selector (Round 2: Adjusted Recommendations)
+  |
+  | SmartArtRecommendations (smartart-recommendations.json)
+  v
+smartart-extractor
+  |
+  | SmartArtSpec (smartart-spec.json)
+  v
 speaker-notes-writer (Voice Preferences)
   |
   | 3 quick questions
@@ -173,7 +272,7 @@ speaker-notes-writer (Notes Execution)
 Ready for Image Services and Assembly
 ```
 
-The narrative-architect runs first because the speaker-notes-writer needs the SlideOutline to produce notes. Both outputs are then available for downstream consumption.
+The narrative-architect runs first because the speaker-notes-writer needs the SlideOutline to produce notes. The smartart-selector negotiates with the narrative-architect after outline generation. The smartart-extractor then transforms approved content into engine-specific data. All outputs are then available for downstream consumption.
 
 ---
 

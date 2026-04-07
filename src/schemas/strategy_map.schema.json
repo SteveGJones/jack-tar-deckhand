@@ -20,7 +20,7 @@
           "slide_number": {"type": "integer", "minimum": 1},
           "strategy": {
             "type": "string",
-            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition"]
+            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart"]
           },
           "rationale": {"type": "string"},
           "render_funnel": {
@@ -32,7 +32,7 @@
           },
           "speaker_override": {
             "type": ["string", "null"],
-            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", null]
+            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", null]
           },
           "backdrop_variant": {
             "type": "string",
@@ -65,6 +65,30 @@
                   "y": {"type": "number"},
                   "w": {"type": "number"},
                   "h": {"type": "number"}
+                }
+              }
+            }
+          },
+          "smartart_config": {
+            "type": "object",
+            "properties": {
+              "graphic_type": {
+                "type": "string",
+                "enum": ["flowchart", "decision_tree", "bar_chart", "line_chart", "radar_chart", "swot", "feature_matrix", "venn", "timeline", "pipeline_funnel", "gantt", "none"]
+              },
+              "enrichment_tier": {
+                "type": "string",
+                "enum": ["pure_programmatic", "ai_background", "ai_elements", "full_ai_render"]
+              },
+              "engine": {
+                "type": "string",
+                "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+              },
+              "comparator_engines": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
                 }
               }
             }

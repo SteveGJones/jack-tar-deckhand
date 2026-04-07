@@ -1,4 +1,4 @@
-"""AP-27 to AP-31: Element layout, vision confidence, alignment, reading order, and text-fit checks."""
+"""AP-27 to AP-32: Element layout, vision confidence, alignment, reading order, text-fit, and element image completeness checks."""
 
 _VISION_CONFIDENCE_THRESHOLD = 0.7
 _MAX_ELEMENTS = 5
@@ -319,6 +319,61 @@ def check_label_text_fit(strategy_entry, outline_slide, image_entry=None):
                 'affected_element': eid,
                 'auto_fixable': False,
             })
+
+    return findings
+
+
+def check_element_image_completeness(strategy_entry, image_manifest):
+    """AP-32: Verify pragmatic_composition slides have an image for every element_layout element.
+
+    A pragmatic_composition slide that lacks element images silently degrades to
+    a text-label-only layout — visually identical to a broken render. This check
+    flags slides where the element_layout declares N elements but the image
+    manifest contains fewer than N element images for that slide.
+
+    Args:
+        strategy_entry: Dict from StrategyMap.slides with element_layout.
+        image_manifest: Dict matching ImageManifest schema (with 'images' list).
+
+    Returns:
+        list of finding dicts (empty if all elements are accounted for, or if
+        the slide does not use pragmatic_composition).
+    """
+    findings = []
+    slide_number = strategy_entry.get('slide_number', 0)
+    strategy = strategy_entry.get('speaker_override') or strategy_entry.get('strategy')
+    if strategy != 'pragmatic_composition':
+        return findings
+
+    elements = strategy_entry.get('element_layout', {}).get('elements', [])
+    if not elements:
+        return findings
+
+    images = [
+        i for i in (image_manifest or {}).get('images', [])
+        if i.get('slide_number') == slide_number and i.get('element_id')
+    ]
+
+    expected = len(elements)
+    actual = len(images)
+    if actual < expected:
+        missing = expected - actual
+        findings.append({
+            'slide_number': slide_number,
+            'severity': 'error',
+            'category': 'element_image_completeness',
+            'description': (
+                f'pragmatic_composition slide declares {expected} element(s) '
+                f'but image manifest contains only {actual} element image(s) '
+                f'({missing} missing). Slide will render as text labels only.'
+            ),
+            'suggested_fix': (
+                'Generate the missing element images via the imagegen-bridge, '
+                'or change the slide strategy to composed/background.'
+            ),
+            'affected_element': 'element_layout',
+            'auto_fixable': False,
+        })
 
     return findings
 

@@ -214,3 +214,12 @@ tmp/
 
 # Git worktrees
 .worktrees/
+
+# Node.js
+node_modules/
+
+# macOS
+.DS_Store
+
+# Output decks (generated, not version controlled)
+output/

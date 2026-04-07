@@ -1,7 +1,7 @@
 # Image Services -- L1 Service Document
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.1.0
-> Date: 2026-03-29
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
+> Date: 2026-04-03
 > Service ID: `image-services`
 > Parent: `presentation-engineering` (L0)
 
@@ -9,7 +9,7 @@
 
 ## Mission
 
-Generate, manipulate, and optimise visual assets from text prompts and data. Image Services is the largest L1 domain, comprising 9 skills, 2 capabilities, and 2 AI Personas (1 advisory, 1 invoker). It handles provider discovery, intelligent routing, local and cloud image generation, chart rendering, post-processing, prompt composition, keynote rendering, and advisory quality scoring.
+Generate, manipulate, and optimise visual assets from text prompts, data, and structured SmartArt specifications. Image Services is the largest L1 domain, comprising 10 skills, 2 capabilities, and 2 AI Personas (1 advisory, 1 invoker). It handles provider discovery, intelligent routing, local and cloud image generation, chart rendering, SmartArt rendering, post-processing, prompt composition, keynote rendering, and advisory quality scoring.
 
 ---
 
@@ -27,7 +27,7 @@ The domain owns all image generation and routing decisions within its scope. The
 
 ## L2 Sub-Services
 
-13 L2 sub-services across generation, routing, composition, rendering, and advisory roles.
+14 L2 sub-services across generation, routing, composition, rendering, and advisory roles.
 
 | Service ID | Name | Type | Skill | System Actor |
 |---|---|---|---|---|
@@ -44,6 +44,7 @@ The domain owns all image generation and routing decisions within its scope. The
 | `image-prompt-engineer` | Prompt Engineer | AI Persona | -- (agent/invoker) | Haiku / Sonnet |
 | `image-keynote-rendering` | Keynote Rendering | Capability | -- | Cloud + Ollama providers |
 | `image-generation-expert` | Image Generation Expert | AI Persona | -- (agent/advisory) | -- |
+| `image-smartart-rendering` | SmartArt Rendering | Skill | `smartart-renderer` | Mermaid CLI, Vega-Lite CLI, Python |
 
 ### L2 Diagram
 
@@ -125,6 +126,46 @@ Generates SVG icons via Recraft V4 (native SVG output) or raster icons via cloud
 Generate publication-quality data visualisations via Matplotlib and Seaborn at 300 DPI, styled to the brand palette. Uses the Agg backend for headless rendering (no display server required). Custom `.mplstyle` files enforce brand consistency.
 
 Supported chart types: bar, line, area, pie, donut, scatter, comparison_table, timeline, stat_card.
+
+---
+
+## SmartArt Rendering (`smartart-renderer`)
+
+### Purpose
+
+Render SmartArtSpec data through three rendering engines, with a draft-phase comparator for engine selection and optional enrichment compositing.
+
+### Three Rendering Engines
+
+| Engine | Technology | Graphic Types | Output |
+|---|---|---|---|
+| **Mermaid** | Mermaid CLI (Node.js) | flowchart, decision_tree, timeline, gantt | SVG |
+| **Vega-Lite** | Vega-Lite CLI (Node.js) | bar_chart, line_chart, radar_chart | SVG |
+| **Custom SVG** | Python constraint engine | swot, feature_matrix, venn, pipeline_funnel | SVG |
+
+### Comparator (Draft Phase)
+
+When the SmartArtSpec marks multiple `comparator_engines` for a graphic, the renderer generates via all candidate engines during draft phase. The Image Reviewer scores each output, and the winner is used for production rendering. This adds zero cost for programmatic engines (SVG generation is instant) and only one additional Image Reviewer invocation per comparison.
+
+### Enrichment Compositing
+
+After base SVG rendering, the renderer applies enrichment based on the approved tier:
+
+| Tier | Compositing |
+|---|---|
+| T0 (`pure_programmatic`) | SVG only, styled with brand tokens |
+| T1 (`ai_background`) | SVG composited over AI-generated background from ImageManifest |
+| T2 (`ai_elements`) | Individual nodes/cells replaced with AI-generated icons from ImageManifest |
+| T3 (`full_ai_render`) | Full AI-rendered version; programmatic SVG retained as fallback |
+
+### Output
+
+The renderer produces a SmartArtManifest (`./tmp/deck/smartart-manifest.json`) containing per-graphic entries with:
+- `smartart_id`, `graphic_type`, `engine_used`, `enrichment_tier`
+- `file_path` (final composited PNG), `svg_source_path` (source SVG)
+- `comparator_results` (draft-phase engine comparison scores)
+- `enrichment_refs` (references to ImageManifest entries used for compositing)
+- `review_summary` (Image Reviewer verdict)
 
 ---
 
@@ -361,6 +402,7 @@ For `backdrop` slides, template positions are targets -- vision analysis may adj
 | StrategyMap | Image Services (slide-prompt-composition) | Per-slide rendering strategy (full_render, background, backdrop, pragmatic_composition, composed; backward-compatible backdrop_render) with backdrop_variant and element_layout |
 | Budget constraints | Deck Conductor | Per-image and total budget caps |
 | TalkBrief | Speaker (via Deck Conductor) | data_sources for chart rendering |
+| SmartArtSpec | Content Services (smartart-extractor) | Engine-specific structured data for rendering |
 
 ### Produced
 
@@ -371,6 +413,7 @@ For `backdrop` slides, template positions are targets -- vision analysis may adj
 | SlidePrompts | `./tmp/deck/slide-prompts.json` | Prompt Engineer, imagegen-bridge | Generated prompts per slide, inspectable and reusable |
 | RenderLog | `./tmp/deck/render-log.json` | Deck Conductor, deck-qa | Per-slide render history: stage, model, cost, quality score, iteration count |
 | AvailableProviders | (in-memory / conversation) | Deck Conductor, generation skills | Runtime manifest of which providers are available |
+| SmartArtManifest | `./tmp/deck/smartart-manifest.json` | deck-assembler, deck-qa | Registry of rendered SmartArt graphics with comparator results |
 
 ---
 
@@ -408,6 +451,10 @@ For `backdrop` slides, template positions are targets -- vision analysis may adj
 | Cloud Image Generation | OpenAI / Google / FAL.ai | invocation | Cloud API generation |
 | Cloud Icon Generation | Recraft / FAL.ai | invocation | SVG icon generation |
 | Chart Rendering | Matplotlib | invocation | Headless chart generation at 300 DPI |
+| SmartArt Rendering | Mermaid CLI | invocation | Mermaid DSL to SVG rendering |
+| SmartArt Rendering | Vega-Lite CLI | invocation | Vega-Lite spec to SVG rendering |
+| SmartArt Rendering | Image Reviewer | invocation | Comparator scoring + enrichment review |
+| SmartArt Rendering | Image Routing & Discovery | invocation | Enrichment asset generation (T1/T2/T3) |
 
 ### System Actor Dependencies
 
@@ -419,6 +466,8 @@ For `backdrop` slides, template positions are targets -- vision analysis may adj
 | FAL.ai | Cloud aggregator | FAL_KEY env var | Cloud Image Generation, Cloud Icon Generation |
 | Recraft API | Cloud API | RECRAFT_API_KEY env var | Cloud Icon Generation |
 | Matplotlib | Python library | Always available | Chart Rendering |
+| Mermaid CLI | Node.js CLI | npm install | SmartArt Rendering (flowcharts, decision trees, Gantt) |
+| Vega-Lite CLI | Node.js CLI | npm install | SmartArt Rendering (bar/line/radar charts) |
 
 ---
 

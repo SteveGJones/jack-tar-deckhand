@@ -45,7 +45,11 @@
             }
           },
           "layout_template": {"type": "string"},
-          "transition_note": {"type": "string"}
+          "transition_note": {"type": "string"},
+          "visual_intent": {
+            "type": "string",
+            "description": "Natural language description of the visual the speaker wants for this slide, used by smartart-selector"
+          }
         }
       }
     }

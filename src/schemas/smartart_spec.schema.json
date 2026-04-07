@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/smartart-spec.json",
+  "title": "SmartArtSpec",
+  "description": "Engine-specific structured data for SmartArt rendering.",
+  "type": "object",
+  "required": ["specs"],
+  "properties": {
+    "created_at": {"type": "string"},
+    "specs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slide_number", "graphic_type", "engine", "enrichment_tier", "data", "overflow_applied", "style_tokens", "validation_status"],
+        "properties": {
+          "slide_number": {"type": "integer", "minimum": 1},
+          "graphic_type": {
+            "type": "string",
+            "enum": ["flowchart", "decision_tree", "bar_chart", "line_chart", "radar_chart", "swot", "feature_matrix", "venn", "timeline", "pipeline_funnel", "gantt"]
+          },
+          "engine": {
+            "type": "string",
+            "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+          },
+          "enrichment_tier": {
+            "type": "string",
+            "enum": ["pure_programmatic", "ai_background", "ai_elements", "full_ai_render"]
+          },
+          "data": {"type": "object"},
+          "overflow_applied": {
+            "type": "string",
+            "enum": ["none", "truncate", "paginate", "summarise", "reject"]
+          },
+          "style_tokens": {
+            "type": "object",
+            "properties": {
+              "primary_color": {"type": "string"},
+              "font_family": {"type": "string"},
+              "node_shape": {"type": "string"}
+            }
+          },
+          "validation_status": {
+            "type": "string",
+            "enum": ["valid", "invalid", "overflow"]
+          },
+          "comparator_engines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

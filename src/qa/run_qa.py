@@ -101,13 +101,14 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
                 except Exception:
                     pass
 
-    # Step 1b: Element layout checks (AP-27 to AP-30)
+    # Step 1b: Element layout checks (AP-27 to AP-32)
     from src.qa.checks.element_layout import (
         check_element_layout,
         check_vision_confidence,
         check_text_element_alignment,
         check_grid_reading_order,
         check_label_text_fit,
+        check_element_image_completeness,
     )
 
     # Load image manifest for alignment checks
@@ -144,6 +145,9 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
                     findings.extend(check_text_element_alignment(entry, image_entry))
                 # AP-31: Label text fit
                 findings.extend(check_label_text_fit(entry, outline_slide, image_entry))
+            # AP-32: Element image completeness (pragmatic_composition only)
+            if strategy == 'pragmatic_composition':
+                findings.extend(check_element_image_completeness(entry, im_data))
             # AP-30: Grid reading order (any strategy with grid layout)
             if entry.get('element_layout', {}).get('template') == 'grid_2x2' or \
                entry.get('body_layout') == 'grid_2x2':
@@ -153,6 +157,75 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
     for img in im_data.get('images', []):
         if img.get('detected_positions'):
             findings.extend(check_vision_confidence(img))
+
+    # Step 1c: SmartArt QA checks (SA-01 to SA-05) — only when manifest present
+    smartart_manifest_path = os.path.join(deck_dir, 'smartart-manifest.json')
+    if os.path.exists(smartart_manifest_path):
+        from src.qa.checks.smartart_checks import (
+            check_data_integrity,
+            check_label_legibility,
+            check_enrichment_alignment,
+            check_overflow_handling,
+            check_accessibility,
+        )
+        with open(smartart_manifest_path) as f:
+            smartart_manifest = json.load(f)
+
+        # Load outline for SA-01 data integrity checks
+        outline_path = os.path.join(deck_dir, 'outline.json')
+        outline_slides_sa = {}
+        if os.path.exists(outline_path):
+            with open(outline_path) as f:
+                outline_data_sa = json.load(f)
+            outline_slides_sa = {
+                s['slide_number']: s for s in outline_data_sa.get('slides', [])
+            }
+
+        for entry in smartart_manifest.get('slides', []):
+            sn = entry.get('slide_number', 0)
+            spec = entry.get('spec', {})
+            svg_content = entry.get('svg_content', '')
+            bg_color = entry.get('background_color')
+
+            # SA-01: Data integrity
+            outline_slide_sa = outline_slides_sa.get(sn, {})
+            findings.extend(check_data_integrity(outline_slide_sa, spec, slide_number=sn))
+
+            # SA-02: Label legibility
+            if svg_content:
+                findings.extend(check_label_legibility(svg_content, bg_color, slide_number=sn))
+
+            # SA-03: Enrichment alignment
+            findings.extend(check_enrichment_alignment(entry, im_data, slide_number=sn))
+
+            # SA-04: Overflow handling
+            if svg_content:
+                findings.extend(check_overflow_handling(spec, svg_content, slide_number=sn))
+
+            # SA-05: Accessibility
+            if svg_content:
+                findings.extend(check_accessibility(svg_content, entry, slide_number=sn))
+
+    # Step 1d: Post-assembly visual inspection (rasterise + blank/brand checks)
+    # Enabled when 'visual_inspection_enabled' is True in config (or key absent — opt-in).
+    if cfg.get('visual_inspection_enabled', False):
+        from src.qa.checks.visual_inspection import run_visual_inspection
+        import tempfile
+
+        outline_path = os.path.join(deck_dir, 'outline.json')
+        vi_outline = {}
+        if os.path.exists(outline_path):
+            with open(outline_path) as f:
+                vi_outline = json.load(f)
+
+        brand_style_guide = {}
+        if os.path.exists(brand_profile_path):
+            with open(brand_profile_path) as f:
+                bp_vi = json.load(f)
+            brand_style_guide = {'palette': bp_vi.get('palette', {})}
+
+        vi_output_dir = tempfile.mkdtemp(prefix='qa_vi_')
+        findings.extend(run_visual_inspection(pptx_path, vi_outline, brand_style_guide, vi_output_dir))
 
     # Step 2: Deck-level structural checks
     for check_fn in DECK_STRUCTURAL_CHECKS:

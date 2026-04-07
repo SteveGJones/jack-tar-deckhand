@@ -34,7 +34,7 @@
           },
           "category": {
             "type": "string",
-            "enum": ["overlap", "contrast", "margin", "text_overflow", "consistency", "image_quality", "placeholder_residue", "missing_content", "accessibility"]
+            "enum": ["overlap", "contrast", "margin", "text_overflow", "consistency", "image_quality", "placeholder_residue", "missing_content", "accessibility", "smartart"]
           },
           "description": {"type": "string"},
           "suggested_fix": {"type": "string"},

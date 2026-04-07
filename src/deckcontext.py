@@ -25,6 +25,9 @@ CONTRACT_SCHEMAS = {
     'qa-report': 'qa_report.schema.json',
     'brand-profile': 'brand_profile.schema.json',
     'strategy-map': 'strategy_map.schema.json',
+    'smartart-recommendations': 'smartart_recommendations.schema.json',
+    'smartart-spec': 'smartart_spec.schema.json',
+    'smartart-manifest': 'smartart_manifest.schema.json',
 }
 
 DEFAULT_STEP_ORDER = [
@@ -32,9 +35,12 @@ DEFAULT_STEP_ORDER = [
     'brand-manager',
     'slide-stylist',
     'narrative-architect',
+    'smartart-selector',
     'strategy-map',
+    'smartart-extractor',
     'speaker-notes-writer',
     'imagegen-bridge',
+    'smartart-renderer',
     'chart-renderer',
     'deck-assembler',
     'deck-qa',
@@ -59,6 +65,7 @@ def _load_schema(contract_name):
 def init_deck(deck_dir='./tmp/deck'):
     os.makedirs(os.path.join(deck_dir, 'images'), exist_ok=True)
     os.makedirs(os.path.join(deck_dir, 'output'), exist_ok=True)
+    os.makedirs(os.path.join(deck_dir, 'smartart'), exist_ok=True)
     state_path = os.path.join(deck_dir, 'pipeline-state.json')
     if not os.path.exists(state_path):
         state = {
