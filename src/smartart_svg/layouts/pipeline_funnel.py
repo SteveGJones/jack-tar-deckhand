@@ -3,7 +3,6 @@
 
 from src.smartart_svg.engine import Container
 from src.smartart_svg.primitives import svg_rect, svg_text, svg_group
-from src.smartart_svg.tokens import resolve_text_colour
 
 
 def _interpolate_colour(hex1, hex2, t):
@@ -34,7 +33,6 @@ def render_pipeline_funnel(data, container, tokens):
     n = len(stages)
     primary = tokens['primary_color']
     accent = tokens['accent_color']
-    text_col = tokens['text_color']
     font = tokens['font_family']
     heading_font = tokens['heading_font']
     rx = tokens.get('border_radius', 8)
@@ -64,8 +62,10 @@ def render_pipeline_funnel(data, container, tokens):
         # Bar
         elements.append(svg_rect(bar_x, bar_y, bar_w, bar_h, rx=rx, fill=fill))
 
-        # Label centred on bar
-        text_colour = resolve_text_colour(fill, text_col, None)
+        # Label centred on bar — always white for visual consistency across
+        # the gradient. Brand primary (navy) and accent (gold/orange) are both
+        # dark enough that white text remains legible on every bar.
+        text_colour = '#FFFFFF'
         cx = bar_x + bar_w / 2
         cy = bar_y + bar_h / 2
 
