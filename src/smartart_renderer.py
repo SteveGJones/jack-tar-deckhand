@@ -425,6 +425,8 @@ def render_vega_lite(spec, style_guide, output_dir):
     vl_spec['config']['axis'].setdefault('titleFontSize', 22)
     vl_spec['config']['axis'].setdefault('labelAngle', -45)
     vl_spec['config']['axis'].setdefault('labelLimit', 200)
+    vl_spec['config']['axis'].setdefault('labelPadding', 8)
+    vl_spec['config']['axis'].setdefault('labelOverlap', 'parity')
 
     vl_spec['config'].setdefault('legend', {})
     vl_spec['config']['legend'].setdefault('labelFontSize', 16)

@@ -509,7 +509,7 @@ def _build_vega_from_inline(inline_data, graphic_type, engine='vega_lite'):
     # Detect integer-only data -> force integer ticks
     all_int = all(isinstance(v['value'], int) for v in values) if values else False
 
-    x_encoding = {'field': 'label', 'type': 'ordinal'}
+    x_encoding = {'field': 'label', 'type': 'ordinal', 'sort': None}
     y_encoding = {'field': 'value', 'type': 'quantitative'}
 
     # Apply axis titles (None = hidden)
