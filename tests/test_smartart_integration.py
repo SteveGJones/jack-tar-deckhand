@@ -58,14 +58,14 @@ def test_extract_and_render_swot():
 
 
 def test_extract_and_render_flowchart_mermaid():
-    """Full pipeline: extract flowchart, render via Mermaid CLI."""
+    """Full pipeline: extract small flowchart (1-3 nodes), render via Mermaid CLI."""
     from src.smartart_extractor import extract
     from src.smartart_renderer import render
 
     slide = {
         'slide_number': 5,
         'headline': 'Our Process',
-        'body_points': ['Research', 'Design', 'Build', 'Launch']
+        'body_points': ['Research', 'Design', 'Build']  # 3 nodes -> Mermaid LR
     }
     selection = {
         'slide_number': 5,

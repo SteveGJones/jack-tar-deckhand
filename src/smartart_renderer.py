@@ -419,21 +419,36 @@ def render_vega_lite(spec, style_guide, output_dir):
     vl_spec['config']['line'].setdefault('strokeWidth', 3)
 
     # Inject readable font sizes for axes, legends, and titles.
-    # Vega-Lite defaults to 10px which becomes ~3pt at slide scale.
+    # Vega-Lite output is 1600x900; placed in an 8.5"x4.5" slide zone the
+    # scale factor is ~0.36 source-pt → displayed-pt. To clear the 8pt
+    # displayed minimum, source fontSize must be >=22; for comfortable
+    # ~10pt displayed use 28+.
+    # Shared axis settings (apply to both X and Y)
     vl_spec['config'].setdefault('axis', {})
-    vl_spec['config']['axis'].setdefault('labelFontSize', 18)
-    vl_spec['config']['axis'].setdefault('titleFontSize', 22)
-    vl_spec['config']['axis'].setdefault('labelAngle', -45)
-    vl_spec['config']['axis'].setdefault('labelLimit', 200)
-    vl_spec['config']['axis'].setdefault('labelPadding', 8)
-    vl_spec['config']['axis'].setdefault('labelOverlap', 'parity')
+    vl_spec['config']['axis'].setdefault('labelFontSize', 24)
+    vl_spec['config']['axis'].setdefault('titleFontSize', 30)
+    vl_spec['config']['axis'].setdefault('labelLimit', 280)
+    vl_spec['config']['axis'].setdefault('labelPadding', 10)
+    # labelOverlap=false ensures every category label is shown (parity hides
+    # every other label which makes a 10-category chart look like 5 categories)
+    vl_spec['config']['axis'].setdefault('labelOverlap', False)
+    vl_spec['config']['axis'].setdefault('titlePadding', 14)
+
+    # X-axis specific: rotate labels for category readability
+    vl_spec['config'].setdefault('axisX', {})
+    vl_spec['config']['axisX'].setdefault('labelAngle', -45)
+
+    # Y-axis specific: keep labels horizontal, limit ticks for clean display
+    vl_spec['config'].setdefault('axisY', {})
+    vl_spec['config']['axisY'].setdefault('labelAngle', 0)
+    vl_spec['config']['axisY'].setdefault('tickCount', 6)
 
     vl_spec['config'].setdefault('legend', {})
-    vl_spec['config']['legend'].setdefault('labelFontSize', 16)
-    vl_spec['config']['legend'].setdefault('titleFontSize', 18)
+    vl_spec['config']['legend'].setdefault('labelFontSize', 24)
+    vl_spec['config']['legend'].setdefault('titleFontSize', 28)
 
     vl_spec['config'].setdefault('title', {})
-    vl_spec['config']['title'].setdefault('fontSize', 24)
+    vl_spec['config']['title'].setdefault('fontSize', 36)
 
     run_id = uuid.uuid4().hex[:8]
     spec_path = os.path.join(output_dir, f'vl-spec-{run_id}.json')

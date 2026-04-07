@@ -363,37 +363,39 @@
         "inline_data": {
           "title": "AI Persona Activity Phases",
           "section": "Pipeline",
+          "show_dates": false,
+          "phase_labels": ["Setup", "Plan", "Generate", "Build"],
           "tasks": [
             {
               "label": "Deck Conductor",
-              "start": "2026-05-01",
-              "end": "2027-04-30",
+              "phase_start": 1,
+              "phase_end": 4,
               "status": "active"
             },
             {
               "label": "SmartArt Selector",
-              "start": "2026-07-01",
-              "end": "2026-08-31"
+              "phase_start": 2,
+              "phase_end": 2
             },
             {
               "label": "Prompt Engineer",
-              "start": "2026-09-01",
-              "end": "2026-12-31"
+              "phase_start": 3,
+              "phase_end": 3
             },
             {
               "label": "Image Gen Expert",
-              "start": "2026-09-01",
-              "end": "2027-02-28"
+              "phase_start": 3,
+              "phase_end": 3
             },
             {
               "label": "Image Reviewer",
-              "start": "2027-01-01",
-              "end": "2027-02-28"
+              "phase_start": 3,
+              "phase_end": 4
             },
             {
               "label": "Presentation Reviewer",
-              "start": "2027-03-01",
-              "end": "2027-04-30"
+              "phase_start": 4,
+              "phase_end": 4
             }
           ]
         }

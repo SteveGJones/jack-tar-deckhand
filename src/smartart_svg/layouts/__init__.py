@@ -7,6 +7,8 @@ from src.smartart_svg.layouts.timeline import render_timeline
 from src.smartart_svg.layouts.pipeline_funnel import render_pipeline_funnel
 from src.smartart_svg.layouts.radar_chart import render_radar_chart
 from src.smartart_svg.layouts.gantt import render_gantt
+from src.smartart_svg.layouts.flowchart import render_flowchart
+from src.smartart_svg.layouts.decision_tree import render_decision_tree
 
 LAYOUT_REGISTRY = {
     'swot': render_swot,
@@ -16,4 +18,6 @@ LAYOUT_REGISTRY = {
     'pipeline_funnel': render_pipeline_funnel,
     'radar_chart': render_radar_chart,
     'gantt': render_gantt,
+    'flowchart': render_flowchart,
+    'decision_tree': render_decision_tree,
 }

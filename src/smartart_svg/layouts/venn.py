@@ -115,22 +115,45 @@ def _render_venn_3set(data, container, tokens):
     own circle but offset away from the triangle centroid. The central
     3-way intersection items are placed at the container centre.
     Pairwise intersections are not rendered in v1.
+
+    Set labels are placed:
+    - Top: above the top circle, clamped to canvas top
+    - Bottom-left: BELOW the bottom-left circle (avoids horizontal collision with body items)
+    - Bottom-right: BELOW the bottom-right circle
     """
     sets = data.get('sets', [])
     intersection = data.get('intersection', {})
     intersection_items = intersection.get('items', [])
 
-    cx, cy = container.center_point()
-    r = min(container.inner_width, container.inner_height) * 0.32
+    label_clearance = 8  # px clearance between circle edge and label
+    label_font_size = 18
+
+    # Reserve vertical space for top label (above top circle) and bottom labels (below bottom circles)
+    label_band = label_font_size + label_clearance  # ~26pt band each
+    drawable_h = container.inner_height - 2 * label_band
+
+    # Triangle vertical span = (top_cy - r) to (bl_cy + r)
+    # = (triangle_cy - offset - r) to (triangle_cy + 0.5*offset + r)
+    # With offset = 0.55r: span = (1.55r) above + (1.275r) below = 2.825r total
+    r_by_h = drawable_h / 2.83
+    # Width constraint: 2*0.866*offset + 2r = 2*0.866*0.55r + 2r = 2.953r
+    r_by_w = container.inner_width / 2.953
+    r = min(r_by_h, r_by_w) * 0.95
     offset = r * 0.55
+
+    cx = container.x + container.width / 2
+    # Centre the (asymmetric) triangle within the drawable region.
+    # Triangle vertical extent: 1.55r above triangle_cy, 1.275r below.
+    # Centre of extent = triangle_cy + (1.275-1.55)/2 r = triangle_cy - 0.1375r
+    triangle_cy = container.inner_y + label_band + drawable_h / 2 + 0.1375 * r
 
     # Triangle circle centres
     top_cx = cx
-    top_cy = cy - offset
+    top_cy = triangle_cy - offset
     bl_cx = cx - offset * 0.866
-    bl_cy = cy + offset * 0.5
+    bl_cy = triangle_cy + offset * 0.5
     br_cx = cx + offset * 0.866
-    br_cy = cy + offset * 0.5
+    br_cy = triangle_cy + offset * 0.5
 
     series = tokens.get('chart_series', ['#2B6CB0', '#ED8936', '#6B7280'])
     fill0 = series[0] if len(series) > 0 else '#2B6CB0'
@@ -146,50 +169,96 @@ def _render_venn_3set(data, container, tokens):
     heading_font = tokens['heading_font']
     text_col = tokens['text_color']
 
-    # Set labels OUTSIDE each circle with generous clearance so they
-    # never collide with exclusive item text rendered inside the circles.
-    # Top: well above the top circle
+    # Set labels are placed in the reserved bands so they never collide with
+    # body items inside the circles.
+    # Top: above the top circle
     if len(sets) >= 1:
+        top_label_y = max(container.inner_y + label_font_size,
+                          top_cy - r - label_clearance)
         elements.append(svg_text(
-            top_cx, top_cy - r - 20,
+            top_cx, top_label_y,
             sets[0].get('label', ''),
-            font_family=heading_font, font_size=22,
+            font_family=heading_font, font_size=label_font_size,
             fill=text_col, anchor='middle', weight='bold'
         ))
-    # Bottom-left: further left of the bottom-left circle
+    # Bottom-left: BELOW the bottom-left circle (no horizontal collision with body text)
     if len(sets) >= 2:
+        bl_label_y = min(container.inner_y + container.inner_height - 4,
+                         bl_cy + r + label_clearance + label_font_size)
         elements.append(svg_text(
-            bl_cx - r * 1.1, bl_cy + 6,
+            bl_cx, bl_label_y,
             sets[1].get('label', ''),
-            font_family=heading_font, font_size=22,
-            fill=text_col, anchor='end', weight='bold'
+            font_family=heading_font, font_size=label_font_size,
+            fill=text_col, anchor='middle', weight='bold'
         ))
-    # Bottom-right: further right of the bottom-right circle
+    # Bottom-right: BELOW the bottom-right circle
     if len(sets) >= 3:
+        br_label_y = min(container.inner_y + container.inner_height - 4,
+                         br_cy + r + label_clearance + label_font_size)
         elements.append(svg_text(
-            br_cx + r * 1.1, br_cy + 6,
+            br_cx, br_label_y,
             sets[2].get('label', ''),
-            font_family=heading_font, font_size=22,
-            fill=text_col, anchor='start', weight='bold'
+            font_family=heading_font, font_size=label_font_size,
+            fill=text_col, anchor='middle', weight='bold'
         ))
 
-    line_h = 18
-    font_size = 15
+    line_h = 14
+    font_size = 12
 
     # Exclusive items: offset from each circle centre in the direction
-    # OPPOSITE the triangle centroid (which is (cx, cy)). A larger factor
-    # pushes items toward the outer edge of each circle so they sit clear
-    # of the central intersection text and leave room for outside labels.
-    # Top circle: offset upward
-    # Bottom-left: offset down-left
-    # Bottom-right: offset down-right
-    exclusive_factor = 0.70
+    # OPPOSITE the triangle centroid (which is at triangle_cy). A smaller
+    # factor keeps items closer to the circle centre, leaving room for
+    # set labels at the outer edge of each circle.
+    exclusive_factor = 0.45
+
+    # Maximum characters per line so body items fit within their circle's
+    # exclusive band without colliding with neighbouring circles' text.
+    # The exclusive band width ≈ r (which is ~r=80pt). At font 12, char width
+    # ≈ 6.6pt → ~12 chars per line max for safety.
+    max_item_chars = max(10, int(r * 1.2 / (font_size * 0.55)))
+
+    def _wrap_item(text):
+        """Wrap a single body item into multiple lines if too long.
+
+        Splits on em-dash (most natural break for "Topic — detail" patterns),
+        else on whitespace.
+        """
+        if len(text) <= max_item_chars:
+            return [text]
+        # Try em-dash split first
+        if '\u2014' in text:
+            parts = text.split('\u2014', 1)
+            head = parts[0].strip()
+            tail = parts[1].strip()
+            lines = [head]
+            if tail:
+                lines.append(tail)
+            return lines
+        # Word wrap
+        words = text.split()
+        lines = []
+        current = ''
+        for w in words:
+            test = (current + ' ' + w).strip()
+            if len(test) <= max_item_chars:
+                current = test
+            else:
+                if current:
+                    lines.append(current)
+                current = w
+        if current:
+            lines.append(current)
+        return lines if lines else [text]
 
     def _place_items(items, anchor_x, anchor_y):
-        start_y = anchor_y - (len(items) - 1) * line_h / 2
-        for i, item in enumerate(items):
+        # Expand each item into wrapped lines
+        all_lines = []
+        for item in items:
+            all_lines.extend(_wrap_item(item))
+        start_y = anchor_y - (len(all_lines) - 1) * line_h / 2
+        for i, line in enumerate(all_lines):
             elements.append(svg_text(
-                anchor_x, start_y + i * line_h, item,
+                anchor_x, start_y + i * line_h, line,
                 font_family=font, font_size=font_size,
                 fill=text_col, anchor='middle'
             ))
@@ -218,9 +287,9 @@ def _render_venn_3set(data, container, tokens):
             ey = br_cy + r * exclusive_factor * 0.5
             _place_items(br_items, ex, ey)
 
-    # Central 3-way intersection at container centre
+    # Central 3-way intersection at the triangle's vertical centre
     if intersection_items:
-        start_y = cy - (len(intersection_items) - 1) * line_h / 2
+        start_y = triangle_cy - (len(intersection_items) - 1) * line_h / 2
         for i, item in enumerate(intersection_items):
             elements.append(svg_text(
                 cx, start_y + i * line_h, item,

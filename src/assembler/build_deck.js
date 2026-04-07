@@ -1063,13 +1063,22 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
     }
 
     // Template zone definitions (in inches)
+    // Side panels widened to 0.45 of slide width so body bullets have room to
+    // wrap without overflowing. Headings start higher (0.08) so the bullet
+    // area is taller too.
     const zones = {
-        left_panel:   { ox: 0,              oy: 0,              ow: SLIDE_W * 0.40, oh: SLIDE_H,          tx: MARGIN,                        ty: SLIDE_H * 0.15, tw: SLIDE_W * 0.40 - 2 * MARGIN, transparency: 60 },
-        right_panel:  { ox: SLIDE_W * 0.60, oy: 0,              ow: SLIDE_W * 0.40, oh: SLIDE_H,          tx: SLIDE_W * 0.60 + MARGIN,       ty: SLIDE_H * 0.15, tw: SLIDE_W * 0.40 - 2 * MARGIN, transparency: 60 },
+        left_panel:   { ox: 0,              oy: 0,              ow: SLIDE_W * 0.45, oh: SLIDE_H,          tx: MARGIN,                        ty: SLIDE_H * 0.08, tw: SLIDE_W * 0.45 - 2 * MARGIN, transparency: 60 },
+        right_panel:  { ox: SLIDE_W * 0.55, oy: 0,              ow: SLIDE_W * 0.45, oh: SLIDE_H,          tx: SLIDE_W * 0.55 + MARGIN,       ty: SLIDE_H * 0.08, tw: SLIDE_W * 0.45 - 2 * MARGIN, transparency: 60 },
         bottom_bar:   { ox: 0,              oy: SLIDE_H * 0.70, ow: SLIDE_W,         oh: SLIDE_H * 0.30,  tx: MARGIN,                        ty: SLIDE_H * 0.72, tw: SLIDE_W - 2 * MARGIN,        transparency: 60 },
         top_band:     { ox: 0,              oy: 0,              ow: SLIDE_W,         oh: SLIDE_H * 0.25,  tx: MARGIN,                        ty: MARGIN,          tw: SLIDE_W - 2 * MARGIN,        transparency: 60 },
         center_float: { ox: SLIDE_W * 0.20, oy: SLIDE_H * 0.25, ow: SLIDE_W * 0.60, oh: SLIDE_H * 0.50, tx: SLIDE_W * 0.20 + MARGIN,       ty: SLIDE_H * 0.27, tw: SLIDE_W * 0.60 - 2 * MARGIN, transparency: 65 },
     };
+
+    // Narrow panels need a smaller body font and tighter line spacing so all
+    // bullets fit within the panel height even when each one wraps to 2-3 lines.
+    const isNarrowPanel = variant === 'left_panel' || variant === 'right_panel';
+    const bodyFontSize = isNarrowPanel ? 14 : (typo.body_size || 18);
+    const bodyLineSpacing = isNarrowPanel ? 1.15 : (typo.line_spacing || 1.4);
 
     let zone = zones[variant] || zones.left_panel;
 
@@ -1142,13 +1151,13 @@ function buildBackgroundSlide(pptx, slideData, ctx) {
             const bodyText = slideData.body_points.map(bp => ({
                 text: bp,
                 options: {
-                    fontSize: typo.body_size || 18,
+                    fontSize: bodyFontSize,
                     fontFace: typo.body_font,
                     color: 'FFFFFF',
                     bullet: { type: 'bullet' },
-                    lineSpacingMultiple: typo.line_spacing || 1.4,
+                    lineSpacingMultiple: bodyLineSpacing,
                     breakLine: true,
-                    paraSpaceAfter: 8,
+                    paraSpaceAfter: isNarrowPanel ? 4 : 8,
                 },
             }));
             slide.addText(bodyText, {
@@ -1435,6 +1444,15 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
 
     slide.background = { color: bgColor };
 
+    // Graphic placement geometry — pushed down from the top so the heading
+    // band has clear vertical space. Bottom margin reserves room for the footer logo.
+    const graphicY = SLIDE_H * 0.30;
+    const graphicH = SLIDE_H * 0.64;
+    const graphicXContain = SLIDE_W * 0.075;
+    const graphicWContain = SLIDE_W * 0.85;
+    const graphicXBacking = SLIDE_W * 0.125;
+    const graphicWBacking = SLIDE_W * 0.75;
+
     if (tier === 'full_ai_render') {
         // T3: full-bleed AI image — the graphic IS the entire slide
         const imgPath = resolveImagePath(saEntry.file_path);
@@ -1463,8 +1481,8 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
         // Semi-transparent backing rectangle behind the graphic
         const backingColor = palette.background || 'FFFFFF';
         slide.addShape(pptx.ShapeType.rect, {
-            x: SLIDE_W * 0.125, y: SLIDE_H * 0.18,
-            w: SLIDE_W * 0.75, h: SLIDE_H * 0.76,
+            x: graphicXBacking, y: graphicY,
+            w: graphicWBacking, h: graphicH,
             fill: { color: backingColor, transparency: 60 },
         });
         // SmartArt graphic on top of the backing rectangle
@@ -1472,9 +1490,9 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
         if (fs.existsSync(saPath)) {
             slide.addImage({
                 path: saPath,
-                x: SLIDE_W * 0.125, y: SLIDE_H * 0.18,
-                w: SLIDE_W * 0.75, h: SLIDE_H * 0.76,
-                sizing: { type: 'contain', w: SLIDE_W * 0.75, h: SLIDE_H * 0.76 },
+                x: graphicXBacking, y: graphicY,
+                w: graphicWBacking, h: graphicH,
+                sizing: { type: 'contain', w: graphicWBacking, h: graphicH },
                 altText: saEntry.alt_text || slideData.headline || '',
             });
         }
@@ -1484,32 +1502,41 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
         if (fs.existsSync(saPath)) {
             slide.addImage({
                 path: saPath,
-                x: SLIDE_W * 0.075, y: SLIDE_H * 0.18,
-                w: SLIDE_W * 0.85, h: SLIDE_H * 0.76,
-                sizing: { type: 'contain', w: SLIDE_W * 0.85, h: SLIDE_H * 0.76 },
+                x: graphicXContain, y: graphicY,
+                w: graphicWContain, h: graphicH,
+                sizing: { type: 'contain', w: graphicWContain, h: graphicH },
                 altText: saEntry.alt_text || slideData.headline || '',
             });
         }
     }
 
-    // Headline text box — top of slide, always rendered on SmartArt slides
+    // Headline text box — placed using the same pattern as buildContentSlide
+    // (valign 'bottom', headingH 0.8, no autoFit) which renders correctly in
+    // LibreOffice's PDF converter. valign 'bottom' anchors text to the bottom
+    // of the box growing upward, so a 1- or 2-line heading sits below the slide
+    // top edge with comfortable margin.
     const headingFont = typo?.heading_font || 'Arial';
     const headingSize = typo?.heading_sizes?.slide_heading || 28;
+    const headingY = MARGIN;
+    const headingH = 1.2;  // tall enough for 2 wrapped lines at 28pt
     if (tier === 'ai_background' || tier === 'full_ai_render') {
+        // Dark backing rect from top of slide to bottom of heading area, so
+        // the white heading text always reads against a dark band regardless
+        // of where the AI background image is light.
         slide.addShape(pptx.ShapeType.rect, {
-            x: 0, y: SLIDE_H * 0.01,
-            w: SLIDE_W, h: SLIDE_H * 0.14,
+            x: 0, y: 0,
+            w: SLIDE_W, h: headingY + headingH + 0.05,
             fill: { color: '000000', transparency: 50 },
         });
     }
     slide.addText(slideData.headline || '', {
-        x: MARGIN, y: MARGIN,
-        w: SLIDE_W - 2 * MARGIN, h: SLIDE_H * 0.10,
+        x: MARGIN, y: headingY,
+        w: SLIDE_W - 2 * MARGIN, h: headingH,
         fontSize: headingSize,
         fontFace: headingFont,
         color: (tier === 'full_ai_render' || tier === 'ai_background') ? 'FFFFFF' : textColor,
         bold: true,
-        valign: 'middle',
+        valign: 'bottom',
         wrap: true,
     });
 

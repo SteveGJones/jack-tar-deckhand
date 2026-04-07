@@ -33,9 +33,12 @@ def _wrap_text(text, max_chars):
 def render_timeline(data, container, tokens):
     """Render a horizontal timeline as an SVG fragment.
 
-    A thin horizontal spine runs through the vertical centre.
-    Equal columns house each stage. Circle nodes sit on the spine.
-    Labels alternate above/below. Text is truncated to fit column width.
+    Layout:
+    - Horizontal spine runs across the upper third
+    - Circle nodes sit on the spine
+    - Labels (bold, larger) appear ABOVE each node
+    - Descriptions (smaller, multi-line) appear BELOW each node
+    - All stages use the same vertical layout (no alternation) for visual consistency
     """
     stages = data.get('stages', [])
     if not stages:
@@ -47,7 +50,8 @@ def render_timeline(data, container, tokens):
     font = tokens['font_family']
     heading_font = tokens['heading_font']
 
-    spine_y = container.inner_y + container.inner_height / 2
+    # Spine sits in the upper portion so descriptions get most of the canvas
+    spine_y = container.inner_y + container.inner_height * 0.30
 
     spine = svg_rect(
         container.inner_x, spine_y - 2,
@@ -59,16 +63,18 @@ def render_timeline(data, container, tokens):
 
     node_r = min(12, container.inner_height * 0.04)
 
-    half_h = container.inner_height / 2
-    label_offset = min(half_h * 0.30, 36)
-    desc_offset = min(half_h * 0.35, 42)
+    label_font_size = max(12, min(15, cols[0].width / 6))
+    desc_font_size = max(10, min(12, cols[0].width / 8))
+    char_width_label = label_font_size * 0.55
+    char_width_desc = desc_font_size * 0.55
+    max_label_chars = max(8, int(cols[0].width / char_width_label))
+    max_desc_chars = max(10, int(cols[0].width / char_width_desc))
 
-    label_font_size = max(12, min(16, cols[0].width / 5))
-    desc_font_size = max(11, min(13, cols[0].width / 7))
-    char_width_label = label_font_size * 0.6
-    char_width_desc = desc_font_size * 0.6
-    max_label_chars = max(6, int(cols[0].width / char_width_label))
-    max_desc_chars = max(8, int(cols[0].width / char_width_desc))
+    # Vertical anchors
+    label_top_y = spine_y - node_r - 12   # label sits above the node
+    desc_top_y = spine_y + node_r + 18    # description sits below the node
+    desc_band_h = container.inner_y + container.inner_height - desc_top_y - 4
+    max_desc_lines = max(2, int(desc_band_h / (desc_font_size + 2)))
 
     elements = [spine]
 
@@ -80,13 +86,12 @@ def render_timeline(data, container, tokens):
 
         elements.append(svg_circle(node_cx, spine_y, node_r, fill=primary))
 
-        above = (i % 2 == 0)
-
-        # Allow 2-line labels: split into lines that fit column width
-        label_lines = _wrap_text(label, max_label_chars)
-        base_label_y = spine_y - label_offset if above else spine_y + label_offset + label_font_size
-        for li, line in enumerate(label_lines[:2]):  # Max 2 lines
-            ly = base_label_y + li * (label_font_size + 2)
+        # LABEL ABOVE (always — no alternation)
+        # Allow up to 2 lines for the label
+        label_lines = _wrap_text(label, max_label_chars)[:2]
+        # Render bottom-up so the last line sits at label_top_y
+        for li, line in enumerate(reversed(label_lines)):
+            ly = label_top_y - li * (label_font_size + 2)
             elements.append(svg_text(
                 node_cx, ly,
                 line,
@@ -97,25 +102,20 @@ def render_timeline(data, container, tokens):
                 weight='bold'
             ))
 
+        # DESCRIPTION BELOW (always — no alternation)
         if description:
-            # Calculate available description lines based on container
-            half_h_for_desc = max(0, container.inner_height / 2 - desc_offset)
-            max_desc_lines = max(1, min(3, int(half_h_for_desc / (desc_font_size + 2))))
-
             desc_lines = _wrap_text(description, max_desc_chars)
             visible_lines = desc_lines[:max_desc_lines]
 
             # If truncated, add ellipsis to last visible line
             if len(desc_lines) > max_desc_lines and visible_lines:
                 last = visible_lines[-1]
-                # Trim to make room for ellipsis
                 if len(last) > max_desc_chars - 1:
                     last = last[:max_desc_chars - 1]
                 visible_lines[-1] = last + '\u2026'
 
-            base_desc_y = spine_y + desc_offset if above else spine_y - desc_offset + desc_font_size
             for di, dline in enumerate(visible_lines):
-                dy = base_desc_y + di * (desc_font_size + 2)
+                dy = desc_top_y + di * (desc_font_size + 2)
                 elements.append(svg_text(
                     node_cx, dy,
                     dline,

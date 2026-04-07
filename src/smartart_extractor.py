@@ -73,13 +73,36 @@ def extract_graph_data(body_points, graphic_type):
         return _extract_flowchart(body_points)
 
 
+def _format_flowchart_label(point):
+    """Format a long flowchart label with line breaks for taller, more readable nodes.
+
+    Pattern: 'Header: item1, item2, item3' becomes 'Header:<br/>item1<br/>item2<br/>item3'
+    Long labels without that structure are split heuristically on the most natural break.
+    Uses <br/> which Mermaid renders as a line break inside foreignObject node labels.
+    """
+    cleaned = _clean_label(point)
+    if ':' in cleaned and ',' in cleaned:
+        header, rest = cleaned.split(':', 1)
+        items = [it.strip() for it in rest.split(',') if it.strip()]
+        return f"{header.strip()}:<br/>" + "<br/>".join(items)
+    if ':' in cleaned:
+        header, rest = cleaned.split(':', 1)
+        return f"{header.strip()}:<br/>{rest.strip()}"
+    return cleaned
+
+
 def _extract_flowchart(body_points):
+    """Build a Mermaid flowchart syntax string with LR layout.
+
+    Routing for 4+ node flowcharts to a custom_svg grid layout happens in
+    the higher-level extract() function so the engine can be switched.
+    """
     lines = ['graph LR']
     node_ids = []
     for i, point in enumerate(body_points):
         nid = _node_id(i)
         node_ids.append(nid)
-        label = _clean_label(point)
+        label = _format_flowchart_label(point)
         lines.append(f'  {nid}["{label}"]')
     # Connect sequentially
     for i in range(len(node_ids) - 1):
@@ -369,6 +392,8 @@ def extract_spatial_data(body_points, graphic_type):
         'pipeline_funnel': _extract_pipeline_funnel,
         'venn': _extract_venn,
         'feature_matrix': _extract_feature_matrix,
+        'flowchart': _extract_flowchart_spatial,
+        'decision_tree': _extract_decision_tree_spatial,
     }
     extractor = dispatchers.get(graphic_type, _extract_generic_spatial)
     data = extractor(body_points)
@@ -486,7 +511,38 @@ def _extract_generic_spatial(body_points):
 
 _MERMAID_GRAPHIC_TYPES = {'flowchart', 'decision_tree'}
 _VEGA_GRAPHIC_TYPES = {'bar_chart', 'line_chart', 'radar_chart'}
-_SPATIAL_GRAPHIC_TYPES = {'swot', 'timeline', 'pipeline_funnel', 'feature_matrix', 'venn', 'gantt'}
+_SPATIAL_GRAPHIC_TYPES = {'swot', 'timeline', 'pipeline_funnel', 'feature_matrix', 'venn', 'gantt', 'flowchart', 'decision_tree'}
+
+
+def _extract_flowchart_spatial(body_points):
+    """Parse body_points into a flowchart node list for the custom_svg layout."""
+    return {'nodes': [_clean_label(p) for p in body_points]}
+
+
+def _extract_decision_tree_spatial(body_points):
+    """Parse body_points into question→outcome rules for the custom_svg layout.
+
+    Each body_point is parsed as 'question? Yes: outcome'. Same parsing logic as
+    the Mermaid version but flattened into a list of {question, outcome} dicts.
+    """
+    rules = []
+    for point in body_points:
+        if '?' in point:
+            question, after = point.split('?', 1)
+            question = _clean_label(question.strip()) + '?'
+            outcome = after
+            for prefix in ['Yes:', 'Yes ', 'yes:', 'yes ']:
+                if prefix in after:
+                    outcome = after.split(prefix, 1)[1].strip()
+                    break
+            outcome = _clean_label(outcome).rstrip('.')
+            if not outcome:
+                outcome = 'Decision'
+        else:
+            question = _clean_label(point)
+            outcome = 'Decision'
+        rules.append({'question': question, 'outcome': outcome})
+    return {'rules': rules}
 
 
 def _build_vega_from_inline(inline_data, graphic_type, engine='vega_lite'):
@@ -582,6 +638,19 @@ def extract(slide, selection, style_guide):
     engine = selection['engine']
     overflow_applied = 'none'
 
+    # Re-route flowcharts with 4+ nodes to custom_svg — Mermaid LR produces a
+    # ~5:1 horizontal strip that doesn't fit the slide's 16:9 zone well, while
+    # the custom_svg flowchart layout uses an optimal 2x2/2x3/3x3 grid.
+    if graphic_type == 'flowchart' and engine == 'mermaid' and len(body_points) >= 4:
+        engine = 'custom_svg'
+
+    # Re-route decision trees with 3+ rules to custom_svg — Mermaid TB cascades
+    # produce a tall narrow strip that becomes unreadable when fit into a 16:9
+    # slide zone. The custom_svg decision_tree layout uses a 2-column "if/then"
+    # row layout that fills the slide width comfortably.
+    if graphic_type == 'decision_tree' and engine == 'mermaid' and len(body_points) >= 3:
+        engine = 'custom_svg'
+
     # Prefer inline_data when present — structured data that bypasses regex parsing
     # IMPORTANT: check explicit engine first, not graphic_type membership,
     # because a graphic_type like radar_chart can be routed to custom_svg
@@ -600,11 +669,15 @@ def extract(slide, selection, style_guide):
         else:
             # For other engines, inline_data is passed through as-is
             extracted_data = {'engine': engine, 'graphic_type': graphic_type, 'data': inline_data}
+    elif engine == 'custom_svg':
+        # Custom SVG takes priority once selected (the override above re-routes
+        # 4+ node flowcharts here even though graphic_type is in MERMAID set).
+        extracted_data = extract_spatial_data(body_points, graphic_type)
     elif engine == 'mermaid' or graphic_type in _MERMAID_GRAPHIC_TYPES:
         extracted_data = extract_graph_data(body_points, graphic_type)
     elif engine == 'vega_lite' or engine == 'matplotlib' or graphic_type in _VEGA_GRAPHIC_TYPES:
         extracted_data = extract_series_data(body_points, graphic_type, engine=engine)
-    elif engine == 'custom_svg' or graphic_type in _SPATIAL_GRAPHIC_TYPES:
+    elif graphic_type in _SPATIAL_GRAPHIC_TYPES:
         extracted_data = extract_spatial_data(body_points, graphic_type)
         # Detect overflow from SWOT truncation
         if graphic_type == 'swot':

@@ -85,7 +85,9 @@
       "Bash(brew list:*)",
       "Bash(brew --version)",
       "Bash(brew info:*)",
-      "Bash(source .venv/bin/activate:*)"
+      "Bash(source .venv/bin/activate:*)",
+      "Bash(pdftoppm -png -r 100 presentation.pdf slide)",
+      "Skill(update-config)"
     ],
     "deny": [
       "Bash(git push --force:*)",

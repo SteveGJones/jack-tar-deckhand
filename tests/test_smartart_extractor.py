@@ -129,11 +129,12 @@ class TestExtractSpatialData:
 
 class TestExtractFunction:
     def test_extract_dispatches_to_mermaid(self):
+        # 1-3 node flowcharts use Mermaid LR (which fits a wide horizontal zone)
         from src.smartart_extractor import extract
         slide = {
             'slide_number': 5,
             'headline': 'Our Process',
-            'body_points': ['Research', 'Design', 'Build', 'Launch']
+            'body_points': ['Research', 'Design', 'Build']
         }
         selection = {
             'slide_number': 5,
@@ -151,6 +152,30 @@ class TestExtractFunction:
         assert result['engine'] == 'mermaid'
         assert result['validation_status'] == 'valid'
         assert 'graph' in result['data']['syntax']
+
+    def test_extract_routes_4plus_flowcharts_to_custom_svg(self):
+        # 4+ node flowcharts get re-routed to custom_svg for a better aspect ratio
+        from src.smartart_extractor import extract
+        slide = {
+            'slide_number': 5,
+            'headline': 'Our Process',
+            'body_points': ['Research', 'Design', 'Build', 'Launch']
+        }
+        selection = {
+            'slide_number': 5,
+            'graphic_type': 'flowchart',
+            'enrichment_tier': 'pure_programmatic',
+            'engine': 'mermaid'
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'text_primary': '1a1a1a', 'chart_series': []},
+            'typography': {'body_font': 'Inter', 'heading_font': 'Inter'}
+        }
+        result = extract(slide, selection, style_guide)
+        assert result['engine'] == 'custom_svg'
+        assert result['graphic_type'] == 'flowchart'
+        assert 'nodes' in result['data']
+        assert len(result['data']['nodes']) == 4
 
     def test_extract_dispatches_to_custom_svg(self):
         from src.smartart_extractor import extract
