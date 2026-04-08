@@ -1453,7 +1453,28 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
     const graphicXBacking = SLIDE_W * 0.125;
     const graphicWBacking = SLIDE_W * 0.75;
 
-    if (tier === 'full_ai_render') {
+    // pptx_native branch — the graphic is produced as an editable
+    // PowerPoint SmartArt diagram by a Python post-process step after
+    // this assembler finishes. We place a named placeholder rectangle
+    // that the post-process (assembler_patch.py) locates by name,
+    // captures its xfrm from, and replaces with a <p:graphicFrame>
+    // bound to the injected diagram parts.
+    //
+    // The placeholder name contract is PLACEHOLDER_NAME_PREFIX +
+    // slide_number (see src/smartart_pptx_native/assembler_patch.py).
+    if (saEntry.engine_used === 'pptx_native') {
+        const placeholderName = `pptx_native_placeholder_${saEntry.slide_number}`;
+        slide.addShape(pptx.ShapeType.rect, {
+            x: graphicXContain, y: graphicY,
+            w: graphicWContain, h: graphicH,
+            fill: { color: 'F0F0F0' },  // light grey placeholder, replaced post-process
+            line: { color: 'CCCCCC', width: 1 },
+            objectName: placeholderName,
+            altText: saEntry.alt_text || slideData.headline || 'Editable SmartArt placeholder',
+        });
+        // Fall through to heading/footer/notes; skip the image-rendering
+        // branches below via an early end-of-graphic marker.
+    } else if (tier === 'full_ai_render') {
         // T3: full-bleed AI image — the graphic IS the entire slide
         const imgPath = resolveImagePath(saEntry.file_path);
         if (fs.existsSync(imgPath)) {
