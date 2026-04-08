@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "id": "process1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/process1",
+      "seed_path": "tests/fixtures/smartart_seeds/process1_seed.pptx",
+      "builder_module": "src.smartart_pptx_native.layouts.process",
+      "display_name": "Basic Process",
+      "category": "Process",
+      "v1": true,
+      "engine": "pptx_native",
+
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+
+      "visual_character": "Horizontal row of connected rounded rectangles with chevron arrows between them. Boxes share a single accent colour by default; PowerPoint reflows them into 2 rows automatically beyond ~7 steps.",
+
+      "min_nodes": 2,
+      "max_nodes": 9,
+      "max_label_chars": 24,
+      "max_label_chars_rationale": "PowerPoint shrinks labels above 24 chars to unreadable sizes on 16:9 slides. Empirically determined during manual gating — revisit if a future layout reflows more gracefully.",
+
+      "when_to_use": [
+        "Sequential processes where each step depends on the previous one",
+        "Pipelines with a clear start and end",
+        "How-to explanations with 3-7 stages",
+        "Methodology walkthroughs where order matters"
+      ],
+      "when_not_to_use": [
+        "Cyclical processes (use cycle2)",
+        "Hierarchical decisions (use orgChart1)",
+        "Timelines with date anchors (use basicTimeline1)",
+        "More than 9 steps (the visual becomes unreadable)",
+        "Parallel or concurrent steps (no native representation in this layout)"
+      ],
+
+      "selector_rationale_template": "process1 is the right choice when the content describes a sequence of {n} steps from \"{first}\" to \"{last}\" where order matters. Delivers editable SmartArt — speaker can add/rename/reorder steps in PowerPoint after delivery.",
+
+      "example_input": {
+        "steps": ["Research", "Design", "Build", "Test", "Ship"]
+      },
+
+      "integration": {
+        "smartart_type_mappings": ["flowchart"],
+        "replaces_custom_svg_when": "graphic_type == 'flowchart' AND enrichment_tier == 'pure_programmatic' AND node_count <= 9 AND max(label_length) <= 24"
+      }
+    }
+  ]
+}
