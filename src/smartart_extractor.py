@@ -91,6 +91,55 @@ def _format_flowchart_label(point):
     return cleaned
 
 
+def _extract_pptx_native(body_points, graphic_type):
+    """Build the data shape the pptx_native engine's layout builder expects.
+
+    For each graphic type backed by a pptx_native layout, this function
+    emits the data structure that the corresponding layout builder (e.g.
+    src.smartart_pptx_native.layouts.process.build_data_model) consumes.
+
+    v1 mapping:
+        flowchart   → process1  → {"steps": [list of cleaned labels]}
+
+    Future (Phase 4):
+        cycle       → cycle2    → {"stages": [list of cleaned labels]}
+        org_chart   → orgChart1 → {"tree": {"title": ..., "children": [...]}}
+        timeline    → basicTimeline1 → {"stages": [{"label": ..., "date": ...}, ...]}
+
+    Label cleaning mirrors _clean_label used elsewhere — strips formatting
+    prefixes (bullets, numbers) and leading/trailing whitespace.
+
+    Args:
+        body_points: Raw body_points strings from the slide outline.
+        graphic_type: The graphic_type from the selection — determines
+            which layout's data shape to produce.
+
+    Returns:
+        Dict with an 'engine' key set to 'pptx_native', a 'graphic_type'
+        key, and a 'data' key containing the layout-specific shape.
+        On unsupported graphic_type, falls back to a simple items list
+        (downstream will fail validation and the selector should not
+        have routed here in the first place).
+    """
+    cleaned_labels = [_clean_label(p) for p in body_points if _clean_label(p)]
+
+    if graphic_type == 'flowchart':
+        return {
+            'engine': 'pptx_native',
+            'graphic_type': graphic_type,
+            'data': {'steps': cleaned_labels},
+        }
+
+    # Future v1 layouts (cycle, org_chart, timeline) go here in Phase 4.
+    # For now, fall through with a generic items list — the renderer will
+    # emit status='failed' via the layout builder's validation.
+    return {
+        'engine': 'pptx_native',
+        'graphic_type': graphic_type,
+        'data': {'items': cleaned_labels},
+    }
+
+
 def _extract_flowchart(body_points):
     """Build a Mermaid flowchart syntax string with LR layout.
 
@@ -651,6 +700,38 @@ def extract(slide, selection, style_guide):
     if graphic_type == 'decision_tree' and engine == 'mermaid' and len(body_points) >= 3:
         engine = 'custom_svg'
 
+    # pptx_native takes highest priority once selected — the engine has
+    # its own per-layout data shape that differs from the rasterising
+    # engines. Phase 2.2 wiring; Phase 4 adds cycle/orgChart/timeline
+    # mappings as more layouts come online.
+    if engine == 'pptx_native':
+        if inline_data is not None:
+            # Passthrough — assume inline data is already shaped for the
+            # target layout (e.g. {"steps": [...]} for process1). The
+            # renderer's layout builder will validate shape.
+            data_payload = inline_data
+        else:
+            extracted_data = _extract_pptx_native(body_points, graphic_type)
+            data_payload = extracted_data['data']
+
+        valid, errors = validate_spec({
+            'engine': engine,
+            'data': data_payload,
+            'graphic_type': graphic_type,
+        })
+        style_tokens = extract_style_tokens(style_guide)
+        return {
+            'slide_number': selection['slide_number'],
+            'graphic_type': graphic_type,
+            'engine': engine,
+            'enrichment_tier': selection['enrichment_tier'],
+            'data': data_payload,
+            'overflow_applied': 'none',
+            'style_tokens': style_tokens,
+            'validation_status': 'valid' if valid else 'invalid',
+            'comparator_engines': [],
+        }
+
     # Prefer inline_data when present — structured data that bypasses regex parsing
     # IMPORTANT: check explicit engine first, not graphic_type membership,
     # because a graphic_type like radar_chart can be routed to custom_svg
@@ -737,6 +818,7 @@ _ENGINE_REQUIRED_KEYS = {
     'vega_lite': ['$schema', 'mark', 'data', 'encoding'],
     'matplotlib': ['chart_type', 'data'],
     'custom_svg': [],  # flexible — no universal required key beyond engine
+    'pptx_native': [],  # per-layout shape validated by the layout builder itself
 }
 
 # For validate_spec the caller passes the outer spec with 'data' as a sub-dict.
