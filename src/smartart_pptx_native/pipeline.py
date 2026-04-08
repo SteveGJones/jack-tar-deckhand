@@ -153,3 +153,111 @@ def run_injection_step(
         results=results,
         skipped_non_pptx_native=skipped,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 — delivery messaging
+# ---------------------------------------------------------------------------
+
+def format_delivery_message(
+    deck_dir: str | Path,
+    manifest: dict[str, Any] | None = None,
+) -> str | None:
+    """Format a speaker-facing delivery status message if the deck
+    contains pptx_native SmartArt.
+
+    The conductor / orchestration script prints this after the deck
+    is finalised so the speaker knows to open the file in PowerPoint
+    Mac for visual verification (spec §7). pptx_native slides cannot
+    be previewed by the automated pipeline — LibreOffice can't render
+    them — so PowerPoint Mac open is the only meaningful pre-delivery
+    check.
+
+    Args:
+        deck_dir: Path to the DeckContext directory. Used to read
+            smartart-manifest.json (or outline.json for headlines)
+            if manifest is not provided directly.
+        manifest: Optional pre-loaded manifest dict. If None, the
+            function reads from `<deck_dir>/smartart-manifest.json`.
+
+    Returns:
+        A multi-line string ready to print, OR None if the deck has
+        no pptx_native slides (no message needed). Returning None
+        lets the caller skip the print entirely without conditional
+        logic on message truthiness.
+    """
+    deck_dir = Path(deck_dir)
+
+    if manifest is None:
+        manifest = _load_manifest(deck_dir)
+
+    pptx_native_entries = [
+        g for g in manifest.get("graphics", [])
+        if g.get("engine_used") == "pptx_native"
+        and g.get("status") in ("rendered", "compared")
+    ]
+
+    if not pptx_native_entries:
+        return None
+
+    # Try to pair each entry with its slide headline from outline.json
+    headlines: dict[int, str] = {}
+    outline_path = deck_dir / "outline.json"
+    if outline_path.exists():
+        try:
+            outline = json.loads(outline_path.read_text(encoding="utf-8"))
+            for slide in outline.get("slides", []):
+                sn = slide.get("slide_number")
+                if sn is not None:
+                    headlines[sn] = slide.get("headline", "")
+        except (OSError, json.JSONDecodeError):
+            pass  # fall through — headlines just become empty
+
+    n = len(pptx_native_entries)
+    plural = "s" if n != 1 else ""
+    lines: list[str] = []
+    lines.append(
+        f"{n} slide{plural} use{'s' if n == 1 else ''} editable PowerPoint "
+        f"SmartArt (pptx_native engine)."
+    )
+    lines.append(
+        "These were not pre-rendered — please open the .pptx in PowerPoint "
+        "Mac to verify visual quality before presenting."
+    )
+    lines.append("")
+    lines.append(f"Slide{plural} with editable SmartArt:")
+
+    # Sort by slide number for deterministic output
+    sorted_entries = sorted(
+        pptx_native_entries, key=lambda e: e.get("slide_number", 0)
+    )
+    for entry in sorted_entries:
+        sn = entry.get("slide_number", "?")
+        graphic_type = entry.get("graphic_type", "unknown")
+        node_count = entry.get("node_count", 0)
+        headline = headlines.get(sn, "").strip()
+
+        # Format: "  Slide  4: process diagram (5 nodes) — Our Method"
+        headline_suffix = f" — {headline}" if headline else ""
+        # node_count unit depends on graphic_type
+        if graphic_type == "flowchart":
+            unit = "step" if node_count == 1 else "steps"
+        elif graphic_type == "cycle":
+            unit = "stage" if node_count == 1 else "stages"
+        elif graphic_type == "org_chart":
+            unit = "node" if node_count == 1 else "nodes"
+        else:
+            unit = "node" if node_count == 1 else "nodes"
+
+        type_label = {
+            "flowchart": "process diagram",
+            "cycle": "cycle diagram",
+            "org_chart": "org chart",
+        }.get(graphic_type, graphic_type)
+
+        lines.append(
+            f"  Slide {sn:>2}: {type_label} ({node_count} {unit})"
+            f"{headline_suffix}"
+        )
+
+    return "\n".join(lines)
