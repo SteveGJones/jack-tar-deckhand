@@ -17,7 +17,7 @@
           "slide_number": {"type": "integer", "minimum": 1},
           "graphic_type": {
             "type": "string",
-            "enum": ["flowchart", "decision_tree", "bar_chart", "line_chart", "radar_chart", "swot", "feature_matrix", "venn", "timeline", "pipeline_funnel", "gantt"]
+            "enum": ["flowchart", "decision_tree", "bar_chart", "line_chart", "radar_chart", "swot", "feature_matrix", "venn", "timeline", "pipeline_funnel", "gantt", "cycle", "org_chart"]
           },
           "engine_used": {
             "type": "string",

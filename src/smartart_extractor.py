@@ -91,6 +91,82 @@ def _format_flowchart_label(point):
     return cleaned
 
 
+def _body_points_to_tree(body_points):
+    """Convert indent-prefixed body_points into a nested tree for org_chart.
+
+    The speaker writes something like:
+
+        CEO
+          CTO
+            Backend Lead
+            Frontend Lead
+          CFO
+            Finance Manager
+
+    (2-space indentation = one level deeper). This function parses
+    that into a tree dict. The first line becomes the root.
+
+    Assistant detection: a line ending with ' (asst)' or '[asst]' is
+    marked as an assistant node.
+
+    Returns None if body_points is empty or the first line has leading
+    indentation (no root identifiable).
+    """
+    if not body_points:
+        return None
+
+    def _parse_line(line):
+        """Return (indent_level, title, is_asst)."""
+        stripped_left = line.rstrip()
+        indent = len(stripped_left) - len(stripped_left.lstrip(' '))
+        level = indent // 2
+        title = stripped_left.strip()
+        is_asst = False
+        for marker in (' (asst)', ' [asst]'):
+            if title.lower().endswith(marker):
+                is_asst = True
+                title = title[: -len(marker)].strip()
+                break
+        return level, _clean_label(title), is_asst
+
+    first_level, root_title, root_asst = _parse_line(body_points[0])
+    if first_level != 0:
+        return None  # can't identify a root
+
+    root = {"title": root_title}
+    if root_asst:
+        root["asst"] = True
+    # Stack of (level, node) pairs for current path in the tree
+    stack = [(0, root)]
+
+    for line in body_points[1:]:
+        if not line.strip():
+            continue
+        level, title, is_asst = _parse_line(line)
+        if level <= 0:
+            # Back to root level — attach as sibling of root (but we
+            # only have one root in orgChart), so treat as direct child
+            # of the root to avoid data loss.
+            level = 1
+
+        # Pop the stack until we find the parent at (level - 1)
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        if not stack:
+            # Orphaned — attach to root
+            parent = root
+        else:
+            parent = stack[-1][1]
+
+        node = {"title": title}
+        if is_asst:
+            node["asst"] = True
+        parent.setdefault("children", []).append(node)
+        stack.append((level, node))
+
+    return root
+
+
 def _extract_pptx_native(body_points, graphic_type):
     """Build the data shape the pptx_native engine's layout builder expects.
 
@@ -100,14 +176,15 @@ def _extract_pptx_native(body_points, graphic_type):
 
     v1 mapping:
         flowchart   → process1  → {"steps": [list of cleaned labels]}
-
-    Future (Phase 4):
         cycle       → cycle2    → {"stages": [list of cleaned labels]}
         org_chart   → orgChart1 → {"tree": {"title": ..., "children": [...]}}
-        timeline    → basicTimeline1 → {"stages": [{"label": ..., "date": ...}, ...]}
 
-    Label cleaning mirrors _clean_label used elsewhere — strips formatting
-    prefixes (bullets, numbers) and leading/trailing whitespace.
+    Label cleaning mirrors _clean_label used elsewhere — strips
+    Mermaid-unsafe characters and leading/trailing whitespace.
+
+    For org_chart, body_points are parsed as indentation-delimited
+    tree (2-space indent per level). A line ending with ' (asst)' or
+    ' [asst]' becomes an assistant node.
 
     Args:
         body_points: Raw body_points strings from the slide outline.
@@ -115,11 +192,9 @@ def _extract_pptx_native(body_points, graphic_type):
             which layout's data shape to produce.
 
     Returns:
-        Dict with an 'engine' key set to 'pptx_native', a 'graphic_type'
-        key, and a 'data' key containing the layout-specific shape.
-        On unsupported graphic_type, falls back to a simple items list
-        (downstream will fail validation and the selector should not
-        have routed here in the first place).
+        Dict with 'engine' set to 'pptx_native', 'graphic_type', and
+        a 'data' key containing the layout-specific shape. On
+        unsupported graphic_type, falls back to a generic items list.
     """
     cleaned_labels = [_clean_label(p) for p in body_points if _clean_label(p)]
 
@@ -130,9 +205,34 @@ def _extract_pptx_native(body_points, graphic_type):
             'data': {'steps': cleaned_labels},
         }
 
-    # Future v1 layouts (cycle, org_chart, timeline) go here in Phase 4.
-    # For now, fall through with a generic items list — the renderer will
-    # emit status='failed' via the layout builder's validation.
+    if graphic_type == 'cycle':
+        return {
+            'engine': 'pptx_native',
+            'graphic_type': graphic_type,
+            'data': {'stages': cleaned_labels},
+        }
+
+    if graphic_type == 'org_chart':
+        tree = _body_points_to_tree(body_points)
+        if tree is None:
+            # Fallback if we couldn't parse the indentation — use
+            # first as root, rest as direct children
+            if cleaned_labels:
+                tree = {
+                    "title": cleaned_labels[0],
+                    "children": [{"title": l} for l in cleaned_labels[1:]],
+                }
+            else:
+                tree = {"title": "", "children": []}
+        return {
+            'engine': 'pptx_native',
+            'graphic_type': graphic_type,
+            'data': {'tree': tree},
+        }
+
+    # timeline mapping deferred pending basicTimeline1 seed authoring.
+
+    # Unsupported graphic_type — fall through with a generic items list.
     return {
         'engine': 'pptx_native',
         'graphic_type': graphic_type,

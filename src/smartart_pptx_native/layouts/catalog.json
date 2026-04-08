@@ -45,6 +45,112 @@
         "smartart_type_mappings": ["flowchart"],
         "replaces_custom_svg_when": "graphic_type == 'flowchart' AND enrichment_tier == 'pure_programmatic' AND node_count <= 9 AND max(label_length) <= 24"
       }
+    },
+    {
+      "id": "cycle2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/cycle2",
+      "seed_path": "tests/fixtures/smartart_seeds/cycle1_seed.pptx",
+      "builder_module": "src.smartart_pptx_native.layouts.cycle",
+      "display_name": "Basic Cycle",
+      "category": "Cycle",
+      "v1": true,
+      "engine": "pptx_native",
+
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+
+      "visual_character": "Circles arranged in a ring with directional arrows connecting each to the next. Flows around clockwise from a 12 o'clock starting position. Conveys iteration or recurring process.",
+
+      "min_nodes": 3,
+      "max_nodes": 8,
+      "max_label_chars": 20,
+      "max_label_chars_rationale": "Cycle boxes are smaller than process boxes because they sit in a ring rather than a row, and the ring shrinks as node count grows. 20 chars determined empirically during the spike 2 manual gate.",
+
+      "when_to_use": [
+        "Iterative processes with no clear start or end (they loop)",
+        "Continuous improvement cycles (Plan-Do-Check-Act, OODA)",
+        "Recurring workflows with 3-6 stages",
+        "Feedback loops where each stage feeds the next"
+      ],
+      "when_not_to_use": [
+        "Linear sequences with a definite end (use process1)",
+        "Hierarchical structures (use orgChart1)",
+        "More than 8 stages (the ring becomes cluttered)",
+        "Parallel or branching flows (cycle is strictly sequential)"
+      ],
+
+      "selector_rationale_template": "cycle2 is the right choice when the content describes an iterative {n}-stage loop from \"{first}\" back around. Delivers editable SmartArt — speaker can add/rename stages and PowerPoint automatically redistributes them around the ring.",
+
+      "example_input": {
+        "stages": ["Plan", "Build", "Test", "Deploy", "Monitor", "Learn"]
+      },
+
+      "integration": {
+        "smartart_type_mappings": ["cycle"],
+        "replaces_custom_svg_when": "graphic_type == 'cycle' AND enrichment_tier == 'pure_programmatic' AND node_count <= 8 AND max(label_length) <= 20"
+      }
+    },
+    {
+      "id": "orgChart1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/orgChart1",
+      "seed_path": "tests/fixtures/smartart_seeds/orgChart1_seed.pptx",
+      "builder_module": "src.smartart_pptx_native.layouts.org_chart",
+      "display_name": "Organization Chart",
+      "category": "Hierarchy",
+      "v1": true,
+      "engine": "pptx_native",
+
+      "data_shape": "hierarchical",
+      "node_type_capabilities": ["asst"],
+
+      "visual_character": "Classic organization chart — root node at top, subordinates branching downward in a tree. Assistant nodes render to the side of their parent with a right-angle connector, distinct from the regular subordinate row below.",
+
+      "min_nodes": 3,
+      "max_nodes": 25,
+      "max_label_chars": 32,
+      "max_label_chars_rationale": "Org chart boxes are wider than process/cycle boxes and can accommodate longer role titles. Empirically determined during the spike 4 manual gate — revisit if deep trees force smaller boxes.",
+
+      "when_to_use": [
+        "Reporting structures and management hierarchies",
+        "Team compositions with clear parent-child relationships",
+        "Any tree-shaped content with 3+ levels of nesting",
+        "Structures that include assistants sitting outside the main reporting line"
+      ],
+      "when_not_to_use": [
+        "Flat lists of peers (use process1 or cycle2)",
+        "Cyclic relationships (use cycle2)",
+        "More than 4 levels deep or more than 25 total nodes (visual becomes unreadable at 16:9)",
+        "Matrix or network relationships (orgChart1 is strictly a tree)"
+      ],
+
+      "selector_rationale_template": "orgChart1 is the right choice when the content describes a hierarchy of {n} roles. Delivers editable SmartArt — speaker can add subordinates or assistants, promote/demote, and restructure the tree in PowerPoint after delivery.",
+
+      "example_input": {
+        "tree": {
+          "title": "CEO",
+          "children": [
+            {"title": "Executive Assistant", "asst": true},
+            {
+              "title": "CTO",
+              "children": [
+                {"title": "Backend Lead"},
+                {"title": "Frontend Lead"}
+              ]
+            },
+            {
+              "title": "CFO",
+              "children": [
+                {"title": "Finance Manager"}
+              ]
+            }
+          ]
+        }
+      },
+
+      "integration": {
+        "smartart_type_mappings": ["org_chart"],
+        "replaces_custom_svg_when": "graphic_type == 'org_chart' AND enrichment_tier == 'pure_programmatic' AND total_nodes <= 25 AND max_depth <= 4"
+      }
     }
   ]
 }
