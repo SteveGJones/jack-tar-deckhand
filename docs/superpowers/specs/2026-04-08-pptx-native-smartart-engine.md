@@ -134,13 +134,16 @@ src/smartart_pptx_native/
   assembler_patch.py         # Stage 2 post-process: inject diagram parts into assembled .pptx
   layouts/
     __init__.py              # LAYOUT_REGISTRY mapping graphic_type → builder
-    process.py               # process1 builder
-    cycle.py                 # cycle1 builder
+    catalog.json             # Layout catalog — single source of truth (see §5)
+    catalog.schema.json      # JSONSchema for catalog entries
+    catalog.py               # load_catalog(), get_entry(), validate against schema
+    process.py               # process1 builder — reads SEED_PATH/LAYOUT_URI/max from catalog
+    cycle.py                 # cycle2 builder
     org_chart.py             # orgChart1 builder
     timeline.py              # basicTimeline1 builder
 ```
 
-`engine.py::render(spec, style_guide, output_dir)` dispatches by `spec.graphic_type` to the appropriate layout builder, returns the structured result described in §3.3.
+`engine.py::render(spec, style_guide, output_dir)` dispatches by `spec.graphic_type` to the appropriate layout builder, returns the structured result described in §3.3. Layout modules read their seed path, layout URI, and capacity constraints from `catalog.json` at import time — there are no per-layout constants embedded in Python code.
 
 ### 4.2 Layout module pattern
 
@@ -182,7 +185,140 @@ This means the runtime cost of each render is just data-model construction + zip
 
 ---
 
-## 5. Seed Authoring Workflow
+## 5. Layout Catalog
+
+### 5.1 Purpose
+
+Every layout the engine supports needs a **structured description** that seven different consumers can read:
+
+| Consumer | Reads the catalog to |
+|---|---|
+| Engine layout module | Know its own seed path, layout URI, builder function |
+| `smartart-extractor` | Know per-layout max label length / max node count for truncation + fallback decisions |
+| `smartart-selector` agent | Make informed recommendations — selector's prompt cites the catalog rather than restating layout info |
+| `narrative-architect` review | See meaningful per-layout rationale when evaluating selector proposals |
+| QA checks (SA-06–08) | Enforce max-capacity constraints programmatically |
+| Manual gate checklists | Derive per-layout verification steps |
+| New contributors + speakers | Understand the layout palette without reading source code |
+
+Without a catalog, every one of those consumers has to hardcode or restate the per-layout knowledge, and the seven copies drift. The catalog is the single source of truth.
+
+### 5.2 Location and format
+
+```
+src/smartart_pptx_native/layouts/
+  catalog.json         # data
+  catalog.schema.json  # JSONSchema v7 validator
+  catalog.py           # Python loader — load_catalog() / get_entry(layout_id)
+```
+
+JSON (not YAML) so Python stdlib can parse it with no new dependency, and so we can ship `catalog.schema.json` alongside it for structural validation. The schema is enforced by a test (`tests/test_pptx_native_catalog_schema.py`) that runs against every entry on every CI run — any entry missing a required field, or violating a constraint, fails the build.
+
+### 5.3 Entry schema
+
+Every entry has the following fields (required unless marked optional):
+
+| Field | Type | Purpose |
+|---|---|---|
+| `id` | string | Stable identifier, used by extractor and selector (e.g., `"process1"`). Must match a layout module filename. |
+| `layout_uri` | string | The full `urn:microsoft.com/office/officeart/...` URI PowerPoint binds the layout to. Extracted verbatim from the seed. |
+| `seed_path` | string | Path to the hand-authored seed, relative to repo root. Must exist at engine import time. |
+| `builder_module` | string | Python dotted path to the layout's data model builder (e.g., `src.smartart_pptx_native.layouts.process`). |
+| `display_name` | string | Human-friendly name shown in speaker-facing messaging (e.g., `"Basic Process"`). |
+| `category` | enum | One of `Process`, `Cycle`, `Hierarchy`, `Timeline`, `List`, `Relationship`, `Matrix`, `Pyramid`, `Picture` — matching PowerPoint's SmartArt picker taxonomy. |
+| `v1` | bool | True if in v1 scope. Future layouts can be added with `v1: false` without affecting behaviour. |
+| `data_shape` | enum | `flat_list` or `hierarchical`. Determines which data-model builder primitive set applies. |
+| `visual_character` | string | 1-3 sentences describing what the rendered graphic looks like. Narrative-architect sees this when evaluating selector proposals. |
+| `min_nodes` | int | Minimum node count. Below this, extractor rejects and falls back to custom_svg. |
+| `max_nodes` | int | Maximum node count. Above this, extractor truncates or falls back. |
+| `max_label_chars` | int | Per-node text length cap. Empirically determined during manual gating. |
+| `max_label_chars_rationale` | string | Why the cap is what it is — links to manual gate findings. |
+| `when_to_use` | string[] | Narrative scenarios where this layout is the right choice. Feeds selector prompt. |
+| `when_not_to_use` | string[] | Anti-patterns. Feeds selector prompt. |
+| `selector_rationale_template` | string | Template the selector uses when proposing this layout — supports `{n}`, `{first}`, `{last}` placeholders the selector fills from extracted content. |
+| `example_input` | object | Small input object the tests and docs generator use to render a sample. |
+| `integration` | object | `smartart_type_mappings` (list of graphic_type values this layout can back) and `replaces_custom_svg_when` (the condition under which the selector should bias toward pptx_native vs custom_svg for overlapping graphic types). |
+| `engine` | enum | Always `pptx_native` for v1 entries. Included so the schema can host `custom_svg` entries in a future refactor (§16 non-goal note). |
+| `extensions` | object (optional) | Free-form object for layout-specific extras. Not used in v1; reserved for future extensions. |
+
+### 5.4 Example entry — process1
+
+```json
+{
+  "id": "process1",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/process1",
+  "seed_path": "tests/fixtures/smartart_seeds/process1_seed.pptx",
+  "builder_module": "src.smartart_pptx_native.layouts.process",
+  "display_name": "Basic Process",
+  "category": "Process",
+  "v1": true,
+  "engine": "pptx_native",
+
+  "data_shape": "flat_list",
+  "visual_character": "Horizontal row of connected rounded rectangles with chevron arrows between them. Boxes share a single accent colour by default; PowerPoint reflows them into 2 rows automatically beyond ~7 steps.",
+
+  "min_nodes": 2,
+  "max_nodes": 9,
+  "max_label_chars": 24,
+  "max_label_chars_rationale": "PowerPoint shrinks labels above 24 chars to unreadable sizes on 16:9 slides. Empirically determined during manual gate — revisit if a future layout reflows more gracefully.",
+
+  "when_to_use": [
+    "Sequential processes where each step depends on the previous one",
+    "Pipelines with a clear start and end",
+    "How-to explanations with 3-7 stages",
+    "Methodology walkthroughs where order matters"
+  ],
+  "when_not_to_use": [
+    "Cyclical processes (use cycle2)",
+    "Hierarchical decisions (use orgChart1)",
+    "Timelines with date anchors (use basicTimeline1)",
+    "More than 9 steps (the visual becomes unreadable)",
+    "Parallel or concurrent steps (no native representation in this layout)"
+  ],
+
+  "selector_rationale_template": "process1 is the right choice when the content describes a sequence of {n} steps from \"{first}\" to \"{last}\" where order matters. Delivers editable SmartArt — speaker can add/rename/reorder steps in PowerPoint after delivery.",
+
+  "example_input": {
+    "steps": ["Research", "Design", "Build", "Test", "Ship"]
+  },
+
+  "integration": {
+    "smartart_type_mappings": ["flowchart"],
+    "replaces_custom_svg_when": "graphic_type == 'flowchart' AND enrichment_tier == 'pure_programmatic' AND node_count <= 9 AND max(label_length) <= 24"
+  }
+}
+```
+
+Four entries of this shape — one per v1 layout — total ~400 lines of structured JSON. Review-friendly, diff-friendly, easy to update when manual gating finds a new edge case.
+
+### 5.5 Evolution — B→A
+
+The catalog is delivered in two stages:
+
+**Stage B — delivered with Phase 1 engine scaffold.** Minimal but functional:
+- Schema file in place and validated by test
+- One entry (process1) populated in full
+- `catalog.py` loader with `load_catalog()` / `get_entry(layout_id)`
+- Engine, extractor, and selector all consume the catalog programmatically — no hardcoded per-layout constants in Python
+
+**Stage A — delivered by Phase 4.5 Catalog Consolidation** (new phase, between Phase 4 and Phase 5):
+- Markdown generator script → `docs/pptx-native-smartart-catalog.md` (auto-regenerated, checked in, CI drift detection)
+- Rationale template linting (every entry has all required fields; templates reference real placeholders)
+- Per-entry test coverage (each entry has ≥ 1 data-model unit test + ≥ 1 manual-gate reference)
+- Selector prompt refactor — prompt stops restating layout info and instead gets entries injected at build time
+- A structured review pass on catalog content as a design artifact, not just data
+
+Phases 2, 3, 4 each add their layout's catalog entry as part of the layout PR. By Phase 4 finale all four entries are present. Phase 4.5 then promotes the catalog to first-class.
+
+### 5.6 Out of scope for v1
+
+- **Custom_svg entries.** The schema has an `engine` field and an `extensions` block specifically so a future refactor can host the existing ten `custom_svg` graphic types alongside the four `pptx_native` layouts in a single catalog. That refactor is not in this feature — it's a separate follow-up, explicitly captured in the §16 non-goals.
+- **Runtime catalog mutation.** The catalog is a build-time artifact. The engine does not support loading external catalogs at runtime, and the selector does not support learning new layouts without a code change.
+- **Localisation of `when_to_use` / `when_not_to_use` / `selector_rationale_template`.** English only in v1.
+
+---
+
+## 6. Seed Authoring Workflow
 
 ### 5.1 Initial seed creation (one-time per layout)
 
@@ -211,7 +347,7 @@ When a new PowerPoint version emits subtly different diagram XML, we can drop in
 
 ---
 
-## 6. Lifecycle: Draft vs Production
+## 7. Lifecycle: Draft vs Production
 
 The existing pipeline distinguishes:
 - **Draft phase** — many cheap iterations, image-reviewer scores each graphic, enrichment is not yet finalised
@@ -244,7 +380,7 @@ Slides with editable SmartArt:
 
 ---
 
-## 7. SmartArt Selector Adaptations
+## 8. SmartArt Selector Adaptations
 
 The selector's prompt template gains a new section explaining the `pptx_native` engine:
 
@@ -264,7 +400,7 @@ The narrative-architect remains the final decider via the existing approve/rejec
 
 ---
 
-## 8. Schema Changes
+## 9. Schema Changes
 
 ### 8.1 SmartArt spec contract
 
@@ -289,7 +425,7 @@ No changes — `smartart` strategy already exists, the engine is just a value of
 
 ---
 
-## 9. Test Plan
+## 10. Test Plan
 
 ### 9.1 Unit tests
 
@@ -300,7 +436,7 @@ No changes — `smartart` strategy already exists, the engine is just a value of
 | `tests/test_smartart_pptx_native_layouts_cycle.py` | cycle1 — same matrix, plus the cycle algorithm's specific ordering |
 | `tests/test_smartart_pptx_native_layouts_org_chart.py` | orgChart1 — recursive tree, parent/child connections, levels 1-4 |
 | `tests/test_smartart_pptx_native_layouts_timeline.py` | basicTimeline1 — chronological ordering, optional date strings |
-| `tests/test_smartart_seeds.py` | Seed sanity (per §5.2) — runs against committed seeds |
+| `tests/test_smartart_seeds.py` | Seed sanity (per §6.2) — runs against committed seeds |
 | `tests/test_smartart_pptx_native_engine.py` | Engine entry point — mocks layout builders, confirms dispatch and result structure |
 | `tests/test_smartart_pptx_native_assembler_patch.py` | Stage 2 post-process — given a fixture .pptx with placeholder shapes and a fixture diagram parts dir, runs the patch and confirms the output zip contains correct relationships, content types, and graphicFrame |
 | `tests/test_smartart_pptx_native_qa_checks.py` | SA-06 / SA-07 / SA-08 |
@@ -334,7 +470,7 @@ A `tests/manual/MANUAL_GATE.md` checklist captures the result of each layout's g
 
 ---
 
-## 10. Open Questions
+## 11. Open Questions
 
 Each of these wants a decision before implementation begins.
 
@@ -365,7 +501,7 @@ Recommend the second. Conductor is already the orchestrator; build_deck stays si
 Section 6 says "the production delivery is the first time anyone sees how `pptx_native` actually rendered." If a layout breaks (PowerPoint repair dialog, or opens but Design ribbon missing), the speaker has no fallback. Two options:
 
 - **Belt-and-braces:** smartart-renderer always renders custom_svg as well, and the assembler embeds *both* — the editable SmartArt and a hidden image fallback. If PowerPoint borks the diagram, the speaker can delete it and the image is there. Adds package size.
-- **Trust + manual gate:** rely on the §9.3 manual gate to catch any layout that breaks before it ships, and the §6 conductor messaging to remind the speaker to verify before presenting. Smaller package, but a single point of failure.
+- **Trust + manual gate:** rely on the §10.3 manual gate to catch any layout that breaks before it ships, and the §7 conductor messaging to remind the speaker to verify before presenting. Smaller package, but a single point of failure.
 
 Recommend trust + manual gate for v1, then revisit if a regression slips through.
 
@@ -379,7 +515,7 @@ PowerPoint's process layout will shrink text to fit a fixed box. If a step label
 
 ---
 
-## 11. Out of Scope (v1 → potential v2)
+## 12. Out of Scope (v1 → potential v2)
 
 These are deliberate exclusions, not oversights:
 
@@ -391,25 +527,67 @@ These are deliberate exclusions, not oversights:
 
 ---
 
-## 12. Implementation Plan
+## 13. Implementation Plan
 
-If this spec is approved, implementation breaks into these phases:
+Implementation breaks into these phases. Phase 0 is a validation gate — if it fails, the spec is rethought before any engine code is written.
 
-1. **Cycle spike** (per §10.1) — confirm the technique generalises before scaffolding the engine
-2. **Engine scaffold** — `src/smartart_pptx_native/` directory, data model primitives, layouts/process.py only
-3. **Renderer dispatch + extractor support** — engine wired into `_ENGINE_DISPATCH`, extractor populates `pptx_native_layout_uri`
-4. **Assembler post-process** — `inject_pptx_native_smartart.py` + conductor invocation + integration test
-5. **Three more layouts** — cycle, orgChart, basicTimeline (one PR each, each with its own manual gate)
-6. **Selector adaptations** — prompt updates, candidate engine logic, max-length constraints
-7. **QA checks SA-06/07/08**
-8. **Conductor messaging** for delivery
-9. **Documentation** — seed authoring guide, LICENSING.md, manual gate checklist
+**Phase 0 — Org chart validation spike**
+Mutate an `orgChart1_seed.pptx` with a small hardcoded tree, verify PowerPoint Mac opens as editable SmartArt. Closes the one remaining algorithm family (`hierChild`) not covered by spikes 1-3. Mirror of spike 2's shape; 60 seconds of user time + one throwaway script.
 
-Each phase is an independent PR. Phase 1 (cycle spike) is the gate — if it fails, the whole spec gets rethought before any engine code is written.
+**Phase 1 — Engine scaffold (includes catalog Stage B, per §5.5)**
+- `src/smartart_pptx_native/` directory scaffold
+- `data_model.py` XML construction primitives (`gid`, `make_doc_pt`, `make_node_pt`, `make_par_trans`, `make_sib_trans`, `make_cxn`)
+- `layouts/catalog.schema.json` — JSONSchema for catalog entries
+- `layouts/catalog.json` — **one populated entry (process1) in full**, no stubs
+- `layouts/catalog.py` — loader with `load_catalog()`, `get_entry(id)`, schema validation
+- `layouts/process.py` — process1 builder module, reads its constants from `get_entry("process1")`
+- Tests: data model primitives, process1 builder output, catalog schema validation, seed fixture sanity
+
+**Phase 2 — Renderer dispatch + extractor support**
+- `engine.py::render()` wired into `_ENGINE_DISPATCH`
+- Extractor populates `pptx_native_layout_uri` and enforces per-layout max-length from catalog
+- Manifest entry shape extended per §3.3
+
+**Phase 3 — Assembler post-process**
+- `inject_pptx_native_smartart.py` — injects diagram parts into assembled .pptx per §3.4 (technique verified by spike 3)
+- Conductor invocation after `build_deck.js`
+- Integration test with a 1-slide fixture deck
+- QA checks SA-06 / SA-07 / SA-08 (since they're tightly coupled to the post-process step)
+
+**Phase 4 — Three more layouts**
+Three separate PRs, one per remaining layout. Each PR adds:
+- `layouts/<name>.py` builder module
+- New entry in `catalog.json`
+- Seed sanity test for the new seed
+- Data model unit tests
+- Manual gate run against PowerPoint Mac, checklist updated
+
+**Phase 4.5 — Catalog consolidation (Stage A, per §5.5)**
+Promotes the catalog to first-class after all four entries are in place:
+- Markdown generator script → `docs/pptx-native-smartart-catalog.md` (regenerated from catalog.json, checked in, CI drift detection)
+- Rationale template linting
+- Per-entry test coverage audit
+- Selector prompt refactor — prompt stops restating layout info, gets entries injected at build time from `catalog.py`
+- Structured review pass on catalog content as a design artifact
+
+**Phase 5 — Selector integration finalisation**
+- Selector candidate engine logic (when to propose `pptx_native` vs `custom_svg`)
+- Negotiation-loop integration with narrative-architect
+- End-to-end tests of the negotiation against synthetic deck fixtures
+
+**Phase 6 — Conductor delivery messaging**
+Final status output when `pptx_native` slides are present (per §7).
+
+**Phase 7 — Documentation**
+- `docs/dev/smartart-seed-authoring.md` — step-by-step seed creation guide
+- `LICENSING.md` in `tests/fixtures/smartart_seeds/` — per-seed provenance
+- Manual gate checklist template
+
+Each phase is an independent PR. **Phase 0 is the validation gate** — if the org chart spike fails, the spec is rethought before any engine code is written. Phase 1 through Phase 4.5 are the core build; Phases 5-7 are integration and polish.
 
 ---
 
-## 13. Dependencies
+## 14. Dependencies
 
 - No new Python dependencies (the spike used only stdlib `zipfile`, `re`, `uuid`)
 - No new Node dependencies (assembler stays PptxGenJS-based; the post-process is pure Python)
@@ -417,25 +595,25 @@ Each phase is an independent PR. Phase 1 (cycle spike) is the gate — if it fai
 
 ---
 
-## 14. Success Criteria
+## 15. Success Criteria
 
 The engine ships v1 when:
 
 1. All four supported layouts have committed seeds passing `tests/test_smartart_seeds.py`
-2. All four layouts have passed the §9.3 manual gate in PowerPoint Mac
-3. The integration test (§9.2) passes in CI
+2. All four layouts have passed the §10.3 manual gate in PowerPoint Mac
+3. The integration test (§10.2) passes in CI
 4. A demo deck with one slide per layout has been built end-to-end and opened in PowerPoint Mac with no repair dialog
 5. The conductor delivers status messaging when `pptx_native` slides are present
-6. Legal review (§10.6) has signed off on shipping the seeds
+6. Legal review (§11.6) has signed off on shipping the seeds
 
 ---
 
-## 15. Non-Goals
+## 16. Non-Goals
 
 To be explicit about what this is *not*:
 
 - Not a replacement for `custom_svg` for the four supported graphic types — the selector continues to recommend `custom_svg` for visually-rich enrichment cases
 - Not a replacement for `mermaid` or `vega_lite` for any graphic type
 - Not a "make all graphics editable" project — only the four PowerPoint built-in layouts are in scope
-- Not Windows-targeted in v1 — Mac authoring/verification only; Windows compatibility is the §10.2 open question
-- Not free of manual review — the manual gate at §9.3 is a permanent part of the engine's lifecycle, not a temporary scaffolding
+- Not Windows-targeted in v1 — Mac authoring/verification only; Windows compatibility is the §11.2 open question
+- Not free of manual review — the manual gate at §10.3 is a permanent part of the engine's lifecycle, not a temporary scaffolding
