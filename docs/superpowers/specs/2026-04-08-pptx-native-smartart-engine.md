@@ -1,8 +1,8 @@
 # Native PowerPoint SmartArt Engine — Design Specification
 
 **Date:** 2026-04-08
-**Status:** Approved — three spikes verified (mutation, generalisation, injection) on 2026-04-08
-**Spike report:** `docs/spikes/2026-04-08-pptx-native-smartart-injection.md` (three experiments, all passed in PowerPoint Mac)
+**Status:** Approved — **all Phase 0 validation gates closed** on 2026-04-08. Four spikes verified: mutation (process1), generalisation (cycle2), injection (blank host), hierarchical tree + assistants (orgChart1).
+**Spike report:** `docs/spikes/2026-04-08-pptx-native-smartart-injection.md` (four experiments, all passed in PowerPoint Mac)
 **Research:** `research/report-1-landscape-and-spec.md`, `research/report-2-implementation-and-validation.md`
 **Predecessor spec:** `docs/superpowers/specs/2026-04-03-smartart-intelligent-graphics-design.md`
 **BSA Version:** v1.4.0 → v1.5.0
@@ -173,7 +173,11 @@ def build_diagram_parts(extracted: dict, output_dir: str) -> dict:
     """
 ```
 
-The data model construction is the only place each layout differs. `data_model.py` provides primitives — `make_doc_pt(loTypeId, qsTypeId, csTypeId)`, `make_node_pt(text)`, `make_par_trans()`, `make_sib_trans()`, `make_cxn(src, dst, src_ord, par_id, sib_id)` — that the layout modules compose. ~30-50 lines of glue per layout.
+The data model construction is the only place each layout differs. `data_model.py` provides primitives — `make_doc_pt(loTypeId, qsTypeId, csTypeId)`, `make_node_pt(text, is_asst=False)`, `make_par_trans()`, `make_sib_trans()`, `make_cxn(src, dst, src_ord, par_id, sib_id)` — that the layout modules compose. ~30-50 lines of glue per layout for flat-list layouts (process, cycle, timeline); ~60-80 lines for `org_chart.py` because of the recursive tree walk.
+
+**Flat-list layouts** (process1, cycle2, basicTimeline1) iterate `extracted['steps']` or `extracted['stages']` and emit one node + parTrans/sibTrans pair + one cxn from `doc` per item.
+
+**Hierarchical layouts** (orgChart1) recurse over a tree. Each node emits itself + parTrans/sibTrans pair + a cxn from its *parent* (which may be any intermediate node, not just `doc`), then recurses into its children. Org chart also passes `is_asst=True` to `make_node_pt` when the tree node is flagged as an assistant — PowerPoint renders those sideways from the parent with a distinctive connector instead of below as a regular subordinate. The distinction is encoded purely by the `type="asst"` attribute on the destination point; the connection structure is identical to a regular subordinate. Verified by spike 4.
 
 ### 4.3 Seed lookup at engine start time
 
@@ -228,6 +232,7 @@ Every entry has the following fields (required unless marked optional):
 | `category` | enum | One of `Process`, `Cycle`, `Hierarchy`, `Timeline`, `List`, `Relationship`, `Matrix`, `Pyramid`, `Picture` — matching PowerPoint's SmartArt picker taxonomy. |
 | `v1` | bool | True if in v1 scope. Future layouts can be added with `v1: false` without affecting behaviour. |
 | `data_shape` | enum | `flat_list` or `hierarchical`. Determines which data-model builder primitive set applies. |
+| `node_type_capabilities` | string[] | Which node types this layout supports beyond the default regular node. Valid values: `"asst"` (assistant, renders sideways). Empty list for layouts that only support regular nodes. Consumed by extractor to validate extracted data, and by selector to decide if the layout can represent the speaker's intent. |
 | `visual_character` | string | 1-3 sentences describing what the rendered graphic looks like. Narrative-architect sees this when evaluating selector proposals. |
 | `min_nodes` | int | Minimum node count. Below this, extractor rejects and falls back to custom_svg. |
 | `max_nodes` | int | Maximum node count. Above this, extractor truncates or falls back. |
@@ -255,6 +260,7 @@ Every entry has the following fields (required unless marked optional):
   "engine": "pptx_native",
 
   "data_shape": "flat_list",
+  "node_type_capabilities": [],
   "visual_character": "Horizontal row of connected rounded rectangles with chevron arrows between them. Boxes share a single accent colour by default; PowerPoint reflows them into 2 rows automatically beyond ~7 steps.",
 
   "min_nodes": 2,
@@ -289,7 +295,75 @@ Every entry has the following fields (required unless marked optional):
 }
 ```
 
-Four entries of this shape — one per v1 layout — total ~400 lines of structured JSON. Review-friendly, diff-friendly, easy to update when manual gating finds a new edge case.
+### 5.5 Example entry — orgChart1 (shows hierarchical shape + asst capability)
+
+```json
+{
+  "id": "orgChart1",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/orgChart1",
+  "seed_path": "tests/fixtures/smartart_seeds/orgChart1_seed.pptx",
+  "builder_module": "src.smartart_pptx_native.layouts.org_chart",
+  "display_name": "Organization Chart",
+  "category": "Hierarchy",
+  "v1": true,
+  "engine": "pptx_native",
+
+  "data_shape": "hierarchical",
+  "node_type_capabilities": ["asst"],
+  "visual_character": "Classic organization chart — root node at top, subordinates branching downward in a tree. Assistant nodes render to the side of their parent with a right-angle connector, distinct from the regular subordinate row below.",
+
+  "min_nodes": 3,
+  "max_nodes": 25,
+  "max_label_chars": 32,
+  "max_label_chars_rationale": "Org chart boxes are wider than process steps and can accommodate longer role titles. Empirically determined during manual gate — revisit if a deep tree forces smaller boxes.",
+
+  "when_to_use": [
+    "Reporting structures and management hierarchies",
+    "Team compositions with clear parent-child relationships",
+    "Any tree-shaped content with 3+ levels of nesting",
+    "Structures that include assistants or advisors sitting outside the main reporting line"
+  ],
+  "when_not_to_use": [
+    "Flat lists of peers (use process1 or cycle2)",
+    "Cyclic relationships (use cycle2)",
+    "More than 4 levels deep or more than 25 total nodes (the visual becomes unreadable at 16:9)",
+    "Matrix or network relationships (orgChart1 is strictly a tree)"
+  ],
+
+  "selector_rationale_template": "orgChart1 is the right choice when the content describes a hierarchy of {n} roles with {depth} levels. Delivers editable SmartArt — speaker can add subordinates or assistants, promote/demote, and restructure the tree in PowerPoint after delivery.",
+
+  "example_input": {
+    "tree": {
+      "title": "CEO",
+      "children": [
+        {"title": "Executive Assistant", "asst": true},
+        {
+          "title": "CTO",
+          "children": [
+            {"title": "Backend Lead"},
+            {"title": "Frontend Lead"}
+          ]
+        },
+        {
+          "title": "CFO",
+          "children": [
+            {"title": "Finance Manager"}
+          ]
+        }
+      ]
+    }
+  },
+
+  "integration": {
+    "smartart_type_mappings": ["org_chart", "decision_tree"],
+    "replaces_custom_svg_when": "graphic_type IN ('org_chart', 'decision_tree') AND enrichment_tier == 'pure_programmatic' AND total_nodes <= 25 AND max_depth <= 4"
+  }
+}
+```
+
+The `node_type_capabilities: ["asst"]` flag is what tells the extractor that this layout can represent assistant nodes — so the extractor can accept `{"title": "...", "asst": true}` in extracted trees without erroring, and the selector can include assistant support in its rationale when pitching orgChart1 for content that mentions advisors, chiefs of staff, executive assistants, etc.
+
+Four entries of this shape — one per v1 layout — total ~400-500 lines of structured JSON. Review-friendly, diff-friendly, easy to update when manual gating finds a new edge case.
 
 ### 5.5 Evolution — B→A
 

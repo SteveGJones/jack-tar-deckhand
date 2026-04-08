@@ -1,13 +1,14 @@
 # Spike: Editable PowerPoint SmartArt via Template Injection
 
 **Date:** 2026-04-08
-**Status:** Successful — three experiments verified end-to-end on macOS (spikes 1, 2, 3 all pass)
+**Status:** Successful — four experiments verified end-to-end on macOS (spikes 1, 2, 3, 4 all pass). **All Phase 0 validation gates closed.**
 **Scope:** Image Services / SmartArt rendering — exploring a 4th engine alongside Mermaid, Vega-Lite, custom_svg
 
 **Experiments in this report:**
 - **Spike 1 — mutation** (§1-7): rewrite `data1.xml` in a `process1` seed, confirm PowerPoint Mac opens as editable SmartArt
-- **Spike 2 — generalisation** (§9): repeat spike 1 against a `cycle2` seed to prove the technique crosses algorithm families
+- **Spike 2 — generalisation** (§9): repeat spike 1 against a `cycle2` seed to prove the technique crosses flat-list algorithm families
 - **Spike 3 — injection** (§10): take a host `.pptx` with *no* existing SmartArt, inject a process diagram from scratch — the operation the production pipeline needs at delivery time
+- **Spike 4 — org chart + assistants** (§11): recursive tree builder for `orgChart1` (hierarchical `hierChild` algorithm) with `type="asst"` assistant nodes, proving the technique covers the last v1 algorithm family and all distinctive features of org charts
 **Predecessor research:** `research/report-1-landscape-and-spec.md`, `research/report-2-implementation-and-validation.md`
 **Follow-up spec:** `docs/superpowers/specs/2026-04-08-pptx-native-smartart-engine.md`
 
@@ -572,21 +573,134 @@ if __name__ == "__main__":
 
 ---
 
-## 11. Combined conclusion
+## 11. Spike 4 — org chart validation (Phase 0 gate)
 
-Three spikes, three green lights. The `pptx_native` engine approach is empirically validated on all three dimensions that mattered:
+### 11.1 Question
+
+Spikes 1-3 covered two algorithm families: `lin` (process1) and `cycle` (cycle2). The third and final v1 algorithm family is `hierChild` — the hierarchical tree algorithm used by `orgChart1`. Unlike flat-list layouts, org charts need:
+
+- Multi-level parent-child relationships (not all nodes are children of `doc`)
+- A recursive data-model builder
+- Support for the `asst` (assistant) node type, which renders sideways rather than below its parent
+
+This spike was Phase 0 of the implementation plan — the validation gate before any engine code is written. It needed to prove both the recursive tree builder AND the assistant feature.
+
+### 11.2 Setup
+
+| Component | Detail |
+|---|---|
+| Seed file | `tests/fixtures/smartart_seeds/orgChart1_seed.pptx` (47 KB) — created by inserting Insert → SmartArt → Hierarchy → Organization Chart on a blank slide in PowerPoint Mac |
+| Target layout | `urn:microsoft.com/office/officeart/2005/8/layout/orgChart1` — matches the URI string directly (no surprise like `cycle1` vs `cycle2`) |
+| Test data | 8-node 3-level tree with assistants at two levels |
+
+Test tree:
+
+```
+CEO (root)
+ ├── Executive Assistant    (type="asst" — sits to the side of CEO)
+ ├── CTO
+ │    ├── Tech Ops Assistant (type="asst" — sits to the side of CTO)
+ │    ├── Backend Lead
+ │    └── Frontend Lead
+ └── CFO
+      └── Finance Manager
+```
+
+### 11.3 Method
+
+Same four mutations as spikes 1 and 2 (rewrite `data1.xml`, delete `drawing1.xml`, patch slide rels, patch content types). The only new element is the data-model builder — instead of a flat list, it's a recursive walk over a tree where each node emits a `<dgm:pt>` + parTrans/sibTrans pair + a `<dgm:cxn>` binding it to its parent.
+
+**Assistant encoding** (the interesting new bit): the `type="asst"` attribute goes on the **destination point**, not on the connection. The connection from parent to assistant is structurally identical to the connection from parent to a regular subordinate — same `srcId`/`destId`/`srcOrd`/`destOrd`/`parTransId`/`sibTransId`. PowerPoint distinguishes the two purely by looking at the destination point's `type` attribute when it runs the layout algorithm. This is a much simpler encoding than I expected, and it means our existing `emit_cxn` function needs zero changes — only `emit_node_point` needs a one-line `is_asst` parameter.
+
+### 11.4 Results — automated checks
+
+| Check | Result |
+|---|---|
+| Spike script exits cleanly | PASS — 8 nodes, 7606 bytes data1.xml |
+| `data1.xml` well-formed (`xmllint`) | PASS |
+| Surgical diff vs seed | PASS — exactly 4 changes (same as spikes 1/2) |
+| Two points emitted with `type="asst"` | PASS (Executive Assistant + Tech Ops Assistant) |
+| All 8 node labels embedded | PASS |
+| Tree shape verified in connection `srcId`s | PASS — doc→CEO, CEO→{ExecAsst, CTO, CFO}, CTO→{TechOpsAsst, Backend, Frontend}, CFO→{FinanceMgr} — 8 edges, correct parent→child bindings, multi-level nesting |
+| LibreOffice parses without error | PASS |
+
+### 11.5 Results — PowerPoint Mac editability gate
+
+**User confirmed the full 7-point checklist passes**, including the two assistant-specific checks:
+
+- Both assistants render **sideways** from their parents (not below as flat siblings), with PowerPoint's distinctive right-angle assistant connector
+- Right-clicking a regular subordinate and choosing Add Shape → Add Assistant works natively — PowerPoint recognises the file as a true assistant-capable org chart, not a flat hierarchy
+- The SmartArt Design ribbon, Text Pane, Add Shape (both regular and assistant variants), and Change Layout in-group all work correctly
+- Tree structure preserved across all edit operations
+
+### 11.6 What this adds
+
+1. **Phase 0 gate is green.** All four v1 layouts (process, cycle, org chart, timeline) are now validated at the technique level, or validated by analogy — timeline uses the same flat-list shape as process so no separate spike is needed.
+
+2. **Recursive data-model builder works.** The pattern generalises from flat lists to trees with one additional parameter (parent_id) and a recursive call. This is what `src/smartart_pptx_native/layouts/org_chart.py` will use in Phase 4.
+
+3. **Assistant encoding is trivial.** A one-line `type="asst"` attribute on the destination point, no change to connections. The catalog's `orgChart1` entry needs one extra flag to communicate that this layout supports assistants, and the extracted data contract for org charts needs an optional `"asst": true` field per node.
+
+4. **Connection shape is stable across algorithm families.** `lin`, `cycle`, and `hierChild` all use the same untyped `<dgm:cxn>` structure. The data_model.py primitives we build in Phase 1 cover all three families with zero algorithm-specific code. The only difference is the *traversal pattern* that emits the connections (flat iteration vs. recursive walk), which belongs in each layout's own builder module.
+
+5. **Late scope expansion was worth it.** The assistant finding was not in the original Phase 0 scope — it was added after the first spike run came back without assistants and the reviewer (correctly) pushed back. The extra 10 minutes of iteration caught a capability gap that would otherwise have surfaced during Phase 4's org chart layout PR, potentially requiring a schema revision and data-contract change mid-implementation. Worth replicating the pattern for every future layout validation: don't just test the common case, test at least one distinctive feature of the layout.
+
+### 11.7 Spike 4 recursive builder (the only new code vs spike 2)
+
+```python
+def build_data_model(tree: dict) -> bytes:
+    doc_id = gid()
+    pts: list[str] = []
+    cxns: list[str] = []
+
+    def emit_node_point(node_id: str, text: str, is_asst: bool = False) -> None:
+        type_attr = ' type="asst"' if is_asst else ""
+        pts.append(
+            f'<dgm:pt modelId="{node_id}"{type_attr}>'
+            f'<dgm:prSet phldrT="[Text]"/><dgm:spPr/>'
+            f"<dgm:t><a:bodyPr/><a:lstStyle/>"
+            f'<a:p><a:r><a:rPr lang="en-GB" dirty="0"/>'
+            f"<a:t>{text}</a:t></a:r></a:p></dgm:t>"
+            f"</dgm:pt>"
+        )
+
+    def walk(node: dict, parent_id: str, sib_ord: int) -> None:
+        node_id = gid()
+        par_id = gid()
+        sib_id = gid()
+
+        emit_node_point(node_id, node["title"], is_asst=node.get("asst", False))
+        # (emit parTrans, sibTrans, cxn — same as spike 2's flat-list builder)
+
+        for i, child in enumerate(node.get("children", [])):
+            walk(child, node_id, i)
+
+    # Start with the doc point carrying the layout binding,
+    # then walk the tree with root as child-of-doc at sib_ord 0.
+    walk(tree, doc_id, 0)
+```
+
+The recursive descent is the only structural difference from the flat-list builder used in spikes 1 and 2.
+
+---
+
+## 12. Combined conclusion
+
+Four spikes, four green lights. The `pptx_native` engine approach is empirically validated on all four dimensions that mattered:
 
 | Dimension | Spike | Status |
 |---|---|---|
-| Mutation of existing SmartArt produces editable output | 1 | PROVEN |
-| Technique generalises across algorithm families | 2 | PROVEN (lin → cycle) |
+| Mutation of existing SmartArt produces editable output | 1 | PROVEN (process1) |
+| Technique generalises across flat-list algorithm families | 2 | PROVEN (lin → cycle) |
 | Injection into a host with no prior SmartArt works | 3 | PROVEN |
+| Technique generalises to hierarchical trees + assistant nodes | 4 | PROVEN (hierChild + asst) |
 
-**Next validation before implementation:** a small one-layout spike against `orgChart1` (hierarchical data shape — the one algorithm family not yet covered) before the org-chart layout module is written. This was captured as spec §10.1 follow-up.
+**All Phase 0 validation gates are closed.** Phase 1 (engine scaffold + catalog Stage B) is unblocked and can begin.
 
 **Unresolved open items that block implementation:**
-- Legal sign-off on shipping Mac PowerPoint–authored seeds (spec §10.6)
+- Legal sign-off on shipping Mac PowerPoint–authored seeds (spec §11.6)
 
 **Unresolved open items that do not block v1 but are worth recording:**
-- Windows-authored seed compatibility (spec §10.2)
+- Windows-authored seed compatibility (spec §11.2)
 - Cross-group layout switching behaviour in PowerPoint's Change Layout gallery (data-gathering during manual gates)
+- The specific `basicTimeline1` URI that Mac PowerPoint binds to — likely `timeline1` or similar, to be extracted at seed authoring time per the cycle2 lesson
