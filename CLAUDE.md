@@ -29,20 +29,21 @@ This rule exists because visual review was skipped THREE TIMES across multiple c
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-04-07)
+### Current Status (2026-04-08)
 
 - **BSA Architecture:** v1.4.0, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
 
-- **Research Library:** Complete — 18 papers, ~105K words in `research/`
+- **Research Library:** Complete — 20 papers, ~110K words in `research/`
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
   - Create `research/synthesis-[skill-name].md` before implementing any skill
+  - `research/report-1-landscape-and-spec.md` and `report-2-implementation-and-validation.md` are the pptx_native SmartArt research Phase 1/2
 
-- **All Phases COMPLETE — 650 tests passing**
+- **Test suite: 826 passing** (650 at PR #21 merge + 168 new for pptx_native + 8 parametrized expansions)
   - Phases 1-6: Foundation through Orchestration (518 tests)
-  - SmartArt Intelligent Graphics: 10 graphic types, 3 engines, 4 enrichment tiers (132 tests)
-  - SmartArt feature merged via PR #21 on 2026-04-07. Branch deleted.
+  - SmartArt Intelligent Graphics (PR #21, merged 2026-04-07): 132 tests
+  - pptx_native SmartArt engine (in-progress on `feat/pptx-native-smartart-engine`): 168 tests, 20 commits, all 8 phases complete pending merge
 
 - **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **smartart-selector** → **strategy-map** → **smartart-extractor** → speaker-notes-writer → imagegen-bridge → **smartart-renderer** → chart-renderer → deck-assembler → deck-qa → presentation-reviewer
 
@@ -58,6 +59,65 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - **Research:** `research/ai-driven-templated-graphic-generation-research.md`
   - **Latest demo deck:** `output/jack-tar-deckhand-smartart-demo-v7.pptx` (16.2 MB, 28 slides reviewed)
   - **GitHub issue:** #17 (closed)
+
+- **pptx_native SmartArt engine (in progress 2026-04-08, issue #38, branch `feat/pptx-native-smartart-engine`):** Fourth SmartArt engine that produces editable PowerPoint SmartArt graphics (not rasterised PNGs). Speakers can edit nodes, rename them, and switch layouts directly in PowerPoint after delivery.
+  - **Technique:** template injection — hand-authored seed `.pptx` files per layout; engine generates a fresh `data1.xml` per graphic; JS assembler places a named placeholder rect; Python post-process grafts the diagram parts in after build_deck.js finishes and replaces the placeholder with a `<p:graphicFrame>`.
+  - **v1 scope (3 layouts shipped, 1 deferred):**
+    - `process1` (flowchart graphic_type) — working
+    - `cycle2` (cycle graphic_type) — working, note Mac PowerPoint's "Basic Cycle" binds to `cycle2` not `cycle1`
+    - `orgChart1` (org_chart graphic_type) — working, **includes assistant nodes via `type="asst"` on destination point** (not the connection)
+    - `basicTimeline1` — deferred pending seed authoring
+  - **Architecture:** `src/smartart_pptx_native/` package
+    - `engine.py` — `render(spec, output_dir)` entry point produces a carrier `.pptx` with one slide containing the editable SmartArt
+    - `data_model.py` — XML construction primitives: `gid`, `make_doc_pt`, `make_node_pt(text, is_asst=False)`, `make_par_trans`, `make_sib_trans`, `make_cxn`, `wrap_data_model`. Layout-agnostic — flat list and hierarchical layouts use identical primitives, differing only in traversal (linear iteration vs recursive walk)
+    - `assembler_patch.py` — Stage 2 Python post-process: `inject(host_pptx, requests)` grafts diagram parts from carriers into the assembled deck, allocating fresh rIds per slide rels, fresh diagram numbers per package (data1/data2/...), patching content types
+    - `pipeline.py` — `run_injection_step(deck_dir)` orchestration wrapper; `format_delivery_message(deck_dir)` speaker-facing status
+    - `selector_integration.py` — `is_pptx_native_candidate` / `score_pptx_native_candidate` / `format_selector_rationale` helpers the selector agent can use programmatically
+    - `layouts/catalog.json` — **single source of truth for per-layout metadata** (seed paths, layout URIs, min/max nodes, max label chars, when_to_use / when_not_to_use, example_input, selector rationale templates). Validated against `catalog.schema.json` (Draft-07) at load time.
+    - `layouts/catalog_markdown.py` — generator for `docs/pptx-native-smartart-catalog.md` (checked-in, CI drift detection). Run `.venv/bin/python -m src.smartart_pptx_native.layouts.catalog_markdown` to regenerate.
+    - `layouts/process.py` / `cycle.py` / `org_chart.py` — per-layout builders, all constants come from catalog (no hardcoding)
+  - **Engine integration:** wired into `src/smartart_renderer.py` `_ENGINE_DISPATCH['pptx_native']`. Extractor handles `engine='pptx_native'` with per-layout data shapes (`{"steps": [...]}`, `{"stages": [...]}`, `{"tree": {...}}`). Org chart extractor parses 2-space-indented body_points with `(asst)` or `[asst]` markers.
+  - **JS assembler:** `buildSmartArtSlide` in `src/assembler/build_deck.js` has a pptx_native branch — when `saEntry.engine_used === 'pptx_native'`, emits a named placeholder rect (name format `pptx_native_placeholder_<slide_number>`) instead of `addImage`. Placeholder position drives the injected graphicFrame's xfrm via Python lookup.
+  - **QA checks:** SA-06 (diagram parts present), SA-07 (slide references diagram + no orphaned placeholder), SA-08 (no stale drawing cache). All three run against the post-injection deck.
+  - **Test coverage (168 pptx_native tests):**
+    - Catalog + schema + loader (9)
+    - Data model primitives (13)
+    - Process builder (15)
+    - Engine render + surgical diff (11)
+    - Seed sanity parametrized over v1 entries (7, expands with each new entry)
+    - Dispatch wiring into smartart_renderer (6)
+    - Extractor support (8)
+    - Phase 2 integration (6)
+    - Assembler patch injection (14)
+    - JS placeholder emission (4)
+    - QA checks SA-06/07/08 (8)
+    - Pipeline orchestration wrapper (7)
+    - Phase 4 cycle + orgChart layouts (26)
+    - Catalog consolidation — drift, linting, per-entry audit (9)
+    - Selector integration helpers (14)
+    - Delivery message (10)
+    - **Multi-slide deck integration (Phase 3.4, 1 test, 18 distinct invariants)** — proves injection coexists with other strategies via byte-identity check on non-target slides
+  - **Validation spikes (all 4 passed in PowerPoint Mac):**
+    1. Mutation of process1 seed → editable SmartArt
+    2. Generalisation to cycle2 (proves lin ↔ cycle are both supported by the same data model builder, only `loTypeId` changes)
+    3. Injection into blank host (proves the delivery-time operation works, not just mutation of existing SmartArt)
+    4. Recursive tree builder + assistant nodes for orgChart1
+  - **Design spec:** `docs/superpowers/specs/2026-04-08-pptx-native-smartart-engine.md`
+  - **Spike report:** `docs/spikes/2026-04-08-pptx-native-smartart-injection.md`
+  - **Catalog docs:** `docs/pptx-native-smartart-catalog.md` (auto-generated)
+  - **Seed authoring guide:** `docs/dev/smartart-seed-authoring.md`
+  - **Seed licensing:** `tests/fixtures/smartart_seeds/LICENSING.md`
+  - **Manual gate checklist:** `tests/manual/MANUAL_GATE.md`
+  - **GitHub issue:** #38 (open, ready for PR pending legal)
+  - **Remaining blockers before merge:**
+    1. Legal review of seed file licensing (spec §11.6). Seeds contain Mac PowerPoint–authored layout1.xml/quickStyle1.xml/colors1.xml as opaque blobs. The licensing angle might be eliminable via spike 5 (test if PowerPoint falls back to built-in layouts when given stub layout1.xml with just the matching uniqueId).
+    2. basicTimeline1 seed authoring (not strictly required for merge; Phase 4.3 is deferred)
+  - **Key design decisions:**
+    - Injection happens AFTER the JS assembler finishes (not during). JS owns position, Python owns surgery. Contract between them = a named placeholder rect with known naming convention.
+    - Seeds are checked into `tests/fixtures/smartart_seeds/` and the engine reads layout1/quickStyle1/colors1 as opaque bytes. Only data1.xml is generated at runtime.
+    - No drawing1.xml ever written — PowerPoint regenerates the presentation tree from layout1.xml on first open (proven by all 4 spikes).
+    - Catalog-driven: no per-layout Python constants. Updating catalog.json changes behaviour without touching builder code (but docs/pptx-native-smartart-catalog.md must be regenerated — CI drift detection enforces this).
+    - Agent definitions in `.claude/agents/smartart-selector.md` cite the catalog doc as authoritative source rather than restating per-layout metadata — prompt stays in sync with code.
 
 - **Keynote Pipeline:** Five rendering strategies per slide (expanded from 3, 2026-03-30):
   - `full_render` — entire slide as AI-generated image (title, section divider, closing)
