@@ -21,7 +21,7 @@
           },
           "engine_used": {
             "type": "string",
-            "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+            "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg", "pptx_native"]
           },
           "enrichment_tier": {
             "type": "string",

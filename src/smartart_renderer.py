@@ -493,6 +493,43 @@ def render_matplotlib(spec, style_guide, output_dir):
     return output_path
 
 
+def render_pptx_native_engine(spec, style_guide, output_dir):
+    """Render an editable PowerPoint SmartArt graphic.
+
+    Adapter between the generic `_ENGINE_DISPATCH` contract (which
+    expects a `(spec, style_guide, output_dir) -> str` signature) and
+    the pptx_native package's own `engine.render()` function. Produces
+    a complete standalone .pptx "carrier" file at output_dir that
+    contains exactly one slide with the editable SmartArt.
+
+    The carrier is the format the Phase 3 assembler post-process will
+    consume: it reads the four diagram parts out of the carrier and
+    grafts them into the host .pptx that PptxGenJS built for the deck.
+
+    Unlike the rasterising engines, the output is NOT a preview image
+    — it's an .pptx. Pre-assembly checks that validate SVG or PNG
+    content (PA-01/02/03/04) are skipped for pptx_native; the
+    Phase 3 SA-06/07/08 checks replace them.
+
+    Args:
+        spec: SmartArt spec dict. Must include 'graphic_type' and
+              'data' (in the shape the chosen layout's builder expects,
+              e.g. `{'steps': [...]}` for process1).
+        style_guide: StyleGuide dict — currently unused by the engine
+              (PowerPoint applies the layout's built-in quickStyle),
+              accepted for dispatch signature uniformity.
+        output_dir: Directory to write the carrier .pptx to.
+
+    Returns:
+        Absolute path to the carrier .pptx file.
+    """
+    # Local import to avoid a top-level circular dep on the new package.
+    from src.smartart_pptx_native import engine as _pptx_native_engine
+
+    result = _pptx_native_engine.render(spec, output_dir)
+    return str(result.output_path)
+
+
 # ---------------------------------------------------------------------------
 # Manifest entry builder
 # ---------------------------------------------------------------------------
@@ -566,6 +603,7 @@ _ENGINE_DISPATCH = {
     'mermaid': render_mermaid,
     'vega_lite': render_vega_lite,
     'matplotlib': render_matplotlib,
+    'pptx_native': render_pptx_native_engine,
 }
 
 
@@ -628,6 +666,10 @@ def render(spec, style_guide, phase, output_dir):
         elif primary_engine == 'matplotlib':
             file_path = primary_path
             svg_path = ''
+        # pptx_native returns a .pptx carrier — no SVG or PNG preview
+        elif primary_engine == 'pptx_native':
+            file_path = primary_path  # .pptx
+            svg_path = ''
         else:
             file_path = primary_path
             svg_path = primary_path
@@ -665,6 +707,22 @@ def render(spec, style_guide, phase, output_dir):
     elif primary_engine == 'mermaid':
         try:
             pa_findings += validate_png_not_blank(file_path, slide_number)
+        except Exception:  # noqa: BLE001
+            pass
+    elif primary_engine == 'pptx_native':
+        # pptx_native output is a .pptx carrier, not an SVG/PNG — the
+        # existing PA-01/02/03/04 checks don't apply. Phase 3 will add
+        # SA-06 (diagram parts present), SA-07 (slide references
+        # diagram), and SA-08 (no stale drawing cache) as replacements.
+        # For Phase 2 we just confirm the file exists and is non-empty.
+        try:
+            if not os.path.exists(file_path) or os.path.getsize(file_path) < 1000:
+                pa_findings.append({
+                    'severity': 'error',
+                    'check': 'pptx_native_file_present',
+                    'slide': slide_number,
+                    'message': f'pptx_native carrier missing or too small: {file_path}',
+                })
         except Exception:  # noqa: BLE001
             pass
 
