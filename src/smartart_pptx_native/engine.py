@@ -154,8 +154,15 @@ def render(
 
     # Dispatch to the generic builder for this data_shape
     data_shape = entry["data_shape"]
+    image_refs = []  # populated only by the picture builder
     try:
-        data_xml = builders.build(data_shape, spec["data"], entry)
+        build_result = builders.build(data_shape, spec["data"], entry)
+        # The picture builder returns (bytes, list[ImageRef]) when images
+        # are present; all other builders return plain bytes.
+        if isinstance(build_result, tuple):
+            data_xml, image_refs = build_result
+        else:
+            data_xml = build_result
     except builders.UnsupportedDataShapeError as exc:
         raise RenderError(str(exc)) from exc
 
@@ -173,10 +180,28 @@ def render(
     if output_path.exists():
         output_path.unlink()
 
+    # Build content types — may need image type extensions for picture layouts
+    content_types = _CONTENT_TYPES
+    if image_refs:
+        # Add image content type defaults if not already present
+        import re
+        image_extensions = {ref.media_name.rsplit(".", 1)[-1].lower() for ref in image_refs}
+        extra_types = []
+        for ext in sorted(image_extensions):
+            mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                    "gif": "image/gif", "webp": "image/webp", "svg": "image/svg+xml"}.get(ext, f"image/{ext}")
+            if f'Extension="{ext}"' not in content_types:
+                extra_types.append(f'<Default Extension="{ext}" ContentType="{mime}"/>')
+        if extra_types:
+            # Insert before closing </Types>
+            content_types = content_types.replace(
+                "</Types>", "".join(extra_types) + "</Types>"
+            )
+
     # Build the carrier .pptx from scratch — no seed file needed
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zout:
         # Package parts
-        zout.writestr("[Content_Types].xml", _CONTENT_TYPES)
+        zout.writestr("[Content_Types].xml", content_types)
         zout.writestr("_rels/.rels", _ROOT_RELS)
         zout.writestr("ppt/presentation.xml", _PRESENTATION_XML)
         zout.writestr("ppt/_rels/presentation.xml.rels", _PRESENTATION_RELS)
@@ -194,6 +219,30 @@ def render(
         zout.writestr("ppt/diagrams/colors1.xml", colors_xml)
         # NB: drawing1.xml deliberately NOT written — PowerPoint regenerates
         # the presentation tree from layout1.xml on first open.
+
+        # Picture SmartArt: embed image files + diagram data rels
+        if image_refs:
+            # Write each image file into ppt/media/
+            for ref in image_refs:
+                if ref.image_path.exists():
+                    zout.write(str(ref.image_path), f"ppt/media/{ref.media_name}")
+
+            # Write ppt/diagrams/_rels/data1.xml.rels with image relationships
+            rels_parts = [
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+            ]
+            for ref in image_refs:
+                rels_parts.append(
+                    f'<Relationship Id="{ref.rel_id}" '
+                    f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+                    f'Target="../media/{ref.media_name}"/>'
+                )
+            rels_parts.append("</Relationships>")
+            zout.writestr(
+                "ppt/diagrams/_rels/data1.xml.rels",
+                "".join(rels_parts),
+            )
 
     return RenderResult(
         output_path=output_path,

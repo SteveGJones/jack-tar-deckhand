@@ -12,18 +12,16 @@ catalog.json change — zero Python code per layout.
 """
 from __future__ import annotations
 
-from src.smartart_pptx_native.builders import flat_list, hierarchical
+from src.smartart_pptx_native.builders import flat_list, hierarchical, picture
 
 BUILDER_BY_DATA_SHAPE = {
     "flat_list": flat_list.build,
     "hierarchical": hierarchical.build,
-    # Picture layouts use the same flat-list data model — the image
-    # binding is in layout.xml's <dgm:shape r:blip="" blipPhldr="1"/>,
-    # not in the data model. Text-only rendering works today; actual
-    # image embedding (adding <a:blipFill> refs to data1.xml and media
-    # files to the carrier) will be added in Phase 6b as a dedicated
-    # picture builder that extends flat_list.
-    "picture": flat_list.build,
+    # Picture builder handles both text-only (delegates to flat_list)
+    # and image-enriched (returns data_xml + image_refs tuple) cases.
+    # The engine checks the return type to decide whether to embed
+    # media files in the carrier .pptx.
+    "picture": picture.build,
 }
 
 

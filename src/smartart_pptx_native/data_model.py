@@ -36,6 +36,7 @@ import xml.sax.saxutils as saxutils
 NSMAP = {
     "dgm": "http://schemas.openxmlformats.org/drawingml/2006/diagram",
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
 }
 
 
@@ -93,7 +94,12 @@ def make_doc_pt(doc_id: str, prset_attrs: str) -> str:
     )
 
 
-def make_node_pt(node_id: str, text: str, is_asst: bool = False) -> str:
+def make_node_pt(
+    node_id: str,
+    text: str,
+    is_asst: bool = False,
+    image_rel_id: str | None = None,
+) -> str:
     """Return the XML fragment for a data node (regular or assistant).
 
     Args:
@@ -103,13 +109,46 @@ def make_node_pt(node_id: str, text: str, is_asst: bool = False) -> str:
             node sideways from its parent (assistant). If False, the
             node has no type attribute and renders as a regular
             subordinate below its parent.
+        image_rel_id: If set (e.g. "rId1"), emits a `<a:blipFill>` inside
+            `<dgm:spPr>` binding this node to an image via an r:embed
+            relationship. The relationship must exist in
+            `ppt/diagrams/_rels/data1.xml.rels` pointing at a media file
+            in `ppt/media/`. Used by Picture SmartArt layouts (pList1 etc.)
+            where each node has an associated image.
+            If None, emits `<dgm:spPr/>` (empty — no image binding).
     """
     type_attr = ' type="asst"' if is_asst else ""
     escaped = saxutils.escape(text)
+
+    if image_rel_id:
+        # Picture SmartArt image binding — validated by spike 6 inspection
+        # of the SDK's 5.9.3.7(unfinished).pptx fixture. The pattern is:
+        #   <dgm:spPr bwMode="auto">
+        #     <a:blipFill rotWithShape="0">
+        #       <a:blip r:embed="rIdN"/>
+        #       <a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"/>
+        #     </a:blipFill>
+        #   </dgm:spPr>
+        # Picture SmartArt image binding. Use <a:stretch> (not <a:tile>)
+        # so the image fills the picture placeholder rectangle rather than
+        # tiling as a background behind text. Validated by spike 6b
+        # iteration: <a:tile> caused images to appear behind text;
+        # <a:stretch><a:fillRect/></a:stretch> places them in the pictRect.
+        sp_pr = (
+            '<dgm:spPr bwMode="auto">'
+            '<a:blipFill>'
+            f'<a:blip xmlns:r="{NSMAP["r"]}" r:embed="{image_rel_id}"/>'
+            '<a:stretch><a:fillRect/></a:stretch>'
+            '</a:blipFill>'
+            '</dgm:spPr>'
+        )
+    else:
+        sp_pr = "<dgm:spPr/>"
+
     return (
         f'<dgm:pt modelId="{node_id}"{type_attr}>'
         f'<dgm:prSet phldrT="[Text]"/>'
-        f"<dgm:spPr/>"
+        f"{sp_pr}"
         f"<dgm:t><a:bodyPr/><a:lstStyle/>"
         f'<a:p><a:r><a:rPr lang="en-GB" dirty="0"/>'
         f"<a:t>{escaped}</a:t></a:r></a:p>"
