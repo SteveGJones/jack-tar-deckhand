@@ -17,7 +17,13 @@ from src.smartart_pptx_native.builders import flat_list, hierarchical
 BUILDER_BY_DATA_SHAPE = {
     "flat_list": flat_list.build,
     "hierarchical": hierarchical.build,
-    # "picture" builder added in Phase 6 (Spike 6 dependency)
+    # Picture layouts use the same flat-list data model — the image
+    # binding is in layout.xml's <dgm:shape r:blip="" blipPhldr="1"/>,
+    # not in the data model. Text-only rendering works today; actual
+    # image embedding (adding <a:blipFill> refs to data1.xml and media
+    # files to the carrier) will be added in Phase 6b as a dedicated
+    # picture builder that extends flat_list.
+    "picture": flat_list.build,
 }
 
 

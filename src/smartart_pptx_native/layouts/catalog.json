@@ -1200,7 +1200,7 @@
       "layout_dir": "tests/fixtures/smartart_layouts/pList1",
       "display_name": "Picture List",
       "category": "Picture",
-      "v1": false,
+      "v1": true,
       "engine": "pptx_native",
       "data_shape": "picture",
       "node_type_capabilities": [],
@@ -1222,14 +1222,10 @@
       "selector_rationale_template": "pList1 is the right choice when the content has {n} picture items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
         "items": [
-          {
-            "label": "Concept A",
-            "image_prompt": "abstract illustration"
-          },
-          {
-            "label": "Concept B",
-            "image_prompt": "abstract illustration"
-          }
+          "AI Strategy",
+          "Data Pipeline",
+          "Model Training",
+          "Deployment"
         ]
       },
       "integration": {

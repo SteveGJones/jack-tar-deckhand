@@ -4,8 +4,8 @@
 
 **Catalog version:** `2.0.0`
 
-**v1 layouts:** 27 — Basic Process, Basic Cycle, Organization Chart, Basic List, Matrix 2, Pyramid 2, Basic Venn, Process Variant 4, Chevron Process, Horizontal Process 4, Horizontal Process 7, Horizontal Process 9, Horizontal Process 11, L-Shaped Process 2, Cycle Variant 8, Hierarchy 2, Hierarchy 4, Hierarchy 5, Hierarchy 6, Horizontal List 6, Vertical List 2, Vertical List 3, Vertical List 4, Vertical List 5, Three-Circle Venn, Basic Funnel, Target Diagram
-**Future layouts (non-v1):** 2 — Picture List, Default Layout
+**v1 layouts:** 28 — Basic Process, Basic Cycle, Organization Chart, Basic List, Matrix 2, Pyramid 2, Basic Venn, Process Variant 4, Chevron Process, Horizontal Process 4, Horizontal Process 7, Horizontal Process 9, Horizontal Process 11, L-Shaped Process 2, Cycle Variant 8, Hierarchy 2, Hierarchy 4, Hierarchy 5, Hierarchy 6, Horizontal List 6, Vertical List 2, Vertical List 3, Vertical List 4, Vertical List 5, Three-Circle Venn, Basic Funnel, Target Diagram, Picture List
+**Future layouts (non-v1):** 1 — Default Layout
 
 ## Summary
 
@@ -38,6 +38,7 @@
 | **Three-Circle Venn** (`venn3`) | Relationship | `flat_list` | 8 | 28 | `venn` |
 | **Basic Funnel** (`funnel1`) | Relationship | `flat_list` | 8 | 28 | `pipeline_funnel` |
 | **Target Diagram** (`target3`) | Relationship | `flat_list` | 8 | 28 | `target` |
+| **Picture List** (`pList1`) | Picture | `picture` | 7 | 30 | `picture_list` |
 
 ---
 
@@ -1231,8 +1232,6 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ---
 
-# Future (non-v1) Layouts
-
 ## Picture List (`pList1`)
 
 - **Category:** Picture
@@ -1276,6 +1275,8 @@ First-pass default per category norms. Refine after manual gate validation.
 **Selector routes to this layout when:** graphic_type in (picture_list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 7] AND max(label_length) <= 30
 
 ---
+
+# Future (non-v1) Layouts
 
 ## Default Layout (`default`)
 
