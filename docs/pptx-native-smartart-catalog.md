@@ -58,19 +58,20 @@
 
 ### Visual character
 
-Horizontal row of connected rounded rectangles with chevron arrows between them. The default Basic Process layout.
+A horizontal row of rectangular boxes connected by right-pointing arrows. Each box holds a single step label, and the arrows between them imply linear left-to-right progression. The simplest, most universally recognized process diagram.
 
 ### When to use
 
-- Sequential processes or workflows
-- Step-by-step explanations
-- Pipelines with a definite start and end
+- Simple sequential workflows with 3-7 steps that follow a strict linear order
+- When the audience needs to grasp a straightforward progression at a glance
+- Onboarding flows, approval chains, or any process where every step must happen in sequence
+- When you want maximum clarity with zero visual distraction — the default choice when nothing fancier is needed
 
 ### When NOT to use
 
-- Cyclical loops (use a Cycle layout)
-- Hierarchical relationships (use Hierarchy)
-- More than ~9 steps (becomes unreadable)
+- When steps have sub-steps or secondary details — the flat boxes offer no room for descriptions
+- When the process branches, loops, or has parallel paths — this layout is strictly linear
+- When you have more than 7-8 steps — the boxes shrink to unreadable sizes
 
 ### Capacity rationale
 
@@ -102,19 +103,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Circles arranged in a ring with directional arrows connecting each to the next. Flows clockwise from a 12-o-clock starting position.
+A ring of circles (typically 3-6) arranged in a circular pattern, connected by curved arrows flowing clockwise. Each circle contains a step label. The circular arrangement emphasizes that the process repeats continuously with no defined start or end.
 
 ### When to use
 
-- Iterative or continuous processes
-- Feedback loops
-- Recurring workflows with 3-7 stages
+- Iterative or repeating processes (PDCA, sprint cycles, continuous improvement loops)
+- When emphasizing there is no final step — the process returns to the beginning
+- Feedback loops or any workflow where the output of the last step feeds the first
+- When you need to contrast against linear processes — the circular shape signals ongoing
 
 ### When NOT to use
 
-- Linear sequences with a definite end (use Process)
-- Hierarchical structures (use Hierarchy)
-- More than ~8 stages (ring becomes cluttered)
+- When the process has a clear beginning and end — use a linear process instead
+- When you have more than 6-7 steps — circles shrink and arrows clutter
+- When steps have sub-details — circles offer minimal text space
 
 ### Capacity rationale
 
@@ -146,19 +148,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Classic organization chart — root node at top, subordinates branching downward in a tree. Assistant nodes render sideways with a distinctive right-angle connector.
+A traditional top-down tree with rectangular boxes connected by vertical and horizontal lines. Root at top, subordinates branching downward. Supports assistant nodes that hang sideways with a distinctive right-angle connector, distinct from direct reports below.
 
 ### When to use
 
-- Tree-shaped content with parent-child relationships
-- Reporting structures and management hierarchies
-- Taxonomies with 2-4 levels of nesting
+- Reporting structures and team hierarchies where manager-subordinate relationships must be explicit
+- When you need assistant/deputy distinction — the only hierarchy layout supporting assistant nodes natively
+- Organizational announcements, team introductions, or governance slides
+- When the audience expects the conventional org chart format they already know
 
 ### When NOT to use
 
-- Flat lists of peers (use List or Process)
-- Cyclic relationships (use Cycle)
-- More than ~25 total nodes or ~4 levels deep
+- When the hierarchy is very deep (5+ levels) — boxes shrink at lower levels
+- When relationships are non-hierarchical (matrix orgs, dotted-line reporting)
+- When showing a conceptual hierarchy of ideas rather than people — use hierarchy2-6 instead
 
 ### Capacity rationale
 
@@ -190,19 +193,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Basic bulleted list — items stacked vertically with minimal visual treatment. Good for unordered collections.
+A simple vertical stack of rectangular blocks, each containing a text label. Items arranged top-to-bottom with consistent spacing. No connectors or arrows — implies a flat, unordered collection.
 
 ### When to use
 
-- Collections of related points without a specific order
-- Feature lists, benefit summaries, key takeaways
-- Items where emphasis matters more than sequence
+- Flat lists of items, features, or requirements where order is unimportant or implied
+- Agenda slides, table-of-contents slides, or key-takeaway summaries
+- When you have 3-8 items each needing a short label and possibly a brief description
+- When you want a cleaner alternative to bullet points
 
 ### When NOT to use
 
-- Ordered processes (use Process)
-- Relationships between items (use Relationship)
-- Data with quantitative values (use a chart)
+- When items have a sequential relationship — use a process layout instead
+- When items need nested detail — flat blocks don't support hierarchy
+- When you have only 1-2 items — a list layout looks empty
 
 ### Capacity rationale
 
@@ -234,19 +238,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Four-quadrant matrix with items arranged in a 2x2 grid. Classic decision-matrix layout.
+A 2x2 grid of four equal quadrants, often with a small central hub element. Each quadrant contains a label and optional description. Naturally maps to two-axis frameworks.
 
 ### When to use
 
-- Four-quadrant frameworks (e.g. 2x2 decision matrices)
-- Comparing four categories along two dimensions
-- BCG-style matrices, SWOT-like 4-part breakdowns
+- 2x2 strategic frameworks (Eisenhower, BCG, risk/impact, build/buy decisions)
+- When you have exactly 4 categories that pair along two axes
+- Comparative analysis where two binary dimensions create four meaningful combinations
+- When the audience is familiar with quadrant-based thinking from business strategy
 
 ### When NOT to use
 
-- Sequences or hierarchies (use Process or Hierarchy)
-- More than 4 quadrants (no matrix layout fits)
-- Sparse grids (use a List or table)
+- When you have more or fewer than 4 items — the fixed 2x2 grid cannot accommodate
+- When items don't map to two meaningful axes — forcing into quadrants obscures
+- When items are sequential or hierarchical — matrix implies parallel categories
 
 ### Capacity rationale
 
@@ -278,19 +283,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Pyramid with tiered levels — bigger ideas at the wider end, detail at the narrower. Hierarchy of importance.
+A triangular pyramid divided into horizontal tiers, widest at base and narrowing to a point at top. Each tier is labeled, and the narrowing implies decreasing quantity, increasing importance, or rising abstraction from bottom to top.
 
 ### When to use
 
-- Hierarchical importance (top-down or bottom-up)
-- Maslow-style tiers, foundation-to-apex layering
-- Prioritised content where the biggest idea sits at one end
+- Hierarchical models where volume decreases upward (Maslow's, data-information-knowledge-wisdom)
+- Prioritization frameworks where the top is most important and the base is broadest
+- Market segmentation (mass at base, premium at apex) or organizational layers
+- When the narrowing metaphor directly matches your narrative
 
 ### When NOT to use
 
-- Equal-weight items (use List)
-- Sequences (use Process)
-- More than ~6 levels (pyramid becomes cramped)
+- When tiers are of equal importance — narrowing incorrectly implies decreasing significance
+- When you have more than 5-6 tiers — slices become too thin for labels
+- When the hierarchy is inverted — a pyramid reads bottom-up which may confuse top-down narratives
 
 ### Capacity rationale
 
@@ -322,19 +328,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Two overlapping circles showing shared and unique attributes of two sets.
+Two large overlapping circles, each with a distinct color and label. The overlapping region represents the intersection or common ground. Simple, clean, and immediately recognizable as a comparison-and-overlap diagram.
 
 ### When to use
 
-- Overlapping or intersecting sets
-- Many-to-many relationships between items
-- Comparing shared and unique attributes
+- Comparing exactly two concepts and highlighting what they share
+- When the overlap/intersection is the key insight of the slide
+- Simple either/or/both frameworks where the audience sees shared and unique attributes
+- When the visual must be instantly understood with zero explanation — universally recognized
 
 ### When NOT to use
 
-- Strictly sequential content (use Process)
-- Tree-shaped content (use Hierarchy)
-- Very dense overlap requirements (may need custom_svg)
+- When comparing 3+ items — use venn3 or another layout
+- When there is no meaningful overlap — empty intersection looks misleading
+- When each concept has many sub-items — circles offer limited text space
 
 ### Capacity rationale
 
@@ -366,19 +373,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Alternative process variant with distinct styling from process1 — same sequential flow, different visual treatment.
+A horizontal process where each step is a larger rounded rectangle with room for both a bold heading and a smaller description block beneath it. Steps are connected by subtle arrows, giving each stage more visual weight than Basic Process.
 
 ### When to use
 
-- Sequential processes or workflows
-- Step-by-step explanations
-- Pipelines with a definite start and end
+- Sequential processes where each step needs a title AND a 1-2 sentence explanation
+- Project phase overviews where each phase has a brief scope description
+- When you want visual weight but need more information density per step than process1 allows
+- Executive summaries where each stage must be self-explanatory without narration
 
 ### When NOT to use
 
-- Cyclical loops (use a Cycle layout)
-- Hierarchical relationships (use Hierarchy)
-- More than ~9 steps (becomes unreadable)
+- When steps are single words — the large boxes will look empty
+- When you have 6+ steps — the wider boxes consume more horizontal space
+- When Basic Process communicates clearly enough — extra description space adds unnecessary complexity
 
 ### Capacity rationale
 
@@ -410,19 +418,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Stacked forward-pointing chevron shapes conveying momentum and direction. Good for emphasising a progression that builds.
+A horizontal row of forward-pointing chevron (arrow-head) shapes that overlap, forming a continuous band. Each chevron holds a step label. The pointed shape itself implies forward momentum without needing separate arrow connectors.
 
 ### When to use
 
-- Sequential processes or workflows
-- Step-by-step explanations
-- Pipelines with a definite start and end
+- Pipeline or maturity model narratives where you want to emphasize forward momentum
+- Sales pipelines, phase gates, or stages where the driving forward metaphor reinforces the message
+- When you want a more dynamic and modern look than plain rectangular boxes
+- Horizontal timelines where the chevron shape suggests temporal flow
 
 ### When NOT to use
 
-- Cyclical loops (use a Cycle layout)
-- Hierarchical relationships (use Hierarchy)
-- More than ~9 steps (becomes unreadable)
+- When steps need sub-descriptions — chevron shapes have limited interior text space
+- When the process is non-directional or cyclical — chevrons imply one-way movement
+- When you have 6+ steps — the chevrons become narrow slivers
 
 ### Capacity rationale
 
@@ -454,19 +463,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Horizontal process variant with distinct visual treatment from the basic process layout.
+A horizontal process with alternating top-and-bottom text blocks connected to a central flow line. Steps sit above and below the central axis in a zigzag pattern, giving a staggered timeline-rail appearance.
 
 ### When to use
 
-- Sequential processes or workflows
-- Step-by-step explanations
-- Pipelines with a definite start and end
+- Timelines or roadmaps where alternating placement distinguishes milestones
+- When you have 5-8 steps and need vertical space to avoid horizontal crowding
+- Comparative process flows where alternating positions can represent two parallel tracks
+- When you want visual variety over a plain linear row while keeping sequential order
 
 ### When NOT to use
 
-- Cyclical loops (use a Cycle layout)
-- Hierarchical relationships (use Hierarchy)
-- More than ~9 steps (becomes unreadable)
+- When the audience needs to scan in a single straight line — zigzag adds overhead
+- When steps have unequal importance — alternating layout implies equal weight
+- When you have fewer than 4 steps — the staggered effect looks odd
 
 ### Capacity rationale
 
@@ -498,19 +508,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Another horizontal process variant — check visual_character after manual gate.
+A horizontal process using large circular or pill-shaped nodes connected by lines or arrows. Each node frames a step number or icon with the label adjacent. The circular shapes give a softer, more modern feel than rectangles.
 
 ### When to use
 
-- Sequential processes or workflows
-- Step-by-step explanations
-- Pipelines with a definite start and end
+- Design-forward presentations where rounded shapes match the brand aesthetic
+- Numbered step sequences where the circle naturally frames a numeral
+- When you want to emphasize discrete milestones or checkpoints rather than continuous flow
+- Innovation or creative process slides where softer geometry feels less rigid
 
 ### When NOT to use
 
-- Cyclical loops (use a Cycle layout)
-- Hierarchical relationships (use Hierarchy)
-- More than ~9 steps (becomes unreadable)
+- When steps need substantial text — circles have poor text-fill efficiency
+- When the process is about continuous flow rather than discrete stops
+- When you need more than 6 nodes — horizontal space fills rapidly
 
 ### Capacity rationale
 
@@ -542,19 +553,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Horizontal process variant 9 — check visual_character after manual gate.
+A horizontal process where each step is a prominent shape with a label, and smaller sub-step descriptions appear below. The layout shows both the high-level flow and supporting details in a two-tier arrangement.
 
 ### When to use
 
-- Sequential processes or workflows
-- Step-by-step explanations
-- Pipelines with a definite start and end
+- Processes where each major step has 1-3 supporting actions that need to be visible
+- Methodology overviews where the main phase and its key activities must appear together
+- When the audience needs both the high-level flow and ground-level details on one slide
+- Training content where each step needs brief explanatory bullets
 
 ### When NOT to use
 
-- Cyclical loops (use a Cycle layout)
-- Hierarchical relationships (use Hierarchy)
-- More than ~9 steps (becomes unreadable)
+- When steps are simple and self-explanatory — the sub-step area wastes space
+- When you have more than 5 main steps — the two-tier layout becomes dense
+- When sub-details vary wildly in length — uneven text blocks break symmetry
 
 ### Capacity rationale
 
@@ -586,19 +598,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Horizontal process variant 11 — check visual_character after manual gate.
+A horizontal process with bold colored blocks or ribbon-like segments with embedded icons or numbers, and descriptive text below. It has a polished, infographic-like feel with more graphical embellishment than simpler process layouts.
 
 ### When to use
 
-- Sequential processes or workflows
-- Step-by-step explanations
-- Pipelines with a definite start and end
+- Executive or marketing presentations where visual impact matters as much as content
+- When each process step maps to a deliverable, metric, or icon
+- Annual reports or strategy decks needing polished, branded process overviews
+- When you want infographic-quality without leaving PowerPoint
 
 ### When NOT to use
 
-- Cyclical loops (use a Cycle layout)
-- Hierarchical relationships (use Hierarchy)
-- More than ~9 steps (becomes unreadable)
+- Technical audiences who prefer clean, minimal diagrams over decorative layouts
+- When the process has 6+ steps — embellishments consume space
+- When content changes frequently — tight graphical layout is harder to update
 
 ### Capacity rationale
 
@@ -630,19 +643,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-L-shaped process that wraps a sequence across two axes, useful when horizontal row would be too wide.
+Steps arranged in an L-shaped path — flowing horizontally then turning 90 degrees vertically. The bend visually represents a pivot, phase shift, or handoff between two distinct stages of the process.
 
 ### When to use
 
-- Sequential processes or workflows
-- Step-by-step explanations
-- Pipelines with a definite start and end
+- Processes with a clear turning point or handoff between phases
+- When you want to show two distinct phases with different orientations or owners
+- Customer journeys that shift from acquisition to retention
+- When you need to use both horizontal and vertical slide space efficiently
 
 ### When NOT to use
 
-- Cyclical loops (use a Cycle layout)
-- Hierarchical relationships (use Hierarchy)
-- More than ~9 steps (becomes unreadable)
+- When the process is uniformly sequential with no natural pivot — the L-shape feels forced
+- When the audience expects a standard left-to-right flow — the bend can confuse
+- When you have fewer than 4 steps — the L needs enough steps to populate both legs
 
 ### Capacity rationale
 
@@ -674,19 +688,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Alternative cycle variant — check visual_character after manual gate.
+A cycle using a segmented ring or gear-like arrangement where each segment represents a stage. Unlike cycle2's discrete circles, this uses pie-slice or arc segments joined into a continuous loop, often with a central hub. Emphasizes interconnectedness and equal contribution.
 
 ### When to use
 
-- Iterative or continuous processes
-- Feedback loops
-- Recurring workflows with 3-7 stages
+- Ecosystems or interdependent systems where each component contributes equally
+- When you want to emphasize unity and integration — the continuous ring looks cohesive
+- Governance or compliance cycles where a closed, unbroken loop reinforces completeness
+- When the cycle has 4-8 stages and you want more visual sophistication than cycle2
 
 ### When NOT to use
 
-- Linear sequences with a definite end (use Process)
-- Hierarchical structures (use Hierarchy)
-- More than ~8 stages (ring becomes cluttered)
+- When stages are unequal in importance — equal-sized segments imply parity
+- When the audience needs to see directional flow clearly — segmented rings can obscure sequence
+- When you have 3 or fewer stages — the ring looks sparse
 
 ### Capacity rationale
 
@@ -718,19 +733,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Hierarchy layout variant 2 — check visual_character after manual gate.
+A horizontal hierarchy flowing left-to-right with the root on the left and child nodes branching rightward in indented tiers. Resembles an indented outline or file-tree explorer using horizontal brackets or lines.
 
 ### When to use
 
-- Tree-shaped content with parent-child relationships
-- Reporting structures and management hierarchies
-- Taxonomies with 2-4 levels of nesting
+- Taxonomies, classification systems, or category breakdowns that read left-to-right
+- When you have many leaf nodes at the lowest level — horizontal layout gives room for wide bottom tiers
+- Slide layouts where vertical space is constrained but horizontal space is available
+- When the hierarchy represents decomposition rather than a reporting structure
 
 ### When NOT to use
 
-- Flat lists of peers (use List or Process)
-- Cyclic relationships (use Cycle)
-- More than ~25 total nodes or ~4 levels deep
+- When the audience expects a traditional top-down org chart — horizontal may confuse
+- When you have many levels of depth — rightward indentation compresses deeper labels
+- When you need assistant nodes — this layout does not support them
 
 ### Capacity rationale
 
@@ -762,19 +778,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Hierarchy layout variant 4 — check visual_character after manual gate.
+A top-down hierarchy where child nodes are enclosed within or grouped under their parent as nested containers. Parents appear as header bars with children listed below in a contained region, creating a visual nesting effect rather than connected-box-and-line trees.
 
 ### When to use
 
-- Tree-shaped content with parent-child relationships
-- Reporting structures and management hierarchies
-- Taxonomies with 2-4 levels of nesting
+- When you want to emphasize containment or ownership (department contains teams, system contains modules)
+- Architectural decomposition slides where subsystems belong to larger systems
+- When the grouping relationship matters more than the chain-of-command relationship
+- Portfolio or catalog views organized into parent categories
 
 ### When NOT to use
 
-- Flat lists of peers (use List or Process)
-- Cyclic relationships (use Cycle)
-- More than ~25 total nodes or ~4 levels deep
+- When you need to show cross-group connections — containment isolates groups visually
+- When the hierarchy is deeper than 3 levels — nesting within nesting becomes confusing
+- When equal emphasis on all items is needed — parent containers dominate visually
 
 ### Capacity rationale
 
@@ -806,19 +823,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Hierarchy layout variant 5 — check visual_character after manual gate.
+A top-down tree with rounded or pill-shaped elements and gracefully fanning connector lines. The root sits prominently at the top with a balanced, symmetrical spread of branches below. Cleaner, more modern aesthetic than orgChart1.
 
 ### When to use
 
-- Tree-shaped content with parent-child relationships
-- Reporting structures and management hierarchies
-- Taxonomies with 2-4 levels of nesting
+- Conceptual hierarchies (strategic priorities, goal breakdowns) where you want a polished look
+- When the hierarchy represents ideas, objectives, or categories rather than people
+- Pitch decks or external presentations where visual elegance matters
+- When you have a balanced tree — the symmetrical spread looks best
 
 ### When NOT to use
 
-- Flat lists of peers (use List or Process)
-- Cyclic relationships (use Cycle)
-- More than ~25 total nodes or ~4 levels deep
+- When you need assistant nodes — use orgChart1 instead
+- When the tree is heavily unbalanced — asymmetry breaks the layout
+- When showing reporting relationships between people — softer shapes may not convey authority
 
 ### Capacity rationale
 
@@ -850,19 +868,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Hierarchy layout variant 6 — check visual_character after manual gate.
+A table-like or columnar hierarchy where each level is a distinct horizontal band. Parent items span full width, children arranged as cells in the next band below. Structured and grid-like, resembling a work breakdown structure (WBS).
 
 ### When to use
 
-- Tree-shaped content with parent-child relationships
-- Reporting structures and management hierarchies
-- Taxonomies with 2-4 levels of nesting
+- Work breakdown structures for clean tabular decomposition of deliverables
+- When hierarchy levels have different granularity (strategic → tactical → operational)
+- Program or portfolio views where projects group under programs
+- When the audience prefers structured, grid-aligned layouts over organic trees
 
 ### When NOT to use
 
-- Flat lists of peers (use List or Process)
-- Cyclic relationships (use Cycle)
-- More than ~25 total nodes or ~4 levels deep
+- When the hierarchy is deep (4+ levels) — bands become thin and cramped
+- When branches have very unequal widths — the grid wastes space on sparse branches
+- When you need a free-form tree with crossing connections
 
 ### Capacity rationale
 
@@ -894,19 +913,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Horizontal list variant — items arranged in a row rather than stacked.
+A horizontal row of vertical cards or panels side by side, each with a colored header bar and body text below. Resembles side-by-side feature cards or comparison columns.
 
 ### When to use
 
-- Collections of related points without a specific order
-- Feature lists, benefit summaries, key takeaways
-- Items where emphasis matters more than sequence
+- Feature comparisons, service tier descriptions, or plan options displayed side by side
+- When each item has both a title and supporting description benefiting from card containers
+- Dashboard-style slides showing 3-5 parallel metrics or status summaries
+- When items are peers of equal importance and horizontal space should be used fully
 
 ### When NOT to use
 
-- Ordered processes (use Process)
-- Relationships between items (use Relationship)
-- Data with quantitative values (use a chart)
+- When items exceed 5-6 — cards become too narrow for readable text
+- When items have very different content lengths — uneven card density looks unbalanced
+- When items are sequential — side-by-side implies parallel options, not ordered steps
 
 ### Capacity rationale
 
@@ -938,19 +958,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Vertical list variant 2 — distinct styling from the basic list.
+A vertical list where each item features a prominent accent shape (colored circle, number badge, or icon placeholder) on the left, with item text to its right. The accent shapes create a strong visual rhythm down the left edge.
 
 ### When to use
 
-- Collections of related points without a specific order
-- Feature lists, benefit summaries, key takeaways
-- Items where emphasis matters more than sequence
+- Numbered lists or ranked items where the accent shape holds a numeral
+- When you want a more visually engaging vertical list than plain stacked bars
+- Key principles, values, or pillars where each item deserves individual visual emphasis
+- When pairing with icons — the accent placeholder naturally frames an icon per item
 
 ### When NOT to use
 
-- Ordered processes (use Process)
-- Relationships between items (use Relationship)
-- Data with quantitative values (use a chart)
+- When items don't benefit from individual emphasis — accent shapes add clutter
+- When you have more than 6-7 items — accents consume vertical space faster
+- When the list is purely textual with no numbering or iconography — list1 is cleaner
 
 ### Capacity rationale
 
@@ -982,19 +1003,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Vertical list variant 3.
+A vertical list with each item as a wide horizontal bar containing a bold heading on the left and a description area on the right within the same bar. Resembles a definition list or glossary layout.
 
 ### When to use
 
-- Collections of related points without a specific order
-- Feature lists, benefit summaries, key takeaways
-- Items where emphasis matters more than sequence
+- Term-and-definition pairs, glossaries, or key-concept explanations
+- When each item has a short label AND a longer explanation on the same line
+- FAQ-style slides where question and answer sit side by side
+- When you want structured information density without resorting to a table
 
 ### When NOT to use
 
-- Ordered processes (use Process)
-- Relationships between items (use Relationship)
-- Data with quantitative values (use a chart)
+- When items are single-label entries with no descriptions — the right side is empty
+- When descriptions are long paragraphs — horizontal split compresses both
+- When you have more than 5-6 items — bars become thin
 
 ### Capacity rationale
 
@@ -1026,19 +1048,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Vertical list variant 4 — one of the most stylable list layouts, with many PowerPoint-provided style variants.
+A vertical list where each item is a large rectangular card with a colored top section (heading) and lighter bottom section (description). Cards stacked vertically with clear spacing. Two-tone treatment gives each item a card-with-header appearance.
 
 ### When to use
 
-- Collections of related points without a specific order
-- Feature lists, benefit summaries, key takeaways
-- Items where emphasis matters more than sequence
+- Category-based lists where each item has a clear label and supporting detail
+- When you want more visual separation between items than vList2 or vList3 provide
+- Status update slides where each card represents a workstream with heading and current state
+- When the two-zone (header + body) structure matches your content's natural shape
 
 ### When NOT to use
 
-- Ordered processes (use Process)
-- Relationships between items (use Relationship)
-- Data with quantitative values (use a chart)
+- When items are short labels only — large cards with empty body zones waste space
+- When you have more than 4-5 items — tall cards overflow the slide
+- When all items have equal simplicity — card treatment adds unnecessary complexity
 
 ### Capacity rationale
 
@@ -1070,19 +1093,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Vertical list variant 5.
+A vertical list with items as alternating or staggered blocks — some left-aligned, some right-aligned — creating a zigzag pattern. Each block contains heading and description text. Offset layout adds visual dynamism.
 
 ### When to use
 
-- Collections of related points without a specific order
-- Feature lists, benefit summaries, key takeaways
-- Items where emphasis matters more than sequence
+- Creative or marketing presentations where visual rhythm matters more than rigid alignment
+- Timeline-adjacent narratives where alternating positions suggest progression or contrast
+- When you want to break monotony of a long vertical list while keeping top-to-bottom flow
+- Portfolio or case-study summaries where each item benefits from distinct visual separation
 
 ### When NOT to use
 
-- Ordered processes (use Process)
-- Relationships between items (use Relationship)
-- Data with quantitative values (use a chart)
+- When the audience expects clean aligned layouts — zigzag can feel disorganized
+- When items need to be scanned quickly — alternating positions slow reading
+- When the slide will be printed — staggered layout doesn't translate well to linear reading
 
 ### Capacity rationale
 
@@ -1114,19 +1138,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Three overlapping circles — classic Venn diagram for visualising three-set relationships.
+Three overlapping circles in a triangular pattern creating seven distinct regions: three unique areas, three pairwise overlaps, and one central triple-overlap zone. The central region represents the convergence of all three concepts.
 
 ### When to use
 
-- Overlapping or intersecting sets
-- Many-to-many relationships between items
-- Comparing shared and unique attributes
+- Three-way comparisons where pairwise and triple overlaps carry distinct meaning
+- When the central triple-intersection is the key message — the sweet spot where all three converge
+- Strategic alignment diagrams (desirability-feasibility-viability, people-process-technology)
+- When combining any two is insufficient — all three required for the ideal state
 
 ### When NOT to use
 
-- Strictly sequential content (use Process)
-- Tree-shaped content (use Hierarchy)
-- Very dense overlap requirements (may need custom_svg)
+- When you have 2 or 4+ concepts — fixed at exactly three circles
+- When overlap regions don't carry meaningful content — empty intersections look hollow
+- When circles need lengthy text — pairwise and triple zones have very constrained space
 
 ### Capacity rationale
 
@@ -1158,19 +1183,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Tapered funnel showing stages narrowing from a wide top to a focused bottom. Good for conversion funnels or filtering processes.
+A vertically oriented funnel (wide at top, narrow at bottom) divided into horizontal bands. Each band is labeled with a stage name. The tapering shape represents volume reduction, filtering, or progressive narrowing from many to few.
 
 ### When to use
 
-- Overlapping or intersecting sets
-- Many-to-many relationships between items
-- Comparing shared and unique attributes
+- Sales or marketing funnels (leads → MQLs → SQLs → opportunities → deals)
+- Filtering or screening processes where input is progressively narrowed
+- When the key narrative is about conversion rates or attrition at each stage
+- Recruitment pipelines, support triage, or any process where quantity decreases per step
 
 ### When NOT to use
 
-- Strictly sequential content (use Process)
-- Tree-shaped content (use Hierarchy)
-- Very dense overlap requirements (may need custom_svg)
+- When stages don't represent decreasing volume — funnel shape misleads
+- When you need feedback loops or cycles — funnel is strictly one-way
+- When you have more than 5-6 stages — narrow bottom bands become too thin
 
 ### Capacity rationale
 
@@ -1202,19 +1228,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Concentric circles (target) showing layered goals or priorities, with the most important at the centre.
+Concentric circles (bullseye pattern) with the innermost circle representing the core goal and outer rings representing surrounding layers. Each ring is labeled. The visual centers attention on the innermost element.
 
 ### When to use
 
-- Overlapping or intersecting sets
-- Many-to-many relationships between items
-- Comparing shared and unique attributes
+- Goal-centered models where the core objective sits at center with supporting elements around it
+- Layered architecture diagrams (core platform → services → integrations → users)
+- When you want to emphasize a central focus with context layers — bullseye draws the eye inward
+- Security or defense-in-depth models with multiple protective layers
 
 ### When NOT to use
 
-- Strictly sequential content (use Process)
-- Tree-shaped content (use Hierarchy)
-- Very dense overlap requirements (may need custom_svg)
+- When layers are sequential — use process or funnel instead; rings imply containment
+- When outer layers are more important than center — bullseye privileges the core
+- When you have more than 4-5 rings — outer rings become thin slivers
 
 ### Capacity rationale
 
@@ -1246,19 +1273,20 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Picture list — each list item includes an image placeholder alongside text. When paired with our image generation pipeline, speakers can request AI-generated illustrations per item.
+A list where each item includes a rectangular picture placeholder on top with a text label below. The layout creates a catalog or media listing pattern with consistent image-and-text pairing. When paired with AI image generation, speakers get illustrated editable SmartArt.
 
 ### When to use
 
-- Visual-first content where each item has an illustrative image
-- Product showcases, team photos, concept illustrations
-- Speaker wants to combine structured text with AI-generated imagery
+- Team introductions with headshots, product catalogs with images, portfolio items with thumbnails
+- When each list item has an associated image that reinforces or identifies it
+- Speaker bios, case study summaries, or content where visual identity matters alongside text
+- When you want structured repeating image+text pattern that avoids ad-hoc picture placement
 
 ### When NOT to use
 
-- Text-only content (use a non-Picture layout)
-- Decks rendered without image generation budget
-- Microsites or PDF-only output (images may not transfer cleanly)
+- When you don't have images for every item — empty placeholders look unprofessional
+- When images are not meaningfully different — drawing attention to generic images adds no value
+- When you have more than 4-5 items — image+text pairs consume significant area
 
 ### Capacity rationale
 
@@ -1292,15 +1320,16 @@ First-pass default per category norms. Refine after manual gate validation.
 
 ### Visual character
 
-Default placeholder layout — uncategorised. Not intended for production use.
+PowerPoint's fallback default layout — typically renders as a basic block list when no specific layout is resolved. Uncategorised placeholder, not intended for production use.
 
 ### When to use
 
-- Catalog placeholder — uncategorised layout
+- Internal testing or fallback scenarios where a specific layout isn't available
 
 ### When NOT to use
 
-- Use a more specific category layout
+- Production decks — always select a specific layout from the catalog
+- Any speaker-facing content — the default layout has no distinctive visual character
 
 ### Capacity rationale
 

@@ -13,20 +13,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Horizontal row of connected rounded rectangles with chevron arrows between them. The default Basic Process layout.",
+      "visual_character": "A horizontal row of rectangular boxes connected by right-pointing arrows. Each box holds a single step label, and the arrows between them imply linear left-to-right progression. The simplest, most universally recognized process diagram.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes or workflows",
-        "Step-by-step explanations",
-        "Pipelines with a definite start and end"
+        "Simple sequential workflows with 3-7 steps that follow a strict linear order",
+        "When the audience needs to grasp a straightforward progression at a glance",
+        "Onboarding flows, approval chains, or any process where every step must happen in sequence",
+        "When you want maximum clarity with zero visual distraction \u2014 the default choice when nothing fancier is needed"
       ],
       "when_not_to_use": [
-        "Cyclical loops (use a Cycle layout)",
-        "Hierarchical relationships (use Hierarchy)",
-        "More than ~9 steps (becomes unreadable)"
+        "When steps have sub-steps or secondary details \u2014 the flat boxes offer no room for descriptions",
+        "When the process branches, loops, or has parallel paths \u2014 this layout is strictly linear",
+        "When you have more than 7-8 steps \u2014 the boxes shrink to unreadable sizes"
       ],
       "selector_rationale_template": "process1 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -55,20 +56,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Circles arranged in a ring with directional arrows connecting each to the next. Flows clockwise from a 12-o-clock starting position.",
+      "visual_character": "A ring of circles (typically 3-6) arranged in a circular pattern, connected by curved arrows flowing clockwise. Each circle contains a step label. The circular arrangement emphasizes that the process repeats continuously with no defined start or end.",
       "min_nodes": 3,
       "max_nodes": 8,
       "max_label_chars": 20,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Iterative or continuous processes",
-        "Feedback loops",
-        "Recurring workflows with 3-7 stages"
+        "Iterative or repeating processes (PDCA, sprint cycles, continuous improvement loops)",
+        "When emphasizing there is no final step \u2014 the process returns to the beginning",
+        "Feedback loops or any workflow where the output of the last step feeds the first",
+        "When you need to contrast against linear processes \u2014 the circular shape signals ongoing"
       ],
       "when_not_to_use": [
-        "Linear sequences with a definite end (use Process)",
-        "Hierarchical structures (use Hierarchy)",
-        "More than ~8 stages (ring becomes cluttered)"
+        "When the process has a clear beginning and end \u2014 use a linear process instead",
+        "When you have more than 6-7 steps \u2014 circles shrink and arrows clutter",
+        "When steps have sub-details \u2014 circles offer minimal text space"
       ],
       "selector_rationale_template": "cycle2 is the right choice when the content has {n} cycle items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -99,20 +101,21 @@
       "node_type_capabilities": [
         "asst"
       ],
-      "visual_character": "Classic organization chart \u2014 root node at top, subordinates branching downward in a tree. Assistant nodes render sideways with a distinctive right-angle connector.",
+      "visual_character": "A traditional top-down tree with rectangular boxes connected by vertical and horizontal lines. Root at top, subordinates branching downward. Supports assistant nodes that hang sideways with a distinctive right-angle connector, distinct from direct reports below.",
       "min_nodes": 3,
       "max_nodes": 25,
       "max_label_chars": 32,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Tree-shaped content with parent-child relationships",
-        "Reporting structures and management hierarchies",
-        "Taxonomies with 2-4 levels of nesting"
+        "Reporting structures and team hierarchies where manager-subordinate relationships must be explicit",
+        "When you need assistant/deputy distinction \u2014 the only hierarchy layout supporting assistant nodes natively",
+        "Organizational announcements, team introductions, or governance slides",
+        "When the audience expects the conventional org chart format they already know"
       ],
       "when_not_to_use": [
-        "Flat lists of peers (use List or Process)",
-        "Cyclic relationships (use Cycle)",
-        "More than ~25 total nodes or ~4 levels deep"
+        "When the hierarchy is very deep (5+ levels) \u2014 boxes shrink at lower levels",
+        "When relationships are non-hierarchical (matrix orgs, dotted-line reporting)",
+        "When showing a conceptual hierarchy of ideas rather than people \u2014 use hierarchy2-6 instead"
       ],
       "selector_rationale_template": "orgChart1 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
       "example_input": {
@@ -152,20 +155,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Basic bulleted list \u2014 items stacked vertically with minimal visual treatment. Good for unordered collections.",
+      "visual_character": "A simple vertical stack of rectangular blocks, each containing a text label. Items arranged top-to-bottom with consistent spacing. No connectors or arrows \u2014 implies a flat, unordered collection.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Collections of related points without a specific order",
-        "Feature lists, benefit summaries, key takeaways",
-        "Items where emphasis matters more than sequence"
+        "Flat lists of items, features, or requirements where order is unimportant or implied",
+        "Agenda slides, table-of-contents slides, or key-takeaway summaries",
+        "When you have 3-8 items each needing a short label and possibly a brief description",
+        "When you want a cleaner alternative to bullet points"
       ],
       "when_not_to_use": [
-        "Ordered processes (use Process)",
-        "Relationships between items (use Relationship)",
-        "Data with quantitative values (use a chart)"
+        "When items have a sequential relationship \u2014 use a process layout instead",
+        "When items need nested detail \u2014 flat blocks don't support hierarchy",
+        "When you have only 1-2 items \u2014 a list layout looks empty"
       ],
       "selector_rationale_template": "list1 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -194,20 +198,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Four-quadrant matrix with items arranged in a 2x2 grid. Classic decision-matrix layout.",
+      "visual_character": "A 2x2 grid of four equal quadrants, often with a small central hub element. Each quadrant contains a label and optional description. Naturally maps to two-axis frameworks.",
       "min_nodes": 4,
       "max_nodes": 4,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Four-quadrant frameworks (e.g. 2x2 decision matrices)",
-        "Comparing four categories along two dimensions",
-        "BCG-style matrices, SWOT-like 4-part breakdowns"
+        "2x2 strategic frameworks (Eisenhower, BCG, risk/impact, build/buy decisions)",
+        "When you have exactly 4 categories that pair along two axes",
+        "Comparative analysis where two binary dimensions create four meaningful combinations",
+        "When the audience is familiar with quadrant-based thinking from business strategy"
       ],
       "when_not_to_use": [
-        "Sequences or hierarchies (use Process or Hierarchy)",
-        "More than 4 quadrants (no matrix layout fits)",
-        "Sparse grids (use a List or table)"
+        "When you have more or fewer than 4 items \u2014 the fixed 2x2 grid cannot accommodate",
+        "When items don't map to two meaningful axes \u2014 forcing into quadrants obscures",
+        "When items are sequential or hierarchical \u2014 matrix implies parallel categories"
       ],
       "selector_rationale_template": "matrix2 is the right choice when the content has {n} matrix items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -237,20 +242,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Pyramid with tiered levels \u2014 bigger ideas at the wider end, detail at the narrower. Hierarchy of importance.",
+      "visual_character": "A triangular pyramid divided into horizontal tiers, widest at base and narrowing to a point at top. Each tier is labeled, and the narrowing implies decreasing quantity, increasing importance, or rising abstraction from bottom to top.",
       "min_nodes": 3,
       "max_nodes": 6,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Hierarchical importance (top-down or bottom-up)",
-        "Maslow-style tiers, foundation-to-apex layering",
-        "Prioritised content where the biggest idea sits at one end"
+        "Hierarchical models where volume decreases upward (Maslow's, data-information-knowledge-wisdom)",
+        "Prioritization frameworks where the top is most important and the base is broadest",
+        "Market segmentation (mass at base, premium at apex) or organizational layers",
+        "When the narrowing metaphor directly matches your narrative"
       ],
       "when_not_to_use": [
-        "Equal-weight items (use List)",
-        "Sequences (use Process)",
-        "More than ~6 levels (pyramid becomes cramped)"
+        "When tiers are of equal importance \u2014 narrowing incorrectly implies decreasing significance",
+        "When you have more than 5-6 tiers \u2014 slices become too thin for labels",
+        "When the hierarchy is inverted \u2014 a pyramid reads bottom-up which may confuse top-down narratives"
       ],
       "selector_rationale_template": "pyramid2 is the right choice when the content has {n} pyramid items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -279,20 +285,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Two overlapping circles showing shared and unique attributes of two sets.",
+      "visual_character": "Two large overlapping circles, each with a distinct color and label. The overlapping region represents the intersection or common ground. Simple, clean, and immediately recognizable as a comparison-and-overlap diagram.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 28,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Overlapping or intersecting sets",
-        "Many-to-many relationships between items",
-        "Comparing shared and unique attributes"
+        "Comparing exactly two concepts and highlighting what they share",
+        "When the overlap/intersection is the key insight of the slide",
+        "Simple either/or/both frameworks where the audience sees shared and unique attributes",
+        "When the visual must be instantly understood with zero explanation \u2014 universally recognized"
       ],
       "when_not_to_use": [
-        "Strictly sequential content (use Process)",
-        "Tree-shaped content (use Hierarchy)",
-        "Very dense overlap requirements (may need custom_svg)"
+        "When comparing 3+ items \u2014 use venn3 or another layout",
+        "When there is no meaningful overlap \u2014 empty intersection looks misleading",
+        "When each concept has many sub-items \u2014 circles offer limited text space"
       ],
       "selector_rationale_template": "venn1 is the right choice when the content has {n} relationship items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -320,20 +327,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Alternative process variant with distinct styling from process1 \u2014 same sequential flow, different visual treatment.",
+      "visual_character": "A horizontal process where each step is a larger rounded rectangle with room for both a bold heading and a smaller description block beneath it. Steps are connected by subtle arrows, giving each stage more visual weight than Basic Process.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes or workflows",
-        "Step-by-step explanations",
-        "Pipelines with a definite start and end"
+        "Sequential processes where each step needs a title AND a 1-2 sentence explanation",
+        "Project phase overviews where each phase has a brief scope description",
+        "When you want visual weight but need more information density per step than process1 allows",
+        "Executive summaries where each stage must be self-explanatory without narration"
       ],
       "when_not_to_use": [
-        "Cyclical loops (use a Cycle layout)",
-        "Hierarchical relationships (use Hierarchy)",
-        "More than ~9 steps (becomes unreadable)"
+        "When steps are single words \u2014 the large boxes will look empty",
+        "When you have 6+ steps \u2014 the wider boxes consume more horizontal space",
+        "When Basic Process communicates clearly enough \u2014 extra description space adds unnecessary complexity"
       ],
       "selector_rationale_template": "process4 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -362,20 +370,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Stacked forward-pointing chevron shapes conveying momentum and direction. Good for emphasising a progression that builds.",
+      "visual_character": "A horizontal row of forward-pointing chevron (arrow-head) shapes that overlap, forming a continuous band. Each chevron holds a step label. The pointed shape itself implies forward momentum without needing separate arrow connectors.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes or workflows",
-        "Step-by-step explanations",
-        "Pipelines with a definite start and end"
+        "Pipeline or maturity model narratives where you want to emphasize forward momentum",
+        "Sales pipelines, phase gates, or stages where the driving forward metaphor reinforces the message",
+        "When you want a more dynamic and modern look than plain rectangular boxes",
+        "Horizontal timelines where the chevron shape suggests temporal flow"
       ],
       "when_not_to_use": [
-        "Cyclical loops (use a Cycle layout)",
-        "Hierarchical relationships (use Hierarchy)",
-        "More than ~9 steps (becomes unreadable)"
+        "When steps need sub-descriptions \u2014 chevron shapes have limited interior text space",
+        "When the process is non-directional or cyclical \u2014 chevrons imply one-way movement",
+        "When you have 6+ steps \u2014 the chevrons become narrow slivers"
       ],
       "selector_rationale_template": "chevron1 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -404,20 +413,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Horizontal process variant with distinct visual treatment from the basic process layout.",
+      "visual_character": "A horizontal process with alternating top-and-bottom text blocks connected to a central flow line. Steps sit above and below the central axis in a zigzag pattern, giving a staggered timeline-rail appearance.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes or workflows",
-        "Step-by-step explanations",
-        "Pipelines with a definite start and end"
+        "Timelines or roadmaps where alternating placement distinguishes milestones",
+        "When you have 5-8 steps and need vertical space to avoid horizontal crowding",
+        "Comparative process flows where alternating positions can represent two parallel tracks",
+        "When you want visual variety over a plain linear row while keeping sequential order"
       ],
       "when_not_to_use": [
-        "Cyclical loops (use a Cycle layout)",
-        "Hierarchical relationships (use Hierarchy)",
-        "More than ~9 steps (becomes unreadable)"
+        "When the audience needs to scan in a single straight line \u2014 zigzag adds overhead",
+        "When steps have unequal importance \u2014 alternating layout implies equal weight",
+        "When you have fewer than 4 steps \u2014 the staggered effect looks odd"
       ],
       "selector_rationale_template": "hProcess4 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -446,20 +456,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Another horizontal process variant \u2014 check visual_character after manual gate.",
+      "visual_character": "A horizontal process using large circular or pill-shaped nodes connected by lines or arrows. Each node frames a step number or icon with the label adjacent. The circular shapes give a softer, more modern feel than rectangles.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes or workflows",
-        "Step-by-step explanations",
-        "Pipelines with a definite start and end"
+        "Design-forward presentations where rounded shapes match the brand aesthetic",
+        "Numbered step sequences where the circle naturally frames a numeral",
+        "When you want to emphasize discrete milestones or checkpoints rather than continuous flow",
+        "Innovation or creative process slides where softer geometry feels less rigid"
       ],
       "when_not_to_use": [
-        "Cyclical loops (use a Cycle layout)",
-        "Hierarchical relationships (use Hierarchy)",
-        "More than ~9 steps (becomes unreadable)"
+        "When steps need substantial text \u2014 circles have poor text-fill efficiency",
+        "When the process is about continuous flow rather than discrete stops",
+        "When you need more than 6 nodes \u2014 horizontal space fills rapidly"
       ],
       "selector_rationale_template": "hProcess7 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -488,20 +499,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Horizontal process variant 9 \u2014 check visual_character after manual gate.",
+      "visual_character": "A horizontal process where each step is a prominent shape with a label, and smaller sub-step descriptions appear below. The layout shows both the high-level flow and supporting details in a two-tier arrangement.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes or workflows",
-        "Step-by-step explanations",
-        "Pipelines with a definite start and end"
+        "Processes where each major step has 1-3 supporting actions that need to be visible",
+        "Methodology overviews where the main phase and its key activities must appear together",
+        "When the audience needs both the high-level flow and ground-level details on one slide",
+        "Training content where each step needs brief explanatory bullets"
       ],
       "when_not_to_use": [
-        "Cyclical loops (use a Cycle layout)",
-        "Hierarchical relationships (use Hierarchy)",
-        "More than ~9 steps (becomes unreadable)"
+        "When steps are simple and self-explanatory \u2014 the sub-step area wastes space",
+        "When you have more than 5 main steps \u2014 the two-tier layout becomes dense",
+        "When sub-details vary wildly in length \u2014 uneven text blocks break symmetry"
       ],
       "selector_rationale_template": "hProcess9 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -530,20 +542,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Horizontal process variant 11 \u2014 check visual_character after manual gate.",
+      "visual_character": "A horizontal process with bold colored blocks or ribbon-like segments with embedded icons or numbers, and descriptive text below. It has a polished, infographic-like feel with more graphical embellishment than simpler process layouts.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes or workflows",
-        "Step-by-step explanations",
-        "Pipelines with a definite start and end"
+        "Executive or marketing presentations where visual impact matters as much as content",
+        "When each process step maps to a deliverable, metric, or icon",
+        "Annual reports or strategy decks needing polished, branded process overviews",
+        "When you want infographic-quality without leaving PowerPoint"
       ],
       "when_not_to_use": [
-        "Cyclical loops (use a Cycle layout)",
-        "Hierarchical relationships (use Hierarchy)",
-        "More than ~9 steps (becomes unreadable)"
+        "Technical audiences who prefer clean, minimal diagrams over decorative layouts",
+        "When the process has 6+ steps \u2014 embellishments consume space",
+        "When content changes frequently \u2014 tight graphical layout is harder to update"
       ],
       "selector_rationale_template": "hProcess11 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -572,20 +585,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "L-shaped process that wraps a sequence across two axes, useful when horizontal row would be too wide.",
+      "visual_character": "Steps arranged in an L-shaped path \u2014 flowing horizontally then turning 90 degrees vertically. The bend visually represents a pivot, phase shift, or handoff between two distinct stages of the process.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes or workflows",
-        "Step-by-step explanations",
-        "Pipelines with a definite start and end"
+        "Processes with a clear turning point or handoff between phases",
+        "When you want to show two distinct phases with different orientations or owners",
+        "Customer journeys that shift from acquisition to retention",
+        "When you need to use both horizontal and vertical slide space efficiently"
       ],
       "when_not_to_use": [
-        "Cyclical loops (use a Cycle layout)",
-        "Hierarchical relationships (use Hierarchy)",
-        "More than ~9 steps (becomes unreadable)"
+        "When the process is uniformly sequential with no natural pivot \u2014 the L-shape feels forced",
+        "When the audience expects a standard left-to-right flow \u2014 the bend can confuse",
+        "When you have fewer than 4 steps \u2014 the L needs enough steps to populate both legs"
       ],
       "selector_rationale_template": "lProcess2 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -614,20 +628,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Alternative cycle variant \u2014 check visual_character after manual gate.",
+      "visual_character": "A cycle using a segmented ring or gear-like arrangement where each segment represents a stage. Unlike cycle2's discrete circles, this uses pie-slice or arc segments joined into a continuous loop, often with a central hub. Emphasizes interconnectedness and equal contribution.",
       "min_nodes": 3,
       "max_nodes": 8,
       "max_label_chars": 20,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Iterative or continuous processes",
-        "Feedback loops",
-        "Recurring workflows with 3-7 stages"
+        "Ecosystems or interdependent systems where each component contributes equally",
+        "When you want to emphasize unity and integration \u2014 the continuous ring looks cohesive",
+        "Governance or compliance cycles where a closed, unbroken loop reinforces completeness",
+        "When the cycle has 4-8 stages and you want more visual sophistication than cycle2"
       ],
       "when_not_to_use": [
-        "Linear sequences with a definite end (use Process)",
-        "Hierarchical structures (use Hierarchy)",
-        "More than ~8 stages (ring becomes cluttered)"
+        "When stages are unequal in importance \u2014 equal-sized segments imply parity",
+        "When the audience needs to see directional flow clearly \u2014 segmented rings can obscure sequence",
+        "When you have 3 or fewer stages \u2014 the ring looks sparse"
       ],
       "selector_rationale_template": "cycle8 is the right choice when the content has {n} cycle items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -656,20 +671,21 @@
       "engine": "pptx_native",
       "data_shape": "hierarchical",
       "node_type_capabilities": [],
-      "visual_character": "Hierarchy layout variant 2 \u2014 check visual_character after manual gate.",
+      "visual_character": "A horizontal hierarchy flowing left-to-right with the root on the left and child nodes branching rightward in indented tiers. Resembles an indented outline or file-tree explorer using horizontal brackets or lines.",
       "min_nodes": 3,
       "max_nodes": 25,
       "max_label_chars": 32,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Tree-shaped content with parent-child relationships",
-        "Reporting structures and management hierarchies",
-        "Taxonomies with 2-4 levels of nesting"
+        "Taxonomies, classification systems, or category breakdowns that read left-to-right",
+        "When you have many leaf nodes at the lowest level \u2014 horizontal layout gives room for wide bottom tiers",
+        "Slide layouts where vertical space is constrained but horizontal space is available",
+        "When the hierarchy represents decomposition rather than a reporting structure"
       ],
       "when_not_to_use": [
-        "Flat lists of peers (use List or Process)",
-        "Cyclic relationships (use Cycle)",
-        "More than ~25 total nodes or ~4 levels deep"
+        "When the audience expects a traditional top-down org chart \u2014 horizontal may confuse",
+        "When you have many levels of depth \u2014 rightward indentation compresses deeper labels",
+        "When you need assistant nodes \u2014 this layout does not support them"
       ],
       "selector_rationale_template": "hierarchy2 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
       "example_input": {
@@ -709,20 +725,21 @@
       "engine": "pptx_native",
       "data_shape": "hierarchical",
       "node_type_capabilities": [],
-      "visual_character": "Hierarchy layout variant 4 \u2014 check visual_character after manual gate.",
+      "visual_character": "A top-down hierarchy where child nodes are enclosed within or grouped under their parent as nested containers. Parents appear as header bars with children listed below in a contained region, creating a visual nesting effect rather than connected-box-and-line trees.",
       "min_nodes": 3,
       "max_nodes": 25,
       "max_label_chars": 32,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Tree-shaped content with parent-child relationships",
-        "Reporting structures and management hierarchies",
-        "Taxonomies with 2-4 levels of nesting"
+        "When you want to emphasize containment or ownership (department contains teams, system contains modules)",
+        "Architectural decomposition slides where subsystems belong to larger systems",
+        "When the grouping relationship matters more than the chain-of-command relationship",
+        "Portfolio or catalog views organized into parent categories"
       ],
       "when_not_to_use": [
-        "Flat lists of peers (use List or Process)",
-        "Cyclic relationships (use Cycle)",
-        "More than ~25 total nodes or ~4 levels deep"
+        "When you need to show cross-group connections \u2014 containment isolates groups visually",
+        "When the hierarchy is deeper than 3 levels \u2014 nesting within nesting becomes confusing",
+        "When equal emphasis on all items is needed \u2014 parent containers dominate visually"
       ],
       "selector_rationale_template": "hierarchy4 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
       "example_input": {
@@ -762,20 +779,21 @@
       "engine": "pptx_native",
       "data_shape": "hierarchical",
       "node_type_capabilities": [],
-      "visual_character": "Hierarchy layout variant 5 \u2014 check visual_character after manual gate.",
+      "visual_character": "A top-down tree with rounded or pill-shaped elements and gracefully fanning connector lines. The root sits prominently at the top with a balanced, symmetrical spread of branches below. Cleaner, more modern aesthetic than orgChart1.",
       "min_nodes": 3,
       "max_nodes": 25,
       "max_label_chars": 32,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Tree-shaped content with parent-child relationships",
-        "Reporting structures and management hierarchies",
-        "Taxonomies with 2-4 levels of nesting"
+        "Conceptual hierarchies (strategic priorities, goal breakdowns) where you want a polished look",
+        "When the hierarchy represents ideas, objectives, or categories rather than people",
+        "Pitch decks or external presentations where visual elegance matters",
+        "When you have a balanced tree \u2014 the symmetrical spread looks best"
       ],
       "when_not_to_use": [
-        "Flat lists of peers (use List or Process)",
-        "Cyclic relationships (use Cycle)",
-        "More than ~25 total nodes or ~4 levels deep"
+        "When you need assistant nodes \u2014 use orgChart1 instead",
+        "When the tree is heavily unbalanced \u2014 asymmetry breaks the layout",
+        "When showing reporting relationships between people \u2014 softer shapes may not convey authority"
       ],
       "selector_rationale_template": "hierarchy5 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
       "example_input": {
@@ -815,20 +833,21 @@
       "engine": "pptx_native",
       "data_shape": "hierarchical",
       "node_type_capabilities": [],
-      "visual_character": "Hierarchy layout variant 6 \u2014 check visual_character after manual gate.",
+      "visual_character": "A table-like or columnar hierarchy where each level is a distinct horizontal band. Parent items span full width, children arranged as cells in the next band below. Structured and grid-like, resembling a work breakdown structure (WBS).",
       "min_nodes": 3,
       "max_nodes": 25,
       "max_label_chars": 32,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Tree-shaped content with parent-child relationships",
-        "Reporting structures and management hierarchies",
-        "Taxonomies with 2-4 levels of nesting"
+        "Work breakdown structures for clean tabular decomposition of deliverables",
+        "When hierarchy levels have different granularity (strategic \u2192 tactical \u2192 operational)",
+        "Program or portfolio views where projects group under programs",
+        "When the audience prefers structured, grid-aligned layouts over organic trees"
       ],
       "when_not_to_use": [
-        "Flat lists of peers (use List or Process)",
-        "Cyclic relationships (use Cycle)",
-        "More than ~25 total nodes or ~4 levels deep"
+        "When the hierarchy is deep (4+ levels) \u2014 bands become thin and cramped",
+        "When branches have very unequal widths \u2014 the grid wastes space on sparse branches",
+        "When you need a free-form tree with crossing connections"
       ],
       "selector_rationale_template": "hierarchy6 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
       "example_input": {
@@ -868,20 +887,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Horizontal list variant \u2014 items arranged in a row rather than stacked.",
+      "visual_character": "A horizontal row of vertical cards or panels side by side, each with a colored header bar and body text below. Resembles side-by-side feature cards or comparison columns.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Collections of related points without a specific order",
-        "Feature lists, benefit summaries, key takeaways",
-        "Items where emphasis matters more than sequence"
+        "Feature comparisons, service tier descriptions, or plan options displayed side by side",
+        "When each item has both a title and supporting description benefiting from card containers",
+        "Dashboard-style slides showing 3-5 parallel metrics or status summaries",
+        "When items are peers of equal importance and horizontal space should be used fully"
       ],
       "when_not_to_use": [
-        "Ordered processes (use Process)",
-        "Relationships between items (use Relationship)",
-        "Data with quantitative values (use a chart)"
+        "When items exceed 5-6 \u2014 cards become too narrow for readable text",
+        "When items have very different content lengths \u2014 uneven card density looks unbalanced",
+        "When items are sequential \u2014 side-by-side implies parallel options, not ordered steps"
       ],
       "selector_rationale_template": "hList6 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -910,20 +930,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Vertical list variant 2 \u2014 distinct styling from the basic list.",
+      "visual_character": "A vertical list where each item features a prominent accent shape (colored circle, number badge, or icon placeholder) on the left, with item text to its right. The accent shapes create a strong visual rhythm down the left edge.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Collections of related points without a specific order",
-        "Feature lists, benefit summaries, key takeaways",
-        "Items where emphasis matters more than sequence"
+        "Numbered lists or ranked items where the accent shape holds a numeral",
+        "When you want a more visually engaging vertical list than plain stacked bars",
+        "Key principles, values, or pillars where each item deserves individual visual emphasis",
+        "When pairing with icons \u2014 the accent placeholder naturally frames an icon per item"
       ],
       "when_not_to_use": [
-        "Ordered processes (use Process)",
-        "Relationships between items (use Relationship)",
-        "Data with quantitative values (use a chart)"
+        "When items don't benefit from individual emphasis \u2014 accent shapes add clutter",
+        "When you have more than 6-7 items \u2014 accents consume vertical space faster",
+        "When the list is purely textual with no numbering or iconography \u2014 list1 is cleaner"
       ],
       "selector_rationale_template": "vList2 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -952,20 +973,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Vertical list variant 3.",
+      "visual_character": "A vertical list with each item as a wide horizontal bar containing a bold heading on the left and a description area on the right within the same bar. Resembles a definition list or glossary layout.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Collections of related points without a specific order",
-        "Feature lists, benefit summaries, key takeaways",
-        "Items where emphasis matters more than sequence"
+        "Term-and-definition pairs, glossaries, or key-concept explanations",
+        "When each item has a short label AND a longer explanation on the same line",
+        "FAQ-style slides where question and answer sit side by side",
+        "When you want structured information density without resorting to a table"
       ],
       "when_not_to_use": [
-        "Ordered processes (use Process)",
-        "Relationships between items (use Relationship)",
-        "Data with quantitative values (use a chart)"
+        "When items are single-label entries with no descriptions \u2014 the right side is empty",
+        "When descriptions are long paragraphs \u2014 horizontal split compresses both",
+        "When you have more than 5-6 items \u2014 bars become thin"
       ],
       "selector_rationale_template": "vList3 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -994,20 +1016,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Vertical list variant 4 \u2014 one of the most stylable list layouts, with many PowerPoint-provided style variants.",
+      "visual_character": "A vertical list where each item is a large rectangular card with a colored top section (heading) and lighter bottom section (description). Cards stacked vertically with clear spacing. Two-tone treatment gives each item a card-with-header appearance.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Collections of related points without a specific order",
-        "Feature lists, benefit summaries, key takeaways",
-        "Items where emphasis matters more than sequence"
+        "Category-based lists where each item has a clear label and supporting detail",
+        "When you want more visual separation between items than vList2 or vList3 provide",
+        "Status update slides where each card represents a workstream with heading and current state",
+        "When the two-zone (header + body) structure matches your content's natural shape"
       ],
       "when_not_to_use": [
-        "Ordered processes (use Process)",
-        "Relationships between items (use Relationship)",
-        "Data with quantitative values (use a chart)"
+        "When items are short labels only \u2014 large cards with empty body zones waste space",
+        "When you have more than 4-5 items \u2014 tall cards overflow the slide",
+        "When all items have equal simplicity \u2014 card treatment adds unnecessary complexity"
       ],
       "selector_rationale_template": "vList4 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -1036,20 +1059,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Vertical list variant 5.",
+      "visual_character": "A vertical list with items as alternating or staggered blocks \u2014 some left-aligned, some right-aligned \u2014 creating a zigzag pattern. Each block contains heading and description text. Offset layout adds visual dynamism.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Collections of related points without a specific order",
-        "Feature lists, benefit summaries, key takeaways",
-        "Items where emphasis matters more than sequence"
+        "Creative or marketing presentations where visual rhythm matters more than rigid alignment",
+        "Timeline-adjacent narratives where alternating positions suggest progression or contrast",
+        "When you want to break monotony of a long vertical list while keeping top-to-bottom flow",
+        "Portfolio or case-study summaries where each item benefits from distinct visual separation"
       ],
       "when_not_to_use": [
-        "Ordered processes (use Process)",
-        "Relationships between items (use Relationship)",
-        "Data with quantitative values (use a chart)"
+        "When the audience expects clean aligned layouts \u2014 zigzag can feel disorganized",
+        "When items need to be scanned quickly \u2014 alternating positions slow reading",
+        "When the slide will be printed \u2014 staggered layout doesn't translate well to linear reading"
       ],
       "selector_rationale_template": "vList5 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -1078,20 +1102,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Three overlapping circles \u2014 classic Venn diagram for visualising three-set relationships.",
+      "visual_character": "Three overlapping circles in a triangular pattern creating seven distinct regions: three unique areas, three pairwise overlaps, and one central triple-overlap zone. The central region represents the convergence of all three concepts.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 28,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Overlapping or intersecting sets",
-        "Many-to-many relationships between items",
-        "Comparing shared and unique attributes"
+        "Three-way comparisons where pairwise and triple overlaps carry distinct meaning",
+        "When the central triple-intersection is the key message \u2014 the sweet spot where all three converge",
+        "Strategic alignment diagrams (desirability-feasibility-viability, people-process-technology)",
+        "When combining any two is insufficient \u2014 all three required for the ideal state"
       ],
       "when_not_to_use": [
-        "Strictly sequential content (use Process)",
-        "Tree-shaped content (use Hierarchy)",
-        "Very dense overlap requirements (may need custom_svg)"
+        "When you have 2 or 4+ concepts \u2014 fixed at exactly three circles",
+        "When overlap regions don't carry meaningful content \u2014 empty intersections look hollow",
+        "When circles need lengthy text \u2014 pairwise and triple zones have very constrained space"
       ],
       "selector_rationale_template": "venn3 is the right choice when the content has {n} relationship items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -1120,20 +1145,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Tapered funnel showing stages narrowing from a wide top to a focused bottom. Good for conversion funnels or filtering processes.",
+      "visual_character": "A vertically oriented funnel (wide at top, narrow at bottom) divided into horizontal bands. Each band is labeled with a stage name. The tapering shape represents volume reduction, filtering, or progressive narrowing from many to few.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 28,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Overlapping or intersecting sets",
-        "Many-to-many relationships between items",
-        "Comparing shared and unique attributes"
+        "Sales or marketing funnels (leads \u2192 MQLs \u2192 SQLs \u2192 opportunities \u2192 deals)",
+        "Filtering or screening processes where input is progressively narrowed",
+        "When the key narrative is about conversion rates or attrition at each stage",
+        "Recruitment pipelines, support triage, or any process where quantity decreases per step"
       ],
       "when_not_to_use": [
-        "Strictly sequential content (use Process)",
-        "Tree-shaped content (use Hierarchy)",
-        "Very dense overlap requirements (may need custom_svg)"
+        "When stages don't represent decreasing volume \u2014 funnel shape misleads",
+        "When you need feedback loops or cycles \u2014 funnel is strictly one-way",
+        "When you have more than 5-6 stages \u2014 narrow bottom bands become too thin"
       ],
       "selector_rationale_template": "funnel1 is the right choice when the content has {n} relationship items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -1162,20 +1188,21 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Concentric circles (target) showing layered goals or priorities, with the most important at the centre.",
+      "visual_character": "Concentric circles (bullseye pattern) with the innermost circle representing the core goal and outer rings representing surrounding layers. Each ring is labeled. The visual centers attention on the innermost element.",
       "min_nodes": 2,
       "max_nodes": 8,
       "max_label_chars": 28,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Overlapping or intersecting sets",
-        "Many-to-many relationships between items",
-        "Comparing shared and unique attributes"
+        "Goal-centered models where the core objective sits at center with supporting elements around it",
+        "Layered architecture diagrams (core platform \u2192 services \u2192 integrations \u2192 users)",
+        "When you want to emphasize a central focus with context layers \u2014 bullseye draws the eye inward",
+        "Security or defense-in-depth models with multiple protective layers"
       ],
       "when_not_to_use": [
-        "Strictly sequential content (use Process)",
-        "Tree-shaped content (use Hierarchy)",
-        "Very dense overlap requirements (may need custom_svg)"
+        "When layers are sequential \u2014 use process or funnel instead; rings imply containment",
+        "When outer layers are more important than center \u2014 bullseye privileges the core",
+        "When you have more than 4-5 rings \u2014 outer rings become thin slivers"
       ],
       "selector_rationale_template": "target3 is the right choice when the content has {n} relationship items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -1204,20 +1231,21 @@
       "engine": "pptx_native",
       "data_shape": "picture",
       "node_type_capabilities": [],
-      "visual_character": "Picture list \u2014 each list item includes an image placeholder alongside text. When paired with our image generation pipeline, speakers can request AI-generated illustrations per item.",
+      "visual_character": "A list where each item includes a rectangular picture placeholder on top with a text label below. The layout creates a catalog or media listing pattern with consistent image-and-text pairing. When paired with AI image generation, speakers get illustrated editable SmartArt.",
       "min_nodes": 2,
       "max_nodes": 7,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Visual-first content where each item has an illustrative image",
-        "Product showcases, team photos, concept illustrations",
-        "Speaker wants to combine structured text with AI-generated imagery"
+        "Team introductions with headshots, product catalogs with images, portfolio items with thumbnails",
+        "When each list item has an associated image that reinforces or identifies it",
+        "Speaker bios, case study summaries, or content where visual identity matters alongside text",
+        "When you want structured repeating image+text pattern that avoids ad-hoc picture placement"
       ],
       "when_not_to_use": [
-        "Text-only content (use a non-Picture layout)",
-        "Decks rendered without image generation budget",
-        "Microsites or PDF-only output (images may not transfer cleanly)"
+        "When you don't have images for every item \u2014 empty placeholders look unprofessional",
+        "When images are not meaningfully different \u2014 drawing attention to generic images adds no value",
+        "When you have more than 4-5 items \u2014 image+text pairs consume significant area"
       ],
       "selector_rationale_template": "pList1 is the right choice when the content has {n} picture items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
@@ -1247,16 +1275,17 @@
       "engine": "pptx_native",
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-      "visual_character": "Default placeholder layout \u2014 uncategorised. Not intended for production use.",
+      "visual_character": "PowerPoint's fallback default layout \u2014 typically renders as a basic block list when no specific layout is resolved. Uncategorised placeholder, not intended for production use.",
       "min_nodes": 2,
       "max_nodes": 10,
       "max_label_chars": 30,
       "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Catalog placeholder \u2014 uncategorised layout"
+        "Internal testing or fallback scenarios where a specific layout isn't available"
       ],
       "when_not_to_use": [
-        "Use a more specific category layout"
+        "Production decks \u2014 always select a specific layout from the catalog",
+        "Any speaker-facing content \u2014 the default layout has no distinctive visual character"
       ],
       "selector_rationale_template": "default is the right choice when the content has {n} other items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
