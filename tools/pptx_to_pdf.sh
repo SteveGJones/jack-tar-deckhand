@@ -47,16 +47,21 @@ echo "Output:     $OUTPUT_ABS"
 osascript << APPLEOF
 tell application "Microsoft PowerPoint"
     activate
-    open POSIX file "$INPUT_ABS"
-    delay 5
-    set p to active presentation
-    -- Save first to trigger drawing cache regeneration for SmartArt
-    save p
-    delay 2
-    -- Export as PDF
-    save p in ((POSIX file "$OUTPUT_ABS") as text) as save as PDF
-    delay 2
-    close p saving no
+    -- Extended timeout for large decks with many SmartArt diagrams.
+    -- PowerPoint regenerates the drawing cache for each diagram on
+    -- open, which can take 30+ seconds for 10+ SmartArt slides.
+    with timeout of 600 seconds
+        open POSIX file "$INPUT_ABS"
+        delay 15
+        set p to active presentation
+        -- Save first to trigger drawing cache regeneration for SmartArt
+        save p
+        delay 10
+        -- Export as PDF
+        save p in ((POSIX file "$OUTPUT_ABS") as text) as save as PDF
+        delay 5
+        close p saving no
+    end timeout
 end tell
 APPLEOF
 
