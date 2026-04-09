@@ -1,4 +1,10 @@
-"""End-to-end smoke tests for the pptx_native engine render() entry point."""
+"""End-to-end smoke tests for the pptx_native engine render() entry point.
+
+Phase 8: the engine now builds carrier .pptx files from scratch
+(layout XML files read directly from tests/fixtures/smartart_layouts/)
+rather than unzipping seed .pptx files. Tests verify the carrier has
+the expected structure but no longer compare against a seed.
+"""
 from __future__ import annotations
 
 import re
@@ -9,6 +15,58 @@ from pathlib import Path
 import pytest
 
 
+def _assert_editable_smartart(
+    pptx_path: Path,
+    expected_labels: list[str],
+    expected_layout_uri_prefix: str,
+) -> None:
+    """Structural assertions on a rendered pptx — the automated
+    proxy for 'PowerPoint treats this as editable SmartArt'."""
+    with zipfile.ZipFile(pptx_path, "r") as z:
+        names = set(z.namelist())
+
+        # All four diagram parts present.
+        for required in [
+            "ppt/diagrams/data1.xml",
+            "ppt/diagrams/layout1.xml",
+            "ppt/diagrams/quickStyle1.xml",
+            "ppt/diagrams/colors1.xml",
+        ]:
+            assert required in names, f"missing: {required}"
+
+        # No cached drawing — PowerPoint regenerates on first open.
+        assert "ppt/diagrams/drawing1.xml" not in names
+
+        # Data model carries the expected layout URI (may have variant suffix)
+        data_xml = z.read("ppt/diagrams/data1.xml").decode("utf-8")
+        assert expected_layout_uri_prefix in data_xml, (
+            f"expected layout URI prefix {expected_layout_uri_prefix!r} "
+            f"not found in data1.xml"
+        )
+
+        for label in expected_labels:
+            assert f"<a:t>{label}</a:t>" in data_xml, (
+                f"label {label!r} not found in data1.xml"
+            )
+
+        # Content types: all four diagram overrides, no drawing1
+        ct_xml = z.read("[Content_Types].xml").decode("utf-8")
+        assert "/ppt/diagrams/drawing1.xml" not in ct_xml
+        for part in ("data1", "layout1", "quickStyle1", "colors1"):
+            assert f"/ppt/diagrams/{part}.xml" in ct_xml
+
+        # Slide rels: all four diagram rels, no drawing
+        rels_xml = z.read("ppt/slides/_rels/slide1.xml.rels").decode("utf-8")
+        assert "drawing1.xml" not in rels_xml
+        for rel_type in ("diagramData", "diagramLayout", "diagramQuickStyle", "diagramColors"):
+            assert rel_type in rels_xml
+
+        # Slide XML references the diagram via graphicFrame + relIds
+        slide_xml = z.read("ppt/slides/slide1.xml").decode("utf-8")
+        assert "<p:graphicFrame>" in slide_xml
+        assert "dgm:relIds" in slide_xml
+
+
 def test_render_process1_five_step_end_to_end():
     """Full pipeline: spec → .pptx file with editable SmartArt structure."""
     from src.smartart_pptx_native import engine
@@ -16,14 +74,15 @@ def test_render_process1_five_step_end_to_end():
     spec = {
         "graphic_type": "flowchart",
         "slide_number": 4,
-        "data": {"steps": ["Research", "Design", "Build", "Test", "Ship"]},
+        "data": {"items": ["Research", "Design", "Build", "Test", "Ship"]},
     }
 
     with tempfile.TemporaryDirectory() as tmpdir:
         result = engine.render(spec, tmpdir)
 
         assert result.layout_id == "process1"
-        assert result.layout_uri == (
+        # URI may carry a variant suffix — check prefix only
+        assert result.layout_uri.startswith(
             "urn:microsoft.com/office/officeart/2005/8/layout/process1"
         )
         assert result.node_count == 5
@@ -31,9 +90,11 @@ def test_render_process1_five_step_end_to_end():
         assert result.output_path.exists()
         assert result.output_path.name == "pptx_native_process1_slide4.pptx"
 
-        _assert_editable_smartart(result.output_path, expected_labels=[
-            "Research", "Design", "Build", "Test", "Ship"
-        ])
+        _assert_editable_smartart(
+            result.output_path,
+            expected_labels=["Research", "Design", "Build", "Test", "Ship"],
+            expected_layout_uri_prefix="urn:microsoft.com/office/officeart/2005/8/layout/process1",
+        )
 
 
 def test_render_without_slide_number_uses_default_name():
@@ -41,7 +102,7 @@ def test_render_without_slide_number_uses_default_name():
 
     spec = {
         "graphic_type": "flowchart",
-        "data": {"steps": ["A", "B", "C"]},
+        "data": {"items": ["A", "B", "C"]},
     }
     with tempfile.TemporaryDirectory() as tmpdir:
         result = engine.render(spec, tmpdir)
@@ -53,7 +114,7 @@ def test_render_with_explicit_output_name():
 
     spec = {
         "graphic_type": "flowchart",
-        "data": {"steps": ["A", "B"]},
+        "data": {"items": ["A", "B"]},
     }
     with tempfile.TemporaryDirectory() as tmpdir:
         result = engine.render(spec, tmpdir, output_name="custom.pptx")
@@ -65,7 +126,7 @@ def test_render_creates_output_dir_if_missing():
 
     spec = {
         "graphic_type": "flowchart",
-        "data": {"steps": ["A", "B"]},
+        "data": {"items": ["A", "B"]},
     }
     with tempfile.TemporaryDirectory() as tmpdir:
         nested = Path(tmpdir) / "deep" / "nested" / "dir"
@@ -79,14 +140,12 @@ def test_render_overwrites_existing_output():
 
     spec = {
         "graphic_type": "flowchart",
-        "data": {"steps": ["A", "B"]},
+        "data": {"items": ["A", "B"]},
     }
     with tempfile.TemporaryDirectory() as tmpdir:
         first = engine.render(spec, tmpdir, output_name="out.pptx")
-        first_size = first.output_path.stat().st_size
 
-        # Render again with different data — should overwrite
-        spec2 = {"graphic_type": "flowchart", "data": {"steps": ["X", "Y", "Z"]}}
+        spec2 = {"graphic_type": "flowchart", "data": {"items": ["X", "Y", "Z"]}}
         second = engine.render(spec2, tmpdir, output_name="out.pptx")
         assert second.output_path == first.output_path
         assert second.node_count == 3
@@ -100,7 +159,7 @@ def test_render_overwrites_existing_output():
 def test_render_rejects_unknown_graphic_type():
     from src.smartart_pptx_native import engine
 
-    spec = {"graphic_type": "nonexistent_type", "data": {"steps": ["A", "B"]}}
+    spec = {"graphic_type": "nonexistent_type", "data": {"items": ["A", "B"]}}
     with tempfile.TemporaryDirectory() as tmpdir:
         with pytest.raises(engine.RenderError, match="no pptx_native layout supports"):
             engine.render(spec, tmpdir)
@@ -111,7 +170,7 @@ def test_render_rejects_missing_graphic_type():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         with pytest.raises(engine.RenderError, match="graphic_type"):
-            engine.render({"data": {"steps": ["A", "B"]}}, tmpdir)
+            engine.render({"data": {"items": ["A", "B"]}}, tmpdir)
 
 
 def test_render_rejects_missing_data():
@@ -123,72 +182,17 @@ def test_render_rejects_missing_data():
 
 
 def test_render_propagates_builder_validation_errors():
-    """A too-long label should bubble up as ProcessBuildError, not RenderError."""
+    """A too-long label should bubble up as FlatListBuildError, not RenderError."""
     from src.smartart_pptx_native import engine
-    from src.smartart_pptx_native.layouts import process
+    from src.smartart_pptx_native.builders import flat_list
 
     spec = {
         "graphic_type": "flowchart",
-        "data": {"steps": ["OK", "A" * 30]},  # exceeds max_label_chars=24
+        "data": {"items": ["OK", "A" * 30]},  # exceeds max_label_chars=24
     }
     with tempfile.TemporaryDirectory() as tmpdir:
-        with pytest.raises(process.ProcessBuildError):
+        with pytest.raises(flat_list.FlatListBuildError):
             engine.render(spec, tmpdir)
-
-
-def _assert_editable_smartart(pptx_path: Path, expected_labels: list[str]) -> None:
-    """Structural assertions on a rendered pptx — the automated
-    proxy for 'PowerPoint treats this as editable SmartArt'.
-
-    The only 100% proof is opening in PowerPoint, but these checks
-    catch 95%+ of the ways a render could go wrong before it ever
-    hits PowerPoint.
-    """
-    with zipfile.ZipFile(pptx_path, "r") as z:
-        names = set(z.namelist())
-
-        # All four diagram parts present.
-        for required in [
-            "ppt/diagrams/data1.xml",
-            "ppt/diagrams/layout1.xml",
-            "ppt/diagrams/quickStyle1.xml",
-            "ppt/diagrams/colors1.xml",
-        ]:
-            assert required in names, f"missing: {required}"
-
-        # The cached drawing MUST be absent — it was deleted deliberately.
-        assert "ppt/diagrams/drawing1.xml" not in names, (
-            "drawing1.xml should have been deleted; its presence would "
-            "cause PowerPoint to render the stale cache instead of "
-            "regenerating from layout1.xml"
-        )
-
-        # Data model carries the expected layout URI and labels.
-        data_xml = z.read("ppt/diagrams/data1.xml")
-        assert (
-            b'loTypeId="urn:microsoft.com/office/officeart/2005/8/layout/process1"'
-            in data_xml
-        )
-        for label in expected_labels:
-            assert f"<a:t>{label}</a:t>".encode() in data_xml, (
-                f"label {label!r} not found in data1.xml"
-            )
-
-        # Content types: no drawing1 override, all four diagram overrides present.
-        ct_xml = z.read("[Content_Types].xml").decode("utf-8")
-        assert "/ppt/diagrams/drawing1.xml" not in ct_xml
-        for part in ["data1", "layout1", "quickStyle1", "colors1"]:
-            assert f'/ppt/diagrams/{part}.xml' in ct_xml
-
-        # Slide rels: no diagramDrawing relationship, all four diagram rels present.
-        rels_xml = z.read("ppt/slides/_rels/slide1.xml.rels").decode("utf-8")
-        assert "drawing1.xml" not in rels_xml
-        for rel_type in ["diagramData", "diagramLayout", "diagramQuickStyle", "diagramColors"]:
-            assert rel_type in rels_xml
-
-        # Slide XML: the graphic frame must reference the diagram.
-        slide_xml = z.read("ppt/slides/slide1.xml").decode("utf-8")
-        assert "dgm:relIds" in slide_xml or "<p:graphicFrame>" in slide_xml
 
 
 def test_render_produces_structurally_valid_editable_smartart():
@@ -198,53 +202,74 @@ def test_render_produces_structurally_valid_editable_smartart():
 
     spec = {
         "graphic_type": "flowchart",
-        "data": {"steps": ["Alpha", "Beta", "Gamma"]},
+        "data": {"items": ["Alpha", "Beta", "Gamma"]},
     }
     with tempfile.TemporaryDirectory() as tmpdir:
         result = engine.render(spec, tmpdir)
-        _assert_editable_smartart(result.output_path, ["Alpha", "Beta", "Gamma"])
+        _assert_editable_smartart(
+            result.output_path,
+            expected_labels=["Alpha", "Beta", "Gamma"],
+            expected_layout_uri_prefix="urn:microsoft.com/office/officeart/2005/8/layout/process1",
+        )
 
 
-def test_render_output_differs_only_in_expected_files_from_seed():
-    """Surgical diff guarantee — the output should differ from the seed
-    in exactly four places: data1.xml (rewritten), drawing1.xml (removed),
-    [Content_Types].xml (patched), slide1.xml.rels (patched). Every
-    other file must be byte-identical."""
+def test_render_explicit_layout_id_override():
+    """Spec can specify layout_id to target a specific variant."""
     from src.smartart_pptx_native import engine
-    from src.smartart_pptx_native.layouts import catalog
 
     spec = {
         "graphic_type": "flowchart",
-        "data": {"steps": ["A", "B", "C"]},
+        "layout_id": "hProcess4",
+        "data": {"items": ["A", "B", "C"]},
     }
-    seed_path = catalog.resolve_seed_path(catalog.get_entry("process1"))
-
     with tempfile.TemporaryDirectory() as tmpdir:
         result = engine.render(spec, tmpdir)
+        assert result.layout_id == "hProcess4"
 
-        with zipfile.ZipFile(seed_path, "r") as seed_zip:
-            seed_names = set(seed_zip.namelist())
-            seed_contents = {n: seed_zip.read(n) for n in seed_names}
 
-        with zipfile.ZipFile(result.output_path, "r") as out_zip:
-            out_names = set(out_zip.namelist())
-            out_contents = {n: out_zip.read(n) for n in out_names}
+def test_render_cycle_layout_end_to_end():
+    from src.smartart_pptx_native import engine
 
-    # Files removed from seed to output:
-    removed = seed_names - out_names
-    assert removed == {"ppt/diagrams/drawing1.xml"}, removed
-
-    # Files added to output:
-    added = out_names - seed_names
-    assert added == set(), added
-
-    # Files present in both — check which differ.
-    differing = {
-        n for n in (seed_names & out_names)
-        if seed_contents[n] != out_contents[n]
+    spec = {
+        "graphic_type": "cycle",
+        "data": {"items": ["Plan", "Do", "Check", "Act"]},
     }
-    assert differing == {
-        "ppt/diagrams/data1.xml",
-        "[Content_Types].xml",
-        "ppt/slides/_rels/slide1.xml.rels",
-    }, f"unexpected differences: {differing}"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = engine.render(spec, tmpdir)
+        assert result.layout_id == "cycle2"
+        assert result.node_count == 4
+
+
+def test_render_org_chart_end_to_end():
+    from src.smartart_pptx_native import engine
+
+    spec = {
+        "graphic_type": "org_chart",
+        "data": {
+            "tree": {
+                "title": "CEO",
+                "children": [
+                    {"title": "CTO"},
+                    {"title": "CFO"},
+                ],
+            },
+        },
+    }
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = engine.render(spec, tmpdir)
+        assert result.layout_id == "orgChart1"
+        assert result.node_count == 3  # 3 data nodes (doc is excluded)
+
+
+def test_render_accepts_legacy_steps_key_for_backward_compat():
+    """The flat_list builder accepts 'steps' as an alias for 'items'
+    so Phase 1-7 callers still work."""
+    from src.smartart_pptx_native import engine
+
+    spec = {
+        "graphic_type": "flowchart",
+        "data": {"steps": ["Research", "Design"]},  # legacy key
+    }
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = engine.render(spec, tmpdir)
+        assert result.node_count == 2

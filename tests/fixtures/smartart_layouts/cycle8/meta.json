@@ -1,0 +1,9 @@
+{
+  "base_name": "cycle8",
+  "category_hint": "Cycle",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/cycle8#1",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#2",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/bvt/O12Typical.pptx",
+  "variant": "#1"
+}

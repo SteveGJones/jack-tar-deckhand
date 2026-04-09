@@ -36,7 +36,7 @@ def test_extract_flowchart_with_pptx_native_engine():
     assert spec["graphic_type"] == "flowchart"
     assert spec["validation_status"] == "valid"
     assert spec["data"] == {
-        "steps": ["Research", "Design", "Build", "Test", "Ship"]
+        "items": ["Research", "Design", "Build", "Test", "Ship"]
     }
 
 
@@ -78,7 +78,7 @@ def test_extract_pptx_native_strips_whitespace_and_unsafe_chars():
         "engine": "pptx_native",
     }
     spec = extract(slide, selection, STYLE_GUIDE)
-    steps = spec["data"]["steps"]
+    steps = spec["data"]["items"]
     assert steps[0] == "Research"
     assert "[" not in steps[1] and "]" not in steps[1]
     assert '"' not in steps[2]
@@ -98,7 +98,7 @@ def test_extract_pptx_native_preserves_speaker_numbering():
         "engine": "pptx_native",
     }
     spec = extract(slide, selection, STYLE_GUIDE)
-    assert spec["data"]["steps"] == ["1. Plan", "2. Execute", "3. Review"]
+    assert spec["data"]["items"] == ["1. Plan", "2. Execute", "3. Review"]
 
 
 def test_extract_pptx_native_passthrough_inline_data():
@@ -108,7 +108,7 @@ def test_extract_pptx_native_passthrough_inline_data():
     slide = {
         "slide_number": 1,
         "body_points": ["ignored"],
-        "data": {"inline_data": {"steps": ["Explicit", "Steps"]}},
+        "data": {"inline_data": {"items": ["Explicit", "Steps"]}},
     }
     selection = {
         "slide_number": 1,
@@ -117,7 +117,7 @@ def test_extract_pptx_native_passthrough_inline_data():
         "engine": "pptx_native",
     }
     spec = extract(slide, selection, STYLE_GUIDE)
-    assert spec["data"] == {"steps": ["Explicit", "Steps"]}
+    assert spec["data"] == {"items": ["Explicit", "Steps"]}
 
 
 def test_extract_pptx_native_produces_spec_accepted_by_engine():
@@ -153,7 +153,7 @@ def test_extract_validate_spec_knows_pptx_native():
     valid, errors = validate_spec({
         "engine": "pptx_native",
         "graphic_type": "flowchart",
-        "data": {"steps": ["A", "B"]},
+        "data": {"items": ["A", "B"]},
     })
     assert valid is True
     assert errors == []

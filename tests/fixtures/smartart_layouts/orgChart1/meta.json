@@ -1,0 +1,9 @@
+{
+  "base_name": "orgChart1",
+  "category_hint": "Hierarchy",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful5",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/orgChart1#2",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#3",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/bvt/O12Typical.pptx",
+  "variant": "#2"
+}

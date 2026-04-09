@@ -1,155 +1,1280 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "entries": [
     {
       "id": "process1",
-      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/process1",
-      "seed_path": "tests/fixtures/smartart_seeds/process1_seed.pptx",
-      "builder_module": "src.smartart_pptx_native.layouts.process",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/process1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#4",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/process1",
       "display_name": "Basic Process",
       "category": "Process",
       "v1": true,
       "engine": "pptx_native",
-
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-
-      "visual_character": "Horizontal row of connected rounded rectangles with chevron arrows between them. Boxes share a single accent colour by default; PowerPoint reflows them into 2 rows automatically beyond ~7 steps.",
-
+      "visual_character": "Horizontal row of connected rounded rectangles with chevron arrows between them. The default Basic Process layout.",
       "min_nodes": 2,
       "max_nodes": 9,
       "max_label_chars": 24,
-      "max_label_chars_rationale": "PowerPoint shrinks labels above 24 chars to unreadable sizes on 16:9 slides. Empirically determined during manual gating — revisit if a future layout reflows more gracefully.",
-
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Sequential processes where each step depends on the previous one",
-        "Pipelines with a clear start and end",
-        "How-to explanations with 3-7 stages",
-        "Methodology walkthroughs where order matters"
+        "Sequential processes or workflows",
+        "Step-by-step explanations",
+        "Pipelines with a definite start and end"
       ],
       "when_not_to_use": [
-        "Cyclical processes (use cycle2)",
-        "Hierarchical decisions (use orgChart1)",
-        "Timelines with date anchors (use basicTimeline1)",
-        "More than 9 steps (the visual becomes unreadable)",
-        "Parallel or concurrent steps (no native representation in this layout)"
+        "Cyclical loops (use a Cycle layout)",
+        "Hierarchical relationships (use Hierarchy)",
+        "More than ~9 steps (becomes unreadable)"
       ],
-
-      "selector_rationale_template": "process1 is the right choice when the content describes a sequence of {n} steps from \"{first}\" to \"{last}\" where order matters. Delivers editable SmartArt — speaker can add/rename/reorder steps in PowerPoint after delivery.",
-
+      "selector_rationale_template": "process1 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
-        "steps": ["Research", "Design", "Build", "Test", "Ship"]
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
       },
-
       "integration": {
-        "smartart_type_mappings": ["flowchart"],
-        "replaces_custom_svg_when": "graphic_type == 'flowchart' AND enrichment_tier == 'pure_programmatic' AND node_count <= 9 AND max(label_length) <= 24"
+        "smartart_type_mappings": [
+          "flowchart"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (flowchart) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 9] AND max(label_length) <= 24"
       }
     },
     {
       "id": "cycle2",
-      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/cycle2",
-      "seed_path": "tests/fixtures/smartart_seeds/cycle1_seed.pptx",
-      "builder_module": "src.smartart_pptx_native.layouts.cycle",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/cycle2#2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#7",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/cycle2",
       "display_name": "Basic Cycle",
       "category": "Cycle",
       "v1": true,
       "engine": "pptx_native",
-
       "data_shape": "flat_list",
       "node_type_capabilities": [],
-
-      "visual_character": "Circles arranged in a ring with directional arrows connecting each to the next. Flows around clockwise from a 12 o'clock starting position. Conveys iteration or recurring process.",
-
+      "visual_character": "Circles arranged in a ring with directional arrows connecting each to the next. Flows clockwise from a 12-o-clock starting position.",
       "min_nodes": 3,
       "max_nodes": 8,
       "max_label_chars": 20,
-      "max_label_chars_rationale": "Cycle boxes are smaller than process boxes because they sit in a ring rather than a row, and the ring shrinks as node count grows. 20 chars determined empirically during the spike 2 manual gate.",
-
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
-        "Iterative processes with no clear start or end (they loop)",
-        "Continuous improvement cycles (Plan-Do-Check-Act, OODA)",
-        "Recurring workflows with 3-6 stages",
-        "Feedback loops where each stage feeds the next"
+        "Iterative or continuous processes",
+        "Feedback loops",
+        "Recurring workflows with 3-7 stages"
       ],
       "when_not_to_use": [
-        "Linear sequences with a definite end (use process1)",
-        "Hierarchical structures (use orgChart1)",
-        "More than 8 stages (the ring becomes cluttered)",
-        "Parallel or branching flows (cycle is strictly sequential)"
+        "Linear sequences with a definite end (use Process)",
+        "Hierarchical structures (use Hierarchy)",
+        "More than ~8 stages (ring becomes cluttered)"
       ],
-
-      "selector_rationale_template": "cycle2 is the right choice when the content describes an iterative {n}-stage loop from \"{first}\" back around. Delivers editable SmartArt — speaker can add/rename stages and PowerPoint automatically redistributes them around the ring.",
-
+      "selector_rationale_template": "cycle2 is the right choice when the content has {n} cycle items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
       "example_input": {
-        "stages": ["Plan", "Build", "Test", "Deploy", "Monitor", "Learn"]
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
       },
-
       "integration": {
-        "smartart_type_mappings": ["cycle"],
-        "replaces_custom_svg_when": "graphic_type == 'cycle' AND enrichment_tier == 'pure_programmatic' AND node_count <= 8 AND max(label_length) <= 20"
+        "smartart_type_mappings": [
+          "cycle"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (cycle) AND enrichment_tier == 'pure_programmatic' AND node_count within [3, 8] AND max(label_length) <= 20"
       }
     },
     {
       "id": "orgChart1",
-      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/orgChart1",
-      "seed_path": "tests/fixtures/smartart_seeds/orgChart1_seed.pptx",
-      "builder_module": "src.smartart_pptx_native.layouts.org_chart",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/orgChart1#2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#3",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful5",
+      "layout_dir": "tests/fixtures/smartart_layouts/orgChart1",
       "display_name": "Organization Chart",
       "category": "Hierarchy",
       "v1": true,
       "engine": "pptx_native",
-
       "data_shape": "hierarchical",
-      "node_type_capabilities": ["asst"],
-
-      "visual_character": "Classic organization chart — root node at top, subordinates branching downward in a tree. Assistant nodes render to the side of their parent with a right-angle connector, distinct from the regular subordinate row below.",
-
+      "node_type_capabilities": [
+        "asst"
+      ],
+      "visual_character": "Classic organization chart \u2014 root node at top, subordinates branching downward in a tree. Assistant nodes render sideways with a distinctive right-angle connector.",
       "min_nodes": 3,
       "max_nodes": 25,
       "max_label_chars": 32,
-      "max_label_chars_rationale": "Org chart boxes are wider than process/cycle boxes and can accommodate longer role titles. Empirically determined during the spike 4 manual gate — revisit if deep trees force smaller boxes.",
-
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
       "when_to_use": [
+        "Tree-shaped content with parent-child relationships",
         "Reporting structures and management hierarchies",
-        "Team compositions with clear parent-child relationships",
-        "Any tree-shaped content with 3+ levels of nesting",
-        "Structures that include assistants sitting outside the main reporting line"
+        "Taxonomies with 2-4 levels of nesting"
       ],
       "when_not_to_use": [
-        "Flat lists of peers (use process1 or cycle2)",
-        "Cyclic relationships (use cycle2)",
-        "More than 4 levels deep or more than 25 total nodes (visual becomes unreadable at 16:9)",
-        "Matrix or network relationships (orgChart1 is strictly a tree)"
+        "Flat lists of peers (use List or Process)",
+        "Cyclic relationships (use Cycle)",
+        "More than ~25 total nodes or ~4 levels deep"
       ],
-
-      "selector_rationale_template": "orgChart1 is the right choice when the content describes a hierarchy of {n} roles. Delivers editable SmartArt — speaker can add subordinates or assistants, promote/demote, and restructure the tree in PowerPoint after delivery.",
-
+      "selector_rationale_template": "orgChart1 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
       "example_input": {
         "tree": {
-          "title": "CEO",
+          "title": "Root",
           "children": [
-            {"title": "Executive Assistant", "asst": true},
             {
-              "title": "CTO",
-              "children": [
-                {"title": "Backend Lead"},
-                {"title": "Frontend Lead"}
-              ]
+              "title": "Child A"
             },
             {
-              "title": "CFO",
+              "title": "Child B",
               "children": [
-                {"title": "Finance Manager"}
+                {
+                  "title": "Grandchild"
+                }
               ]
             }
           ]
         }
       },
-
       "integration": {
-        "smartart_type_mappings": ["org_chart"],
-        "replaces_custom_svg_when": "graphic_type == 'org_chart' AND enrichment_tier == 'pure_programmatic' AND total_nodes <= 25 AND max_depth <= 4"
+        "smartart_type_mappings": [
+          "org_chart"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (org_chart) AND enrichment_tier == 'pure_programmatic' AND node_count within [3, 25] AND max(label_length) <= 32"
+      }
+    },
+    {
+      "id": "list1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/list1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/list1",
+      "display_name": "Basic List",
+      "category": "List",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Basic bulleted list \u2014 items stacked vertically with minimal visual treatment. Good for unordered collections.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Collections of related points without a specific order",
+        "Feature lists, benefit summaries, key takeaways",
+        "Items where emphasis matters more than sequence"
+      ],
+      "when_not_to_use": [
+        "Ordered processes (use Process)",
+        "Relationships between items (use Relationship)",
+        "Data with quantitative values (use a chart)"
+      ],
+      "selector_rationale_template": "list1 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "list"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "matrix2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/matrix2#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/3d2#1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+      "layout_dir": "tests/fixtures/smartart_layouts/matrix2",
+      "display_name": "Matrix 2",
+      "category": "Matrix",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Four-quadrant matrix with items arranged in a 2x2 grid. Classic decision-matrix layout.",
+      "min_nodes": 4,
+      "max_nodes": 4,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Four-quadrant frameworks (e.g. 2x2 decision matrices)",
+        "Comparing four categories along two dimensions",
+        "BCG-style matrices, SWOT-like 4-part breakdowns"
+      ],
+      "when_not_to_use": [
+        "Sequences or hierarchies (use Process or Hierarchy)",
+        "More than 4 quadrants (no matrix layout fits)",
+        "Sparse grids (use a List or table)"
+      ],
+      "selector_rationale_template": "matrix2 is the right choice when the content has {n} matrix items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Quadrant 1",
+          "Quadrant 2",
+          "Quadrant 3",
+          "Quadrant 4"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "matrix"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (matrix) AND enrichment_tier == 'pure_programmatic' AND node_count within [4, 4] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "pyramid2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/pyramid2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/pyramid2",
+      "display_name": "Pyramid 2",
+      "category": "Pyramid",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Pyramid with tiered levels \u2014 bigger ideas at the wider end, detail at the narrower. Hierarchy of importance.",
+      "min_nodes": 3,
+      "max_nodes": 6,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Hierarchical importance (top-down or bottom-up)",
+        "Maslow-style tiers, foundation-to-apex layering",
+        "Prioritised content where the biggest idea sits at one end"
+      ],
+      "when_not_to_use": [
+        "Equal-weight items (use List)",
+        "Sequences (use Process)",
+        "More than ~6 levels (pyramid becomes cramped)"
+      ],
+      "selector_rationale_template": "pyramid2 is the right choice when the content has {n} pyramid items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "pyramid"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (pyramid) AND enrichment_tier == 'pure_programmatic' AND node_count within [3, 6] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "venn1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/venn1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#4",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+      "layout_dir": "tests/fixtures/smartart_layouts/venn1",
+      "display_name": "Basic Venn",
+      "category": "Relationship",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Two overlapping circles showing shared and unique attributes of two sets.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 28,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Overlapping or intersecting sets",
+        "Many-to-many relationships between items",
+        "Comparing shared and unique attributes"
+      ],
+      "when_not_to_use": [
+        "Strictly sequential content (use Process)",
+        "Tree-shaped content (use Hierarchy)",
+        "Very dense overlap requirements (may need custom_svg)"
+      ],
+      "selector_rationale_template": "venn1 is the right choice when the content has {n} relationship items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Set A",
+          "Set B"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "venn"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (venn) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 28"
+      }
+    },
+    {
+      "id": "process4",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/process4#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#5",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#1",
+      "layout_dir": "tests/fixtures/smartart_layouts/process4",
+      "display_name": "Process Variant 4",
+      "category": "Process",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Alternative process variant with distinct styling from process1 \u2014 same sequential flow, different visual treatment.",
+      "min_nodes": 2,
+      "max_nodes": 9,
+      "max_label_chars": 24,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Sequential processes or workflows",
+        "Step-by-step explanations",
+        "Pipelines with a definite start and end"
+      ],
+      "when_not_to_use": [
+        "Cyclical loops (use a Cycle layout)",
+        "Hierarchical relationships (use Hierarchy)",
+        "More than ~9 steps (becomes unreadable)"
+      ],
+      "selector_rationale_template": "process4 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "flowchart"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (flowchart) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 9] AND max(label_length) <= 24"
+      }
+    },
+    {
+      "id": "chevron1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/chevron1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#9",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/chevron1",
+      "display_name": "Chevron Process",
+      "category": "Process",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Stacked forward-pointing chevron shapes conveying momentum and direction. Good for emphasising a progression that builds.",
+      "min_nodes": 2,
+      "max_nodes": 9,
+      "max_label_chars": 24,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Sequential processes or workflows",
+        "Step-by-step explanations",
+        "Pipelines with a definite start and end"
+      ],
+      "when_not_to_use": [
+        "Cyclical loops (use a Cycle layout)",
+        "Hierarchical relationships (use Hierarchy)",
+        "More than ~9 steps (becomes unreadable)"
+      ],
+      "selector_rationale_template": "chevron1 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "chevron_list"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (chevron_list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 9] AND max(label_length) <= 24"
+      }
+    },
+    {
+      "id": "hProcess4",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess4#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/3d2#2",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/hProcess4",
+      "display_name": "Horizontal Process 4",
+      "category": "Process",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Horizontal process variant with distinct visual treatment from the basic process layout.",
+      "min_nodes": 2,
+      "max_nodes": 9,
+      "max_label_chars": 24,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Sequential processes or workflows",
+        "Step-by-step explanations",
+        "Pipelines with a definite start and end"
+      ],
+      "when_not_to_use": [
+        "Cyclical loops (use a Cycle layout)",
+        "Hierarchical relationships (use Hierarchy)",
+        "More than ~9 steps (becomes unreadable)"
+      ],
+      "selector_rationale_template": "hProcess4 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "flowchart"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (flowchart) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 9] AND max(label_length) <= 24"
+      }
+    },
+    {
+      "id": "hProcess7",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess7#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/hProcess7",
+      "display_name": "Horizontal Process 7",
+      "category": "Process",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Another horizontal process variant \u2014 check visual_character after manual gate.",
+      "min_nodes": 2,
+      "max_nodes": 9,
+      "max_label_chars": 24,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Sequential processes or workflows",
+        "Step-by-step explanations",
+        "Pipelines with a definite start and end"
+      ],
+      "when_not_to_use": [
+        "Cyclical loops (use a Cycle layout)",
+        "Hierarchical relationships (use Hierarchy)",
+        "More than ~9 steps (becomes unreadable)"
+      ],
+      "selector_rationale_template": "hProcess7 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "flowchart"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (flowchart) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 9] AND max(label_length) <= 24"
+      }
+    },
+    {
+      "id": "hProcess9",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess9#2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#6",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/hProcess9",
+      "display_name": "Horizontal Process 9",
+      "category": "Process",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Horizontal process variant 9 \u2014 check visual_character after manual gate.",
+      "min_nodes": 2,
+      "max_nodes": 9,
+      "max_label_chars": 24,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Sequential processes or workflows",
+        "Step-by-step explanations",
+        "Pipelines with a definite start and end"
+      ],
+      "when_not_to_use": [
+        "Cyclical loops (use a Cycle layout)",
+        "Hierarchical relationships (use Hierarchy)",
+        "More than ~9 steps (becomes unreadable)"
+      ],
+      "selector_rationale_template": "hProcess9 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "flowchart"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (flowchart) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 9] AND max(label_length) <= 24"
+      }
+    },
+    {
+      "id": "hProcess11",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess11#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#8",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/hProcess11",
+      "display_name": "Horizontal Process 11",
+      "category": "Process",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Horizontal process variant 11 \u2014 check visual_character after manual gate.",
+      "min_nodes": 2,
+      "max_nodes": 9,
+      "max_label_chars": 24,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Sequential processes or workflows",
+        "Step-by-step explanations",
+        "Pipelines with a definite start and end"
+      ],
+      "when_not_to_use": [
+        "Cyclical loops (use a Cycle layout)",
+        "Hierarchical relationships (use Hierarchy)",
+        "More than ~9 steps (becomes unreadable)"
+      ],
+      "selector_rationale_template": "hProcess11 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "flowchart"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (flowchart) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 9] AND max(label_length) <= 24"
+      }
+    },
+    {
+      "id": "lProcess2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/lProcess2#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#7",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#2",
+      "layout_dir": "tests/fixtures/smartart_layouts/lProcess2",
+      "display_name": "L-Shaped Process 2",
+      "category": "Process",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "L-shaped process that wraps a sequence across two axes, useful when horizontal row would be too wide.",
+      "min_nodes": 2,
+      "max_nodes": 9,
+      "max_label_chars": 24,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Sequential processes or workflows",
+        "Step-by-step explanations",
+        "Pipelines with a definite start and end"
+      ],
+      "when_not_to_use": [
+        "Cyclical loops (use a Cycle layout)",
+        "Hierarchical relationships (use Hierarchy)",
+        "More than ~9 steps (becomes unreadable)"
+      ],
+      "selector_rationale_template": "lProcess2 is the right choice when the content has {n} process items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "flowchart"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (flowchart) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 9] AND max(label_length) <= 24"
+      }
+    },
+    {
+      "id": "cycle8",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/cycle8#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#2",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+      "layout_dir": "tests/fixtures/smartart_layouts/cycle8",
+      "display_name": "Cycle Variant 8",
+      "category": "Cycle",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Alternative cycle variant \u2014 check visual_character after manual gate.",
+      "min_nodes": 3,
+      "max_nodes": 8,
+      "max_label_chars": 20,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Iterative or continuous processes",
+        "Feedback loops",
+        "Recurring workflows with 3-7 stages"
+      ],
+      "when_not_to_use": [
+        "Linear sequences with a definite end (use Process)",
+        "Hierarchical structures (use Hierarchy)",
+        "More than ~8 stages (ring becomes cluttered)"
+      ],
+      "selector_rationale_template": "cycle8 is the right choice when the content has {n} cycle items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "cycle"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (cycle) AND enrichment_tier == 'pure_programmatic' AND node_count within [3, 8] AND max(label_length) <= 20"
+      }
+    },
+    {
+      "id": "hierarchy2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/hierarchy2",
+      "display_name": "Hierarchy 2",
+      "category": "Hierarchy",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "hierarchical",
+      "node_type_capabilities": [],
+      "visual_character": "Hierarchy layout variant 2 \u2014 check visual_character after manual gate.",
+      "min_nodes": 3,
+      "max_nodes": 25,
+      "max_label_chars": 32,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Tree-shaped content with parent-child relationships",
+        "Reporting structures and management hierarchies",
+        "Taxonomies with 2-4 levels of nesting"
+      ],
+      "when_not_to_use": [
+        "Flat lists of peers (use List or Process)",
+        "Cyclic relationships (use Cycle)",
+        "More than ~25 total nodes or ~4 levels deep"
+      ],
+      "selector_rationale_template": "hierarchy2 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
+      "example_input": {
+        "tree": {
+          "title": "Root",
+          "children": [
+            {
+              "title": "Child A"
+            },
+            {
+              "title": "Child B",
+              "children": [
+                {
+                  "title": "Grandchild"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "hierarchy"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (hierarchy) AND enrichment_tier == 'pure_programmatic' AND node_count within [3, 25] AND max(label_length) <= 32"
+      }
+    },
+    {
+      "id": "hierarchy4",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy4#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+      "layout_dir": "tests/fixtures/smartart_layouts/hierarchy4",
+      "display_name": "Hierarchy 4",
+      "category": "Hierarchy",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "hierarchical",
+      "node_type_capabilities": [],
+      "visual_character": "Hierarchy layout variant 4 \u2014 check visual_character after manual gate.",
+      "min_nodes": 3,
+      "max_nodes": 25,
+      "max_label_chars": 32,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Tree-shaped content with parent-child relationships",
+        "Reporting structures and management hierarchies",
+        "Taxonomies with 2-4 levels of nesting"
+      ],
+      "when_not_to_use": [
+        "Flat lists of peers (use List or Process)",
+        "Cyclic relationships (use Cycle)",
+        "More than ~25 total nodes or ~4 levels deep"
+      ],
+      "selector_rationale_template": "hierarchy4 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
+      "example_input": {
+        "tree": {
+          "title": "Root",
+          "children": [
+            {
+              "title": "Child A"
+            },
+            {
+              "title": "Child B",
+              "children": [
+                {
+                  "title": "Grandchild"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "hierarchy"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (hierarchy) AND enrichment_tier == 'pure_programmatic' AND node_count within [3, 25] AND max(label_length) <= 32"
+      }
+    },
+    {
+      "id": "hierarchy5",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy5",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple5#1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent2_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/hierarchy5",
+      "display_name": "Hierarchy 5",
+      "category": "Hierarchy",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "hierarchical",
+      "node_type_capabilities": [],
+      "visual_character": "Hierarchy layout variant 5 \u2014 check visual_character after manual gate.",
+      "min_nodes": 3,
+      "max_nodes": 25,
+      "max_label_chars": 32,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Tree-shaped content with parent-child relationships",
+        "Reporting structures and management hierarchies",
+        "Taxonomies with 2-4 levels of nesting"
+      ],
+      "when_not_to_use": [
+        "Flat lists of peers (use List or Process)",
+        "Cyclic relationships (use Cycle)",
+        "More than ~25 total nodes or ~4 levels deep"
+      ],
+      "selector_rationale_template": "hierarchy5 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
+      "example_input": {
+        "tree": {
+          "title": "Root",
+          "children": [
+            {
+              "title": "Child A"
+            },
+            {
+              "title": "Child B",
+              "children": [
+                {
+                  "title": "Grandchild"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "hierarchy"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (hierarchy) AND enrichment_tier == 'pure_programmatic' AND node_count within [3, 25] AND max(label_length) <= 32"
+      }
+    },
+    {
+      "id": "hierarchy6",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy6",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#2",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful4",
+      "layout_dir": "tests/fixtures/smartart_layouts/hierarchy6",
+      "display_name": "Hierarchy 6",
+      "category": "Hierarchy",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "hierarchical",
+      "node_type_capabilities": [],
+      "visual_character": "Hierarchy layout variant 6 \u2014 check visual_character after manual gate.",
+      "min_nodes": 3,
+      "max_nodes": 25,
+      "max_label_chars": 32,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Tree-shaped content with parent-child relationships",
+        "Reporting structures and management hierarchies",
+        "Taxonomies with 2-4 levels of nesting"
+      ],
+      "when_not_to_use": [
+        "Flat lists of peers (use List or Process)",
+        "Cyclic relationships (use Cycle)",
+        "More than ~25 total nodes or ~4 levels deep"
+      ],
+      "selector_rationale_template": "hierarchy6 is the right choice when the content describes a hierarchy tree of {n} nodes. Delivers editable SmartArt \u2014 speaker can restructure the tree in PowerPoint after delivery.",
+      "example_input": {
+        "tree": {
+          "title": "Root",
+          "children": [
+            {
+              "title": "Child A"
+            },
+            {
+              "title": "Child B",
+              "children": [
+                {
+                  "title": "Grandchild"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "hierarchy"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (hierarchy) AND enrichment_tier == 'pure_programmatic' AND node_count within [3, 25] AND max(label_length) <= 32"
+      }
+    },
+    {
+      "id": "hList6",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hList6#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#16",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#5",
+      "layout_dir": "tests/fixtures/smartart_layouts/hList6",
+      "display_name": "Horizontal List 6",
+      "category": "List",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Horizontal list variant \u2014 items arranged in a row rather than stacked.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Collections of related points without a specific order",
+        "Feature lists, benefit summaries, key takeaways",
+        "Items where emphasis matters more than sequence"
+      ],
+      "when_not_to_use": [
+        "Ordered processes (use Process)",
+        "Relationships between items (use Relationship)",
+        "Data with quantitative values (use a chart)"
+      ],
+      "selector_rationale_template": "hList6 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "list"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "vList2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/vList2#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#12",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#4",
+      "layout_dir": "tests/fixtures/smartart_layouts/vList2",
+      "display_name": "Vertical List 2",
+      "category": "List",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Vertical list variant 2 \u2014 distinct styling from the basic list.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Collections of related points without a specific order",
+        "Feature lists, benefit summaries, key takeaways",
+        "Items where emphasis matters more than sequence"
+      ],
+      "when_not_to_use": [
+        "Ordered processes (use Process)",
+        "Relationships between items (use Relationship)",
+        "Data with quantitative values (use a chart)"
+      ],
+      "selector_rationale_template": "vList2 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "list"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "vList3",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/vList3",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/vList3",
+      "display_name": "Vertical List 3",
+      "category": "List",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Vertical list variant 3.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Collections of related points without a specific order",
+        "Feature lists, benefit summaries, key takeaways",
+        "Items where emphasis matters more than sequence"
+      ],
+      "when_not_to_use": [
+        "Ordered processes (use Process)",
+        "Relationships between items (use Relationship)",
+        "Data with quantitative values (use a chart)"
+      ],
+      "selector_rationale_template": "vList3 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "list"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "vList4",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/vList4#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#6",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/vList4",
+      "display_name": "Vertical List 4",
+      "category": "List",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Vertical list variant 4 \u2014 one of the most stylable list layouts, with many PowerPoint-provided style variants.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Collections of related points without a specific order",
+        "Feature lists, benefit summaries, key takeaways",
+        "Items where emphasis matters more than sequence"
+      ],
+      "when_not_to_use": [
+        "Ordered processes (use Process)",
+        "Relationships between items (use Relationship)",
+        "Data with quantitative values (use a chart)"
+      ],
+      "selector_rationale_template": "vList4 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "list"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "vList5",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/vList5",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/vList5",
+      "display_name": "Vertical List 5",
+      "category": "List",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Vertical list variant 5.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Collections of related points without a specific order",
+        "Feature lists, benefit summaries, key takeaways",
+        "Items where emphasis matters more than sequence"
+      ],
+      "when_not_to_use": [
+        "Ordered processes (use Process)",
+        "Relationships between items (use Relationship)",
+        "Data with quantitative values (use a chart)"
+      ],
+      "selector_rationale_template": "vList5 is the right choice when the content has {n} list items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "list"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "venn3",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/venn3#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#17",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/venn3",
+      "display_name": "Three-Circle Venn",
+      "category": "Relationship",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Three overlapping circles \u2014 classic Venn diagram for visualising three-set relationships.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 28,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Overlapping or intersecting sets",
+        "Many-to-many relationships between items",
+        "Comparing shared and unique attributes"
+      ],
+      "when_not_to_use": [
+        "Strictly sequential content (use Process)",
+        "Tree-shaped content (use Hierarchy)",
+        "Very dense overlap requirements (may need custom_svg)"
+      ],
+      "selector_rationale_template": "venn3 is the right choice when the content has {n} relationship items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Set A",
+          "Set B",
+          "Set C"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "venn"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (venn) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 28"
+      }
+    },
+    {
+      "id": "funnel1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/funnel1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#7",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/funnel1",
+      "display_name": "Basic Funnel",
+      "category": "Relationship",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Tapered funnel showing stages narrowing from a wide top to a focused bottom. Good for conversion funnels or filtering processes.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 28,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Overlapping or intersecting sets",
+        "Many-to-many relationships between items",
+        "Comparing shared and unique attributes"
+      ],
+      "when_not_to_use": [
+        "Strictly sequential content (use Process)",
+        "Tree-shaped content (use Hierarchy)",
+        "Very dense overlap requirements (may need custom_svg)"
+      ],
+      "selector_rationale_template": "funnel1 is the right choice when the content has {n} relationship items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "pipeline_funnel"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (pipeline_funnel) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 28"
+      }
+    },
+    {
+      "id": "target3",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/target3",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/target3",
+      "display_name": "Target Diagram",
+      "category": "Relationship",
+      "v1": true,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Concentric circles (target) showing layered goals or priorities, with the most important at the centre.",
+      "min_nodes": 2,
+      "max_nodes": 8,
+      "max_label_chars": 28,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Overlapping or intersecting sets",
+        "Many-to-many relationships between items",
+        "Comparing shared and unique attributes"
+      ],
+      "when_not_to_use": [
+        "Strictly sequential content (use Process)",
+        "Tree-shaped content (use Hierarchy)",
+        "Very dense overlap requirements (may need custom_svg)"
+      ],
+      "selector_rationale_template": "target3 is the right choice when the content has {n} relationship items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "target"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (target) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 8] AND max(label_length) <= 28"
+      }
+    },
+    {
+      "id": "pList1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/pList1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/pList1",
+      "display_name": "Picture List",
+      "category": "Picture",
+      "v1": false,
+      "engine": "pptx_native",
+      "data_shape": "picture",
+      "node_type_capabilities": [],
+      "visual_character": "Picture list \u2014 each list item includes an image placeholder alongside text. When paired with our image generation pipeline, speakers can request AI-generated illustrations per item.",
+      "min_nodes": 2,
+      "max_nodes": 7,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Visual-first content where each item has an illustrative image",
+        "Product showcases, team photos, concept illustrations",
+        "Speaker wants to combine structured text with AI-generated imagery"
+      ],
+      "when_not_to_use": [
+        "Text-only content (use a non-Picture layout)",
+        "Decks rendered without image generation budget",
+        "Microsites or PDF-only output (images may not transfer cleanly)"
+      ],
+      "selector_rationale_template": "pList1 is the right choice when the content has {n} picture items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          {
+            "label": "Concept A",
+            "image_prompt": "abstract illustration"
+          },
+          {
+            "label": "Concept B",
+            "image_prompt": "abstract illustration"
+          }
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "picture_list"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (picture_list) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 7] AND max(label_length) <= 30"
+      }
+    },
+    {
+      "id": "default",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/default",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "layout_dir": "tests/fixtures/smartart_layouts/default",
+      "display_name": "Default Layout",
+      "category": "Other",
+      "v1": false,
+      "engine": "pptx_native",
+      "data_shape": "flat_list",
+      "node_type_capabilities": [],
+      "visual_character": "Default placeholder layout \u2014 uncategorised. Not intended for production use.",
+      "min_nodes": 2,
+      "max_nodes": 10,
+      "max_label_chars": 30,
+      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "when_to_use": [
+        "Catalog placeholder \u2014 uncategorised layout"
+      ],
+      "when_not_to_use": [
+        "Use a more specific category layout"
+      ],
+      "selector_rationale_template": "default is the right choice when the content has {n} other items from \"{first}\" to \"{last}\". Delivers editable SmartArt \u2014 speaker can add/rename items in PowerPoint after delivery.",
+      "example_input": {
+        "items": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      },
+      "integration": {
+        "smartart_type_mappings": [
+          "none"
+        ],
+        "replaces_custom_svg_when": "graphic_type in (no mapped graphic_type) AND enrichment_tier == 'pure_programmatic' AND node_count within [2, 10] AND max(label_length) <= 30"
       }
     }
   ]

@@ -8,8 +8,9 @@ Usage:
 
     from src.smartart_pptx_native.layouts import catalog
     entry = catalog.get_entry("process1")
-    entry["layout_uri"]   # -> "urn:.../layout/process1"
+    entry["layout_uri"]   # -> "urn:.../layout/process1#1"
     entry["max_nodes"]    # -> 9
+    catalog.resolve_layout_dir(entry)  # -> Path to the layout's XML files
 """
 from __future__ import annotations
 
@@ -33,12 +34,7 @@ class CatalogError(Exception):
 
 @functools.lru_cache(maxsize=1)
 def load_catalog() -> dict[str, Any]:
-    """Load and validate the catalog. Cached — safe to call repeatedly.
-
-    Returns:
-        Parsed catalog dict with schema already validated. Raises
-        CatalogError on any load or validation failure.
-    """
+    """Load and validate the catalog. Cached — safe to call repeatedly."""
     import jsonschema
 
     if not _CATALOG_PATH.exists():
@@ -58,10 +54,8 @@ def load_catalog() -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise CatalogError(f"catalog.schema.json is not valid JSON: {exc}") from exc
 
-    # Use an explicit validator class so we don't depend on jsonschema's
-    # metaschema lookup, which emits a DeprecationWarning on recent versions.
     validator = jsonschema.Draft7Validator(schema)
-    errors = sorted(validator.iter_errors(catalog), key=lambda e: e.path)
+    errors = sorted(validator.iter_errors(catalog), key=lambda e: list(e.path))
     if errors:
         first = errors[0]
         raise CatalogError(
@@ -85,17 +79,7 @@ def load_catalog() -> dict[str, Any]:
 
 
 def get_entry(layout_id: str) -> dict[str, Any]:
-    """Look up a single entry by id.
-
-    Args:
-        layout_id: The entry's `id` field (e.g. "process1").
-
-    Returns:
-        The entry dict.
-
-    Raises:
-        CatalogError: If no entry with that id exists.
-    """
+    """Look up a single entry by id."""
     catalog = load_catalog()
     for entry in catalog["entries"]:
         if entry["id"] == layout_id:
@@ -114,12 +98,14 @@ def list_entries(v1_only: bool = False) -> list[dict[str, Any]]:
     return list(catalog["entries"])
 
 
-def resolve_seed_path(entry: dict[str, Any]) -> Path:
-    """Resolve a catalog entry's seed_path to an absolute Path.
+def resolve_layout_dir(entry: dict[str, Any]) -> Path:
+    """Resolve a catalog entry's layout_dir to an absolute Path.
 
-    seed_path in the catalog is relative to the repo root.
+    The directory contains layout.xml, quickStyle.xml, colors.xml,
+    and meta.json — one per layout, produced by
+    tools/extract_smartart_layouts.py.
     """
-    return REPO_ROOT / entry["seed_path"]
+    return REPO_ROOT / entry["layout_dir"]
 
 
 def get_layout_id_for_graphic_type(graphic_type: str) -> str | None:
@@ -128,8 +114,29 @@ def get_layout_id_for_graphic_type(graphic_type: str) -> str | None:
     Walks the catalog looking for an entry whose
     `integration.smartart_type_mappings` includes the given
     graphic_type. Returns the first matching layout id, or None.
+
+    When multiple catalog entries map the same graphic_type (e.g.
+    process1, process4, hProcess4 all back 'flowchart'), this function
+    returns the first match in catalog order. For narrative-driven
+    selection among multiple candidates, use the selector agent rather
+    than this reverse lookup — this function is a convenience for
+    simple cases where any backing layout will do.
     """
     for entry in load_catalog()["entries"]:
         if graphic_type in entry["integration"]["smartart_type_mappings"]:
             return entry["id"]
     return None
+
+
+def list_layout_ids_for_graphic_type(graphic_type: str) -> list[str]:
+    """Return ALL layout ids that can back a given graphic_type.
+
+    The selector agent uses this to present multiple candidates when
+    multiple layouts in the same category can serve the speaker's
+    intent.
+    """
+    return [
+        entry["id"]
+        for entry in load_catalog()["entries"]
+        if graphic_type in entry["integration"]["smartart_type_mappings"]
+    ]

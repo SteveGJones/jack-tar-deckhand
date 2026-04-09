@@ -52,8 +52,9 @@ def _entry_section(entry: dict) -> str:
         f"- **Capacity:** {entry['min_nodes']}-{entry['max_nodes']} nodes, "
         f"max {entry['max_label_chars']} chars per label"
     )
-    lines.append(f"- **Seed file:** `{entry['seed_path']}`")
-    lines.append(f"- **Builder module:** `{entry['builder_module']}`")
+    lines.append(f"- **Layout directory:** `{entry['layout_dir']}`")
+    lines.append(f"- **Quick style URI:** `{entry['qs_type_id']}`")
+    lines.append(f"- **Colors URI:** `{entry['cs_type_id']}`")
     lines.append("")
 
     lines.append("### Visual character")

@@ -2,14 +2,14 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://jack-tar-deckhand.local/schemas/pptx-native-smartart-catalog.schema.json",
   "title": "pptx_native SmartArt Layout Catalog",
-  "description": "Structured description of every PowerPoint built-in SmartArt layout supported by the pptx_native engine. See spec §5.",
+  "description": "Structured description of every PowerPoint built-in SmartArt layout supported by the pptx_native engine. See spec §5. All layouts are extracted from the MIT-licensed dotnet/Open-XML-SDK test fixtures by tools/extract_smartart_layouts.py.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "entries"],
   "properties": {
     "version": {
       "type": "string",
-      "description": "Catalog schema version, semver-style (e.g. '1.0.0')."
+      "description": "Catalog schema version, semver-style (e.g. '2.0.0')."
     },
     "entries": {
       "type": "array",
@@ -24,8 +24,9 @@
       "required": [
         "id",
         "layout_uri",
-        "seed_path",
-        "builder_module",
+        "qs_type_id",
+        "cs_type_id",
+        "layout_dir",
         "display_name",
         "category",
         "v1",
@@ -46,22 +47,27 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-z][a-zA-Z0-9_]*[0-9]?$",
-          "description": "Stable identifier (e.g. 'process1'). Must match a layout module filename."
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+          "description": "Stable identifier (e.g. 'process1'). Matches the layout's directory name under tests/fixtures/smartart_layouts/."
         },
         "layout_uri": {
           "type": "string",
-          "pattern": "^urn:microsoft\\.com/office/officeart/.*/layout/[a-zA-Z0-9]+$",
-          "description": "Full OOXML layout URI. Extract verbatim from the seed's doc point."
+          "pattern": "^urn:microsoft\\.com/office/officeart/.*/layout/[a-zA-Z][a-zA-Z0-9]*(#\\d+)?$",
+          "description": "Full OOXML layout URI (from the SDK fixture's data1.xml doc point). Written verbatim to the doc point at runtime."
         },
-        "seed_path": {
+        "qs_type_id": {
           "type": "string",
-          "description": "Path to the hand-authored seed .pptx, relative to repo root. Must exist at load time."
+          "pattern": "^urn:microsoft\\.com/office/officeart/.*/quickstyle/.*$",
+          "description": "Quick style URI. Written verbatim to the doc point."
         },
-        "builder_module": {
+        "cs_type_id": {
           "type": "string",
-          "pattern": "^src\\.smartart_pptx_native\\.layouts\\.[a-z_]+$",
-          "description": "Python dotted path to the layout's data model builder module."
+          "pattern": "^urn:microsoft\\.com/office/officeart/.*/colors/.*$",
+          "description": "Color scheme URI. Written verbatim to the doc point."
+        },
+        "layout_dir": {
+          "type": "string",
+          "description": "Path (relative to repo root) to the directory containing layout.xml, quickStyle.xml, colors.xml, and meta.json. Produced by tools/extract_smartart_layouts.py."
         },
         "display_name": {
           "type": "string",
@@ -70,7 +76,7 @@
         },
         "category": {
           "type": "string",
-          "enum": ["Process", "Cycle", "Hierarchy", "Timeline", "List", "Relationship", "Matrix", "Pyramid", "Picture"],
+          "enum": ["Process", "Cycle", "Hierarchy", "Timeline", "List", "Relationship", "Matrix", "Pyramid", "Picture", "Other"],
           "description": "PowerPoint SmartArt picker category."
         },
         "v1": {
@@ -84,18 +90,18 @@
         },
         "data_shape": {
           "type": "string",
-          "enum": ["flat_list", "hierarchical"],
-          "description": "Shape of the input data — flat list or recursive tree."
+          "enum": ["flat_list", "hierarchical", "picture"],
+          "description": "Determines which generic builder handles the layout. flat_list covers process/cycle/list/matrix/pyramid/relationship; hierarchical covers org chart and hierarchy layouts; picture is deferred to a later phase."
         },
         "node_type_capabilities": {
           "type": "array",
           "items": {"type": "string", "enum": ["asst"]},
           "uniqueItems": true,
-          "description": "Node types this layout supports beyond the default regular node. Only 'asst' is valid in v1."
+          "description": "Special node types this layout supports beyond the default regular node. Only 'asst' is valid in v1 (for org chart assistant nodes)."
         },
         "visual_character": {
           "type": "string",
-          "minLength": 20,
+          "minLength": 10,
           "description": "1-3 sentences describing the rendered appearance."
         },
         "min_nodes": {
@@ -111,12 +117,12 @@
         "max_label_chars": {
           "type": "integer",
           "minimum": 1,
-          "description": "Per-node text length cap. Empirically determined during manual gating."
+          "description": "Per-node text length cap."
         },
         "max_label_chars_rationale": {
           "type": "string",
           "minLength": 10,
-          "description": "Why the cap is what it is."
+          "description": "Why the cap is what it is. For first-pass SDK-derived layouts, says 'first-pass default per category norms; refine after manual gate'."
         },
         "when_to_use": {
           "type": "array",
@@ -133,7 +139,7 @@
         "selector_rationale_template": {
           "type": "string",
           "minLength": 20,
-          "description": "Template the selector uses when proposing this layout — supports {n}/{first}/{last} placeholders for flat lists and {n}/{depth} for trees."
+          "description": "Template the selector uses when proposing this layout. Supports {n}/{first}/{last} placeholders for flat lists and {n}/{depth} for hierarchies."
         },
         "example_input": {
           "type": "object",
@@ -148,7 +154,7 @@
               "type": "array",
               "items": {"type": "string"},
               "minItems": 1,
-              "description": "Graphic type values this layout can back."
+              "description": "graphic_type values this layout can back."
             },
             "replaces_custom_svg_when": {
               "type": "string",

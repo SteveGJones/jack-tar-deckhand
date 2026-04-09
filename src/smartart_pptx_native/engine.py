@@ -2,34 +2,34 @@
 
 `render(spec, output_dir)` is the single function this module exposes.
 Given a spec describing a graphic type and its extracted data, it
-produces a complete editable `.pptx` file at `output_dir` and returns
-a dict describing the output.
+produces a complete editable `.pptx` file at `output_dir` containing
+exactly one slide with the SmartArt graphic.
 
-In Phase 1 this function is called directly by tests and any dev tool.
-In Phase 2 it gets wired into `src.smartart_renderer._ENGINE_DISPATCH`
-so the main pipeline can dispatch to it.
+Architecture (Phase 8):
 
-The render operation is the **mutation** pattern (spike 1/2/4): copy
-a seed `.pptx`, rewrite `ppt/diagrams/data1.xml`, delete the cached
-`ppt/diagrams/drawing1.xml`, strip the drawing relationship from the
-slide's `.rels`, strip the content-type override for drawing1. The
-**injection** pattern for adding SmartArt to a host `.pptx` that had
-none comes in Phase 3 (assembler_patch.py, spike 3).
+  1. Look up the target layout in the catalog via graphic_type
+  2. Dispatch to the generic builder matching the layout's data_shape
+     (flat_list / hierarchical / picture). Builder returns data1.xml bytes.
+  3. Read layout.xml, quickStyle.xml, colors.xml from the layout's
+     extracted fixture directory (tests/fixtures/smartart_layouts/<id>/)
+  4. Build a minimal carrier .pptx from scratch containing one slide
+     with the four diagram parts and a <p:graphicFrame> reference.
 
-The engine does not write `drawing1.xml`. PowerPoint regenerates the
-presentation tree and the cached render from `layout1.xml` on first
-open — validated by all four Phase 0 spikes.
+The engine no longer unzips a seed .pptx at runtime — it reads the
+three layout XML files directly from the extracted fixtures and
+constructs the carrier package programmatically. This is the
+"unwrapped" architecture: no binary seed files, just plain XML +
+Python.
 """
 from __future__ import annotations
 
-import importlib
-import re
-import shutil
+import uuid
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.smartart_pptx_native import builders
 from src.smartart_pptx_native.layouts import catalog
 
 
@@ -39,16 +39,6 @@ class RenderError(Exception):
 
 @dataclass
 class RenderResult:
-    """Structured result of a render call.
-
-    Attributes:
-        output_path: Absolute path to the produced .pptx file.
-        layout_id: Catalog entry id used (e.g. "process1").
-        layout_uri: OOXML layout URI bound to the graphic.
-        node_count: Number of data nodes in the produced diagram.
-        engine: Always "pptx_native" for this engine.
-    """
-
     output_path: Path
     layout_id: str
     layout_uri: str
@@ -56,65 +46,59 @@ class RenderResult:
     engine: str = "pptx_native"
 
 
-# Regex patterns for the four surgical mutations applied to a seed copy.
-_DRAWING_OVERRIDE_RE = re.compile(
-    r'<Override PartName="/ppt/diagrams/drawing1\.xml" ContentType="[^"]*"/>'
-)
-_DRAWING_REL_RE = re.compile(
-    r'<Relationship Id="[^"]*" '
-    r'Type="http://schemas\.microsoft\.com/office/2007/relationships/diagramDrawing" '
-    r'Target="\.\./diagrams/drawing1\.xml"/>'
-)
+# ---------------------------------------------------------------------------
+# Minimal carrier .pptx template parts
+# ---------------------------------------------------------------------------
+# These are the fixed parts of a one-slide .pptx that contain no
+# layout-specific content. They're generic PowerPoint scaffolding:
+# content types, package rels, presentation.xml, theme, slide master,
+# slide layout, and the single slide that references a diagram.
+#
+# Everything layout-specific (layout.xml, quickStyle.xml, colors.xml,
+# data1.xml) is inserted at render time from the extracted fixtures +
+# the generic builder output.
+
+_CONTENT_TYPES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/diagrams/data1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml"/><Override PartName="/ppt/diagrams/layout1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramLayout+xml"/><Override PartName="/ppt/diagrams/quickStyle1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml"/><Override PartName="/ppt/diagrams/colors1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml"/></Types>"""
+
+_ROOT_RELS = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>"""
+
+_PRESENTATION_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>"""
+
+_PRESENTATION_RELS = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/></Relationships>"""
+
+_SLIDE_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Diagram 1"/><p:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="914400" y="914400"/><a:ext cx="10363200" cy="5029200"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/diagram"><dgm:relIds xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" r:dm="rId2" r:lo="rId3" r:qs="rId4" r:cs="rId5"/></a:graphicData></a:graphic></p:graphicFrame></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"""
+
+_SLIDE_RELS = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData" Target="../diagrams/data1.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramLayout" Target="../diagrams/layout1.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramQuickStyle" Target="../diagrams/quickStyle1.xml"/><Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramColors" Target="../diagrams/colors1.xml"/></Relationships>"""
+
+_THEME_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="44546A"/></a:dk2><a:lt2><a:srgbClr val="E7E6E6"/></a:lt2><a:accent1><a:srgbClr val="5B9BD5"/></a:accent1><a:accent2><a:srgbClr val="ED7D31"/></a:accent2><a:accent3><a:srgbClr val="A5A5A5"/></a:accent3><a:accent4><a:srgbClr val="FFC000"/></a:accent4><a:accent5><a:srgbClr val="4472C4"/></a:accent5><a:accent6><a:srgbClr val="70AD47"/></a:accent6><a:hlink><a:srgbClr val="0563C1"/></a:hlink><a:folHlink><a:srgbClr val="954F72"/></a:folHlink></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Calibri Light"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst><a:outerShdw blurRad="57150" dist="19050" dir="5400000" algn="ctr" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="63000"/></a:srgbClr></a:outerShdw></a:effectLst></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>"""
+
+_SLIDE_MASTER_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst></p:sldMaster>"""
+
+_SLIDE_MASTER_RELS = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/></Relationships>"""
+
+_SLIDE_LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1"><p:cSld name="Blank"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>"""
+
+_SLIDE_LAYOUT_RELS = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>"""
 
 
-def _strip_drawing_override(xml: bytes) -> bytes:
-    text = xml.decode("utf-8")
-    new_text, n = _DRAWING_OVERRIDE_RE.subn("", text)
-    if n != 1:
-        raise RenderError(
-            f"expected exactly 1 drawing1 content-type override in "
-            f"[Content_Types].xml, found {n}. Seed may be corrupt or "
-            f"from a different PowerPoint version."
-        )
-    return new_text.encode("utf-8")
-
-
-def _strip_drawing_rel(xml: bytes) -> bytes:
-    text = xml.decode("utf-8")
-    new_text, n = _DRAWING_REL_RE.subn("", text)
-    if n != 1:
-        raise RenderError(
-            f"expected exactly 1 diagramDrawing relationship in "
-            f"slide1.xml.rels, found {n}. Seed may be corrupt."
-        )
-    return new_text.encode("utf-8")
-
-
-def _load_builder_module(entry: dict[str, Any]):
-    """Dynamically import the builder module for a catalog entry."""
-    module_name = entry["builder_module"]
-    try:
-        return importlib.import_module(module_name)
-    except ImportError as exc:
-        raise RenderError(
-            f"cannot import builder module {module_name!r} "
-            f"for layout {entry['id']!r}: {exc}"
-        ) from exc
-
-
-def _count_nodes_in_data_xml(xml_bytes: bytes) -> int:
-    """Count the untyped <dgm:pt> elements (regular + asst data nodes).
-
-    Doc, parTrans, and sibTrans points all have `type=` attributes.
-    Only regular nodes and assistant nodes are the user-facing data
-    nodes we want to report in RenderResult.node_count.
-    """
-    text = xml_bytes.decode("utf-8")
-    # Untyped: <dgm:pt modelId="..."> with no type= attribute, or
-    # explicitly type="asst" (assistants count as data nodes).
+def _count_data_nodes(data_xml: bytes) -> int:
+    """Count the untyped <dgm:pt> elements (regular + asst data nodes)."""
+    import re
+    text = data_xml.decode("utf-8")
     total = 0
-    for match in re.finditer(r'<dgm:pt modelId="[^"]+"([^>]*)>', text):
-        attrs = match.group(1)
+    for m in re.finditer(r'<dgm:pt modelId="[^"]+"([^>]*)>', text):
+        attrs = m.group(1)
         if "type=" not in attrs:
             total += 1
         elif 'type="asst"' in attrs:
@@ -127,65 +111,55 @@ def render(
     output_dir: str | Path,
     output_name: str | None = None,
 ) -> RenderResult:
-    """Render a pptx_native SmartArt graphic to an editable .pptx file.
-
-    Args:
-        spec: Dict with the following required keys:
-            - graphic_type (str): A graphic type the catalog knows how
-              to back. Looked up via catalog.get_layout_id_for_graphic_type.
-            - data (dict): Extracted data in the shape the chosen
-              layout's builder expects. For process1 this is
-              `{"steps": [...]}`.
-          Optional keys:
-            - slide_number (int): For filename disambiguation in
-              output_name.
-        output_dir: Directory to write the output file to. Created if
-            it doesn't exist.
-        output_name: Optional override for the output filename. Defaults
-            to `pptx_native_<layout_id>_slide<n>.pptx` (or
-            `pptx_native_<layout_id>.pptx` if no slide number).
-
-    Returns:
-        RenderResult describing the output.
-
-    Raises:
-        RenderError: If spec is invalid, the layout is unsupported, the
-            seed is missing, or any of the surgical mutations fail.
-        The underlying layout builder may also raise its own error
-        subclass (e.g. ProcessBuildError) — those propagate up to the
-        caller unchanged.
-    """
-    # 1. Parse + validate the spec shape.
+    """Render a pptx_native SmartArt graphic to an editable .pptx file."""
     if "graphic_type" not in spec:
         raise RenderError("spec is missing required key 'graphic_type'")
     if "data" not in spec:
         raise RenderError("spec is missing required key 'data'")
 
     graphic_type = spec["graphic_type"]
-    layout_id = catalog.get_layout_id_for_graphic_type(graphic_type)
+
+    # Allow caller to request a specific layout_id explicitly; otherwise
+    # use the catalog's first match for the graphic_type.
+    layout_id = spec.get("layout_id")
+    if layout_id is None:
+        layout_id = catalog.get_layout_id_for_graphic_type(graphic_type)
     if layout_id is None:
         raise RenderError(
             f"no pptx_native layout supports graphic_type {graphic_type!r}. "
             f"The extractor should not have routed this to pptx_native."
         )
 
-    entry = catalog.get_entry(layout_id)
-    seed_path = catalog.resolve_seed_path(entry)
-    if not seed_path.exists():
+    try:
+        entry = catalog.get_entry(layout_id)
+    except catalog.CatalogError as exc:
+        raise RenderError(str(exc)) from exc
+
+    layout_dir = catalog.resolve_layout_dir(entry)
+    if not layout_dir.exists():
         raise RenderError(
-            f"seed file missing for layout {layout_id!r}: {seed_path}"
+            f"layout_dir missing for {layout_id!r}: {layout_dir}. "
+            f"Run tools/extract_smartart_layouts.py to populate fixtures."
         )
 
-    # 2. Dispatch to the layout builder.
-    builder = _load_builder_module(entry)
-    if not hasattr(builder, "build_data_model"):
+    # Read the three opaque XML parts from the fixture directory
+    try:
+        layout_xml = (layout_dir / "layout.xml").read_bytes()
+        quickstyle_xml = (layout_dir / "quickStyle.xml").read_bytes()
+        colors_xml = (layout_dir / "colors.xml").read_bytes()
+    except FileNotFoundError as exc:
         raise RenderError(
-            f"builder module {entry['builder_module']} has no "
-            f"build_data_model() function"
-        )
-    new_data_bytes = builder.build_data_model(spec["data"])
+            f"layout directory {layout_dir} is missing a required file: {exc}"
+        ) from exc
 
-    # 3. Compute output path.
+    # Dispatch to the generic builder for this data_shape
+    data_shape = entry["data_shape"]
+    try:
+        data_xml = builders.build(data_shape, spec["data"], entry)
+    except builders.UnsupportedDataShapeError as exc:
+        raise RenderError(str(exc)) from exc
+
+    # Compute output path
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -199,49 +173,31 @@ def render(
     if output_path.exists():
         output_path.unlink()
 
-    # 4. Copy the seed and apply the four surgical mutations.
-    with zipfile.ZipFile(seed_path, "r") as zin, zipfile.ZipFile(
-        output_path, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
-        patched = {"data": False, "content_types": False, "slide_rels": False}
+    # Build the carrier .pptx from scratch — no seed file needed
+    with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zout:
+        # Package parts
+        zout.writestr("[Content_Types].xml", _CONTENT_TYPES)
+        zout.writestr("_rels/.rels", _ROOT_RELS)
+        zout.writestr("ppt/presentation.xml", _PRESENTATION_XML)
+        zout.writestr("ppt/_rels/presentation.xml.rels", _PRESENTATION_RELS)
+        zout.writestr("ppt/theme/theme1.xml", _THEME_XML)
+        zout.writestr("ppt/slideMasters/slideMaster1.xml", _SLIDE_MASTER_XML)
+        zout.writestr("ppt/slideMasters/_rels/slideMaster1.xml.rels", _SLIDE_MASTER_RELS)
+        zout.writestr("ppt/slideLayouts/slideLayout1.xml", _SLIDE_LAYOUT_XML)
+        zout.writestr("ppt/slideLayouts/_rels/slideLayout1.xml.rels", _SLIDE_LAYOUT_RELS)
+        zout.writestr("ppt/slides/slide1.xml", _SLIDE_XML)
+        zout.writestr("ppt/slides/_rels/slide1.xml.rels", _SLIDE_RELS)
+        # Diagram parts — layout-specific
+        zout.writestr("ppt/diagrams/data1.xml", data_xml)
+        zout.writestr("ppt/diagrams/layout1.xml", layout_xml)
+        zout.writestr("ppt/diagrams/quickStyle1.xml", quickstyle_xml)
+        zout.writestr("ppt/diagrams/colors1.xml", colors_xml)
+        # NB: drawing1.xml deliberately NOT written — PowerPoint regenerates
+        # the presentation tree from layout1.xml on first open.
 
-        for item in zin.infolist():
-            name = item.filename
-
-            if name == "ppt/diagrams/drawing1.xml":
-                # Drop the cached drawing — PowerPoint regenerates.
-                continue
-
-            if name == "ppt/diagrams/data1.xml":
-                zout.writestr(item, new_data_bytes)
-                patched["data"] = True
-                continue
-
-            if name == "[Content_Types].xml":
-                zout.writestr(item, _strip_drawing_override(zin.read(name)))
-                patched["content_types"] = True
-                continue
-
-            if name == "ppt/slides/_rels/slide1.xml.rels":
-                zout.writestr(item, _strip_drawing_rel(zin.read(name)))
-                patched["slide_rels"] = True
-                continue
-
-            # Pass-through for all other files (layout1, quickStyle1,
-            # colors1, slide1, theme, etc.).
-            zout.writestr(item, zin.read(name))
-
-        missing = [k for k, v in patched.items() if not v]
-        if missing:
-            raise RenderError(
-                f"seed {seed_path.name} is missing expected parts: {missing}. "
-                "Seed may be from a different PowerPoint version or corrupt."
-            )
-
-    # 5. Return structured result.
     return RenderResult(
         output_path=output_path,
         layout_id=layout_id,
         layout_uri=entry["layout_uri"],
-        node_count=_count_nodes_in_data_xml(new_data_bytes),
+        node_count=_count_data_nodes(data_xml),
     )

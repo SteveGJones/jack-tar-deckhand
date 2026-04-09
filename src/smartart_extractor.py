@@ -167,52 +167,53 @@ def _body_points_to_tree(body_points):
     return root
 
 
+_PPTX_NATIVE_HIERARCHICAL_TYPES = {"org_chart", "hierarchy"}
+_PPTX_NATIVE_FLAT_TYPES = {
+    "flowchart",
+    "cycle",
+    "list",
+    "chevron_list",
+    "matrix",
+    "pyramid",
+    "venn",
+    "pipeline_funnel",
+    "target",
+}
+
+
 def _extract_pptx_native(body_points, graphic_type):
-    """Build the data shape the pptx_native engine's layout builder expects.
+    """Build the data shape the pptx_native engine's generic builders expect.
 
-    For each graphic type backed by a pptx_native layout, this function
-    emits the data structure that the corresponding layout builder (e.g.
-    src.smartart_pptx_native.layouts.process.build_data_model) consumes.
+    All flat-list layouts (process, cycle, list, chevron, matrix,
+    pyramid, venn, funnel, target) use the canonical `{"items": [...]}`
+    shape — the flat_list builder accepts it directly. Legacy keys
+    (`steps`, `stages`) from Phase 1-7 are still accepted by the
+    builder for backward compatibility.
 
-    v1 mapping:
-        flowchart   → process1  → {"steps": [list of cleaned labels]}
-        cycle       → cycle2    → {"stages": [list of cleaned labels]}
-        org_chart   → orgChart1 → {"tree": {"title": ..., "children": [...]}}
-
-    Label cleaning mirrors _clean_label used elsewhere — strips
-    Mermaid-unsafe characters and leading/trailing whitespace.
-
-    For org_chart, body_points are parsed as indentation-delimited
-    tree (2-space indent per level). A line ending with ' (asst)' or
-    ' [asst]' becomes an assistant node.
+    All hierarchical layouts (org_chart, hierarchy) use the canonical
+    `{"tree": {...}}` shape. body_points is parsed as
+    indentation-delimited tree (2-space indent per level). A line
+    ending with ' (asst)' or ' [asst]' becomes an assistant node —
+    only meaningful for orgChart1 which supports the asst node type.
 
     Args:
         body_points: Raw body_points strings from the slide outline.
-        graphic_type: The graphic_type from the selection — determines
-            which layout's data shape to produce.
+        graphic_type: The graphic_type from the selection.
 
     Returns:
         Dict with 'engine' set to 'pptx_native', 'graphic_type', and
-        a 'data' key containing the layout-specific shape. On
-        unsupported graphic_type, falls back to a generic items list.
+        a 'data' key containing the shape-appropriate structure.
     """
     cleaned_labels = [_clean_label(p) for p in body_points if _clean_label(p)]
 
-    if graphic_type == 'flowchart':
+    if graphic_type in _PPTX_NATIVE_FLAT_TYPES:
         return {
             'engine': 'pptx_native',
             'graphic_type': graphic_type,
-            'data': {'steps': cleaned_labels},
+            'data': {'items': cleaned_labels},
         }
 
-    if graphic_type == 'cycle':
-        return {
-            'engine': 'pptx_native',
-            'graphic_type': graphic_type,
-            'data': {'stages': cleaned_labels},
-        }
-
-    if graphic_type == 'org_chart':
+    if graphic_type in _PPTX_NATIVE_HIERARCHICAL_TYPES:
         tree = _body_points_to_tree(body_points)
         if tree is None:
             # Fallback if we couldn't parse the indentation — use
@@ -230,9 +231,9 @@ def _extract_pptx_native(body_points, graphic_type):
             'data': {'tree': tree},
         }
 
-    # timeline mapping deferred pending basicTimeline1 seed authoring.
-
     # Unsupported graphic_type — fall through with a generic items list.
+    # The engine will fail to find a matching layout and return
+    # status='failed' via the catalog lookup.
     return {
         'engine': 'pptx_native',
         'graphic_type': graphic_type,
