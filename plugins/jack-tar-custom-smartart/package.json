@@ -1,0 +1,12 @@
+{
+  "name": "jack-tar-custom-smartart",
+  "version": "1.0.0",
+  "description": "Custom SmartArt graphics — SVG, Mermaid, Vega-Lite, charts",
+  "license": "MIT",
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "^11.12.0",
+    "vega": "^6.2.0",
+    "vega-cli": "^6.2.0",
+    "vega-lite": "^6.4.2"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "jack-tar-deckhand",
+  "version": "1.0.0",
+  "description": "Full presentation engineering pipeline",
+  "license": "MIT",
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  }
+}

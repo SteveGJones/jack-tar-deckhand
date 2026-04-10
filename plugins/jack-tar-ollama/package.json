@@ -1,0 +1,9 @@
+{
+  "name": "jack-tar-ollama",
+  "version": "1.0.0",
+  "description": "Local AI image generation via Ollama",
+  "license": "MIT",
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  }
+}

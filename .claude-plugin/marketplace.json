@@ -1,0 +1,39 @@
+{
+  "name": "jack-tar",
+  "description": "Conference-quality presentation engineering for Claude Code",
+  "owner": {
+    "name": "Steve Jones"
+  },
+  "plugins": [
+    {
+      "name": "jack-tar-ollama",
+      "description": "Local AI image generation via Ollama — images, icons, patterns, diagrams, and quick presentations",
+      "source": "./plugins/jack-tar-ollama",
+      "version": "1.0.0"
+    },
+    {
+      "name": "jack-tar-cloud",
+      "description": "Cloud AI image generation — OpenAI, Google, FAL.ai, Recraft with smart provider routing",
+      "source": "./plugins/jack-tar-cloud",
+      "version": "1.0.0"
+    },
+    {
+      "name": "jack-tar-msft-smartart",
+      "description": "Editable PowerPoint SmartArt graphics — 29 layouts, speakers can modify after delivery",
+      "source": "./plugins/jack-tar-msft-smartart",
+      "version": "1.0.0"
+    },
+    {
+      "name": "jack-tar-custom-smartart",
+      "description": "Data visualisation and custom graphics — SVG, Mermaid, Vega-Lite, matplotlib charts",
+      "source": "./plugins/jack-tar-custom-smartart",
+      "version": "1.0.0"
+    },
+    {
+      "name": "jack-tar-deckhand",
+      "description": "Full presentation pipeline — brand, style, narrative, images, SmartArt, assembly, QA",
+      "source": "./plugins/jack-tar-deckhand",
+      "version": "1.0.0"
+    }
+  ]
+}
