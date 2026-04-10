@@ -99,6 +99,9 @@ def make_node_pt(
     text: str,
     is_asst: bool = False,
     image_rel_id: str | None = None,
+    image_fill_mode: str = "fit",
+    image_aspect_ratio: float | None = None,
+    box_aspect_ratio: float = 0.5,
 ) -> str:
     """Return the XML fragment for a data node (regular or assistant).
 
@@ -129,19 +132,63 @@ def make_node_pt(
         #       <a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"/>
         #     </a:blipFill>
         #   </dgm:spPr>
-        # Picture SmartArt image binding. Use <a:stretch> (not <a:tile>)
-        # so the image fills the picture placeholder rectangle rather than
-        # tiling as a background behind text. Validated by spike 6b
-        # iteration: <a:tile> caused images to appear behind text;
-        # <a:stretch><a:fillRect/></a:stretch> places them in the pictRect.
-        sp_pr = (
-            '<dgm:spPr bwMode="auto">'
-            '<a:blipFill>'
-            f'<a:blip xmlns:r="{NSMAP["r"]}" r:embed="{image_rel_id}"/>'
-            '<a:stretch><a:fillRect/></a:stretch>'
-            '</a:blipFill>'
-            '</dgm:spPr>'
-        )
+        # Picture SmartArt image binding with configurable fill mode.
+        #
+        # Four modes available (OOXML a:blipFill):
+        #   "crop"    — scale to cover the box, crop overflow (preserves
+        #               aspect ratio). PowerPoint's "Fill" mode. Best default.
+        #   "stretch" — stretch to exactly fill the box (may distort aspect ratio)
+        #   "center"  — place image at original size, centered in the box
+        #   "tile"    — tile the image across the shape surface
+        blip_elem = f'<a:blip xmlns:r="{NSMAP["r"]}" r:embed="{image_rel_id}"/>'
+
+        # Fill mode for Picture SmartArt images. Reverse-engineered from
+        # PowerPoint Mac's "Format Shape → Picture → Fit/Fill" output.
+        #
+        # PowerPoint uses:
+        #   dpi="0" rotWithShape="0" + <a:srcRect/> as common attributes
+        #   Positive fillRect insets = FIT (letterbox, preserve aspect)
+        #   Negative fillRect insets = FILL (scale to cover, crop overflow)
+        #   Zero insets = STRETCH (distorts aspect ratio)
+        #
+        # Inset calculation requires image aspect ratio vs box aspect ratio.
+        # image_aspect_ratio = width/height of the source image
+        # box_aspect_ratio = width/height of the target layout shape
+
+        blip_elem = f'<a:blip xmlns:r="{NSMAP["r"]}" r:embed="{image_rel_id}"/>'
+
+        if image_fill_mode == "stretch":
+            fill_xml = f'{blip_elem}<a:stretch><a:fillRect/></a:stretch>'
+            sp_pr = f'<dgm:spPr bwMode="auto"><a:blipFill rotWithShape="0">{fill_xml}</a:blipFill></dgm:spPr>'
+        elif image_fill_mode == "tile":
+            fill_xml = f'{blip_elem}<a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="ctr"/>'
+            sp_pr = f'<dgm:spPr bwMode="auto"><a:blipFill rotWithShape="0">{fill_xml}</a:blipFill></dgm:spPr>'
+        elif image_fill_mode == "fill":
+            # FILL: scale to cover, crop overflow. Negative insets.
+            img_ar = image_aspect_ratio or 1.0
+            box_ar = box_aspect_ratio or 0.5
+            if img_ar > box_ar:
+                # Image wider than box → crop left/right
+                excess = int(((img_ar / box_ar) - 1) / 2 * 100000)
+                fill_rect = f'<a:fillRect l="-{excess}" r="-{excess}"/>'
+            else:
+                # Image taller than box → crop top/bottom
+                excess = int(((box_ar / img_ar) - 1) / 2 * 100000)
+                fill_rect = f'<a:fillRect t="-{excess}" b="-{excess}"/>'
+            sp_pr = f'<dgm:spPr bwMode="auto"><a:blipFill dpi="0" rotWithShape="0">{blip_elem}<a:srcRect/><a:stretch>{fill_rect}</a:stretch></a:blipFill></dgm:spPr>'
+        else:  # "fit" (default)
+            # FIT: scale to fit inside box, letterbox. Positive insets.
+            img_ar = image_aspect_ratio or 1.0
+            box_ar = box_aspect_ratio or 0.5
+            if img_ar > box_ar:
+                # Image wider than box → add left/right margins
+                margin = int((1 - box_ar / img_ar) / 2 * 100000)
+                fill_rect = f'<a:fillRect l="{margin}" r="{margin}"/>'
+            else:
+                # Image taller than box → add top/bottom margins
+                margin = int((1 - img_ar / box_ar) / 2 * 100000)
+                fill_rect = f'<a:fillRect t="{margin}" b="{margin}"/>'
+            sp_pr = f'<dgm:spPr bwMode="auto"><a:blipFill dpi="0" rotWithShape="0">{blip_elem}<a:srcRect/><a:stretch>{fill_rect}</a:stretch></a:blipFill></dgm:spPr>'
     else:
         sp_pr = "<dgm:spPr/>"
 

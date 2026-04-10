@@ -32,8 +32,8 @@
 | **Hierarchy 6** (`hierarchy6`) | Hierarchy | `hierarchical` | 25 | 32 | `hierarchy` |
 | **Horizontal List 6** (`hList6`) | List | `flat_list` | 8 | 30 | `list` |
 | **Vertical List 2** (`vList2`) | List | `flat_list` | 8 | 30 | `list` |
-| **Vertical List 3** (`vList3`) | List | `flat_list` | 8 | 30 | `list` |
-| **Vertical List 4** (`vList4`) | List | `flat_list` | 8 | 30 | `list` |
+| **Vertical List 3** (`vList3`) | List | `picture` | 8 | 30 | `list` |
+| **Vertical List 4** (`vList4`) | List | `picture` | 8 | 30 | `list` |
 | **Vertical List 5** (`vList5`) | List | `flat_list` | 8 | 30 | `list` |
 | **Three-Circle Venn** (`venn3`) | Relationship | `flat_list` | 8 | 28 | `venn` |
 | **Basic Funnel** (`funnel1`) | Relationship | `flat_list` | 8 | 28 | `pipeline_funnel` |
@@ -994,7 +994,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Category:** List
 - **Engine:** `pptx_native`
 - **Layout URI:** `urn:microsoft.com/office/officeart/2005/8/layout/vList3`
-- **Data shape:** `flat_list`
+- **Data shape:** `picture`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 30 chars per label
 - **Layout directory:** `tests/fixtures/smartart_layouts/vList3`
@@ -1039,7 +1039,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Category:** List
 - **Engine:** `pptx_native`
 - **Layout URI:** `urn:microsoft.com/office/officeart/2005/8/layout/vList4#1`
-- **Data shape:** `flat_list`
+- **Data shape:** `picture`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 30 chars per label
 - **Layout directory:** `tests/fixtures/smartart_layouts/vList4`

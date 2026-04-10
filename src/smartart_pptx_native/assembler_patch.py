@@ -297,21 +297,50 @@ def part_to_filename(part: str, diagram_number: int) -> str:
     return f"{part}{diagram_number}.xml"
 
 
-def _read_carrier_diagram_parts(carrier_pptx: Path) -> dict[str, bytes]:
-    """Read the four diagram parts from a pptx_native carrier .pptx."""
+@dataclass
+class CarrierContents:
+    """Everything extracted from a pptx_native carrier .pptx."""
+
+    diagram_parts: dict[str, bytes]  # data, layout, quickStyle, colors
+    media_files: dict[str, bytes]    # ppt/media/imageN.ext → bytes
+    data_rels: bytes | None          # ppt/diagrams/_rels/data1.xml.rels (if present)
+
+
+def _read_carrier(carrier_pptx: Path) -> CarrierContents:
+    """Read diagram parts, media files, and data rels from a carrier."""
     if not carrier_pptx.exists():
         raise InjectionError(f"carrier .pptx missing: {carrier_pptx}")
-    parts: dict[str, bytes] = {}
+
+    diagram_parts: dict[str, bytes] = {}
+    media_files: dict[str, bytes] = {}
+    data_rels: bytes | None = None
+
     with zipfile.ZipFile(carrier_pptx, "r") as z:
         for part in ("data", "layout", "quickStyle", "colors"):
             name = f"ppt/diagrams/{part}1.xml"
             try:
-                parts[part] = z.read(name)
+                diagram_parts[part] = z.read(name)
             except KeyError:
                 raise InjectionError(
                     f"carrier {carrier_pptx.name} missing {name}"
                 )
-    return parts
+
+        # Read media files (for Picture SmartArt with embedded images)
+        for name in z.namelist():
+            if name.startswith("ppt/media/") and not name.endswith("/"):
+                media_files[name] = z.read(name)
+
+        # Read diagram data rels (image relationships)
+        try:
+            data_rels = z.read("ppt/diagrams/_rels/data1.xml.rels")
+        except KeyError:
+            data_rels = None
+
+    return CarrierContents(
+        diagram_parts=diagram_parts,
+        media_files=media_files,
+        data_rels=data_rels,
+    )
 
 
 def inject(
@@ -378,8 +407,8 @@ def inject(
             )
         offset, extents = xfrm
 
-        # Read carrier diagram parts
-        carrier_parts = _read_carrier_diagram_parts(req.carrier_pptx)
+        # Read carrier contents (diagram parts + media files + data rels)
+        carrier = _read_carrier(req.carrier_pptx)
 
         # Allocate diagram number + rIds
         diagram_number = _next_free_diagram_number(names)
@@ -421,10 +450,41 @@ def inject(
         contents[slide_rels_name] = new_slide_rels_xml.encode("utf-8")
         contents["[Content_Types].xml"] = new_ct_xml.encode("utf-8")
 
-        for part, part_bytes in carrier_parts.items():
+        for part, part_bytes in carrier.diagram_parts.items():
             filename = f"ppt/diagrams/{part_to_filename(part, diagram_number)}"
             contents[filename] = part_bytes
             names.add(filename)
+
+        # Copy media files from carrier (for Picture SmartArt with images)
+        if carrier.media_files:
+            for media_name, media_bytes in carrier.media_files.items():
+                # media_name is e.g. "ppt/media/image1.png" — keep as-is
+                # since each carrier has its own image numbering and the
+                # data rels reference them by relative path from diagrams/
+                contents[media_name] = media_bytes
+                names.add(media_name)
+
+            # Add image content type defaults if not present
+            for media_name in carrier.media_files:
+                ext = media_name.rsplit(".", 1)[-1].lower()
+                mime = {"png": "image/png", "jpg": "image/jpeg",
+                        "jpeg": "image/jpeg", "gif": "image/gif"}.get(ext)
+                if mime:
+                    ct_check = f'Extension="{ext}"'
+                    if ct_check not in new_ct_xml:
+                        new_ct_xml = new_ct_xml.replace(
+                            "</Types>",
+                            f'<Default Extension="{ext}" ContentType="{mime}"/></Types>',
+                        )
+
+        # Copy diagram data rels (image relationships for Picture SmartArt)
+        if carrier.data_rels:
+            data_rels_name = f"ppt/diagrams/_rels/{part_to_filename('data', diagram_number)}.rels"
+            contents[data_rels_name] = carrier.data_rels
+            names.add(data_rels_name)
+
+        # Re-write content types after media additions
+        contents["[Content_Types].xml"] = new_ct_xml.encode("utf-8")
 
         results.append(InjectionResult(
             slide_number=req.slide_number,

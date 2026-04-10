@@ -102,7 +102,11 @@ def _extract_items(
             if image_path is not None:
                 image_path = str(image_path)
                 has_images = True
-            items.append({"label": label.strip(), "image_path": image_path})
+            fill_mode = item.get("image_fill_mode")
+            entry_dict = {"label": label.strip(), "image_path": image_path}
+            if fill_mode:
+                entry_dict["image_fill_mode"] = fill_mode
+            items.append(entry_dict)
         else:
             raise PictureBuildError(
                 f"items must be strings or dicts, got {type(item).__name__}"
@@ -210,7 +214,24 @@ def build(
             next_image_rid += 1
 
             # Child node: blipFill in spPr, empty text body
-            pts.append(data_model.make_node_pt(img_id, "", image_rel_id=rel_id))
+            fill_mode = item.get("image_fill_mode", "fit")
+
+            # Compute image aspect ratio for correct fit/fill insets
+            img_ar = 1.0  # default square
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(image_path) as img:
+                    w, h = img.size
+                    img_ar = w / h if h > 0 else 1.0
+            except Exception:
+                pass
+
+            pts.append(data_model.make_node_pt(
+                img_id, "",
+                image_rel_id=rel_id,
+                image_fill_mode=fill_mode,
+                image_aspect_ratio=img_ar,
+            ))
             pts.append(data_model.make_par_trans(img_par))
             pts.append(data_model.make_sib_trans(img_sib))
             # Connect child to parent (not to doc)

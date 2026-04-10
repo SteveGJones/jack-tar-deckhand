@@ -152,6 +152,7 @@ SLIDES = [
         "engine": "pptx_native",
         "layout_id": "vList4",
         "graphic_type": "list",
+        "principle_images": True,
     },
     {
         "slide_number": 10,
@@ -194,6 +195,7 @@ SLIDES = [
         "engine": "pptx_native",
         "layout_id": "pList1",
         "graphic_type": "picture_list",
+        "team_images": True,  # flag for the builder to use generated headshots
     },
     {
         "slide_number": 14,
@@ -331,12 +333,15 @@ def build_deck_context(deck_dir: Path) -> Path:
     (deck_dir / "chart-manifest.json").write_text(json.dumps({"charts": []}, indent=2))
 
     # --- image-manifest.json ---
-    # Background slides need image entries; SmartArt slides don't
+    # Background slides need image entries; SmartArt slides don't.
+    # If real AI-generated images already exist (from a prior cloud
+    # generation run), DON'T overwrite them with placeholders.
     image_manifest = {"generated_at": "2026-04-09T00:00:00Z", "images": []}
     for s in SLIDES:
         if s["strategy"] == "full_render":
             img_path = deck_dir / "images" / f"slide{s['slide_number']}-hero.png"
-            _create_placeholder_image(img_path, color=(30, 30, 60))
+            if not img_path.exists() or img_path.stat().st_size < 50000:
+                _create_placeholder_image(img_path, color=(30, 30, 60))
             image_manifest["images"].append({
                 "image_id": f"img-slide-{s['slide_number']}",
                 "slide_number": s["slide_number"],
@@ -347,7 +352,8 @@ def build_deck_context(deck_dir: Path) -> Path:
             })
         elif s["strategy"] == "background":
             img_path = deck_dir / "images" / f"slide{s['slide_number']}-bg.png"
-            _create_placeholder_image(img_path, color=(40, 50, 70))
+            if not img_path.exists() or img_path.stat().st_size < 50000:
+                _create_placeholder_image(img_path, color=(40, 50, 70))
             image_manifest["images"].append({
                 "image_id": f"img-slide-{s['slide_number']}",
                 "slide_number": s["slide_number"],
@@ -359,7 +365,8 @@ def build_deck_context(deck_dir: Path) -> Path:
         elif s.get("enrichment_tier") == "ai_background":
             # SmartArt slide with background enrichment
             img_path = deck_dir / "images" / f"slide{s['slide_number']}-bg.png"
-            _create_placeholder_image(img_path, color=(60, 40, 30))
+            if not img_path.exists() or img_path.stat().st_size < 50000:
+                _create_placeholder_image(img_path, color=(60, 40, 30))
             image_manifest["images"].append({
                 "image_id": f"img-slide-{s['slide_number']}",
                 "slide_number": s["slide_number"],
@@ -379,7 +386,7 @@ def build_deck_context(deck_dir: Path) -> Path:
     catalog.load_catalog.cache_clear()
 
     smartart_manifest = {"generated_at": "2026-04-09T00:00:00Z", "graphics": []}
-    carriers_dir = deck_dir / "carriers"
+    carriers_dir = (deck_dir / "carriers").resolve()
     carriers_dir.mkdir(exist_ok=True)
 
     for s in SLIDES:
@@ -402,6 +409,39 @@ def build_deck_context(deck_dir: Path) -> Path:
                 labels = [bp.strip() for bp in s["body_points"] if bp.strip()]
                 tree = {"title": labels[0], "children": [{"title": l} for l in labels[1:]]}
             spec_data = {"tree": tree}
+        elif data_shape == "picture" and s.get("principle_images"):
+            # Principle cards with generated icons — each using a
+            # different fill mode to showcase the four OOXML options
+            images_dir = (deck_dir / "images").resolve()
+            principle_files = [
+                ("Ship small, iterate fast", str(images_dir / "slide9-principle1.png")),
+                ("Fail forward, not backward", str(images_dir / "slide9-principle2.png")),
+                ("Test everything automatically", str(images_dir / "slide9-principle3.png")),
+                ("Trust the speaker", str(images_dir / "slide9-principle4.png")),
+            ]
+            spec_data = {
+                "items": [
+                    {"label": label, "image_path": img_path}
+                    for label, img_path in principle_files
+                    if Path(img_path).exists()
+                ] or [bp.strip() for bp in s["body_points"] if bp.strip()]
+            }
+        elif data_shape == "picture" and s.get("team_images"):
+            # Picture list with generated headshot images
+            images_dir = (deck_dir / "images").resolve()
+            team_image_files = [
+                ("Platform Lead", str(images_dir / "slide13-team1.png")),
+                ("AI Architect", str(images_dir / "slide13-team2.png")),
+                ("UX Designer", str(images_dir / "slide13-team3.png")),
+                ("QA Engineer", str(images_dir / "slide13-team4.png")),
+            ]
+            spec_data = {
+                "items": [
+                    {"label": label, "image_path": img_path}
+                    for label, img_path in team_image_files
+                    if Path(img_path).exists()
+                ] or [bp.strip() for bp in s["body_points"] if bp.strip()]
+            }
         else:
             # Flat list
             labels = [bp.strip() for bp in s["body_points"] if bp.strip()]
