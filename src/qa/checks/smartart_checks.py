@@ -1,14 +1,29 @@
-"""SmartArt QA checks: SA-01 to SA-05.
+"""SmartArt QA checks: SA-01 to SA-08.
 
-Implements five quality gates for SmartArt graphics:
+Implements eight quality gates for SmartArt graphics. Checks SA-01
+through SA-05 validate rasterised SmartArt (custom_svg / mermaid /
+vega_lite engines) against SVG content and enrichment manifests.
+Checks SA-06 through SA-08 validate pptx_native SmartArt by
+inspecting the assembled deck .pptx file structure.
+
   SA-01: Data integrity — body_points covered by SmartArtSpec data
   SA-02: Label legibility — font size thresholds + WCAG contrast
   SA-03: Enrichment alignment — enrichment images present and dimensions matched
   SA-04: Overflow handling — truncation indicator present when overflow applied
   SA-05: Accessibility — <title>, <desc>, alt_text, aria attributes
+  SA-06: Diagram parts present — ppt/diagrams/data{N}.xml,
+         layout{N}.xml, quickStyle{N}.xml, colors{N}.xml exist in
+         the assembled .pptx for each pptx_native entry
+  SA-07: Slide references diagram — the target slide's XML contains
+         a <p:graphicFrame> with <dgm:relIds> pointing at all four
+         diagram parts; no orphaned placeholder rects left behind
+  SA-08: No stale drawing cache — ppt/diagrams/drawing{N}.xml does
+         NOT exist, so PowerPoint regenerates from layout{N}.xml
 """
 
 import re
+import zipfile
+from pathlib import Path
 
 from src.smartart_svg.tokens import _contrast_ratio
 
@@ -374,4 +389,219 @@ def check_accessibility(svg_content, manifest_entry, slide_number):
             ),
         })
 
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# SA-06 / SA-07 / SA-08: pptx_native post-assembly checks
+# ---------------------------------------------------------------------------
+#
+# These checks validate pptx_native SmartArt graphics by inspecting the
+# assembled deck .pptx file structure AFTER the Python post-process
+# (src.smartart_pptx_native.assembler_patch.inject) has run. They are
+# only meaningful for pptx_native entries — entries using the
+# rasterising engines (custom_svg/mermaid/vega_lite/matplotlib) are
+# skipped by check_pptx_native_integrity.
+#
+# The checks cannot verify "PowerPoint treats this as editable SmartArt"
+# — only opening in PowerPoint Mac can do that. They catch the most
+# common structural defects the post-process could produce:
+#
+#   SA-06: Missing a diagram part (e.g. injection partially applied)
+#   SA-07: Orphaned placeholder (post-process skipped the slide) OR
+#          graphic frame not pointing at the new rIds correctly
+#   SA-08: Stale drawing cache (engine or post-process bug left
+#          drawing{N}.xml in place, which PowerPoint would render
+#          instead of regenerating from layout{N}.xml)
+#
+# A deck with no pptx_native entries produces zero findings from
+# these checks.
+
+
+def _find_diagram_index_for_slide(pptx_zip, slide_number):
+    """Walk the slide's rels to find the diagram data rId, then follow
+    the Target to extract the diagram index (N in data{N}.xml).
+
+    Returns int N if the slide has a diagramData relationship, else None.
+    """
+    rels_name = f'ppt/slides/_rels/slide{slide_number}.xml.rels'
+    try:
+        rels_xml = pptx_zip.read(rels_name).decode('utf-8')
+    except KeyError:
+        return None
+    # Look for a diagramData relationship — the Target gives us the N
+    m = re.search(
+        r'<Relationship[^/]*Type="[^"]*diagramData"[^/]*Target="\.\./diagrams/data(\d+)\.xml"',
+        rels_xml,
+    )
+    if not m:
+        return None
+    return int(m.group(1))
+
+
+def check_pptx_native_integrity(pptx_path, smartart_manifest, slide_number):
+    """Run SA-06 / SA-07 / SA-08 for one pptx_native manifest entry.
+
+    Args:
+        pptx_path: Absolute path to the assembled deck .pptx (post
+            Phase 3.1 injection).
+        smartart_manifest: Parsed smartart-manifest.json dict. Only
+            entries with engine_used=='pptx_native' are checked.
+        slide_number: The slide number to check. Caller is expected to
+            iterate over all pptx_native entries in the manifest.
+
+    Returns:
+        list of finding dicts.
+    """
+    findings = []
+
+    # Find the manifest entry for this slide, if any, and verify it's pptx_native
+    entry = next(
+        (
+            g for g in smartart_manifest.get('graphics', [])
+            if g.get('slide_number') == slide_number
+            and g.get('engine_used') == 'pptx_native'
+        ),
+        None,
+    )
+    if entry is None:
+        # Not a pptx_native slide — nothing to check
+        return findings
+
+    pptx_path = Path(pptx_path)
+    if not pptx_path.exists():
+        findings.append({
+            'slide_number': slide_number,
+            'severity': 'error',
+            'category': 'smartart',
+            'description': (
+                f'SA-06: assembled deck .pptx not found at {pptx_path}'
+            ),
+        })
+        return findings
+
+    try:
+        with zipfile.ZipFile(pptx_path, 'r') as z:
+            names = set(z.namelist())
+            diagram_n = _find_diagram_index_for_slide(z, slide_number)
+
+            if diagram_n is None:
+                findings.append({
+                    'slide_number': slide_number,
+                    'severity': 'error',
+                    'category': 'smartart',
+                    'description': (
+                        'SA-07: slide has a pptx_native manifest entry but '
+                        'no diagram relationship in its slide rels file — '
+                        'the assembler_patch post-process did not run or '
+                        'skipped this slide'
+                    ),
+                })
+                return findings
+
+            # SA-06: all four diagram parts must exist for this diagram N
+            required_parts = [
+                f'ppt/diagrams/data{diagram_n}.xml',
+                f'ppt/diagrams/layout{diagram_n}.xml',
+                f'ppt/diagrams/quickStyle{diagram_n}.xml',
+                f'ppt/diagrams/colors{diagram_n}.xml',
+            ]
+            missing = [p for p in required_parts if p not in names]
+            if missing:
+                findings.append({
+                    'slide_number': slide_number,
+                    'severity': 'error',
+                    'category': 'smartart',
+                    'description': (
+                        f'SA-06: pptx_native diagram {diagram_n} is missing '
+                        f'{len(missing)} required part(s): {missing}'
+                    ),
+                })
+
+            # SA-07: slide XML must contain a graphicFrame referencing
+            # the diagram, and must NOT contain the original placeholder
+            # rect (it should have been removed during injection)
+            slide_xml = z.read(f'ppt/slides/slide{slide_number}.xml').decode('utf-8')
+
+            if f'pptx_native_placeholder_{slide_number}' in slide_xml:
+                findings.append({
+                    'slide_number': slide_number,
+                    'severity': 'error',
+                    'category': 'smartart',
+                    'description': (
+                        'SA-07: slide still contains the placeholder '
+                        f'shape "pptx_native_placeholder_{slide_number}" — '
+                        'the assembler_patch post-process should have '
+                        'removed it during injection'
+                    ),
+                })
+
+            if '<p:graphicFrame>' not in slide_xml:
+                findings.append({
+                    'slide_number': slide_number,
+                    'severity': 'error',
+                    'category': 'smartart',
+                    'description': (
+                        'SA-07: slide has a diagram relationship but no '
+                        '<p:graphicFrame> element — the injection was '
+                        'partially applied'
+                    ),
+                })
+            elif 'dgm:relIds' not in slide_xml:
+                findings.append({
+                    'slide_number': slide_number,
+                    'severity': 'error',
+                    'category': 'smartart',
+                    'description': (
+                        'SA-07: slide has a <p:graphicFrame> but no '
+                        '<dgm:relIds> binding inside it — the graphic '
+                        'frame is not wired to the diagram parts'
+                    ),
+                })
+
+            # SA-08: drawing cache must not exist for this diagram
+            drawing_part = f'ppt/diagrams/drawing{diagram_n}.xml'
+            if drawing_part in names:
+                findings.append({
+                    'slide_number': slide_number,
+                    'severity': 'error',
+                    'category': 'smartart',
+                    'description': (
+                        f'SA-08: stale drawing cache found at {drawing_part}. '
+                        'PowerPoint would render this cache instead of '
+                        'regenerating the diagram from layout{N}.xml. '
+                        'Delete the cache and the presentation tree will '
+                        'rebuild on first open.'
+                    ),
+                })
+    except (zipfile.BadZipFile, KeyError) as exc:
+        findings.append({
+            'slide_number': slide_number,
+            'severity': 'error',
+            'category': 'smartart',
+            'description': (
+                f'SA-06/07/08: failed to read assembled deck .pptx: {exc}'
+            ),
+        })
+
+    return findings
+
+
+def check_all_pptx_native_graphics(pptx_path, smartart_manifest):
+    """Run SA-06 / SA-07 / SA-08 across every pptx_native entry in the
+    manifest. Convenience wrapper for the QA runner.
+
+    Returns:
+        list of finding dicts across all pptx_native slides. Empty if
+        the manifest has no pptx_native entries.
+    """
+    findings = []
+    for entry in smartart_manifest.get('graphics', []):
+        if entry.get('engine_used') != 'pptx_native':
+            continue
+        findings.extend(check_pptx_native_integrity(
+            pptx_path=pptx_path,
+            smartart_manifest=smartart_manifest,
+            slide_number=entry['slide_number'],
+        ))
     return findings

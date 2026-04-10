@@ -41,7 +41,9 @@ Match content patterns to graphic types:
 
 | Content Pattern | Graphic Type | Engine |
 |---|---|---|
-| Sequential steps, processes, workflows | `flowchart` | mermaid |
+| Sequential steps, processes, workflows | `flowchart` | mermaid / pptx_native |
+| Iterative loops, feedback cycles | `cycle` | pptx_native |
+| Reporting hierarchies, org charts | `org_chart` | pptx_native |
 | Yes/No decisions, branching paths | `decision_tree` | mermaid |
 | Quantitative values by category | `bar_chart` | vega_lite |
 | Trends over time | `line_chart` | vega_lite |
@@ -61,6 +63,32 @@ These types can be rendered by two engines for comparison:
 - `bar_chart` / `line_chart` → comparator: `["vega_lite", "matplotlib"]`
 
 All other types have a single engine (no comparator).
+
+### pptx_native Engine — When to Recommend
+
+`pptx_native` is a fourth engine that produces **editable PowerPoint SmartArt graphics** (not rasterised images). The speaker can add/rename nodes and switch layouts directly in PowerPoint after delivery, which makes it the right choice for technical/corporate audiences who are likely to update diagrams between presentations.
+
+**Recommend pptx_native when ALL of these are true:**
+
+1. The graphic type is one of: `flowchart`, `cycle`, `org_chart` (the three v1 pptx_native layouts — `timeline` is deferred pending seed authoring)
+2. The proposed enrichment tier is `pure_programmatic` (T0). T1-T3 enrichment adds AI imagery that defeats editability
+3. The speaker's audience is likely to edit the deck after delivery (corporate, academic, training material)
+4. The content fits within per-layout capacity limits:
+   - `flowchart` → process1: 2-9 steps, max 24 chars per label
+   - `cycle` → cycle2: 3-8 stages, max 20 chars per label
+   - `org_chart` → orgChart1: 3-25 nodes, max 32 chars per label, max 4 levels deep
+5. The content does NOT need custom colour-coding beyond PowerPoint's default quickStyle (speaker can change colours after, but they'll start with the PowerPoint palette for that layout)
+
+**Do NOT recommend pptx_native when:**
+
+- The graphic is purely visual (hero images, section dividers)
+- The audience is consumer-facing (they don't open PowerPoint to edit)
+- The content has more nodes than the layout's max (extractor will fall back to `custom_svg` anyway)
+- The speaker has explicitly requested a specific visual style that PowerPoint's built-in quickStyle can't match
+
+**Trade-off vs custom_svg:** `custom_svg` gives total visual control but delivers a baked PNG — speakers cannot edit nodes. `pptx_native` gives editability but locks visual style to PowerPoint's layout palette. When both engines could work, include both as ranked options in your recommendations and let the narrative-architect decide based on audience context.
+
+**Authoritative source:** The `docs/pptx-native-smartart-catalog.md` file (auto-generated from `src/smartart_pptx_native/layouts/catalog.json`) documents each pptx_native layout's exact capacity, visual character, and when-to-use guidance. Read that file for the definitive per-layout metadata rather than restating it from memory.
 
 ## Enrichment Tier Selection
 

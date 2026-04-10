@@ -1453,7 +1453,62 @@ function buildSmartArtSlide(pptx, slideData, ctx) {
     const graphicXBacking = SLIDE_W * 0.125;
     const graphicWBacking = SLIDE_W * 0.75;
 
-    if (tier === 'full_ai_render') {
+    // pptx_native branch — the graphic is produced as an editable
+    // PowerPoint SmartArt diagram by a Python post-process step after
+    // this assembler finishes. We place a named placeholder rectangle
+    // that the post-process (assembler_patch.py) locates by name,
+    // captures its xfrm from, and replaces with a <p:graphicFrame>
+    // bound to the injected diagram parts.
+    //
+    // The placeholder name contract is PLACEHOLDER_NAME_PREFIX +
+    // slide_number (see src/smartart_pptx_native/assembler_patch.py).
+    if (saEntry.engine_used === 'pptx_native') {
+        // pptx_native with ai_background enrichment: add the atmospheric
+        // AI background image + semi-transparent backing BEFORE the
+        // placeholder rect. The Python post-process replaces the
+        // placeholder with a real SmartArt graphicFrame, giving the
+        // speaker editable SmartArt floating over an evocative background.
+        if (tier === 'ai_background') {
+            const bgImage = enrichmentImgs.find(i => i.smartart_ref === saEntry.smartart_id);
+            if (bgImage) {
+                const bgPath = resolveImagePath(bgImage.file_path);
+                if (fs.existsSync(bgPath)) {
+                    slide.addImage({
+                        path: bgPath,
+                        x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+                        sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+                        altText: 'Background',
+                    });
+                }
+            }
+            // Semi-transparent backing rectangle behind the SmartArt
+            const backingColor = palette.background || 'FFFFFF';
+            slide.addShape(pptx.ShapeType.rect, {
+                x: graphicXBacking, y: graphicY,
+                w: graphicWBacking, h: graphicH,
+                fill: { color: backingColor, transparency: 60 },
+            });
+        }
+
+        // The named placeholder rectangle for pptx_native injection.
+        // Position depends on enrichment: ai_background uses the
+        // narrower backing-zone position; pure_programmatic uses the
+        // wider contain-zone.
+        const useBackingZone = (tier === 'ai_background');
+        const placeholderName = `pptx_native_placeholder_${saEntry.slide_number}`;
+        slide.addShape(pptx.ShapeType.rect, {
+            x: useBackingZone ? graphicXBacking : graphicXContain,
+            y: graphicY,
+            w: useBackingZone ? graphicWBacking : graphicWContain,
+            h: graphicH,
+            fill: { color: 'F0F0F0' },  // light grey placeholder, replaced post-process
+            line: { color: 'CCCCCC', width: 1 },
+            objectName: placeholderName,
+            altText: saEntry.alt_text || slideData.headline || 'Editable SmartArt placeholder',
+        });
+        // Fall through to heading/footer/notes; skip the image-rendering
+        // branches below.
+    } else if (tier === 'full_ai_render') {
         // T3: full-bleed AI image — the graphic IS the entire slide
         const imgPath = resolveImagePath(saEntry.file_path);
         if (fs.existsSync(imgPath)) {

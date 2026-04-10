@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jack-tar-deckhand.local/schemas/pptx-native-smartart-catalog.schema.json",
+  "title": "pptx_native SmartArt Layout Catalog",
+  "description": "Structured description of every PowerPoint built-in SmartArt layout supported by the pptx_native engine. See spec §5. All layouts are extracted from the MIT-licensed dotnet/Open-XML-SDK test fixtures by tools/extract_smartart_layouts.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "entries"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Catalog schema version, semver-style (e.g. '2.0.0')."
+    },
+    "entries": {
+      "type": "array",
+      "description": "One object per supported layout.",
+      "items": {"$ref": "#/definitions/entry"}
+    }
+  },
+  "definitions": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "layout_uri",
+        "qs_type_id",
+        "cs_type_id",
+        "layout_dir",
+        "display_name",
+        "category",
+        "v1",
+        "engine",
+        "data_shape",
+        "node_type_capabilities",
+        "visual_character",
+        "min_nodes",
+        "max_nodes",
+        "max_label_chars",
+        "max_label_chars_rationale",
+        "when_to_use",
+        "when_not_to_use",
+        "selector_rationale_template",
+        "example_input",
+        "integration"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+          "description": "Stable identifier (e.g. 'process1'). Matches the layout's directory name under tests/fixtures/smartart_layouts/."
+        },
+        "layout_uri": {
+          "type": "string",
+          "pattern": "^urn:microsoft\\.com/office/officeart/.*/layout/[a-zA-Z][a-zA-Z0-9]*(#\\d+)?$",
+          "description": "Full OOXML layout URI (from the SDK fixture's data1.xml doc point). Written verbatim to the doc point at runtime."
+        },
+        "qs_type_id": {
+          "type": "string",
+          "pattern": "^urn:microsoft\\.com/office/officeart/.*/quickstyle/.*$",
+          "description": "Quick style URI. Written verbatim to the doc point."
+        },
+        "cs_type_id": {
+          "type": "string",
+          "pattern": "^urn:microsoft\\.com/office/officeart/.*/colors/.*$",
+          "description": "Color scheme URI. Written verbatim to the doc point."
+        },
+        "layout_dir": {
+          "type": "string",
+          "description": "Path (relative to repo root) to the directory containing layout.xml, quickStyle.xml, colors.xml, and meta.json. Produced by tools/extract_smartart_layouts.py."
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-friendly name shown in speaker-facing messaging."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Process", "Cycle", "Hierarchy", "Timeline", "List", "Relationship", "Matrix", "Pyramid", "Picture", "Other"],
+          "description": "PowerPoint SmartArt picker category."
+        },
+        "v1": {
+          "type": "boolean",
+          "description": "True if in v1 scope."
+        },
+        "engine": {
+          "type": "string",
+          "enum": ["pptx_native"],
+          "description": "Engine this entry belongs to. Always pptx_native in v1."
+        },
+        "data_shape": {
+          "type": "string",
+          "enum": ["flat_list", "hierarchical", "picture"],
+          "description": "Determines which generic builder handles the layout. flat_list covers process/cycle/list/matrix/pyramid/relationship; hierarchical covers org chart and hierarchy layouts; picture is deferred to a later phase."
+        },
+        "node_type_capabilities": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["asst"]},
+          "uniqueItems": true,
+          "description": "Special node types this layout supports beyond the default regular node. Only 'asst' is valid in v1 (for org chart assistant nodes)."
+        },
+        "visual_character": {
+          "type": "string",
+          "minLength": 10,
+          "description": "1-3 sentences describing the rendered appearance."
+        },
+        "min_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Minimum node count. Below this, extractor falls back to custom_svg."
+        },
+        "max_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum node count. Above this, extractor truncates or falls back."
+        },
+        "max_label_chars": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Per-node text length cap."
+        },
+        "max_label_chars_rationale": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Why the cap is what it is. For first-pass SDK-derived layouts, says 'first-pass default per category norms; refine after manual gate'."
+        },
+        "when_to_use": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 10},
+          "minItems": 1,
+          "description": "Narrative scenarios where this layout is the right choice."
+        },
+        "when_not_to_use": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 10},
+          "minItems": 1,
+          "description": "Anti-patterns."
+        },
+        "selector_rationale_template": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Template the selector uses when proposing this layout. Supports {n}/{first}/{last} placeholders for flat lists and {n}/{depth} for hierarchies."
+        },
+        "example_input": {
+          "type": "object",
+          "description": "Small input object for tests and the docs generator."
+        },
+        "integration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["smartart_type_mappings", "replaces_custom_svg_when"],
+          "properties": {
+            "smartart_type_mappings": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 1,
+              "description": "graphic_type values this layout can back."
+            },
+            "replaces_custom_svg_when": {
+              "type": "string",
+              "minLength": 20,
+              "description": "Human-readable condition under which selector should bias toward pptx_native vs custom_svg."
+            }
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "description": "Free-form layout-specific extras. Not used in v1."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "base_name": "pList1",
+  "category_hint": "List",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/pList1#1",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Graphics/5.9.3.7(unfinished).pptx",
+  "variant": "#1"
+}

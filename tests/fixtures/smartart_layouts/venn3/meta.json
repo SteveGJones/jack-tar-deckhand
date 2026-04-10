@@ -1,0 +1,9 @@
+{
+  "base_name": "venn3",
+  "category_hint": "Relationship",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/venn3#1",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#17",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/CompanyMtg_TP10167121.potx",
+  "variant": "#1"
+}
