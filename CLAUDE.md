@@ -29,7 +29,7 @@ This rule exists because visual review was skipped THREE TIMES across multiple c
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-04-08)
+### Current Status (2026-04-10)
 
 - **BSA Architecture:** v1.4.0, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
@@ -40,10 +40,10 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Create `research/synthesis-[skill-name].md` before implementing any skill
   - `research/report-1-landscape-and-spec.md` and `report-2-implementation-and-validation.md` are the pptx_native SmartArt research Phase 1/2
 
-- **Test suite: 826 passing** (650 at PR #21 merge + 168 new for pptx_native + 8 parametrized expansions)
+- **Test suite: 952 passing**
   - Phases 1-6: Foundation through Orchestration (518 tests)
   - SmartArt Intelligent Graphics (PR #21, merged 2026-04-07): 132 tests
-  - pptx_native SmartArt engine (in-progress on `feat/pptx-native-smartart-engine`): 168 tests, 20 commits, all 8 phases complete pending merge
+  - pptx_native SmartArt engine (PR #39, merged 2026-04-10): ~300 tests across 17 test files — 28 layouts, picture embedding, multi-slide integration
 
 - **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **smartart-selector** → **strategy-map** → **smartart-extractor** → speaker-notes-writer → imagegen-bridge → **smartart-renderer** → chart-renderer → deck-assembler → deck-qa → presentation-reviewer
 
@@ -60,7 +60,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - **Latest demo deck:** `output/jack-tar-deckhand-smartart-demo-v7.pptx` (16.2 MB, 28 slides reviewed)
   - **GitHub issue:** #17 (closed)
 
-- **pptx_native SmartArt engine (in progress 2026-04-08, issue #38, branch `feat/pptx-native-smartart-engine`):** Fourth SmartArt engine that produces editable PowerPoint SmartArt graphics (not rasterised PNGs). Speakers can edit nodes, rename them, and switch layouts directly in PowerPoint after delivery. **Phase 8 refactor:** all layout content now sourced from the MIT-licensed `dotnet/Open-XML-SDK` test fixtures; 27 v1 layouts across 7 categories; generic data-shape builders replace per-layout modules; legal blocker resolved.
+- **pptx_native SmartArt engine (merged 2026-04-10, PR #39, issue #38):** Fourth SmartArt engine that produces editable PowerPoint SmartArt graphics (not rasterised PNGs). Speakers can edit nodes, rename them, switch layouts, and insert images directly in PowerPoint after delivery. 28 layouts across 8 categories, all MIT-sourced from `dotnet/Open-XML-SDK`. Picture SmartArt with AI-generated embedded images via child-node architecture. SmartArt over AI backgrounds.
   - **Technique:** template injection — three opaque XML parts per layout (layout.xml, quickStyle.xml, colors.xml) extracted from MIT-licensed SDK fixtures; engine generates a fresh `data1.xml` per graphic via generic builders; JS assembler places a named placeholder rect; Python post-process grafts the diagram parts in after build_deck.js finishes and replaces the placeholder with a `<p:graphicFrame>`.
   - **v1 scope (27 layouts shipped, 2 deferred across 9 categories):**
     - **Process (8):** process1 (Basic Process), process4, chevron1, hProcess4, hProcess7, hProcess9, hProcess11, lProcess2
@@ -117,11 +117,12 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - **Layout provenance + licensing:** `tests/fixtures/smartart_layouts/LICENSING.md` (MIT-sourced, precedent documented)
   - **Extraction manifest:** `tests/fixtures/smartart_layouts/_extraction_manifest.json` (per-layout source trace)
   - **Manual gate checklist:** `tests/manual/MANUAL_GATE.md`
-  - **GitHub issue:** #38 (open, licensing blocker resolved, ready for PR)
-  - **Remaining open items:**
-    1. Spike 6 + Phase 6 implementation for Picture layouts (pList1 is in the catalog as v1:false)
-    2. Multi-slide deck manual gate in PowerPoint Mac to visually confirm the 27 layouts render correctly
-    3. Any per-layout capacity constraint refinements (first-pass defaults used for all 27 entries)
+  - **GitHub issue:** #38 (closed), **PR:** #39 (merged 2026-04-10)
+  - **Demo deck:** `tools/build_demo_deck.py` — 15-slide "Building AI Agents That Actually Work" conference talk exercising 10 layout types with AI backgrounds and picture embedding
+  - **Remaining refinements (not blocking):**
+    1. Per-layout capacity constraint refinement (first-pass defaults for non-core layouts)
+    2. imagegen-bridge integration for automated image prompts per Picture SmartArt item
+    3. Ollama image generation blocked by MLX architecture bug in Ollama 0.20.5 — use cloud (FAL/FLUX) for now
   - **Key design decisions:**
     - SDK as canonical source — all layout content from MIT-licensed `dotnet/Open-XML-SDK` test fixtures. Future Microsoft additions picked up by re-running the extraction script.
     - Generic builders keyed by data_shape, not per-layout modules. Adding a layout is a catalog-only change.
