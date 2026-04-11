@@ -1,0 +1,11 @@
+{
+  "name": "jack-tar-custom-smartart",
+  "description": "Data visualisation and custom graphics — SVG, Mermaid, Vega-Lite, matplotlib charts",
+  "version": "1.0.0",
+  "author": {
+    "name": "Steve Jones"
+  },
+  "repository": "https://github.com/SteveGJones/jack-tar-deckhand",
+  "license": "MIT",
+  "keywords": ["smartart", "svg", "mermaid", "vega-lite", "charts", "data-viz"]
+}

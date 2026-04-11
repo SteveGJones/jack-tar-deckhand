@@ -1,0 +1,9 @@
+{
+  "base_name": "hierarchy4",
+  "category_hint": "Hierarchy",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy4#1",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#1",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/Pitchbook_TP10176928.potx",
+  "variant": "#1"
+}

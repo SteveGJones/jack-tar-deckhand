@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/production-upgrade-plan.json",
+  "title": "ProductionUpgradePlan",
+  "description": "Expert-advised production upgrade plan mapping each slide to its optimal rendering engine, tier, and dimensions.",
+  "type": "object",
+  "required": ["created_at", "deck_dir", "total_estimated_cost_usd", "entries"],
+  "properties": {
+    "created_at": { "type": "string" },
+    "deck_dir": { "type": "string" },
+    "total_estimated_cost_usd": { "type": "number", "minimum": 0 },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "slide_number", "image_id", "upgrade_track",
+          "recommended_provider", "recommended_model", "recommended_tier",
+          "target_dimensions", "estimated_cost_usd", "reasoning",
+          "brand_notes", "warnings", "draft_prompt"
+        ],
+        "properties": {
+          "slide_number": { "type": "integer", "minimum": 1 },
+          "image_id": { "type": "string" },
+          "upgrade_track": {
+            "type": "string",
+            "enum": ["raster_upscale", "vector_conversion", "no_upgrade"]
+          },
+          "recommended_provider": { "type": "string" },
+          "recommended_model": { "type": "string" },
+          "recommended_tier": {
+            "type": "string",
+            "enum": ["standard", "pro", "flash", "low", "medium", "high"]
+          },
+          "target_dimensions": { "type": ["string", "null"] },
+          "estimated_cost_usd": { "type": "number", "minimum": 0 },
+          "reasoning": { "type": "string" },
+          "brand_notes": { "type": ["string", "null"] },
+          "warnings": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "draft_prompt": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/speaker-notes.json",
+  "title": "SpeakerNotes",
+  "description": "Per-slide timed speaker notes with cues.",
+  "type": "object",
+  "required": ["notes"],
+  "properties": {
+    "target_pace_wpm": {"type": "integer"},
+    "total_estimated_minutes": {"type": "number"},
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slide_number", "text"],
+        "properties": {
+          "slide_number": {"type": "integer"},
+          "text": {"type": "string"},
+          "estimated_seconds": {"type": "integer"},
+          "timing_marker": {"type": "string"},
+          "cues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["transition", "pause", "audience_interaction", "emphasis", "demo", "build_animation"]
+                },
+                "text": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

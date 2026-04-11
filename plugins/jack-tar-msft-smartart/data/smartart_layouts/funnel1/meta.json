@@ -1,0 +1,9 @@
+{
+  "base_name": "funnel1",
+  "category_hint": "Relationship",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/funnel1#1",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#7",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ProductOverviewPresentation_TP10090249.potx",
+  "variant": "#1"
+}

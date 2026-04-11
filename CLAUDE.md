@@ -25,6 +25,26 @@ This rule exists because visual review was skipped THREE TIMES across multiple c
 
 **Vision capability note**: The `image-reviewer` agent uses Haiku, which has visual perception limitations (e.g., misjudging proportional widths in tapered shapes). For high-accuracy visual review, the `general-purpose` agent (Sonnet/Opus) is more reliable. Use both in parallel for cross-validation when possible.
 
+## Plugin Architecture (EPIC #40)
+
+This repository is now a **5-plugin Claude Code marketplace**. The presentation pipeline has been refactored into independently installable plugins:
+
+| Plugin | Purpose | Skills |
+|--------|---------|--------|
+| `jack-tar-ollama` | Local AI image generation via Ollama | image, icon, pattern, diagram, presentation, verify |
+| `jack-tar-cloud` | Cloud AI image generation (OpenAI, Google, FAL, Recraft) | openai-image, google-image, fal-image, recraft-icon, image, icon, verify |
+| `jack-tar-msft-smartart` | Editable PowerPoint SmartArt (29 layouts) | render, inject, catalog, verify |
+| `jack-tar-custom-smartart` | Data viz and custom graphics (SVG, Mermaid, Vega) | render, chart, verify |
+| `jack-tar-deckhand` | Full presentation pipeline orchestrator | brand-manager, slide-stylist, narrative-architect, strategy-map, smartart-selector, smartart-extractor, speaker-notes-writer, imagegen-bridge, deck-assembler, deck-qa, verify |
+
+**Plugin files:** `plugins/<name>/` — each plugin has `.claude-plugin/plugin.json`, `skills/`, `agents/`, `src/`, `tests/`
+
+**Marketplace manifest:** `.claude-plugin/marketplace.json`
+
+**Quick start:** `/jack-tar-deckhand:verify` → reports which engine plugins are ready
+
+The original `src/` directory remains as the development source of truth. Plugin directories contain copies that are distributed.
+
 ## Project: Jack-Tar Deckhand
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.

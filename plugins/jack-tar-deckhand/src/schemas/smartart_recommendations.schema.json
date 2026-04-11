@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/smartart-recommendations.json",
+  "title": "SmartArtRecommendations",
+  "description": "Per-slide graphic type and enrichment tier recommendations from the SmartArt selector.",
+  "type": "object",
+  "required": ["slides"],
+  "properties": {
+    "created_at": {"type": "string"},
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slide_number", "recommendations", "approval_status"],
+        "properties": {
+          "slide_number": {"type": "integer", "minimum": 1},
+          "recommendations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "required": ["graphic_type", "enrichment_tier", "engine", "rationale", "confidence", "data_hint"],
+              "properties": {
+                "graphic_type": {
+                  "type": "string",
+                  "enum": ["flowchart", "decision_tree", "bar_chart", "line_chart", "radar_chart", "swot", "feature_matrix", "venn", "timeline", "pipeline_funnel", "gantt", "none"]
+                },
+                "enrichment_tier": {
+                  "type": "string",
+                  "enum": ["pure_programmatic", "ai_background", "ai_elements", "full_ai_render"]
+                },
+                "engine": {
+                  "type": "string",
+                  "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+                },
+                "rationale": {"type": "string"},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "data_hint": {"type": "string"}
+              }
+            }
+          },
+          "approval_status": {
+            "type": "string",
+            "enum": ["pending", "approved", "rejected", "fallback_composed"]
+          },
+          "selected_index": {"type": "integer", "minimum": 0},
+          "narrative_feedback": {"type": "string"}
+        }
+      }
+    }
+  }
+}

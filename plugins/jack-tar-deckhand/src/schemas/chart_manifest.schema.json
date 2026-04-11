@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/chart-manifest.json",
+  "title": "ChartManifest",
+  "description": "Registry of rendered chart images.",
+  "type": "object",
+  "required": ["charts"],
+  "properties": {
+    "charts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["chart_id", "slide_number", "file_path", "chart_type", "status"],
+        "properties": {
+          "chart_id": {"type": "string"},
+          "slide_number": {"type": "integer"},
+          "file_path": {"type": "string"},
+          "chart_type": {
+            "type": "string",
+            "enum": ["bar", "line", "area", "pie", "donut", "scatter", "comparison_table", "timeline", "stat_card"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["rendered", "cached", "failed"]
+          },
+          "data_source_label": {"type": "string"},
+          "alt_text": {"type": "string"},
+          "dimensions": {
+            "type": "object",
+            "properties": {
+              "width": {"type": "integer"},
+              "height": {"type": "integer"}
+            }
+          },
+          "content_hash": {"type": "string"}
+        }
+      }
+    }
+  }
+}

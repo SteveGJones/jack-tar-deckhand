@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/slide-outline.json",
+  "title": "SlideOutline",
+  "description": "Structured slide plan with per-slide type, content, and visual direction.",
+  "type": "object",
+  "required": ["narrative_arc", "estimated_duration_minutes", "slides"],
+  "properties": {
+    "narrative_arc": {"type": "string"},
+    "estimated_duration_minutes": {"type": "number"},
+    "total_slides": {"type": "integer"},
+    "slides": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["slide_number", "slide_type", "headline"],
+        "properties": {
+          "slide_number": {"type": "integer", "minimum": 1},
+          "slide_type": {
+            "type": "string",
+            "enum": ["title", "section_divider", "content", "two_column", "image_feature", "data_chart", "stat_callout", "quote", "icon_grid", "diagram", "closing", "blank_visual"]
+          },
+          "headline": {"type": "string"},
+          "body_points": {
+            "type": "array",
+            "items": {"type": "string"},
+            "maxItems": 5
+          },
+          "narrative_beat": {"type": "string"},
+          "visual_direction": {"type": "string"},
+          "visual_type": {
+            "type": "string",
+            "enum": ["hero_image", "diagram", "chart", "icon_set", "pattern_background", "none"]
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "chart_type": {
+                "type": "string",
+                "enum": ["bar", "line", "area", "pie", "donut", "scatter", "comparison_table", "timeline", "stat_card"]
+              },
+              "data_source_label": {"type": "string"},
+              "inline_data": {"type": "object"}
+            }
+          },
+          "layout_template": {"type": "string"},
+          "transition_note": {"type": "string"},
+          "visual_intent": {
+            "type": "string",
+            "description": "Natural language description of the visual the speaker wants for this slide, used by smartart-selector"
+          }
+        }
+      }
+    }
+  }
+}

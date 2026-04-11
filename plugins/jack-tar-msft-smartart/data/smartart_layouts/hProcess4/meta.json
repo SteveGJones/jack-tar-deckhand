@@ -1,0 +1,9 @@
+{
+  "base_name": "hProcess4",
+  "category_hint": "Process",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess4#1",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/3d2#2",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ProcessDiagram_TP10174324.potx",
+  "variant": "#1"
+}

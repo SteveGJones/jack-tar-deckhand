@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/strategy-map.json",
+  "title": "StrategyMap",
+  "description": "Per-slide rendering strategy classification for keynote pipeline.",
+  "type": "object",
+  "required": ["approval_mode", "slides"],
+  "properties": {
+    "created_at": {"type": "string"},
+    "approval_mode": {
+      "type": "string",
+      "enum": ["review", "one_shot"]
+    },
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slide_number", "strategy", "rationale", "render_funnel"],
+        "properties": {
+          "slide_number": {"type": "integer", "minimum": 1},
+          "strategy": {
+            "type": "string",
+            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart"]
+          },
+          "rationale": {"type": "string"},
+          "render_funnel": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["ollama", "cloud_low", "cloud_full"]
+            }
+          },
+          "speaker_override": {
+            "type": ["string", "null"],
+            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", null]
+          },
+          "backdrop_variant": {
+            "type": "string",
+            "enum": ["left_panel", "right_panel", "bottom_bar", "top_band", "center_float"]
+          },
+          "element_layout": {
+            "type": "object",
+            "properties": {
+              "template": {"type": "string"},
+              "elements": {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "label_source", "x", "y", "w", "h"],
+                  "properties": {
+                    "id": {"type": "string"},
+                    "label_source": {"type": "string"},
+                    "x": {"type": "number", "minimum": 0, "maximum": 1},
+                    "y": {"type": "number", "minimum": 0, "maximum": 1},
+                    "w": {"type": "number", "minimum": 0, "maximum": 1},
+                    "h": {"type": "number", "minimum": 0, "maximum": 1}
+                  }
+                }
+              },
+              "title_region": {
+                "type": "object",
+                "properties": {
+                  "x": {"type": "number"},
+                  "y": {"type": "number"},
+                  "w": {"type": "number"},
+                  "h": {"type": "number"}
+                }
+              }
+            }
+          },
+          "smartart_config": {
+            "type": "object",
+            "properties": {
+              "graphic_type": {
+                "type": "string",
+                "enum": ["flowchart", "decision_tree", "bar_chart", "line_chart", "radar_chart", "swot", "feature_matrix", "venn", "timeline", "pipeline_funnel", "gantt", "none"]
+              },
+              "enrichment_tier": {
+                "type": "string",
+                "enum": ["pure_programmatic", "ai_background", "ai_elements", "full_ai_render"]
+              },
+              "engine": {
+                "type": "string",
+                "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+              },
+              "comparator_engines": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

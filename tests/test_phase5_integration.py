@@ -71,9 +71,9 @@ def test_assembler_then_qa_pipeline():
 
 
 def test_presentation_reviewer_agent_exists():
-    """The presentation-reviewer agent definition must exist."""
-    agent_path = os.path.join(PROJECT_ROOT, '.claude', 'agents', 'presentation-reviewer.md')
-    assert os.path.isfile(agent_path), "presentation-reviewer.md not found"
+    """The presentation-reviewer agent definition must exist (now in plugin)."""
+    agent_path = os.path.join(PROJECT_ROOT, 'plugins', 'jack-tar-deckhand', 'agents', 'presentation-reviewer.md')
+    assert os.path.isfile(agent_path), "presentation-reviewer.md not found in plugins/jack-tar-deckhand/agents/"
     with open(agent_path) as f:
         content = f.read()
     assert 'Presentation Reviewer' in content

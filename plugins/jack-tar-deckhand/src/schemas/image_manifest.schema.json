@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/image-manifest.json",
+  "title": "ImageManifest",
+  "description": "Registry of generated image assets with provenance and status.",
+  "type": "object",
+  "required": ["images"],
+  "properties": {
+    "generated_at": {"type": "string"},
+    "image_backend": {"type": "string"},
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["image_id", "slide_number", "file_path", "status"],
+        "properties": {
+          "image_id": {"type": "string"},
+          "slide_number": {"type": "integer"},
+          "file_path": {"type": "string"},
+          "placement_zone": {"type": "string"},
+          "element_id": {"type": "string"},
+          "detected_positions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["element_id", "x", "y", "w", "h", "confidence"],
+              "properties": {
+                "element_id": {"type": "string"},
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+                "w": {"type": "number"},
+                "h": {"type": "number"},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+              }
+            }
+          },
+          "dimensions": {
+            "type": "object",
+            "properties": {
+              "width": {"type": "integer"},
+              "height": {"type": "integer"}
+            }
+          },
+          "source_prompt": {"type": "string"},
+          "model_used": {"type": "string"},
+          "alt_text": {"type": "string"},
+          "content_hash": {"type": "string"},
+          "cache_key": {"type": "string"},
+          "status": {
+            "type": "string",
+            "enum": ["generated", "cached", "placeholder", "failed", "accepted_with_issues"]
+          },
+          "retry_count": {"type": "integer"},
+          "generation_time_seconds": {"type": "number"},
+          "review_summary": {"type": "string"},
+          "smartart_ref": {
+            "type": "string",
+            "description": "Links this enrichment image to a SmartArt graphic ID"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_images": {"type": "integer"},
+        "generated_count": {"type": "integer"},
+        "cached_count": {"type": "integer"},
+        "placeholder_count": {"type": "integer"},
+        "failed_count": {"type": "integer"},
+        "total_generation_seconds": {"type": "number"}
+      }
+    }
+  }
+}
