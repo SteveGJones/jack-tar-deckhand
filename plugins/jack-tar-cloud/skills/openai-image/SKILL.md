@@ -1,26 +1,52 @@
 ---
-name: cloud-generate-image
-description: Generate images using cloud APIs (OpenAI GPT Image, Google Vertex Imagen, FAL.ai FLUX). Accepts a text prompt, generates via the specified provider, saves to a path, and returns the file path with cost metadata.
-argument-hint: "a description of the image" [--provider openai|google_vertex|fal] [--output PATH] [--size SIZE] [--quality low|medium|high] [--background auto|transparent] [--model MODEL]
+name: openai-image
+description: Generate images using OpenAI GPT Image API. Requires OPENAI_API_KEY environment variable.
+argument-hint: "a description of the image" [--output PATH] [--size SIZE] [--quality low|medium|high] [--background auto|transparent] [--model MODEL]
 allowed-tools: Bash(python *), Read, Glob
 ---
 
-# /cloud-generate-image
+# /openai-image
 
-Generate an image via a cloud API provider and report the file path with cost.
+Generate an image via OpenAI GPT Image API and report the file path with cost.
 
 This skill wraps `src/generate_cloud_image.py`. It does NOT call APIs directly -- it delegates to the Python module which handles authentication, API calls, and file saving.
+
+## Locate Plugin
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+
+if os.environ.get('JACK_TAR_CLOUD_ROOT'):
+    print(os.environ['JACK_TAR_CLOUD_ROOT']); sys.exit()
+
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-cloud/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+
+dev = Path.cwd() / 'plugins' / 'jack-tar-cloud'
+if dev.exists():
+    print(str(dev)); sys.exit()
+
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then
+  echo "ERROR: jack-tar-cloud plugin not found."
+  exit 1
+fi
+```
 
 ## Parse Arguments
 
 Parse `$ARGUMENTS` for:
 - **Prompt**: The quoted text description of the image to generate
-- **--provider PROVIDER**: Cloud provider to use (`openai`, `google_vertex`, `fal`). Default: `openai`
-- **--output PATH**: Where to save the image (default: `output/cloud-YYYYMMDD-HHMMSS.png`)
+- **--output PATH**: Where to save the image (default: `output/openai-YYYYMMDD-HHMMSS.png`)
 - **--size SIZE**: Image dimensions. Default: `1536x1024` (landscape). Options: `1024x1024`, `1536x1024`, `1024x1536`
 - **--quality QUALITY**: Quality tier (`low`, `medium`, `high`). Default: `medium`
 - **--background BG**: Background type (`auto`, `transparent`). Default: `auto`
-- **--model MODEL**: Override model name (provider-specific)
+- **--model MODEL**: Override model name (e.g., `gpt-image-1.5`)
 
 If no prompt is provided, stop and tell the user to provide a prompt.
 
@@ -29,29 +55,26 @@ If no prompt is provided, stop and tell the user to provide a prompt.
 Before generating, verify the provider is configured:
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.provider_discovery import discover_providers
 providers = discover_providers()
-p = providers.get('$PROVIDER', {})
+p = providers.get('openai', {})
 print('available' if p.get('available') else 'not_configured')
 "
 ```
 
-If `not_configured`, tell the user which environment variable to set and reference `research/04-cloud-api-setup-licensing.md` for setup instructions:
-- `openai` needs `OPENAI_API_KEY`
-- `google_vertex` needs `GOOGLE_CLOUD_PROJECT`
-- `fal` needs `FAL_KEY`
+If `not_configured`, tell the user to set `OPENAI_API_KEY` and stop.
 
 ## Generate the Image
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.generate_cloud_image import generate_cloud_image
 
 result = generate_cloud_image(
     prompt='''$PROMPT''',
-    provider='$PROVIDER',
+    provider='openai',
     output_path='$OUTPUT',
     size='$SIZE',
     quality='$QUALITY',

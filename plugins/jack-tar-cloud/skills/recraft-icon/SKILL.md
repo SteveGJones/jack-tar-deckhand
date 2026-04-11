@@ -1,15 +1,42 @@
 ---
-name: cloud-generate-icon
-description: Generate vector icons (SVG) using cloud APIs (Recraft V4 direct or via FAL.ai). Accepts a text prompt with optional brand colors, generates native SVG output, and saves to a path.
+name: recraft-icon
+description: Generate vector icons (SVG) using Recraft V4 API (direct or via FAL.ai). Accepts a text prompt with optional brand colors, generates native SVG output, and saves to a path. Requires OPENAI_API_KEY (Recraft direct) or FAL_KEY (FAL.ai route).
 argument-hint: "icon description" [--provider recraft|fal] [--output PATH] [--colors HEX,HEX,...] [--format svg|png] [--tier standard|pro]
 allowed-tools: Bash(python *), Read, Glob
 ---
 
-# /cloud-generate-icon
+# /recraft-icon
 
 Generate a vector icon (SVG) via a cloud API and report the file path with cost.
 
 This skill wraps `src/generate_cloud_icon.py`. Recraft V4 is the ONLY model that produces native SVG output -- this is why icons always route to cloud even in draft mode.
+
+## Locate Plugin
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+
+if os.environ.get('JACK_TAR_CLOUD_ROOT'):
+    print(os.environ['JACK_TAR_CLOUD_ROOT']); sys.exit()
+
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-cloud/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+
+dev = Path.cwd() / 'plugins' / 'jack-tar-cloud'
+if dev.exists():
+    print(str(dev)); sys.exit()
+
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then
+  echo "ERROR: jack-tar-cloud plugin not found."
+  exit 1
+fi
+```
 
 ## Parse Arguments
 
@@ -40,7 +67,7 @@ colors_rgb = [
 Before generating, verify the provider is configured:
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.provider_discovery import discover_providers
 providers = discover_providers()
 provider = '$PROVIDER'
@@ -61,7 +88,7 @@ If not configured, tell the user which environment variable to set:
 ## Generate the Icon
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.generate_cloud_icon import generate_cloud_icon
 
