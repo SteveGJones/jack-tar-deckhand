@@ -25,27 +25,45 @@ When the Speaker provides a TalkBrief, execute these steps in order:
 
 ### Step 0: Initialise
 
+**PLUGIN_ROOT Setup:** Before any Python calls in this pipeline, set:
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+if os.environ.get('JACK_TAR_DECKHAND_ROOT'):
+    print(os.environ['JACK_TAR_DECKHAND_ROOT']); sys.exit()
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-deckhand/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+dev = Path.cwd() / 'plugins' / 'jack-tar-deckhand'
+if dev.exists():
+    print(str(dev)); sys.exit()
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then echo "ERROR: jack-tar-deckhand not found" && exit 1; fi
+```
+
+Use `PYTHONPATH="$PLUGIN_ROOT" python3 -c "..."` for all subsequent Python calls that import from `src.*`.
+
 1. Create the DeckContext directory:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import init_pipeline
 init_pipeline('./tmp/deck', budget_usd=BUDGET)
 print('Pipeline initialised')
 "
 ```
 2. Save the TalkBrief to `./tmp/deck/talk-brief.json`
-3. Run provider discovery and present results to Speaker:
-```bash
-source .venv/bin/activate && python3 -c "
-from src.provider_discovery import discover_providers
-providers = discover_providers()
-import json; print(json.dumps(providers, indent=2))
-"
-```
+3. Run plugin verification and present results to Speaker:
+
+Invoke `/jack-tar-deckhand:verify` and present the output to the Speaker. This shows which engine plugins are installed and ready (Ollama, cloud providers, SmartArt engines). Use the ENGINE PLUGINS and PIPELINE CAPABILITY sections to report what's available.
+
 4. **ESCALATE:** Ask Speaker to confirm budget cap and available providers before proceeding
 5. Log approval:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import log_speaker_approval, save_provider_snapshot
 log_speaker_approval('./tmp/deck', 'budget_confirmed', 'Speaker confirmed \$X budget')
 log_speaker_approval('./tmp/deck', 'providers_confirmed', 'Proceeding with: ...')
@@ -53,15 +71,15 @@ save_provider_snapshot('./tmp/deck', PROVIDERS_DICT)
 "
 ```
 
-### Step 1: Brand Profile — `/brand-manager`
+### Step 1: Brand Profile — `/jack-tar-deckhand:brand-manager`
 
 Invoke the brand-manager skill. It reads the TalkBrief branding section, extracts or loads a BrandProfile, and collaborates with the Speaker for approval.
 
-### Step 2: Style Guide — `/slide-stylist`
+### Step 2: Style Guide — `/jack-tar-deckhand:slide-stylist`
 
 Invoke the slide-stylist skill. It reads the TalkBrief and BrandProfile, proposes design options (palette, fonts, image mood), and collaborates with the Speaker on each area.
 
-### Step 3: Slide Outline — `/narrative-architect`
+### Step 3: Slide Outline — `/jack-tar-deckhand:narrative-architect`
 
 Invoke the narrative-architect skill. It proposes 2-3 narrative arc options, the Speaker selects one, then it produces the full SlideOutline autonomously.
 
@@ -69,7 +87,7 @@ Invoke the narrative-architect skill. It proposes 2-3 narrative arc options, the
 
 1. Build the strategy map from the outline:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.slide_prompt_composer import build_strategy_map, save_strategy_map
 import json
 with open('./tmp/deck/outline.json') as f:
@@ -82,7 +100,7 @@ print(json.dumps(strategy_map, indent=2))
 2. **ESCALATE:** Present the strategy map to the Speaker. For each slide, show the recommended strategy (full_render, backdrop_render, or composed) with rationale. The Speaker can override any slide's strategy.
 3. If the Speaker provides overrides, rebuild:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.slide_prompt_composer import build_strategy_map, save_strategy_map
 import json
 with open('./tmp/deck/outline.json') as f:
@@ -94,17 +112,17 @@ save_strategy_map('./tmp/deck', strategy_map)
 ```
 4. Log approval:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import log_speaker_approval
 log_speaker_approval('./tmp/deck', 'strategy_map_approved', 'Speaker approved strategy map with N overrides')
 "
 ```
 
-### Step 4: Speaker Notes — `/speaker-notes-writer`
+### Step 4: Speaker Notes — `/jack-tar-deckhand:speaker-notes-writer`
 
 Invoke the speaker-notes-writer skill. It gathers 3 lightweight preferences from the Speaker, then produces timed SpeakerNotes autonomously.
 
-### Step 5: Image Generation — `/imagegen-bridge`
+### Step 5: Image Generation — `/jack-tar-deckhand:imagegen-bridge`
 
 Invoke the imagegen-bridge skill. In **draft phase**, it uses Ollama (free) or cloud at reduced quality. In **production phase**, it renders at full quality.
 
@@ -112,7 +130,7 @@ For slides with strategy `full_render` or `backdrop_render` in the strategy map,
 
 Before invoking, check budget state:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import load_budget_tracker
 tracker = load_budget_tracker('./tmp/deck')
 print(f'Budget state: {tracker.state}, remaining: \${tracker.remaining:.2f}')
@@ -121,7 +139,7 @@ print(f'Budget state: {tracker.state}, remaining: \${tracker.remaining:.2f}')
 
 After image generation completes, save the updated budget:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import save_budget_snapshot, load_budget_tracker
 tracker = load_budget_tracker('./tmp/deck')
 # tracker will have been updated by imagegen-bridge
@@ -129,18 +147,18 @@ save_budget_snapshot('./tmp/deck', tracker)
 "
 ```
 
-### Step 6: Assembly — `/deck-assembler`
+### Step 6: Assembly — `/jack-tar-deckhand:deck-assembler`
 
 Invoke the deck-assembler skill. It reads all DeckContext contracts and produces `./tmp/deck/output/presentation.pptx`.
 
-### Step 7: Quality Assurance — `/deck-qa`
+### Step 7: Quality Assurance — `/jack-tar-deckhand:deck-qa`
 
 Invoke the deck-qa skill. It runs 30 anti-pattern checks and produces a QAReport.
 
 **If QA verdict is 'fail':**
 - Check if correction cycles remain:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import can_correct
 print('Can correct:', can_correct('./tmp/deck'))
 "
@@ -163,7 +181,7 @@ Invoke the presentation-reviewer agent. It produces a structured review with per
 **Draft Phase (iterative):**
 After Step 8, present the pipeline summary and ask the Speaker:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import pipeline_summary_markdown
 print(pipeline_summary_markdown('./tmp/deck'))
 "
@@ -177,7 +195,7 @@ print(pipeline_summary_markdown('./tmp/deck'))
 
 If the Speaker requests a keynote upgrade for specific slides:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import upgrade_slide_strategy
 upgrade_slide_strategy('./tmp/deck', slide_number=N, new_strategy='full_render')
 "
@@ -188,7 +206,7 @@ Then re-run Steps 5-8 for the upgraded slides only (surgical re-render via manif
 
 If the Speaker approves:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import set_phase, log_speaker_approval
 log_speaker_approval('./tmp/deck', 'draft_approved', 'Speaker approved draft for production')
 set_phase('./tmp/deck', 'production')
@@ -216,7 +234,7 @@ If the Speaker overrides with a questionable choice, the expert will have added 
 
 Log approval:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import log_speaker_approval
 log_speaker_approval('./tmp/deck', 'production_plan_approved', 'Speaker approved production upgrade plan')
 "
@@ -224,7 +242,7 @@ log_speaker_approval('./tmp/deck', 'production_plan_approved', 'Speaker approved
 
 #### Production Step B: Execute Production Renders
 
-Invoke `/imagegen-bridge` in production mode. The bridge reads `production-upgrade-plan.json` and executes each entry mechanically:
+Invoke `/jack-tar-deckhand:imagegen-bridge` in production mode. The bridge reads `production-upgrade-plan.json` and executes each entry mechanically:
 - `raster_upscale` entries → `cloud-generate-image` with the specified provider/model/tier
 - `vector_conversion` entries → `cloud-generate-icon` with Recraft endpoint
 - `no_upgrade` entries → skip
@@ -249,7 +267,7 @@ Re-run Steps 6-8 (assembly, QA, review) with the production images.
 
 If the Speaker requests changes:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import advance_draft_cycle
 advance_draft_cycle('./tmp/deck')
 "
@@ -267,7 +285,7 @@ When the deck is complete, present to the Speaker:
 - The presentation review summary
 - The cost summary:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.conductor import load_budget_tracker
 tracker = load_budget_tracker('./tmp/deck')
 print(tracker.cost_summary_markdown())
