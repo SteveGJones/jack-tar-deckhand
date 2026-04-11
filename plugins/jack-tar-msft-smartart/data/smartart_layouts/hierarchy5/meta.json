@@ -1,0 +1,9 @@
+{
+  "base_name": "hierarchy5",
+  "category_hint": "Hierarchy",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent2_2",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy5",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple5#1",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/FamilyTree_TP10107970.potx",
+  "variant": null
+}

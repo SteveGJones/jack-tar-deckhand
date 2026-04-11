@@ -1,0 +1,297 @@
+{
+  "extracted_at": "2026-04-08",
+  "source_repo": "dotnet/Open-XML-SDK",
+  "source_branch": "main",
+  "layouts": [
+    {
+      "base_name": "chevron1",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/chevron1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#9",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Process",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ProductOverviewPresentation_TP10090249.potx",
+      "written": true
+    },
+    {
+      "base_name": "cycle2",
+      "variant": "#2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/cycle2#2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#7",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Cycle",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/CompanyMtg_TP10167121.potx",
+      "written": true
+    },
+    {
+      "base_name": "cycle8",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/cycle8#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#2",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+      "category_hint": "Cycle",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/bvt/O12Typical.pptx",
+      "written": true
+    },
+    {
+      "base_name": "default",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/default",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Unknown",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/SalesPropPres_TP10220213.potx",
+      "written": true
+    },
+    {
+      "base_name": "funnel1",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/funnel1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#7",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Relationship",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ProductOverviewPresentation_TP10090249.potx",
+      "written": true
+    },
+    {
+      "base_name": "hList6",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hList6#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#16",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#5",
+      "category_hint": "List",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ReportProg_TP10167107.potx",
+      "written": true
+    },
+    {
+      "base_name": "hProcess11",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess11#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#8",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Process",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/CompanyMtg_TP10167121.potx",
+      "written": true
+    },
+    {
+      "base_name": "hProcess4",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess4#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/3d2#2",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Process",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ProcessDiagram_TP10174324.potx",
+      "written": true
+    },
+    {
+      "base_name": "hProcess7",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess7#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Process",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Graphics/5.9.3.7(unfinished).pptx",
+      "written": true
+    },
+    {
+      "base_name": "hProcess9",
+      "variant": "#2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hProcess9#2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#6",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Process",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/CompanyMtg_TP10167121.potx",
+      "written": true
+    },
+    {
+      "base_name": "hierarchy2",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Hierarchy",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/HorizHierChart_TP10220217.potx",
+      "written": true
+    },
+    {
+      "base_name": "hierarchy4",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy4#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+      "category_hint": "Hierarchy",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/Pitchbook_TP10176928.potx",
+      "written": true
+    },
+    {
+      "base_name": "hierarchy5",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy5",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple5#1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent2_2",
+      "category_hint": "Hierarchy",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/FamilyTree_TP10107970.potx",
+      "written": true
+    },
+    {
+      "base_name": "hierarchy6",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy6",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#2",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful4",
+      "category_hint": "Hierarchy",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/BasicOrgChart_TP10085481.potx",
+      "written": true
+    },
+    {
+      "base_name": "lProcess2",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/lProcess2#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#7",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#2",
+      "category_hint": "Process",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ReportProg_TP10167107.potx",
+      "written": true
+    },
+    {
+      "base_name": "list1",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/list1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "List",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/ForTestCase/Bug571679_Brownbag.pptx",
+      "written": true
+    },
+    {
+      "base_name": "matrix2",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/matrix2#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/3d2#1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+      "category_hint": "Matrix",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/MatrixDiagram_TP10174328.potx",
+      "written": true
+    },
+    {
+      "base_name": "orgChart1",
+      "variant": "#2",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/orgChart1#2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#3",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful5",
+      "category_hint": "Hierarchy",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/bvt/O12Typical.pptx",
+      "written": true
+    },
+    {
+      "base_name": "pList1",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/pList1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "List",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/O14ISOStrict/Graphics/5.9.3.7(unfinished).pptx",
+      "written": true
+    },
+    {
+      "base_name": "process1",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/process1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#4",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Process",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ProductOverviewPresentation_TP10090249.potx",
+      "written": true
+    },
+    {
+      "base_name": "process4",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/process4#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#5",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#1",
+      "category_hint": "Process",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ReportProg_TP10167107.potx",
+      "written": true
+    },
+    {
+      "base_name": "pyramid2",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/pyramid2",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Pyramid",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/ForTestCase/Bug571679_Brownbag.pptx",
+      "written": true
+    },
+    {
+      "base_name": "target3",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/target3",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Relationship",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/SalesPropPres_TP10220213.potx",
+      "written": true
+    },
+    {
+      "base_name": "vList2",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/vList2#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#12",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#4",
+      "category_hint": "List",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/ReportProg_TP10167107.potx",
+      "written": true
+    },
+    {
+      "base_name": "vList3",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/vList3",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "List",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/SalesPropPres_TP10220213.potx",
+      "written": true
+    },
+    {
+      "base_name": "vList4",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/vList4#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#6",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "List",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/CompanyHndbk_TP10167124.potx",
+      "written": true
+    },
+    {
+      "base_name": "vList5",
+      "variant": null,
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/vList5",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "List",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/ForTestCase/Bug571679_Brownbag.pptx",
+      "written": true
+    },
+    {
+      "base_name": "venn1",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/venn1#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#4",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+      "category_hint": "Relationship",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/RelationshipDiagram_TP10174327.potx",
+      "written": true
+    },
+    {
+      "base_name": "venn3",
+      "variant": "#1",
+      "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/venn3#1",
+      "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#17",
+      "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/accent1_2",
+      "category_hint": "Relationship",
+      "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/CompanyMtg_TP10167121.potx",
+      "written": true
+    }
+  ]
+}

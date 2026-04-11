@@ -1,0 +1,9 @@
+{
+  "base_name": "venn1",
+  "category_hint": "Relationship",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful1",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/venn1#1",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#4",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/RelationshipDiagram_TP10174327.potx",
+  "variant": "#1"
+}

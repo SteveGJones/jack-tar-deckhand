@@ -1,0 +1,9 @@
+{
+  "base_name": "hierarchy6",
+  "category_hint": "Hierarchy",
+  "cs_type_id": "urn:microsoft.com/office/officeart/2005/8/colors/colorful4",
+  "layout_uri": "urn:microsoft.com/office/officeart/2005/8/layout/hierarchy6",
+  "qs_type_id": "urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#2",
+  "source_file": "test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/O12 templates/BasicOrgChart_TP10085481.potx",
+  "variant": null
+}
