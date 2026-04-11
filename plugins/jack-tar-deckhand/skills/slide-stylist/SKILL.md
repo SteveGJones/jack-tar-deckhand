@@ -146,12 +146,32 @@ Font sizes (fixed defaults from Research #10):
 Layout dimensions (fixed):
 - slide_width_inches: 10, slide_height_inches: 5.625, margin_inches: 0.5
 
+## Plugin Setup
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+if os.environ.get('JACK_TAR_DECKHAND_ROOT'):
+    print(os.environ['JACK_TAR_DECKHAND_ROOT']); sys.exit()
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-deckhand/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+dev = Path.cwd() / 'plugins' / 'jack-tar-deckhand'
+if dev.exists():
+    print(str(dev)); sys.exit()
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then echo "ERROR: jack-tar-deckhand not found" && exit 1; fi
+```
+
 ### Step 6: Validate and Write
 
 Validate the StyleGuide before writing:
 
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.style_validation import validate_style_guide, check_palette_contrast, check_completeness
 sg = json.load(open('./tmp/deck/style-guide.json'))

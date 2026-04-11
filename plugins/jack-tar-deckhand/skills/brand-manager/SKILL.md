@@ -39,12 +39,32 @@ Read `./tmp/deck/talk-brief.json` and examine the `branding` object. Determine w
 | `company_name` (only) | Infer appropriate defaults from industry/domain context |
 | `compliance_mode` | `strict` or `guided` (default: `guided`) |
 
+## Plugin Setup
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+if os.environ.get('JACK_TAR_DECKHAND_ROOT'):
+    print(os.environ['JACK_TAR_DECKHAND_ROOT']); sys.exit()
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-deckhand/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+dev = Path.cwd() / 'plugins' / 'jack-tar-deckhand'
+if dev.exists():
+    print(str(dev)); sys.exit()
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then echo "ERROR: jack-tar-deckhand not found" && exit 1; fi
+```
+
 ### Step 2: Load or Extract
 
 **If `brand_id` is present and profile exists:**
 
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.brand_profile import load_brand_profile
 import json
 profile = load_brand_profile('BRAND_ID')
@@ -131,7 +151,7 @@ Apply any Speaker corrections.
 ### Step 5: Persist
 
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.brand_profile import save_brand_profile, validate_brand_profile
 

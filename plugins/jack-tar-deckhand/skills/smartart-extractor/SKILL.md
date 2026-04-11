@@ -18,10 +18,30 @@ Before running, these DeckContext files must exist:
 - `./tmp/deck/strategy-map.json` — StrategyMap with smartart_config
 - `./tmp/deck/style-guide.json` — StyleGuide for token extraction
 
+## Plugin Setup
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+if os.environ.get('JACK_TAR_DECKHAND_ROOT'):
+    print(os.environ['JACK_TAR_DECKHAND_ROOT']); sys.exit()
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-deckhand/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+dev = Path.cwd() / 'plugins' / 'jack-tar-deckhand'
+if dev.exists():
+    print(str(dev)); sys.exit()
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then echo "ERROR: jack-tar-deckhand not found" && exit 1; fi
+```
+
 ## Step 1: Read Inputs
 
 ```bash
-.venv/bin/python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 with open('./tmp/deck/smartart-recommendations.json') as f:
     recs = json.load(f)
@@ -39,7 +59,7 @@ for s in approved:
 For each approved slide, run the extractor:
 
 ```bash
-.venv/bin/python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.smartart_extractor import extract
 
@@ -74,7 +94,7 @@ print(f'Wrote {len(specs)} specs to smartart-spec.json')
 ## Step 3: Validate Output
 
 ```bash
-.venv/bin/python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.deckcontext import validate_contract
 with open('./tmp/deck/smartart-spec.json') as f:

@@ -82,12 +82,32 @@ For each slide in the outline, produce a note with:
 - Demo cues (when outline includes demo beats)
 - Build animation triggers (when outline has progressive disclosure)
 
+## Plugin Setup
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+if os.environ.get('JACK_TAR_DECKHAND_ROOT'):
+    print(os.environ['JACK_TAR_DECKHAND_ROOT']); sys.exit()
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-deckhand/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+dev = Path.cwd() / 'plugins' / 'jack-tar-deckhand'
+if dev.exists():
+    print(str(dev)); sys.exit()
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then echo "ERROR: jack-tar-deckhand not found" && exit 1; fi
+```
+
 ### Step 3: Validate and Write
 
 Validate the notes before writing:
 
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.content_validation import validate_notes_schema, check_timing_total, check_notes_slide_references
 notes = json.load(open('./tmp/deck/speaker-notes.json'))

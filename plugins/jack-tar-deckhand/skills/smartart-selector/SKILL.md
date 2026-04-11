@@ -16,10 +16,30 @@ Before running, these DeckContext files must exist:
 - `./tmp/deck/talk-brief.json` — TalkBrief for audience and tone context
 - `./tmp/deck/pipeline-state.json` — PipelineState for budget state
 
+## Plugin Setup
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+if os.environ.get('JACK_TAR_DECKHAND_ROOT'):
+    print(os.environ['JACK_TAR_DECKHAND_ROOT']); sys.exit()
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-deckhand/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+dev = Path.cwd() / 'plugins' / 'jack-tar-deckhand'
+if dev.exists():
+    print(str(dev)); sys.exit()
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then echo "ERROR: jack-tar-deckhand not found" && exit 1; fi
+```
+
 ## Step 1: Read DeckContext
 
 ```bash
-.venv/bin/python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 with open('./tmp/deck/outline.json') as f:
     outline = json.load(f)
@@ -64,7 +84,7 @@ Re-dispatch the agent with the feedback. After 2 rejection rounds, fall back to 
 ## Step 5: Write SmartArtRecommendations
 
 ```bash
-.venv/bin/python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.deckcontext import write_contract, validate_contract
 recommendations = {
