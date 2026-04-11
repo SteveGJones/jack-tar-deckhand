@@ -56,12 +56,41 @@ Take the user's description and wrap it in diagram-optimized prompt structure us
 **For general (default):**
 > A clean technical diagram. [DESCRIPTION]. Use simple geometric shapes (rectangles, circles, diamonds) with clear text labels inside each shape. Connect shapes with labeled arrows showing relationships or flow. Professional flat design with a clean color palette. Sans-serif typography. Light grey or white background. All text must be sharp and legible. Prioritize clarity and readability over decorative elements.
 
+## Locate Plugin
+
+Before running any Python scripts, discover the plugin root:
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+
+if os.environ.get('JACK_TAR_OLLAMA_ROOT'):
+    print(os.environ['JACK_TAR_OLLAMA_ROOT']); sys.exit()
+
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-ollama/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+
+dev = Path.cwd() / 'plugins' / 'jack-tar-ollama'
+if dev.exists():
+    print(str(dev)); sys.exit()
+
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then
+  echo "ERROR: jack-tar-ollama plugin not found. Set JACK_TAR_OLLAMA_ROOT or install the plugin."
+  exit 1
+fi
+```
+
 ## Generate
 
 Run the helper script:
 
 ```bash
-python src/generate_image.py --prompt "BUILT PROMPT" --model "MODEL" --output "PATH" --width WIDTH --height HEIGHT --steps 20
+python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "BUILT PROMPT" --model "MODEL" --output "PATH" --width WIDTH --height HEIGHT --steps 20
 ```
 
 Steps default to 20 for flux (diagrams need the extra quality for text rendering).

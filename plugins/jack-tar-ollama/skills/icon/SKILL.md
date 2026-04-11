@@ -51,12 +51,41 @@ Take the user's description and wrap it in icon-optimized prompt structure:
 **For outlined style:**
 > A [DESCRIPTION] icon in outline style. Clean single-weight line art, no fill colors, minimal detail. Monochrome dark lines on a light background. Suitable for use in technical documentation or UI toolbars. Must be legible at 16x16 pixels.
 
+## Locate Plugin
+
+Before running any Python scripts, discover the plugin root:
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+
+if os.environ.get('JACK_TAR_OLLAMA_ROOT'):
+    print(os.environ['JACK_TAR_OLLAMA_ROOT']); sys.exit()
+
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-ollama/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+
+dev = Path.cwd() / 'plugins' / 'jack-tar-ollama'
+if dev.exists():
+    print(str(dev)); sys.exit()
+
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then
+  echo "ERROR: jack-tar-ollama plugin not found. Set JACK_TAR_OLLAMA_ROOT or install the plugin."
+  exit 1
+fi
+```
+
 ## Generate
 
 For each requested size, run the helper script:
 
 ```bash
-python src/generate_image.py --prompt "BUILT PROMPT" --model "MODEL" --output "PATH" --width SIZE --height SIZE --steps STEPS
+python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "BUILT PROMPT" --model "MODEL" --output "PATH" --width SIZE --height SIZE --steps STEPS
 ```
 
 Steps default: 20 for flux models, 8 for z-image-turbo.

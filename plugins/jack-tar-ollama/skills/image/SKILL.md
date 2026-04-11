@@ -50,6 +50,35 @@ If `--steps` was not explicitly provided, set defaults based on the model:
 
 The helper script auto-detects timeouts per model. You do NOT need to pass `--timeout` unless the user explicitly requests it.
 
+## Locate Plugin
+
+Before running any Python scripts, discover the plugin root:
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+
+if os.environ.get('JACK_TAR_OLLAMA_ROOT'):
+    print(os.environ['JACK_TAR_OLLAMA_ROOT']); sys.exit()
+
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-ollama/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+
+dev = Path.cwd() / 'plugins' / 'jack-tar-ollama'
+if dev.exists():
+    print(str(dev)); sys.exit()
+
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then
+  echo "ERROR: jack-tar-ollama plugin not found. Set JACK_TAR_OLLAMA_ROOT or install the plugin."
+  exit 1
+fi
+```
+
 ## Verify Ollama Is Running
 
 ```bash
@@ -64,7 +93,7 @@ If iterations is 1 (the default), run a single generation with no review:
 
 1. Run the helper script:
    ```bash
-   python src/generate_image.py --prompt "THE PROMPT" --model "THE MODEL" --output "THE PATH" --width WIDTH --height HEIGHT --steps STEPS [--seed SEED]
+   python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "THE PROMPT" --model "THE MODEL" --output "THE PATH" --width WIDTH --height HEIGHT --steps STEPS [--seed SEED]
    ```
 2. If exit code is 0: read the output path from stdout.
 3. If exit code is non-zero: read stderr and report the error.
@@ -85,7 +114,7 @@ Determine the output path for this iteration. If `--output` was specified, use i
 
 Run the helper script with the current prompt:
 ```bash
-python src/generate_image.py --prompt "CURRENT PROMPT" --model "MODEL" --output "ITER PATH" --width WIDTH --height HEIGHT --steps STEPS
+python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "CURRENT PROMPT" --model "MODEL" --output "ITER PATH" --width WIDTH --height HEIGHT --steps STEPS
 ```
 
 If the helper fails, report the error and stop.

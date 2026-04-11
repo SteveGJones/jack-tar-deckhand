@@ -62,6 +62,35 @@ Pick a palette that matches the topic (don't default to blue). Reference the ppt
 
 Pick a font pairing — header font with personality, clean body font.
 
+## Locate Plugin
+
+Before running any Python scripts, discover the plugin root:
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+
+if os.environ.get('JACK_TAR_OLLAMA_ROOT'):
+    print(os.environ['JACK_TAR_OLLAMA_ROOT']); sys.exit()
+
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-ollama/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+
+dev = Path.cwd() / 'plugins' / 'jack-tar-ollama'
+if dev.exists():
+    print(str(dev)); sys.exit()
+
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then
+  echo "ERROR: jack-tar-ollama plugin not found. Set JACK_TAR_OLLAMA_ROOT or install the plugin."
+  exit 1
+fi
+```
+
 ## Step 3: Generate Visual Assets
 
 Generate all needed images BEFORE building slides. Store them in a temporary directory:
@@ -74,7 +103,7 @@ For each planned visual asset, run the appropriate generation:
 
 **For content images:**
 ```bash
-python src/generate_image.py --prompt "PROMPT" --model "MODEL" --output /tmp/presentation-assets/slide-N-image.png --width WIDTH --height HEIGHT
+python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "PROMPT" --model "MODEL" --output /tmp/presentation-assets/slide-N-image.png --width WIDTH --height HEIGHT
 ```
 
 Image sizing for slides (16:9 at 10" × 5.625"):
@@ -87,17 +116,17 @@ Consult the `ollama-image-expert` agent for prompt strategies, especially the "I
 
 **For icons** — if react-icons doesn't have what you need:
 ```bash
-python src/generate_image.py --prompt "ICON PROMPT" --model "x/flux2-klein" --output /tmp/presentation-assets/icon-N.png --width 512 --height 512 --steps 20
+python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "ICON PROMPT" --model "x/flux2-klein" --output /tmp/presentation-assets/icon-N.png --width 512 --height 512 --steps 20
 ```
 
 **For diagrams:**
 ```bash
-python src/generate_image.py --prompt "DIAGRAM PROMPT" --model "x/flux2-klein" --output /tmp/presentation-assets/diagram-N.png --width 1024 --height 768 --steps 20
+python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "DIAGRAM PROMPT" --model "x/flux2-klein" --output /tmp/presentation-assets/diagram-N.png --width 1024 --height 768 --steps 20
 ```
 
 **For patterns/textures:**
 ```bash
-python src/generate_image.py --prompt "PATTERN PROMPT" --model "x/z-image-turbo" --output /tmp/presentation-assets/pattern-N.png --width 1024 --height 1024 --steps 8
+python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "PATTERN PROMPT" --model "x/z-image-turbo" --output /tmp/presentation-assets/pattern-N.png --width 1024 --height 1024 --steps 8
 ```
 
 **Review each generated image** using the Read tool. If an image is poor quality or doesn't match the intent, regenerate with a refined prompt. Don't waste time on perfection — one retry is usually enough for presentations.
