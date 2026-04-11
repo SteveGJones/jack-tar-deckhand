@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/style-guide.json",
+  "title": "StyleGuide",
+  "description": "Visual design system derived from TalkBrief and brand assets.",
+  "type": "object",
+  "required": ["palette", "typography", "layout"],
+  "properties": {
+    "palette": {
+      "type": "object",
+      "required": ["primary", "secondary", "accent", "background", "background_alt", "text_primary", "text_muted"],
+      "properties": {
+        "primary": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "secondary": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "accent": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "background": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "background_alt": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "text_primary": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "text_muted": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "text_on_dark": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        "chart_series": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+          "minItems": 3,
+          "maxItems": 8
+        }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "required": ["heading_font", "body_font"],
+      "properties": {
+        "heading_font": {"type": "string"},
+        "body_font": {"type": "string"},
+        "mono_font": {"type": "string"},
+        "heading_sizes": {
+          "type": "object",
+          "properties": {
+            "title_slide": {"type": "number"},
+            "section_divider": {"type": "number"},
+            "slide_heading": {"type": "number"},
+            "subheading": {"type": "number"}
+          }
+        },
+        "body_size": {"type": "number"},
+        "caption_size": {"type": "number"},
+        "line_spacing": {"type": "number"}
+      }
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "slide_width_inches": {"type": "number"},
+        "slide_height_inches": {"type": "number"},
+        "margin_inches": {"type": "number"},
+        "templates": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "description": {"type": "string"},
+              "text_zone": {
+                "type": "object",
+                "properties": {
+                  "x": {"type": "number"},
+                  "y": {"type": "number"},
+                  "w": {"type": "number"},
+                  "h": {"type": "number"}
+                }
+              },
+              "image_zone": {
+                "type": "object",
+                "properties": {
+                  "x": {"type": "number"},
+                  "y": {"type": "number"},
+                  "w": {"type": "number"},
+                  "h": {"type": "number"}
+                }
+              },
+              "background_treatment": {
+                "type": "string",
+                "enum": ["solid_light", "solid_dark", "image_bleed", "pattern_tile", "gradient"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "image_style_tokens": {
+      "type": "object",
+      "properties": {
+        "mood": {"type": "string"},
+        "color_direction": {"type": "string"},
+        "style_modifiers": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  }
+}

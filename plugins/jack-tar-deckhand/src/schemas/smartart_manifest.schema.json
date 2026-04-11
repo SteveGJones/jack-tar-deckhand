@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/smartart-manifest.json",
+  "title": "SmartArtManifest",
+  "description": "Registry of rendered SmartArt graphics with comparator results.",
+  "type": "object",
+  "required": ["graphics"],
+  "properties": {
+    "generated_at": {"type": "string"},
+    "graphics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["smartart_id", "slide_number", "graphic_type", "engine_used", "enrichment_tier", "file_path", "status"],
+        "properties": {
+          "smartart_id": {"type": "string"},
+          "slide_number": {"type": "integer", "minimum": 1},
+          "graphic_type": {
+            "type": "string",
+            "enum": ["flowchart", "decision_tree", "bar_chart", "line_chart", "radar_chart", "swot", "feature_matrix", "venn", "timeline", "pipeline_funnel", "gantt", "cycle", "org_chart", "hierarchy", "list", "chevron_list", "matrix", "pyramid", "target", "picture_list"]
+          },
+          "engine_used": {
+            "type": "string",
+            "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg", "pptx_native"]
+          },
+          "enrichment_tier": {
+            "type": "string",
+            "enum": ["pure_programmatic", "ai_background", "ai_elements", "full_ai_render"]
+          },
+          "file_path": {"type": "string"},
+          "svg_source_path": {"type": "string"},
+          "status": {
+            "type": "string",
+            "enum": ["rendered", "compared", "enriched", "failed"]
+          },
+          "dimensions": {
+            "type": "object",
+            "properties": {
+              "width": {"type": "integer"},
+              "height": {"type": "integer"}
+            }
+          },
+          "node_count": {"type": "integer"},
+          "alt_text": {"type": "string"},
+          "content_hash": {"type": "string"},
+          "comparator_results": {
+            "type": "object",
+            "properties": {
+              "candidates": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["engine", "score"],
+                  "properties": {
+                    "engine": {"type": "string"},
+                    "score": {"type": "number", "minimum": 0, "maximum": 1},
+                    "file_path": {"type": "string"}
+                  }
+                }
+              },
+              "winner": {"type": "string"},
+              "phase": {
+                "type": "string",
+                "enum": ["draft", "production"]
+              }
+            }
+          },
+          "enrichment_refs": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "review_summary": {"type": "string"}
+        }
+      }
+    }
+  }
+}

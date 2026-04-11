@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/smartart-comparator.json",
+  "title": "SmartArtComparator",
+  "description": "Comparator results for draft-phase multi-engine rendering.",
+  "type": "object",
+  "required": ["candidates", "winner", "phase"],
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["engine", "score"],
+        "properties": {
+          "engine": {
+            "type": "string",
+            "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+          },
+          "score": {"type": "number", "minimum": 0, "maximum": 1},
+          "file_path": {"type": "string"},
+          "criteria_scores": {
+            "type": "object",
+            "properties": {
+              "data_legibility": {"type": "number"},
+              "layout_clarity": {"type": "number"},
+              "aesthetic_quality": {"type": "number"},
+              "style_compliance": {"type": "number"}
+            }
+          }
+        }
+      }
+    },
+    "winner": {
+      "type": "string",
+      "enum": ["mermaid", "vega_lite", "matplotlib", "custom_svg"]
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["draft", "production"]
+    }
+  }
+}
