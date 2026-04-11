@@ -1,6 +1,6 @@
 ---
 name: imagegen-bridge
-description: Top-level image orchestrator. Routes all slide image generation to the appropriate skill (ollama-image, ollama-icon, ollama-pattern, ollama-diagram, cloud-generate-image, cloud-generate-icon, render_chart). Produces ImageManifest and ChartManifest. Also reads strategy-map.json to determine per-slide rendering approach (full_render, backdrop_render, composed).
+description: Top-level image orchestrator. Routes all slide image generation to the appropriate skill (jack-tar-ollama:image, jack-tar-ollama:icon, jack-tar-ollama:pattern, jack-tar-ollama:diagram, jack-tar-cloud:image, jack-tar-cloud:icon, render_chart). Produces ImageManifest and ChartManifest. Also reads strategy-map.json to determine per-slide rendering approach (full_render, backdrop_render, composed).
 argument-hint: --mode draft|production
 allowed-tools: Bash(python *), Bash(curl *), Read, Glob, Skill
 ---
@@ -18,6 +18,26 @@ Consult the `image-generation-expert` agent for prompt translation advice when g
 Parse `$ARGUMENTS` for:
 - **--mode MODE**: `draft` or `production` (default: `draft`)
 
+## Plugin Setup
+
+```bash
+PLUGIN_ROOT=$(python3 -c "
+from pathlib import Path
+import sys, os
+if os.environ.get('JACK_TAR_DECKHAND_ROOT'):
+    print(os.environ['JACK_TAR_DECKHAND_ROOT']); sys.exit()
+home = Path.home()
+for base in [home / '.claude' / 'plugins' / 'cache']:
+    for p in base.rglob('jack-tar-deckhand/.claude-plugin/plugin.json'):
+        print(str(p.parent.parent)); sys.exit()
+dev = Path.cwd() / 'plugins' / 'jack-tar-deckhand'
+if dev.exists():
+    print(str(dev)); sys.exit()
+print('NOT_FOUND')
+" 2>/dev/null)
+if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then echo "ERROR: jack-tar-deckhand not found" && exit 1; fi
+```
+
 ## Step 0: Read Local Config
 
 Before any image generation, read `local-config.json` from the project root to get machine-specific Ollama model tags and timeouts. This file is gitignored — it contains the exact model identifiers installed on this machine (e.g., `x/z-image-turbo:fp8` not `x/z-image-turbo`).
@@ -33,25 +53,41 @@ print(json.dumps(config, indent=2))
 
 Use `config.ollama.default_image_model` for hero/background/element images and `config.ollama.default_diagram_model` for diagrams. **Never hardcode Ollama model names** — always read from this file.
 
-## Step 1: Run Provider Discovery
+## Step 1: Discover Engine Plugins
 
-Discover which image generation providers are available for this run.
+Call each engine plugin's verify skill to discover what's available. Extract the STATUS line from each response.
 
-```bash
-python3 -c "
-import json
-from src.provider_discovery import discover_providers
-providers = discover_providers(config_path='provider_config.json')
-print(json.dumps(providers, indent=2))
-"
+Call in sequence:
+1. `/jack-tar-ollama:verify`
+2. `/jack-tar-cloud:verify`
+
+Parse each response:
+- For jack-tar-ollama: STATUS line tells you if Ollama is FULLY_AVAILABLE (has image models), PARTIALLY_AVAILABLE, or NOT_AVAILABLE. If FULLY_AVAILABLE or PARTIALLY_AVAILABLE, parse the MODELS section to get available model names.
+- For jack-tar-cloud: STATUS line and PROVIDERS section tells you which cloud providers are ready.
+
+Build the `available_providers` dict:
+```python
+{
+    "ollama": {
+        "available": True/False,
+        "models": ["x/z-image-turbo", ...]  # from MODELS section
+    },
+    "openai": {"available": True/False},
+    "google": {"available": True/False},
+    "fal": {"available": True/False},
+    "recraft": {"available": True/False}
+}
 ```
 
-Parse the JSON output into an `available_providers` dict. Report the findings:
-- Which providers are available (Ollama, OpenAI, Google, FAL.ai, Recraft)
+If jack-tar-ollama is not installed or returns NOT_AVAILABLE, set `ollama.available = False`.
+If jack-tar-cloud is not installed or returns NOT_AVAILABLE, set all cloud providers to False.
+
+Report the findings:
+- Which providers are available
 - Which Ollama models are installed (if Ollama is available)
 - Whether any cloud providers are configured
 
-If NO providers are available at all (no Ollama, no cloud), warn that all images will be placeholders but continue -- the deck must always be completable.
+If NO providers are available, warn that all images will be placeholders but continue — the deck must always be completable.
 
 ## Step 2: Read DeckContext Inputs
 
@@ -95,7 +131,7 @@ If a strategy map exists, check each slide's strategy before routing:
 Use the image router to determine which skill handles each slide:
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.image_router import route_all_slides, get_chart_slides
 
@@ -128,7 +164,7 @@ For slides with strategy `full_render` or `backdrop_render`:
 
 1. Assemble a structured brief:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.slide_prompt_composer import assemble_brief
 import json
 with open('./tmp/deck/outline.json') as f:
@@ -144,7 +180,7 @@ print(json.dumps(brief, indent=2))
 
 3. Execute the funnel stage:
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.render_funnel import execute_funnel_stage
 result = execute_funnel_stage(
     deck_dir='./tmp/deck',
@@ -169,7 +205,7 @@ import json; print(json.dumps(result, indent=2))
 For each routing decision where `skill` is not `skip` and not `placeholder`:
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.cache_manager import ImageCacheManager
 
 cache = ImageCacheManager()
@@ -187,7 +223,7 @@ Track which slides have cache hits and which need generation.
 For each slide that needs generation (cache miss), construct the model-specific prompt:
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.prompt_translator import translate_prompt
 import json
 
@@ -263,34 +299,34 @@ After generating EVERY image, dispatch the `image-reviewer` agent to assess it. 
 
 For `pragmatic_composition` slides, calculate the target aspect ratio from the strategy map's `element_layout` dimensions before generating each element image. For each element: `aspect_ratio = element.w / element.h` (normalised coordinates). Then set `--width` and `--height` to match this ratio at the desired resolution. For example, for a 2.79:1 ratio at 1024px wide: `--width 1024 --height 368`. Do NOT generate square images for non-square placement boxes -- the image will be stretched or cropped by the assembler, degrading quality.
 
-### For ollama-image (hero_image in draft mode):
+### For jack-tar-ollama:image (hero_image in draft mode):
 ```
-/ollama-image "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-hero.png --width 1024 --height 576 --model x/z-image-turbo
-```
-
-### For ollama-pattern (pattern_background in draft mode):
-```
-/ollama-pattern "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-pattern.png --width 1024 --height 1024
+/jack-tar-ollama:image "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-hero.png --width 1024 --height 576 --model x/z-image-turbo
 ```
 
-### For ollama-diagram (diagram in any mode):
+### For jack-tar-ollama:pattern (pattern_background in draft mode):
 ```
-/ollama-diagram "TRANSLATED_PROMPT" --type TYPE --output ./tmp/deck/images/slide-NN-diagram.png --width 1024 --height 768
-```
-
-### For cloud-generate-image (hero/pattern in production mode):
-```
-/cloud-generate-image "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-TYPE.png --provider PROVIDER --quality QUALITY_TIER
+/jack-tar-ollama:pattern "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-pattern.png --width 1024 --height 1024
 ```
 
-### For cloud-generate-icon (icon_set in any mode):
+### For jack-tar-ollama:diagram (diagram in any mode):
 ```
-/cloud-generate-icon "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-icon --provider PROVIDER --colors PALETTE_HEX
+/jack-tar-ollama:diagram "TRANSLATED_PROMPT" --type TYPE --output ./tmp/deck/images/slide-NN-diagram.png --width 1024 --height 768
+```
+
+### For jack-tar-cloud:image (hero/pattern in production mode):
+```
+/jack-tar-cloud:image "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-TYPE.png --provider PROVIDER --quality QUALITY_TIER
+```
+
+### For jack-tar-cloud:icon (icon_set in any mode):
+```
+/jack-tar-cloud:icon "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-icon --provider PROVIDER --colors PALETTE_HEX
 ```
 
 ### For render_chart (chart type):
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.render_chart import render_chart
 result = render_chart(chart_type='$CHART_TYPE', data=$DATA, output_path='./tmp/deck/images/slide-NN-chart.png', style_guide=$STYLE_GUIDE)
 import json; print(json.dumps(result))
@@ -299,7 +335,7 @@ import json; print(json.dumps(result))
 
 ### For placeholder:
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.process_image import generate_placeholder
 generate_placeholder(width=1920, height=1080, colour='$HEX', output_path='./tmp/deck/images/slide-NN-placeholder.png')
 "
@@ -319,7 +355,7 @@ If any skill invocation fails:
 After each cloud generation, update the budget tracker:
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.budget_tracker import BudgetTracker
 import json
 
@@ -345,7 +381,7 @@ If budget state changes, re-route remaining slides with the new budget state.
 In production mode, the imagegen-bridge reads `production-upgrade-plan.json` instead of computing routing decisions. The image-generation-expert agent has already determined the optimal engine for each slide.
 
 ```bash
-source .venv/bin/activate && python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.image_router import load_upgrade_plan, execute_upgrade_plan_entry
 import json
 
@@ -360,20 +396,20 @@ For each entry:
 
 ### raster_upscale entries
 
-Invoke `cloud-generate-image` with the plan's provider, model, and dimensions:
+Invoke `jack-tar-cloud:image` with the plan's provider, model, and dimensions:
 
 ```bash
-/cloud-generate-image "DRAFT_PROMPT" --provider PROVIDER --model MODEL --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero.png
+/jack-tar-cloud:image "DRAFT_PROMPT" --provider PROVIDER --model MODEL --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero.png
 ```
 
 The draft prompt is carried from the draft ImageManifest via the plan's `draft_prompt` field. Use it directly — it was already validated during drafting.
 
 ### vector_conversion entries
 
-Invoke `cloud-generate-icon` with Recraft:
+Invoke `jack-tar-cloud:icon` with Recraft:
 
 ```bash
-/cloud-generate-icon "DRAFT_PROMPT" --provider recraft --output ./tmp/deck/images/slide-NN-diagram.svg
+/jack-tar-cloud:icon "DRAFT_PROMPT" --provider recraft --output ./tmp/deck/images/slide-NN-diagram.svg
 ```
 
 The output is SVG. After generation, rasterise it to PNG using `src/process_image.py`, passing the slide's background colour to fix Recraft's default white backgrounds:
@@ -441,7 +477,7 @@ This step is **not optional**. Skipping it will cause text labels to misalign wi
 For each generated image (not cached, not placeholder):
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.process_image import resize, crop_to_aspect, compute_content_hash
 resize('$PATH', $WIDTH, $HEIGHT)
 crop_to_aspect('$PATH', '16:9')
@@ -453,7 +489,7 @@ print(f'hash:{content_hash}')
 ## Step 11: Cache Generated Images
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 from src.cache_manager import ImageCacheManager
 cache = ImageCacheManager()
 cache.put('$CACHE_KEY', open('$IMAGE_PATH', 'rb').read())
@@ -479,7 +515,7 @@ Each image entry in `$IMAGES_LIST` MUST include `source_prompt` — the translat
 ```
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from datetime import datetime, timezone
 from src.deckcontext import write_contract
@@ -506,7 +542,7 @@ print(json.dumps(manifest['summary'], indent=2))
 ## Step 13: Build and Write ChartManifest
 
 ```bash
-python3 -c "
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.deckcontext import write_contract
 charts = $CHARTS_LIST
