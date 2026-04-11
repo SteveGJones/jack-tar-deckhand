@@ -62,5 +62,7 @@ STATUS: FULLY_AVAILABLE
 REASON: All rendering engines available
 ```
 
-If Mermaid or Vega CLIs are missing, status is PARTIALLY_AVAILABLE (custom SVG and matplotlib still work).
-If matplotlib is missing, status is NOT_AVAILABLE (core engine unavailable).
+Status rules:
+- `STATUS: FULLY_AVAILABLE` — all engines present (matplotlib, Mermaid CLI, Vega CLI)
+- `STATUS: PARTIALLY_AVAILABLE` — Mermaid or Vega CLIs missing (custom SVG and matplotlib still work)
+- `STATUS: NOT_AVAILABLE` — matplotlib missing (core engine unavailable)

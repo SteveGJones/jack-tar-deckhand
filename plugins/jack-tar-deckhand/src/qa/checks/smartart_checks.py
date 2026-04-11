@@ -25,7 +25,24 @@ import re
 import zipfile
 from pathlib import Path
 
-from src.smartart_svg.tokens import _contrast_ratio
+def _hex_to_rgb(hex_str):
+    hex_str = hex_str.lstrip('#')
+    return (int(hex_str[0:2], 16), int(hex_str[2:4], 16), int(hex_str[4:6], 16))
+
+
+def _relative_luminance(rgb):
+    vals = []
+    for c in rgb:
+        s = c / 255.0
+        vals.append(s / 12.92 if s <= 0.04045 else ((s + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * vals[0] + 0.7152 * vals[1] + 0.0722 * vals[2]
+
+
+def _contrast_ratio(hex1, hex2):
+    l1 = _relative_luminance(_hex_to_rgb(hex1))
+    l2 = _relative_luminance(_hex_to_rgb(hex2))
+    lighter, darker = max(l1, l2), min(l1, l2)
+    return (lighter + 0.05) / (darker + 0.05)
 
 
 # ---------------------------------------------------------------------------

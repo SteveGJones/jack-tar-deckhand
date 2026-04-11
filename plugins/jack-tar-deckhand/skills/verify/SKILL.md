@@ -71,6 +71,6 @@ REASON: jack-tar-custom-smartart not available
 ```
 
 Overall STATUS rules:
-- FULLY_AVAILABLE: pptxgenjs installed + at least one image plugin + at least one SmartArt plugin
-- PARTIALLY_AVAILABLE: pptxgenjs installed but some engine plugins missing
-- NOT_AVAILABLE: pptxgenjs not installed (can't assemble decks at all)
+- `STATUS: FULLY_AVAILABLE` — pptxgenjs installed + at least one image plugin + at least one SmartArt plugin
+- `STATUS: PARTIALLY_AVAILABLE` — pptxgenjs installed but some engine plugins missing
+- `STATUS: NOT_AVAILABLE` — pptxgenjs not installed (can't assemble decks at all)

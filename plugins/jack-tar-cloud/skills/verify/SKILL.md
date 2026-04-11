@@ -57,7 +57,10 @@ print(json.dumps(providers))
 
 ## Step 3: Report status
 
-Count ready providers. If 0, status is NOT_AVAILABLE. If some but not all, PARTIALLY_AVAILABLE. If all, FULLY_AVAILABLE.
+Count ready providers and report one of:
+- `STATUS: FULLY_AVAILABLE` — all dependencies present and at least 2 providers configured
+- `STATUS: PARTIALLY_AVAILABLE` — dependencies present but only 1-3 providers configured
+- `STATUS: NOT_AVAILABLE` — missing Python dependencies or zero providers configured
 
 Example output:
 
