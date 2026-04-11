@@ -196,7 +196,7 @@ def test_agent_prompt_mentions_pptx_native():
 
     prompt_path = (
         Path(__file__).resolve().parent.parent
-        / ".claude" / "agents" / "smartart-selector.md"
+        / "plugins" / "jack-tar-deckhand" / "agents" / "smartart-selector.md"
     )
     content = prompt_path.read_text(encoding="utf-8")
 
