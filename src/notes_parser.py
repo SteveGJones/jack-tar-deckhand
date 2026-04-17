@@ -88,3 +88,89 @@ def parse_notes_file(file_path):
             })
 
     return blocks
+
+
+def _strip_punctuation(text):
+    """Remove punctuation for fuzzy comparison."""
+    return re.sub(r'[^\w\s]', '', text).strip()
+
+
+def _fuzzy_match_headline(hint, headlines):
+    """Find the best matching slide for a headline hint.
+
+    Args:
+        hint: The headline hint from the parsed block.
+        headlines: dict of {slide_number: headline} from the outline.
+
+    Returns:
+        slide_number or None.
+    """
+    hint_clean = _strip_punctuation(hint).lower()
+    if not hint_clean:
+        return None
+
+    best_match = None
+    best_ratio = 0
+
+    for slide_num, headline in headlines.items():
+        headline_clean = _strip_punctuation(headline).lower()
+
+        # Substring containment (either direction)
+        if hint_clean in headline_clean or headline_clean in hint_clean:
+            return slide_num
+
+        # Fuzzy ratio
+        ratio = SequenceMatcher(None, hint_clean, headline_clean).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_match = slide_num
+
+    if best_ratio > 0.7:
+        return best_match
+
+    return None
+
+
+def match_notes_to_outline(parsed_blocks, outline):
+    """Match parsed note blocks to slides in the outline.
+
+    Args:
+        parsed_blocks: List of dicts from parse_notes_file().
+        outline: SlideOutline dict with 'slides' array.
+
+    Returns:
+        Tuple of (matched_dict, warnings_list).
+        matched_dict: {slide_number: text}
+        warnings_list: list of warning strings for unmatched blocks.
+    """
+    slide_numbers = {s['slide_number'] for s in outline.get('slides', [])}
+    headlines = {s['slide_number']: s.get('headline', '') for s in outline.get('slides', [])}
+
+    matched = {}
+    warnings = []
+
+    for block in parsed_blocks:
+        # Priority 1: explicit slide number
+        if block['slide_number'] is not None:
+            if block['slide_number'] in slide_numbers:
+                matched[block['slide_number']] = block['text']
+                continue
+            else:
+                warnings.append(
+                    f"Note for '{block['raw_label']}' references slide {block['slide_number']} "
+                    f"which does not exist in the outline — skipped"
+                )
+                continue
+
+        # Priority 2: headline fuzzy match
+        if block['headline_hint']:
+            slide_num = _fuzzy_match_headline(block['headline_hint'], headlines)
+            if slide_num is not None:
+                matched[slide_num] = block['text']
+                continue
+
+        # Unmatched
+        label = block['raw_label'] or block['headline_hint'] or block['text'][:40]
+        warnings.append(f"Note for '{label}' didn't match any slide — skipped")
+
+    return matched, warnings
