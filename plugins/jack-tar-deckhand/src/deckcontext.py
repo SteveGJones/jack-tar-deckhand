@@ -28,10 +28,12 @@ CONTRACT_SCHEMAS = {
     'smartart-recommendations': 'smartart_recommendations.schema.json',
     'smartart-spec': 'smartart_spec.schema.json',
     'smartart-manifest': 'smartart_manifest.schema.json',
+    'template-profile': 'template_profile.schema.json',
 }
 
 DEFAULT_STEP_ORDER = [
     'validate-brief',
+    'template-analysis',
     'brand-manager',
     'slide-stylist',
     'narrative-architect',

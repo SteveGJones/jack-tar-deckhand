@@ -29,11 +29,15 @@ _COMPOSED_TYPES = {'data_chart', 'diagram', 'code'}
 _BACKDROP_BULLET_THRESHOLD = 2
 
 
-def classify_slide_strategy(slide):
+def classify_slide_strategy(slide, template_mode=False, template_layout=None):
     """Classify a slide's recommended rendering strategy.
 
     Args:
         slide: dict from SlideOutline slides array.
+        template_mode: If True, constrain strategy to composed unless a full-bleed
+            picture placeholder is detected in template_layout.
+        template_layout: Optional dict with 'placeholders' list describing the
+            template's placeholder regions (requires 'type', 'w', 'h' per entry).
 
     Returns:
         dict with keys: slide_number, strategy, rationale, render_funnel, speaker_override
@@ -42,6 +46,29 @@ def classify_slide_strategy(slide):
     slide_type = slide.get('slide_type', 'content')
     body_points = slide.get('body_points', [])
     visual_type = classify_visual_type(slide)
+
+    # Template mode: constrain to composed, except full-bleed picture layouts
+    if template_mode:
+        if template_layout:
+            slide_area = 13.333 * 7.5  # standard 16:9
+            for ph in template_layout.get('placeholders', []):
+                if ph['type'] == 'picture':
+                    ph_area = ph['w'] * ph['h']
+                    if ph_area / slide_area > 0.9:
+                        return {
+                            'slide_number': slide_number,
+                            'strategy': 'full_render',
+                            'rationale': 'Template layout has full-bleed picture placeholder',
+                            'render_funnel': ['ollama', 'cloud_low', 'cloud_full'],
+                            'speaker_override': None,
+                        }
+        return {
+            'slide_number': slide_number,
+            'strategy': 'composed',
+            'rationale': 'Template mode — content placed in template placeholders',
+            'render_funnel': ['ollama'],
+            'speaker_override': None,
+        }
 
     # Charts and diagrams must stay composed (precise text/labels)
     if slide_type in _COMPOSED_TYPES or visual_type == 'chart':
@@ -85,13 +112,15 @@ def classify_slide_strategy(slide):
 from datetime import datetime, timezone
 
 
-def build_strategy_map(outline, approval_mode='review', overrides=None):
+def build_strategy_map(outline, approval_mode='review', overrides=None, template_mode=False):
     """Build a complete StrategyMap from a SlideOutline.
 
     Args:
         outline: dict from SlideOutline (must have 'slides' array).
         approval_mode: 'review' (default) or 'one_shot'.
         overrides: Optional dict of {slide_number: strategy} Speaker overrides.
+        template_mode: If True, pass template_mode=True to classify_slide_strategy
+            for every slide, constraining strategies to composed.
 
     Returns:
         dict conforming to StrategyMap schema.
@@ -100,7 +129,7 @@ def build_strategy_map(outline, approval_mode='review', overrides=None):
     slides = []
 
     for slide in outline.get('slides', []):
-        entry = classify_slide_strategy(slide)
+        entry = classify_slide_strategy(slide, template_mode=template_mode)
         slide_num = entry['slide_number']
 
         if slide_num in overrides:

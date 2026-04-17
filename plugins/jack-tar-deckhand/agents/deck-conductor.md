@@ -91,6 +91,50 @@ save_provider_snapshot('./tmp/deck', PROVIDERS_DICT)
 "
 ```
 
+### Step 0.5: Template Analysis (conditional)
+
+If the TalkBrief has `branding.template_pptx_path`:
+
+1. Run template analysis:
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.template_analyser import analyse_template
+from src.deckcontext import write_contract
+import json
+profile = analyse_template('TEMPLATE_PATH')
+write_contract('./tmp/deck', 'template-profile', profile)
+print(json.dumps(profile['layout_mapping'], indent=2))
+"
+```
+
+2. **ESCALATE:** Present the auto-detected layout mapping to the Speaker:
+   - Show each slide type → layout name assignment
+   - List any unmapped slide types and their fallback
+   - Ask Speaker to confirm or override
+
+3. Update the profile with Speaker approval:
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+with open('./tmp/deck/template-profile.json') as f:
+    profile = json.load(f)
+profile['speaker_approved'] = True
+# Apply any Speaker overrides to layout_mapping here
+with open('./tmp/deck/template-profile.json', 'w') as f:
+    json.dump(profile, f, indent=2)
+"
+```
+
+4. Log approval:
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.conductor import log_speaker_approval
+log_speaker_approval('./tmp/deck', 'template_mapping_approved', 'Speaker confirmed template layout mapping')
+"
+```
+
+If the TalkBrief does NOT have `branding.template_pptx_path`, skip this step entirely.
+
 ### Step 1: Brand Profile — `/jack-tar-deckhand:brand-manager`
 
 Invoke the brand-manager skill. It reads the TalkBrief branding section, extracts or loads a BrandProfile, and collaborates with the Speaker for approval.

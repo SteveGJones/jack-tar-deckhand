@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/template-profile.json",
+  "title": "TemplateProfile",
+  "description": "Extracted layout metadata from a .pptx template for template-driven assembly.",
+  "type": "object",
+  "required": ["template_path", "template_hash", "slide_width_inches", "slide_height_inches", "master_index", "layouts", "layout_mapping", "unmapped_fallback", "constrains_strategies", "speaker_approved"],
+  "additionalProperties": false,
+  "properties": {
+    "template_path": {"type": "string"},
+    "template_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "slide_width_inches": {"type": "number", "minimum": 1},
+    "slide_height_inches": {"type": "number", "minimum": 1},
+    "master_index": {"type": "integer", "minimum": 0, "default": 0},
+    "layouts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "index", "placeholder_count", "placeholders", "decorative_shape_count"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {"type": "string"},
+          "index": {"type": "integer", "minimum": 0},
+          "placeholder_count": {"type": "integer", "minimum": 0},
+          "placeholders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["idx", "type", "name", "x", "y", "w", "h"],
+              "additionalProperties": false,
+              "properties": {
+                "idx": {"type": "integer", "minimum": 0},
+                "type": {
+                  "type": "string",
+                  "enum": ["title", "subtitle", "body", "content", "picture", "chart", "table", "footer", "slide_number", "date", "chapter_box", "other"]
+                },
+                "name": {"type": "string"},
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+                "w": {"type": "number"},
+                "h": {"type": "number"}
+              }
+            }
+          },
+          "decorative_shape_count": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "layout_mapping": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["layout_name", "layout_index"],
+        "additionalProperties": false,
+        "properties": {
+          "layout_name": {"type": "string"},
+          "layout_index": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "unmapped_fallback": {
+      "type": "object",
+      "required": ["layout_name", "layout_index"],
+      "additionalProperties": false,
+      "properties": {
+        "layout_name": {"type": "string"},
+        "layout_index": {"type": "integer", "minimum": 0}
+      }
+    },
+    "constrains_strategies": {"type": "boolean"},
+    "speaker_approved": {"type": "boolean"}
+  }
+}

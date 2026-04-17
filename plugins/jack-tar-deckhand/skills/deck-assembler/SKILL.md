@@ -22,6 +22,21 @@ All of these DeckContext files must exist before running:
 
 ## Usage
 
+**Routing:** Check for `./tmp/deck/template-profile.json` first.
+
+**Template mode** (template-profile.json exists):
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.assembler.build_deck_template import build_deck
+with open('./tmp/deck/template-profile.json') as f:
+    profile = json.load(f)
+output = build_deck('./tmp/deck', profile['template_path'], profile)
+print(f'Template deck assembled: {output}')
+"
+```
+
+**Standard mode** (no template):
 ```bash
 node src/assembler/build_deck.js --deck-dir ./tmp/deck
 ```
@@ -60,4 +75,4 @@ Default deck-dir is `./tmp/deck` if not specified.
 
 - No native animations (PptxGenJS v4.0.1 limitation) -- uses progressive builds for ~80% coverage
 - No gradient fills on shapes -- use pre-rendered gradient images as backgrounds
-- Cannot import existing .pptx templates -- defines masters programmatically
+- Template mode requires python-pptx — PptxGenJS path does not support templates

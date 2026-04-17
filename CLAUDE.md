@@ -60,7 +60,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Create `research/synthesis-[skill-name].md` before implementing any skill
   - `research/report-1-landscape-and-spec.md` and `report-2-implementation-and-validation.md` are the pptx_native SmartArt research Phase 1/2
 
-- **Test suite: 952 monorepo + 33 cross-plugin integration tests**
+- **Test suite: 1010 monorepo + 33 cross-plugin integration tests**
   - Phases 1-6: Foundation through Orchestration (518 tests)
   - SmartArt Intelligent Graphics (PR #21, merged 2026-04-07): 132 tests
   - pptx_native SmartArt engine (PR #39, merged 2026-04-10): ~300 tests across 17 test files — 28 layouts, picture embedding, multi-slide integration
@@ -69,6 +69,10 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 - **Full Pipeline:** `/jack-tar-deckhand:deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **smartart-selector** → **strategy-map** → **smartart-extractor** → speaker-notes-writer → imagegen-bridge → **smartart-renderer** → chart-renderer → deck-assembler → deck-qa → presentation-reviewer
 
 - **deck-conductor invocation contract (issue #42, fixed):** The conductor is a conversational orchestrator — run as primary agent in a dedicated session, OR as a subagent when TalkBrief provides `preferences.budget_cap_usd` and `preferences.image_backend` (skips Step 0 escalation). Fix: `read_brief_defaults()` in conductor.py extracts budget/providers from brief; agent definition makes escalation conditional.
+
+- **Template-Driven Layout Support (issue #45):** Speakers can provide a corporate .pptx template via `branding.template_pptx_path`. Template analyser (`src/template_analyser.py`) extracts layouts and placeholder geometry, auto-maps to slide types (Speaker confirms). python-pptx assembly engine (`src/assembler/build_deck_template.py`) opens the template, strips example slides, places content into typed placeholders (TITLE, BODY, CONTENT, PICTURE). Strategy map constrained to `composed` in template mode. SmartArt injection works unchanged via placeholder rects in content zones.
+  - **Design spec:** `docs/superpowers/specs/2026-04-17-template-driven-layout-design.md`
+  - **Implementation plan:** `docs/superpowers/plans/2026-04-17-template-driven-layout.md`
 
 - **SmartArt Intelligent Graphics (merged 2026-04-07, PR #21):** AI-driven templated graphic generation
   - 10 v1 graphic types: flowchart, decision tree, bar/line chart, radar chart, SWOT, feature matrix, Venn, timeline, pipeline/funnel, Gantt
@@ -240,6 +244,9 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Pipeline step order | `src/deckcontext.py` | 1 | Done |
 | Upgrade slide strategy | `src/conductor.py` | 23 | Done |
 | Production upgrade plan | `src/image_router.py`, `src/schemas/` | 11 | Done |
+| Template analyser | `src/template_analyser.py` | 36 | Done |
+| Template assembler | `src/assembler/build_deck_template.py` | 10 | Done |
+| Template integration | `tests/test_template_integration.py` | 12 | Done |
 
 ### Architecture Summary
 

@@ -28,7 +28,7 @@ Without engine plugins, the pipeline produces text-only slides with placeholder 
 | `/smartart-extractor` | Transform content for SmartArt engines |
 | `/speaker-notes-writer` | Generate timed speaker notes |
 | `/imagegen-bridge` | Route image generation to available plugins |
-| `/deck-assembler` | Assemble .pptx from all contracts |
+| `/deck-assembler` | Assemble .pptx — routes to PptxGenJS (standard) or python-pptx (template mode) |
 | `/deck-qa` | Run 30 anti-pattern checks |
 | `/verify` | Check pipeline readiness and engine plugin availability |
 
