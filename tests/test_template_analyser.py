@@ -282,3 +282,45 @@ class TestAutoMapLayouts:
         mapping, fallback = auto_map_layouts([])
         assert mapping == {}
         assert fallback is None
+
+
+from src.template_analyser import analyse_template
+
+
+class TestAnalyseTemplate:
+    def test_returns_complete_profile(self):
+        profile = analyse_template(FIXTURE_PATH)
+        assert profile['template_path'] == FIXTURE_PATH
+        assert len(profile['template_hash']) == 64
+        assert profile['slide_width_inches'] == 13.33
+        assert profile['slide_height_inches'] == 7.5
+        assert profile['master_index'] == 0
+        assert isinstance(profile['layouts'], list)
+        assert isinstance(profile['layout_mapping'], dict)
+        assert profile['constrains_strategies'] is True
+        assert profile['speaker_approved'] is False
+
+    def test_hash_changes_with_different_file(self, tmp_path):
+        from pptx import Presentation as Prs
+        prs = Prs()
+        path1 = str(tmp_path / 'a.pptx')
+        prs.save(path1)
+        profile1 = analyse_template(path1)
+
+        # Modify and save again
+        prs2 = Prs()
+        prs2.slides.add_slide(prs2.slide_layouts[0])
+        path2 = str(tmp_path / 'b.pptx')
+        prs2.save(path2)
+        profile2 = analyse_template(path2)
+
+        assert profile1['template_hash'] != profile2['template_hash']
+
+    def test_validates_against_schema(self):
+        profile = analyse_template(FIXTURE_PATH)
+        schema = _load_schema()
+        jsonschema.validate(instance=profile, schema=schema)
+
+    def test_unmapped_fallback_present(self):
+        profile = analyse_template(FIXTURE_PATH)
+        assert profile['unmapped_fallback'] is not None or len(profile['layout_mapping']) > 0
