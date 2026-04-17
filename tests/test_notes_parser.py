@@ -248,3 +248,53 @@ class TestTalkBriefNotesField:
             'duration_minutes': 20,
         }
         jsonschema.validate(instance=brief, schema=schema)
+
+
+from src.content_validation import validate_notes_schema
+
+
+class TestNotesImportIntegration:
+    def test_import_produces_valid_schema(self):
+        """Full flow: parse → match → timing → assemble → validate."""
+        blocks = parse_notes_file(os.path.join(FIXTURES_DIR, 'heading-based.md'))
+        matched, warnings = match_notes_to_outline(blocks, SAMPLE_OUTLINE)
+        markers = build_timing_markers(matched)
+
+        # Assemble into SpeakerNotes schema format
+        notes = {'notes': []}
+        for slide_num in sorted(matched.keys()):
+            note = {
+                'slide_number': slide_num,
+                'text': matched[slide_num],
+            }
+            if slide_num in markers:
+                note['estimated_seconds'] = markers[slide_num]['estimated_seconds']
+                note['timing_marker'] = markers[slide_num]['timing_marker']
+            notes['notes'].append(note)
+
+        errors = validate_notes_schema(notes)
+        assert errors == []
+
+    def test_partial_coverage_leaves_gaps(self):
+        blocks = parse_notes_file(os.path.join(FIXTURES_DIR, 'partial-coverage.md'))
+        matched, warnings = match_notes_to_outline(blocks, SAMPLE_OUTLINE)
+        # Slides 1 and 4 have no notes — gaps for the writer to fill
+        assert 1 not in matched
+        assert 4 not in matched
+        assert 2 in matched
+        assert 3 in matched
+
+    def test_full_heading_fixture_matches_all(self):
+        blocks = parse_notes_file(os.path.join(FIXTURES_DIR, 'heading-based.md'))
+        matched, warnings = match_notes_to_outline(blocks, SAMPLE_OUTLINE)
+        assert len(matched) == 3  # Slides 1, 2, 3
+        assert warnings == []
+
+    def test_mixed_format_matches_correctly(self):
+        blocks = parse_notes_file(os.path.join(FIXTURES_DIR, 'mixed-format.md'))
+        matched, warnings = match_notes_to_outline(blocks, SAMPLE_OUTLINE)
+        assert 1 in matched
+        assert 2 in matched
+        assert 3 in matched  # Matched by headline "Our Solution"
+        assert 4 in matched
+        assert warnings == []
