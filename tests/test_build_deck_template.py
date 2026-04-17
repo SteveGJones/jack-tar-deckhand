@@ -3,6 +3,7 @@
 import json
 import os
 import pytest
+from PIL import Image
 from pptx import Presentation
 
 from src.template_analyser import analyse_template
@@ -94,3 +95,89 @@ class TestBuildDeckTemplate:
         output_path = build_deck(deck_dir, FIXTURE_PATH, profile)
         prs = Presentation(output_path)
         assert len(prs.slides) == 3
+
+
+class TestTemplateAssemblyImages:
+    def test_image_inserted_into_picture_placeholder(self, tmp_path):
+        img = Image.new('RGB', (400, 300), color='red')
+        deck_dir, profile = _setup_deck_dir(tmp_path, [
+            {'slide_number': 1, 'slide_type': 'content', 'headline': 'With Image'},
+        ])
+        img_path = os.path.join(deck_dir, 'images', 'slide1.png')
+        img.save(img_path)
+
+        manifest = {
+            'images': [{
+                'image_id': 'img-1',
+                'slide_number': 1,
+                'file_path': 'images/slide1.png',
+                'status': 'generated',
+            }]
+        }
+        with open(os.path.join(deck_dir, 'image-manifest.json'), 'w') as f:
+            json.dump(manifest, f)
+
+        output_path = build_deck(deck_dir, FIXTURE_PATH, profile)
+        assert os.path.isfile(output_path)
+
+    def test_missing_image_does_not_crash(self, tmp_path):
+        deck_dir, profile = _setup_deck_dir(tmp_path, [
+            {'slide_number': 1, 'slide_type': 'content', 'headline': 'No Image'},
+        ], image_manifest_images=[{
+            'image_id': 'img-1',
+            'slide_number': 1,
+            'file_path': 'images/nonexistent.png',
+            'status': 'generated',
+        }])
+        output_path = build_deck(deck_dir, FIXTURE_PATH, profile)
+        assert os.path.isfile(output_path)
+
+
+class TestTemplateAssemblyNotes:
+    def test_speaker_notes_populated(self, tmp_path):
+        notes = {
+            'notes': [
+                {'slide_number': 1, 'text': 'Remember to introduce yourself'},
+            ]
+        }
+        deck_dir, profile = _setup_deck_dir(tmp_path, [
+            {'slide_number': 1, 'slide_type': 'content', 'headline': 'Intro'},
+        ], speaker_notes=notes)
+        output_path = build_deck(deck_dir, FIXTURE_PATH, profile)
+        prs = Presentation(output_path)
+        slide = prs.slides[0]
+        notes_text = slide.notes_slide.notes_text_frame.text
+        assert 'Remember to introduce yourself' in notes_text
+
+    def test_no_notes_does_not_crash(self, tmp_path):
+        deck_dir, profile = _setup_deck_dir(tmp_path, [
+            {'slide_number': 1, 'slide_type': 'content', 'headline': 'No Notes'},
+        ])
+        output_path = build_deck(deck_dir, FIXTURE_PATH, profile)
+        assert os.path.isfile(output_path)
+
+
+class TestTemplateSmartArtPlaceholder:
+    def test_smartart_placeholder_emitted_for_smartart_slide(self, tmp_path):
+        deck_dir, profile = _setup_deck_dir(tmp_path, [
+            {'slide_number': 1, 'slide_type': 'diagram', 'headline': 'Architecture'},
+        ])
+        sa_manifest = {
+            'graphics': [{
+                'smartart_id': 'sa-1',
+                'slide_number': 1,
+                'graphic_type': 'flowchart',
+                'engine_used': 'pptx_native',
+                'enrichment_tier': 'pure_programmatic',
+                'file_path': 'smartart/carrier_1.pptx',
+                'status': 'rendered',
+            }]
+        }
+        with open(os.path.join(deck_dir, 'smartart-manifest.json'), 'w') as f:
+            json.dump(sa_manifest, f)
+
+        output_path = build_deck(deck_dir, FIXTURE_PATH, profile)
+        prs = Presentation(output_path)
+        slide = prs.slides[0]
+        shape_names = [s.name for s in slide.shapes]
+        assert any('pptx_native_placeholder_1' in n for n in shape_names)
