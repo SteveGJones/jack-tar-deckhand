@@ -61,3 +61,44 @@ def classify_placeholder(ph_type_str, ph_name):
     # Extract the type keyword before the parenthesized number
     type_key = ph_type_str.split('(')[0].strip().split()[-1] if ph_type_str else ''
     return _TYPE_MAP.get(type_key, 'other')
+
+
+def extract_layouts(template_path, master_index=0):
+    """Extract all slide layouts from a template .pptx file.
+
+    Args:
+        template_path: Path to the .pptx template file.
+        master_index: Which slide master to use (default 0).
+
+    Returns:
+        List of layout dicts with name, index, placeholders, and decorative shape count.
+    """
+    prs = Presentation(template_path)
+    master = prs.slide_masters[master_index]
+    results = []
+
+    for i, layout in enumerate(master.slide_layouts):
+        placeholders = []
+        for ph in layout.placeholders:
+            ph_type_str = str(ph.placeholder_format.type) if ph.placeholder_format.type is not None else ''
+            placeholders.append({
+                'idx': ph.placeholder_format.idx,
+                'type': classify_placeholder(ph_type_str, ph.name),
+                'name': ph.name,
+                'x': _emu_to_inches(ph.left),
+                'y': _emu_to_inches(ph.top),
+                'w': _emu_to_inches(ph.width),
+                'h': _emu_to_inches(ph.height),
+            })
+
+        non_placeholder_shapes = [s for s in layout.shapes if not s.is_placeholder]
+
+        results.append({
+            'name': layout.name,
+            'index': i,
+            'placeholder_count': len(placeholders),
+            'placeholders': placeholders,
+            'decorative_shape_count': len(non_placeholder_shapes),
+        })
+
+    return results

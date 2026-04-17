@@ -121,3 +121,47 @@ class TestClassifyPlaceholder:
 
     def test_unknown_type(self):
         assert classify_placeholder('UNKNOWN (99)', 'Mystery Shape') == 'other'
+
+
+from src.template_analyser import extract_layouts
+
+FIXTURE_PATH = os.path.join(os.path.dirname(__file__), 'fixtures', 'templates', 'metamirror-template.pptx')
+
+
+class TestExtractLayouts:
+    def test_returns_list_of_layouts(self):
+        layouts = extract_layouts(FIXTURE_PATH)
+        assert isinstance(layouts, list)
+        assert len(layouts) > 0
+
+    def test_layout_has_required_keys(self):
+        layouts = extract_layouts(FIXTURE_PATH)
+        layout = layouts[0]
+        assert 'name' in layout
+        assert 'index' in layout
+        assert 'placeholder_count' in layout
+        assert 'placeholders' in layout
+        assert 'decorative_shape_count' in layout
+
+    def test_placeholder_has_geometry(self):
+        layouts = extract_layouts(FIXTURE_PATH)
+        # Find a layout with placeholders
+        layout_with_phs = next(l for l in layouts if l['placeholder_count'] > 0)
+        ph = layout_with_phs['placeholders'][0]
+        assert 'idx' in ph
+        assert 'type' in ph
+        assert 'name' in ph
+        assert isinstance(ph['x'], float)
+        assert isinstance(ph['y'], float)
+        assert isinstance(ph['w'], float)
+        assert isinstance(ph['h'], float)
+
+    def test_title_layout_has_title_placeholder(self):
+        layouts = extract_layouts(FIXTURE_PATH)
+        title_layout = next(l for l in layouts if 'title' in l['name'].lower())
+        ph_types = [p['type'] for p in title_layout['placeholders']]
+        assert 'title' in ph_types
+
+    def test_master_index_zero_by_default(self):
+        layouts = extract_layouts(FIXTURE_PATH, master_index=0)
+        assert len(layouts) > 0
