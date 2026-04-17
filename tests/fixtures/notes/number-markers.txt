@@ -1,0 +1,8 @@
+[1]
+Welcome everyone. Today we're going to explore how AI is transforming the way we build software.
+
+[2]
+Let's start with the problem. How many of you have spent more than an hour debugging a deployment issue this month? Show of hands.
+
+[3]
+Our solution addresses these pain points head-on. Let me walk you through the three pillars of our approach.
