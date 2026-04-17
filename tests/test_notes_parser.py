@@ -1,11 +1,14 @@
 """Tests for external speaker notes parsing, matching, and timing."""
 
+import json
 import os
 import pytest
+import jsonschema
 
 from src.notes_parser import parse_notes_file
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures', 'notes')
+SCHEMA_DIR = os.path.join(os.path.dirname(__file__), '..', 'src', 'schemas')
 
 
 class TestParseNotesFile:
@@ -220,3 +223,28 @@ class TestTiming:
     def test_build_timing_markers_empty(self):
         markers = build_timing_markers({})
         assert markers == {}
+
+
+class TestTalkBriefNotesField:
+    def test_brief_with_speaker_notes_path_validates(self):
+        with open(os.path.join(SCHEMA_DIR, 'talk_brief.schema.json')) as f:
+            schema = json.load(f)
+        brief = {
+            'topic': 'AI Agents',
+            'audience': 'Developers',
+            'duration_minutes': 20,
+            'preferences': {
+                'speaker_notes_path': '/path/to/notes.md',
+            },
+        }
+        jsonschema.validate(instance=brief, schema=schema)
+
+    def test_brief_without_notes_path_still_validates(self):
+        with open(os.path.join(SCHEMA_DIR, 'talk_brief.schema.json')) as f:
+            schema = json.load(f)
+        brief = {
+            'topic': 'AI Agents',
+            'audience': 'Developers',
+            'duration_minutes': 20,
+        }
+        jsonschema.validate(instance=brief, schema=schema)
