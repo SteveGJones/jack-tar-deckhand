@@ -68,7 +68,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Full Pipeline:** `/jack-tar-deckhand:deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **smartart-selector** → **strategy-map** → **smartart-extractor** → speaker-notes-writer → imagegen-bridge → **smartart-renderer** → chart-renderer → deck-assembler → deck-qa → presentation-reviewer
 
-- **deck-conductor invocation contract (issue #42):** The conductor is a conversational orchestrator — it MUST run as the primary agent in a dedicated session. Do NOT invoke it via `Agent(subagent_type: "jack-tar-deckhand:deck-conductor")` from a parent — it will exit after verify because subagents can't block on user input. Issue #42 fix pending: (1) document invocation contract, (2) read budget/providers from talk brief before escalating at Step 0.
+- **deck-conductor invocation contract (issue #42, fixed):** The conductor is a conversational orchestrator — run as primary agent in a dedicated session, OR as a subagent when TalkBrief provides `preferences.budget_cap_usd` and `preferences.image_backend` (skips Step 0 escalation). Fix: `read_brief_defaults()` in conductor.py extracts budget/providers from brief; agent definition makes escalation conditional.
 
 - **SmartArt Intelligent Graphics (merged 2026-04-07, PR #21):** AI-driven templated graphic generation
   - 10 v1 graphic types: flowchart, decision tree, bar/line chart, radar chart, SWOT, feature matrix, Venn, timeline, pipeline/funnel, Gantt
