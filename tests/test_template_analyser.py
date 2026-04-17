@@ -77,3 +77,47 @@ class TestTemplateProfileSchema:
         loaded = read_contract(deck_dir, 'template-profile')
         assert loaded['template_hash'] == 'a' * 64
         assert loaded['layouts'][0]['name'] == 'Content 1'
+
+
+from src.template_analyser import classify_placeholder
+
+
+class TestClassifyPlaceholder:
+    def test_title_type(self):
+        assert classify_placeholder('TITLE (1)', 'Title 1') == 'title'
+
+    def test_subtitle_type(self):
+        assert classify_placeholder('SUBTITLE (2)', 'Subtitle 1') == 'subtitle'
+
+    def test_body_type(self):
+        assert classify_placeholder('BODY (2)', 'Text Placeholder 3') == 'body'
+
+    def test_object_type_maps_to_content(self):
+        assert classify_placeholder('OBJECT (7)', 'Content Placeholder 5') == 'content'
+
+    def test_picture_type(self):
+        assert classify_placeholder('PICTURE (18)', 'Picture Placeholder 10') == 'picture'
+
+    def test_chart_type(self):
+        assert classify_placeholder('CHART (12)', 'Chart Placeholder 1') == 'chart'
+
+    def test_table_type(self):
+        assert classify_placeholder('TABLE (11)', 'Table Placeholder 1') == 'table'
+
+    def test_date_type(self):
+        assert classify_placeholder('DATE (16)', 'Date Placeholder 1') == 'date'
+
+    def test_footer_type(self):
+        assert classify_placeholder('FOOTER (15)', 'Footer Placeholder 1') == 'footer'
+
+    def test_slide_number_type(self):
+        assert classify_placeholder('SLIDE_NUMBER (13)', 'Slide Number Placeholder 1') == 'slide_number'
+
+    def test_chapter_name_heuristic(self):
+        assert classify_placeholder('BODY (2)', 'Chapter Placeholder 2') == 'chapter_box'
+
+    def test_logo_name_heuristic(self):
+        assert classify_placeholder('BODY (2)', 'Logo Placeholder 7') == 'other'
+
+    def test_unknown_type(self):
+        assert classify_placeholder('UNKNOWN (99)', 'Mystery Shape') == 'other'
