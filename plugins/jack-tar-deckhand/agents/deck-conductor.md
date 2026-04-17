@@ -186,6 +186,8 @@ log_speaker_approval('./tmp/deck', 'strategy_map_approved', 'Speaker approved st
 
 Invoke the speaker-notes-writer skill. It gathers 3 lightweight preferences from the Speaker, then produces timed SpeakerNotes autonomously.
 
+If the TalkBrief provides `preferences.speaker_notes_path`, the writer imports and enriches external notes instead of generating. The writer handles this internally — no conductor logic change needed. Slides without external notes are generated as normal.
+
 ### Step 5: Image Generation — `/jack-tar-deckhand:imagegen-bridge`
 
 Invoke the imagegen-bridge skill. In **draft phase**, it uses Ollama (free) or cloud at reduced quality. In **production phase**, it renders at full quality.
