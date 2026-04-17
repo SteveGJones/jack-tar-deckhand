@@ -74,6 +74,8 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - **Design spec:** `docs/superpowers/specs/2026-04-17-template-driven-layout-design.md`
   - **Implementation plan:** `docs/superpowers/plans/2026-04-17-template-driven-layout.md`
 
+- **Speaker Notes Import (issue #44):** Speakers can provide per-slide narrative notes in external .md/.txt files via `preferences.speaker_notes_path`. Notes parser (`src/notes_parser.py`) supports heading-based, number-marker, and headline fuzzy matching. Writer enriches imported notes with timing/cues and generates for uncovered slides. Enables voiceover auto-generation and self-presenting visual-heavy decks.
+
 - **SmartArt Intelligent Graphics (merged 2026-04-07, PR #21):** AI-driven templated graphic generation
   - 10 v1 graphic types: flowchart, decision tree, bar/line chart, radar chart, SWOT, feature matrix, Venn, timeline, pipeline/funnel, Gantt
   - 3 rendering engines: Mermaid.js (graph-based), Vega-Lite (data viz), Custom SVG (spatial/infographic)
@@ -247,6 +249,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Template analyser | `src/template_analyser.py` | 36 | Done |
 | Template assembler | `src/assembler/build_deck_template.py` | 10 | Done |
 | Template integration | `tests/test_template_integration.py` | 12 | Done |
+| Notes parser | `src/notes_parser.py` | ~31 | Done |
 
 ### Architecture Summary
 

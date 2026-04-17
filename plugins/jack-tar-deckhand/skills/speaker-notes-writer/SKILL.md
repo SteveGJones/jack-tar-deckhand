@@ -25,6 +25,66 @@ Invoked by the Deck Conductor after narrative-architect. Can also be invoked dir
 
 ## What It Does
 
+### Step 0: Check for External Notes (Before Preferences)
+
+Before gathering preferences, check if the TalkBrief provides external notes:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+brief = json.load(open('./tmp/deck/talk-brief.json'))
+path = brief.get('preferences', {}).get('speaker_notes_path')
+include = brief.get('preferences', {}).get('include_speaker_notes', True)
+if not include:
+    print('SKIP: include_speaker_notes is false')
+elif path:
+    print(f'IMPORT: {path}')
+else:
+    print('GENERATE')
+"
+```
+
+**If SKIP:** Write an empty notes file and exit:
+```bash
+echo '{"notes": []}' > ./tmp/deck/speaker-notes.json
+```
+
+**If IMPORT:** Run the import/enrich flow (see Step 1a below). Do NOT gather preferences — they don't apply to imported notes.
+
+**If GENERATE:** Proceed to Step 1 (preferences gathering) as normal.
+
+### Step 1a: Import and Enrich External Notes
+
+When the TalkBrief provides `preferences.speaker_notes_path`:
+
+1. Parse and match the external notes file:
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.notes_parser import parse_notes_file, match_notes_to_outline, build_timing_markers
+brief = json.load(open('./tmp/deck/talk-brief.json'))
+outline = json.load(open('./tmp/deck/outline.json'))
+path = brief['preferences']['speaker_notes_path']
+blocks = parse_notes_file(path)
+matched, warnings = match_notes_to_outline(blocks, outline)
+markers = build_timing_markers(matched)
+print(f'Matched {len(matched)} slides, {len(warnings)} warnings')
+for w in warnings:
+    print(f'  WARNING: {w}')
+print('MATCHED_SLIDES:', json.dumps(list(matched.keys())))
+# Save intermediate results for enrichment
+json.dump({'matched': {str(k): v for k, v in matched.items()}, 'markers': {str(k): v for k, v in markers.items()}}, open('./tmp/deck/_imported_notes.json', 'w'))
+"
+```
+
+2. Report any warnings to the Speaker.
+
+3. **Enrich** the matched notes: For each matched slide, you have the speaker's text and computed timing. Now generate contextual `cues` (transition, pause, emphasis, audience_interaction) using the same reasoning you would for generated notes. The speaker's text is the input — do not modify it, only add cues.
+
+4. **Fill gaps:** Check which slides in the outline have no imported notes. For those slides, generate notes from scratch using the same approach as Step 2 (autonomous generation), using default preferences (bullet points, moderate interaction, comfortable detail).
+
+5. Assemble the complete SpeakerNotes contract (imported + generated gap-fills) and proceed to Step 3 (validate and write).
+
 ### Step 1: Gather Preferences (Lightweight Collaboration)
 
 Before generating notes, ask the Speaker three quick questions (if the answers aren't obvious from the TalkBrief):
