@@ -33,6 +33,7 @@ CONTRACT_SCHEMAS = {
 
 DEFAULT_STEP_ORDER = [
     'validate-brief',
+    'template-analysis',
     'brand-manager',
     'slide-stylist',
     'narrative-architect',

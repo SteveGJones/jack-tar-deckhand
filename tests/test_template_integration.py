@@ -72,3 +72,21 @@ class TestTemplateStrategyConstraints:
         }
         strategy_map = build_strategy_map(outline, template_mode=True)
         assert strategy_map['slides'][0]['render_funnel'] == ['ollama']
+
+
+from src.deckcontext import DEFAULT_STEP_ORDER
+
+
+class TestPipelineStepOrder:
+    def test_template_analysis_in_step_order(self):
+        assert 'template-analysis' in DEFAULT_STEP_ORDER
+
+    def test_template_analysis_before_brand_manager(self):
+        ta_idx = DEFAULT_STEP_ORDER.index('template-analysis')
+        bm_idx = DEFAULT_STEP_ORDER.index('brand-manager')
+        assert ta_idx < bm_idx
+
+    def test_template_analysis_after_validate_brief(self):
+        ta_idx = DEFAULT_STEP_ORDER.index('template-analysis')
+        vb_idx = DEFAULT_STEP_ORDER.index('validate-brief')
+        assert ta_idx > vb_idx
