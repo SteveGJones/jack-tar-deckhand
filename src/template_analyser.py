@@ -63,6 +63,94 @@ def classify_placeholder(ph_type_str, ph_name):
     return _TYPE_MAP.get(type_key, 'other')
 
 
+# Convention table: (regex pattern on layout name, slide_type)
+_CONVENTION_TABLE = [
+    (re.compile(r'^Title Slide', re.IGNORECASE), 'title'),
+    (re.compile(r'^Title Only', re.IGNORECASE), 'title'),
+    (re.compile(r'^Divider|^Section', re.IGNORECASE), 'section_divider'),
+    (re.compile(r'^Content.*Photo|^Content.*Image', re.IGNORECASE), 'content_with_image'),
+    (re.compile(r'^Comparison', re.IGNORECASE), 'comparison'),
+    (re.compile(r'^Conclusion|^End', re.IGNORECASE), 'closing'),
+    (re.compile(r'^Agenda', re.IGNORECASE), 'agenda'),
+    (re.compile(r'^Text', re.IGNORECASE), 'quote'),
+    (re.compile(r'^Blank$', re.IGNORECASE), 'blank'),
+    # Content N patterns — must come after Content*Photo
+    (re.compile(r'^Content\s*1\b', re.IGNORECASE), 'content'),
+    (re.compile(r'^Content\s*[2-8]\b', re.IGNORECASE), 'two_column'),
+]
+
+
+def _has_picture_placeholder(layout):
+    return any(p['type'] == 'picture' for p in layout.get('placeholders', []))
+
+
+def _largest_content_area(layout):
+    """Return the area of the largest single content placeholder in the layout."""
+    max_area = 0
+    for p in layout.get('placeholders', []):
+        if p['type'] == 'content':
+            area = p['w'] * p['h']
+            if area > max_area:
+                max_area = area
+    return max_area
+
+
+def auto_map_layouts(layouts):
+    """Auto-map extracted layouts to slide types by naming convention.
+
+    Args:
+        layouts: List of layout dicts from extract_layouts().
+
+    Returns:
+        Tuple of (mapping_dict, fallback_dict).
+        mapping_dict: {slide_type: {'layout_name': str, 'layout_index': int}}
+        fallback_dict: {'layout_name': str, 'layout_index': int} or None.
+    """
+    if not layouts:
+        return {}, None
+
+    # Collect candidates: {slide_type: [layout, ...]}
+    candidates = {}
+    for layout in layouts:
+        name = layout['name']
+        for pattern, slide_type in _CONVENTION_TABLE:
+            if pattern.search(name):
+                candidates.setdefault(slide_type, []).append(layout)
+                break
+        else:
+            # Check if it's a Content layout with a PICTURE placeholder
+            if re.search(r'^Content', name, re.IGNORECASE) and _has_picture_placeholder(layout):
+                candidates.setdefault('content_with_image', []).append(layout)
+
+    # For each slide type, pick the simplest layout (fewest placeholders)
+    mapping = {}
+    for slide_type, options in candidates.items():
+        options.sort(key=lambda l: l['placeholder_count'])
+        winner = options[0]
+        mapping[slide_type] = {
+            'layout_name': winner['name'],
+            'layout_index': winner['index'],
+        }
+
+    # Fallback: layout with the largest single content placeholder
+    best_fallback = None
+    best_area = 0
+    for layout in layouts:
+        area = _largest_content_area(layout)
+        if area > best_area:
+            best_area = area
+            best_fallback = layout
+
+    fallback = None
+    if best_fallback:
+        fallback = {
+            'layout_name': best_fallback['name'],
+            'layout_index': best_fallback['index'],
+        }
+
+    return mapping, fallback
+
+
 def extract_layouts(template_path, master_index=0):
     """Extract all slide layouts from a template .pptx file.
 

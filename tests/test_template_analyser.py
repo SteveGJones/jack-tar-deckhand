@@ -165,3 +165,120 @@ class TestExtractLayouts:
     def test_master_index_zero_by_default(self):
         layouts = extract_layouts(FIXTURE_PATH, master_index=0)
         assert len(layouts) > 0
+
+
+from src.template_analyser import auto_map_layouts
+
+
+class TestAutoMapLayouts:
+    def test_maps_title_slide(self):
+        layouts = [
+            {'name': 'Title Slide', 'index': 0, 'placeholder_count': 2,
+             'placeholders': [{'idx': 0, 'type': 'title', 'name': 'Title 1', 'x': 0.5, 'y': 1.0, 'w': 8.0, 'h': 4.5}],
+             'decorative_shape_count': 0},
+        ]
+        mapping, fallback = auto_map_layouts(layouts)
+        assert 'title' in mapping
+        assert mapping['title']['layout_name'] == 'Title Slide'
+
+    def test_maps_content_layout(self):
+        layouts = [
+            {'name': 'Content 1', 'index': 5, 'placeholder_count': 2,
+             'placeholders': [
+                 {'idx': 0, 'type': 'title', 'name': 'Title', 'x': 0.6, 'y': 0.6, 'w': 12.0, 'h': 1.0},
+                 {'idx': 31, 'type': 'content', 'name': 'Content Placeholder', 'x': 0.6, 'y': 2.3, 'w': 12.0, 'h': 4.5},
+             ],
+             'decorative_shape_count': 0},
+        ]
+        mapping, fallback = auto_map_layouts(layouts)
+        assert 'content' in mapping
+        assert mapping['content']['layout_name'] == 'Content 1'
+
+    def test_maps_divider_to_section_divider(self):
+        layouts = [
+            {'name': 'Divider 1', 'index': 12, 'placeholder_count': 2,
+             'placeholders': [{'idx': 0, 'type': 'title', 'name': 'Title', 'x': 5.6, 'y': 5.0, 'w': 7.0, 'h': 1.8}],
+             'decorative_shape_count': 1},
+        ]
+        mapping, fallback = auto_map_layouts(layouts)
+        assert 'section_divider' in mapping
+        assert mapping['section_divider']['layout_name'] == 'Divider 1'
+
+    def test_maps_end_slide_to_closing(self):
+        layouts = [
+            {'name': 'End Slide 1', 'index': 56, 'placeholder_count': 0,
+             'placeholders': [],
+             'decorative_shape_count': 0},
+        ]
+        mapping, fallback = auto_map_layouts(layouts)
+        assert 'closing' in mapping
+
+    def test_maps_comparison_layout(self):
+        layouts = [
+            {'name': 'Comparison', 'index': 33, 'placeholder_count': 5,
+             'placeholders': [
+                 {'idx': 0, 'type': 'title', 'name': 'Title', 'x': 0.6, 'y': 0.6, 'w': 12.0, 'h': 1.0},
+                 {'idx': 1, 'type': 'content', 'name': 'Content 1', 'x': 0.6, 'y': 2.3, 'w': 5.5, 'h': 4.5},
+                 {'idx': 2, 'type': 'content', 'name': 'Content 2', 'x': 7.0, 'y': 2.3, 'w': 5.5, 'h': 4.5},
+             ],
+             'decorative_shape_count': 0},
+        ]
+        mapping, fallback = auto_map_layouts(layouts)
+        assert 'comparison' in mapping
+
+    def test_content_with_picture_maps_to_content_with_image(self):
+        layouts = [
+            {'name': 'Content Photo 1', 'index': 35, 'placeholder_count': 3,
+             'placeholders': [
+                 {'idx': 0, 'type': 'title', 'name': 'Title', 'x': 0.6, 'y': 0.6, 'w': 6.0, 'h': 1.0},
+                 {'idx': 1, 'type': 'content', 'name': 'Content', 'x': 0.6, 'y': 2.3, 'w': 6.0, 'h': 4.5},
+                 {'idx': 13, 'type': 'picture', 'name': 'Picture', 'x': 7.0, 'y': 0.0, 'w': 6.3, 'h': 7.5},
+             ],
+             'decorative_shape_count': 0},
+        ]
+        mapping, fallback = auto_map_layouts(layouts)
+        assert 'content_with_image' in mapping
+
+    def test_prefers_simpler_layout_when_multiple_match(self):
+        layouts = [
+            {'name': 'Content 1', 'index': 5, 'placeholder_count': 2,
+             'placeholders': [
+                 {'idx': 0, 'type': 'title', 'name': 'Title', 'x': 0.6, 'y': 0.6, 'w': 12.0, 'h': 1.0},
+                 {'idx': 31, 'type': 'content', 'name': 'Content', 'x': 0.6, 'y': 2.3, 'w': 12.0, 'h': 4.5},
+             ],
+             'decorative_shape_count': 0},
+            {'name': 'Content 1 Chapterbox', 'index': 6, 'placeholder_count': 3,
+             'placeholders': [
+                 {'idx': 0, 'type': 'title', 'name': 'Title', 'x': 0.6, 'y': 0.6, 'w': 12.0, 'h': 1.0},
+                 {'idx': 31, 'type': 'content', 'name': 'Content', 'x': 0.6, 'y': 2.3, 'w': 12.0, 'h': 4.5},
+                 {'idx': 13, 'type': 'chapter_box', 'name': 'Chapter', 'x': 0.6, 'y': 0.29, 'w': 12.0, 'h': 0.17},
+             ],
+             'decorative_shape_count': 0},
+        ]
+        mapping, fallback = auto_map_layouts(layouts)
+        assert mapping['content']['layout_name'] == 'Content 1'
+
+    def test_fallback_is_largest_content_layout(self):
+        layouts = [
+            {'name': 'Content 1', 'index': 5, 'placeholder_count': 2,
+             'placeholders': [
+                 {'idx': 0, 'type': 'title', 'name': 'Title', 'x': 0.6, 'y': 0.6, 'w': 12.0, 'h': 1.0},
+                 {'idx': 31, 'type': 'content', 'name': 'Content', 'x': 0.6, 'y': 2.3, 'w': 12.0, 'h': 4.57},
+             ],
+             'decorative_shape_count': 0},
+            {'name': 'Content 2', 'index': 6, 'placeholder_count': 3,
+             'placeholders': [
+                 {'idx': 0, 'type': 'title', 'name': 'Title', 'x': 0.6, 'y': 0.6, 'w': 3.6, 'h': 1.0},
+                 {'idx': 31, 'type': 'content', 'name': 'Content', 'x': 0.6, 'y': 2.3, 'w': 3.6, 'h': 4.57},
+                 {'idx': 28, 'type': 'content', 'name': 'Content 2', 'x': 5.0, 'y': 2.3, 'w': 7.6, 'h': 4.6},
+             ],
+             'decorative_shape_count': 0},
+        ]
+        mapping, fallback = auto_map_layouts(layouts)
+        # Content 1 has the single largest content placeholder (12.0 * 4.57)
+        assert fallback['layout_name'] == 'Content 1'
+
+    def test_empty_layouts_returns_empty_mapping(self):
+        mapping, fallback = auto_map_layouts([])
+        assert mapping == {}
+        assert fallback is None
