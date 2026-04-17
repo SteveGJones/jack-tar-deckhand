@@ -49,7 +49,7 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-04-10)
+### Current Status (2026-04-16)
 
 - **BSA Architecture:** v1.4.0, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
@@ -60,12 +60,15 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Create `research/synthesis-[skill-name].md` before implementing any skill
   - `research/report-1-landscape-and-spec.md` and `report-2-implementation-and-validation.md` are the pptx_native SmartArt research Phase 1/2
 
-- **Test suite: 952 passing**
+- **Test suite: 952 monorepo + 33 cross-plugin integration tests**
   - Phases 1-6: Foundation through Orchestration (518 tests)
   - SmartArt Intelligent Graphics (PR #21, merged 2026-04-07): 132 tests
   - pptx_native SmartArt engine (PR #39, merged 2026-04-10): ~300 tests across 17 test files — 28 layouts, picture embedding, multi-slide integration
+  - Cross-plugin integration tests: `plugins/integration_tests/` (33 tests — verify contracts, PLUGIN_ROOT discovery, msft-smartart pipeline, bridge skill names)
 
-- **Full Pipeline:** `/deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **smartart-selector** → **strategy-map** → **smartart-extractor** → speaker-notes-writer → imagegen-bridge → **smartart-renderer** → chart-renderer → deck-assembler → deck-qa → presentation-reviewer
+- **Full Pipeline:** `/jack-tar-deckhand:deck-conductor` orchestrates: brand-manager → slide-stylist → narrative-architect → **smartart-selector** → **strategy-map** → **smartart-extractor** → speaker-notes-writer → imagegen-bridge → **smartart-renderer** → chart-renderer → deck-assembler → deck-qa → presentation-reviewer
+
+- **deck-conductor invocation contract (issue #42):** The conductor is a conversational orchestrator — it MUST run as the primary agent in a dedicated session. Do NOT invoke it via `Agent(subagent_type: "jack-tar-deckhand:deck-conductor")` from a parent — it will exit after verify because subagents can't block on user input. Issue #42 fix pending: (1) document invocation contract, (2) read budget/providers from talk brief before escalating at Step 0.
 
 - **SmartArt Intelligent Graphics (merged 2026-04-07, PR #21):** AI-driven templated graphic generation
   - 10 v1 graphic types: flowchart, decision tree, bar/line chart, radar chart, SWOT, feature matrix, Venn, timeline, pipeline/funnel, Gantt
