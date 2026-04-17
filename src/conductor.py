@@ -23,6 +23,26 @@ from src.slide_prompt_composer import load_strategy_map, save_strategy_map
 MAX_QA_CYCLES = 2
 
 
+def read_brief_defaults(deck_dir):
+    """Extract budget and provider defaults from talk-brief.json.
+
+    Returns a dict with keys 'budget_usd' and 'image_backend', each
+    set to the value from the brief or None if not specified.
+    """
+    brief_path = os.path.join(deck_dir, 'talk-brief.json')
+    defaults = {'budget_usd': None, 'image_backend': None}
+    if not os.path.isfile(brief_path):
+        return defaults
+    with open(brief_path) as f:
+        brief = json.load(f)
+    prefs = brief.get('preferences') or {}
+    if 'budget_cap_usd' in prefs:
+        defaults['budget_usd'] = prefs['budget_cap_usd']
+    if 'image_backend' in prefs:
+        defaults['image_backend'] = prefs['image_backend']
+    return defaults
+
+
 def _state_path(deck_dir):
     return os.path.join(deck_dir, 'pipeline-state.json')
 

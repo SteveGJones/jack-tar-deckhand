@@ -93,6 +93,11 @@
         "include_charts": {
           "type": "boolean",
           "default": false
+        },
+        "budget_cap_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum budget in USD for cloud image generation. When provided, the conductor skips the budget confirmation escalation and uses this value directly."
         }
       }
     },

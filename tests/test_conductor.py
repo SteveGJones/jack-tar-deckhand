@@ -8,6 +8,7 @@ import pytest
 from src.conductor import (
     init_pipeline,
     get_pipeline_state,
+    read_brief_defaults,
     set_phase,
     advance_draft_cycle,
     increment_qa_cycle,
@@ -273,3 +274,57 @@ def test_upgrade_slide_strategy_invalid_slide(tmp_path):
 
     with pytest.raises(KeyError, match='slide 99'):
         upgrade_slide_strategy(deck_dir, slide_number=99, new_strategy='full_render')
+
+
+class TestReadBriefDefaults:
+    def test_returns_none_when_no_brief(self, tmp_path):
+        defaults = read_brief_defaults(str(tmp_path))
+        assert defaults['budget_usd'] is None
+        assert defaults['image_backend'] is None
+
+    def test_reads_budget_from_brief(self, tmp_path):
+        brief = {
+            'topic': 'Test',
+            'audience': 'Devs',
+            'duration_minutes': 20,
+            'preferences': {'budget_cap_usd': 25.0},
+        }
+        with open(tmp_path / 'talk-brief.json', 'w') as f:
+            json.dump(brief, f)
+        defaults = read_brief_defaults(str(tmp_path))
+        assert defaults['budget_usd'] == 25.0
+        assert defaults['image_backend'] is None
+
+    def test_reads_image_backend_from_brief(self, tmp_path):
+        brief = {
+            'topic': 'Test',
+            'audience': 'Devs',
+            'duration_minutes': 20,
+            'preferences': {'image_backend': 'ollama'},
+        }
+        with open(tmp_path / 'talk-brief.json', 'w') as f:
+            json.dump(brief, f)
+        defaults = read_brief_defaults(str(tmp_path))
+        assert defaults['budget_usd'] is None
+        assert defaults['image_backend'] == 'ollama'
+
+    def test_reads_both_from_brief(self, tmp_path):
+        brief = {
+            'topic': 'Test',
+            'audience': 'Devs',
+            'duration_minutes': 20,
+            'preferences': {'budget_cap_usd': 50.0, 'image_backend': 'dalle3'},
+        }
+        with open(tmp_path / 'talk-brief.json', 'w') as f:
+            json.dump(brief, f)
+        defaults = read_brief_defaults(str(tmp_path))
+        assert defaults['budget_usd'] == 50.0
+        assert defaults['image_backend'] == 'dalle3'
+
+    def test_no_preferences_section(self, tmp_path):
+        brief = {'topic': 'Test', 'audience': 'Devs', 'duration_minutes': 20}
+        with open(tmp_path / 'talk-brief.json', 'w') as f:
+            json.dump(brief, f)
+        defaults = read_brief_defaults(str(tmp_path))
+        assert defaults['budget_usd'] is None
+        assert defaults['image_backend'] is None
