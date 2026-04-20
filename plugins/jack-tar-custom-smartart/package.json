@@ -1,6 +1,6 @@
 {
   "name": "jack-tar-custom-smartart",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Custom SmartArt graphics — SVG, Mermaid, Vega-Lite, charts",
   "license": "MIT",
   "dependencies": {
