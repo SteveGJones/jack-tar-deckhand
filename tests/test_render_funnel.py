@@ -192,3 +192,70 @@ def test_execute_stage_failed(deck_dir):
 
     assert result['status'] == 'failed'
     assert 'error' in result
+
+
+class TestCloudModelPassthrough:
+    """_generate_cloud should pass model kwarg through to generate_cloud_image."""
+
+    @pytest.fixture
+    def deck_dir(self):
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, 'images'), exist_ok=True)
+        yield d
+        shutil.rmtree(d)
+
+    def test_model_passed_to_cloud_generator(self, deck_dir):
+        from src.render_funnel import init_render_log, execute_funnel_stage
+        init_render_log(deck_dir)
+
+        mock_result = {
+            'file_path': os.path.join(deck_dir, 'images', 'test.png'),
+            'provider': 'google',
+            'model_used': 'gemini-3.1-flash-image-preview',
+            'cost_usd': 0.067,
+            'status': 'generated',
+        }
+        output_path = os.path.join(deck_dir, 'images', 'test.png')
+
+        with patch('src.render_funnel._generate_cloud_raw', return_value=mock_result) as mock_gen:
+            execute_funnel_stage(
+                deck_dir=deck_dir,
+                slide_number=1,
+                strategy='full_render',
+                prompt='test prompt',
+                funnel_stage='cloud_low',
+                model='gemini-3.1-flash-image-preview',
+                output_path=output_path,
+                provider='google',
+            )
+            mock_gen.assert_called_once()
+            _, kwargs = mock_gen.call_args
+            assert kwargs.get('model') == 'gemini-3.1-flash-image-preview'
+
+    def test_model_passed_for_openai_too(self, deck_dir):
+        from src.render_funnel import init_render_log, execute_funnel_stage
+        init_render_log(deck_dir)
+
+        mock_result = {
+            'file_path': os.path.join(deck_dir, 'images', 'test.png'),
+            'provider': 'openai',
+            'model_used': 'gpt-image-1.5',
+            'cost_usd': 0.009,
+            'status': 'generated',
+        }
+        output_path = os.path.join(deck_dir, 'images', 'test.png')
+
+        with patch('src.render_funnel._generate_cloud_raw', return_value=mock_result) as mock_gen:
+            execute_funnel_stage(
+                deck_dir=deck_dir,
+                slide_number=1,
+                strategy='full_render',
+                prompt='test prompt',
+                funnel_stage='cloud_low',
+                model='gpt-image-1.5',
+                output_path=output_path,
+                provider='openai',
+            )
+            mock_gen.assert_called_once()
+            _, kwargs = mock_gen.call_args
+            assert kwargs.get('model') == 'gpt-image-1.5'
