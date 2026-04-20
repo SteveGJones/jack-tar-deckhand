@@ -315,9 +315,16 @@ For `pragmatic_composition` slides, calculate the target aspect ratio from the s
 ```
 
 ### For jack-tar-cloud:image (hero/pattern in production mode):
+```bash
+/jack-tar-cloud:image "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-TYPE.png --provider PROVIDER --model MODEL
 ```
-/jack-tar-cloud:image "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-TYPE.png --provider PROVIDER --quality QUALITY_TIER
-```
+
+When provider is `google`, the `--model` parameter selects the tier:
+- Draft/budget: `--model imagen-4.0-fast-generate-001` ($0.02)
+- Standard production: `--model gemini-3.1-flash-image-preview` ($0.067)
+- Premium (text-heavy, complex): `--model gemini-3-pro-image-preview` ($0.134)
+
+The routing matrix and production-upgrade-plan already specify the correct model. Use the model from the plan entry directly — do NOT hardcode model names in the bridge.
 
 ### For jack-tar-cloud:icon (icon_set in any mode):
 ```
