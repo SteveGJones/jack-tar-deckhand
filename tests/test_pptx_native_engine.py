@@ -273,3 +273,33 @@ def test_render_accepts_legacy_steps_key_for_backward_compat():
     with tempfile.TemporaryDirectory() as tmpdir:
         result = engine.render(spec, tmpdir)
         assert result.node_count == 2
+
+
+# ── flat_list dict-item acceptance ──────────────────────────────────
+
+
+def test_flat_list_accepts_dict_items_with_text_key():
+    from src.smartart_pptx_native.builders.flat_list import _extract_items
+
+    catalog_entry = {"id": "process1", "min_nodes": 2, "max_nodes": 9, "max_label_chars": 24}
+    extracted = {"items": [{"text": "Plan"}, {"text": "Build"}, {"text": "Ship"}]}
+    items = _extract_items(extracted, catalog_entry)
+    assert items == ["Plan", "Build", "Ship"]
+
+
+def test_flat_list_accepts_dict_items_with_label_key():
+    from src.smartart_pptx_native.builders.flat_list import _extract_items
+
+    catalog_entry = {"id": "process1", "min_nodes": 2, "max_nodes": 9, "max_label_chars": 24}
+    extracted = {"items": [{"label": "Alpha"}, {"label": "Beta"}]}
+    items = _extract_items(extracted, catalog_entry)
+    assert items == ["Alpha", "Beta"]
+
+
+def test_flat_list_accepts_mixed_string_and_dict():
+    from src.smartart_pptx_native.builders.flat_list import _extract_items
+
+    catalog_entry = {"id": "process1", "min_nodes": 2, "max_nodes": 9, "max_label_chars": 24}
+    extracted = {"items": ["Plain", {"text": "Dict"}, {"label": "Label"}]}
+    items = _extract_items(extracted, catalog_entry)
+    assert items == ["Plain", "Dict", "Label"]

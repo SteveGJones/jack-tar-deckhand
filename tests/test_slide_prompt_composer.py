@@ -87,7 +87,21 @@ def test_classify_section_divider_as_full_render(sample_outline):
 def test_classify_diagram_as_composed(sample_outline):
     from src.slide_prompt_composer import classify_slide_strategy
     result = classify_slide_strategy(sample_outline["slides"][3])
-    assert result["strategy"] == "composed"
+    assert result["strategy"] == "smartart"
+
+
+def test_classify_diagram_slide_as_smartart():
+    """Diagram slides should get 'smartart' strategy so the assembler
+    routes them to buildSmartArtSlide and emits pptx_native placeholders."""
+    from src.slide_prompt_composer import classify_slide_strategy
+    slide = {
+        "slide_number": 5,
+        "slide_type": "diagram",
+        "headline": "The Pipeline",
+        "body_points": ["Step A", "Step B", "Step C"],
+    }
+    result = classify_slide_strategy(slide)
+    assert result["strategy"] == "smartart", f"diagram slides must be classified as 'smartart', got '{result['strategy']}'"
 
 
 def test_classify_data_chart_as_composed(sample_outline):

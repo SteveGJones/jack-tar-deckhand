@@ -97,16 +97,18 @@ _CLOUD_STAGE_SIZE = {
 }
 
 
-def _generate_cloud(prompt, provider, output_path, funnel_stage):
+def _generate_cloud(prompt, provider, output_path, funnel_stage, model=None):
     """Wrapper for cloud generation with funnel-stage-appropriate settings."""
     quality = _CLOUD_STAGE_QUALITY.get(funnel_stage, 'medium')
     size = _CLOUD_STAGE_SIZE.get(funnel_stage, '1536x1024')
+    kwargs = {'quality': quality, 'size': size}
+    if model:
+        kwargs['model'] = model
     return _generate_cloud_raw(
         prompt=prompt,
         provider=provider,
         output_path=output_path,
-        quality=quality,
-        size=size,
+        **kwargs,
     )
 
 
@@ -146,7 +148,7 @@ def execute_funnel_stage(deck_dir, slide_number, strategy, prompt, funnel_stage,
                 check=True, capture_output=True, text=True,
             )
         else:
-            result = _generate_cloud(prompt, provider, output_path, funnel_stage)
+            result = _generate_cloud(prompt, provider, output_path, funnel_stage, model=model)
             cost = result.get('cost_usd', 0.0)
             resolution = _CLOUD_STAGE_SIZE.get(funnel_stage, '1536x1024')
 

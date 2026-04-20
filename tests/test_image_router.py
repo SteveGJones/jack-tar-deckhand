@@ -225,7 +225,7 @@ class TestBudgetDegradation:
         slide = {'slide_number': 1, 'visual_type': 'hero_image'}
         decision = route_slide(slide, 'production', ALL_PROVIDERS, 'allow_with_caps')
         assert decision.skill == 'cloud-generate-image'
-        assert decision.model == 'imagen-4-fast'
+        assert decision.model == 'imagen-4.0-fast-generate-001'
 
 
 class TestRouteAllSlides:
@@ -712,3 +712,87 @@ class TestOpenAIDimensionWarnings:
             warnings=['test warning'],
         )
         assert d.warnings == ['test warning']
+
+
+class TestRoutingTargetTier:
+    """RoutingTarget should have a tier field."""
+
+    def test_routing_target_has_tier_field(self):
+        from src.image_router import RoutingTarget
+        rt = RoutingTarget('cloud-generate-image', 'google', 'gemini-3.1-flash-image-preview', 0.067, 'standard')
+        assert rt.tier == 'standard'
+
+    def test_routing_target_tier_defaults_to_none(self):
+        from src.image_router import RoutingTarget
+        rt = RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00)
+        assert rt.tier is None
+
+    def test_google_hero_production_uses_real_model_id(self):
+        from src.image_router import ROUTING_MATRIX
+        targets = ROUTING_MATRIX[('hero_image', 'production')]
+        google_targets = [t for t in targets if t.provider == 'google']
+        assert len(google_targets) >= 1
+        for t in google_targets:
+            assert t.model in (
+                'gemini-3.1-flash-image-preview',
+                'gemini-3-pro-image-preview',
+                'imagen-4.0-fast-generate-001',
+                'imagen-4.0-generate-001',
+            ), f"Google model '{t.model}' is not a real API model ID"
+
+    def test_google_pattern_draft_uses_real_model_id(self):
+        from src.image_router import ROUTING_MATRIX
+        targets = ROUTING_MATRIX[('pattern_background', 'draft')]
+        google_targets = [t for t in targets if t.provider == 'google']
+        for t in google_targets:
+            assert t.model in (
+                'imagen-4.0-fast-generate-001',
+                'imagen-4.0-generate-001',
+            ), f"Pattern draft Google model '{t.model}' should be Imagen (cheap)"
+
+
+class TestUpgradeDecisionTier:
+    """UpgradeDecision should include recommended_tier."""
+
+    def test_upgrade_decision_has_recommended_tier(self):
+        from src.image_router import UpgradeDecision
+        ud = UpgradeDecision(
+            slide_number=1, image_id='slide-01-hero', action='upgrade',
+            reason='test', draft_prompt='test prompt', target_provider='google',
+            target_model='gemini-3.1-flash-image-preview', target_size='1536x1024',
+            estimated_cost_usd=0.067, warnings=[], recommended_tier='standard',
+        )
+        assert ud.recommended_tier == 'standard'
+
+    def test_upgrade_decision_tier_defaults_to_none(self):
+        from src.image_router import UpgradeDecision
+        ud = UpgradeDecision(
+            slide_number=1, image_id='slide-01-hero', action='keep',
+            reason='test', draft_prompt=None, target_provider=None,
+            target_model=None, target_size=None,
+            estimated_cost_usd=0.0, warnings=[],
+        )
+        assert ud.recommended_tier is None
+
+    def test_plan_production_upgrade_includes_tier(self):
+        from src.image_router import plan_production_upgrade
+        draft_manifest = {
+            'images': [{
+                'slide_number': 1,
+                'image_id': 'slide-01-hero',
+                'model_used': 'x/z-image-turbo',
+                'source_prompt': 'test prompt',
+            }]
+        }
+        outline = {'slides': [{'slide_number': 1, 'slide_type': 'title'}]}
+        providers = {
+            'ollama': {'available': False, 'models': []},
+            'openai': {'available': False},
+            'google': {'available': True, 'model': 'imagen-4', 'tiers': {}},
+            'fal': {'available': True, 'models': ['flux-2-pro']},
+            'recraft': {'available': False},
+        }
+        budget = {'budget_state': 'allow', 'remaining_usd': 5.0}
+        decisions = plan_production_upgrade(draft_manifest, outline, providers, budget)
+        assert len(decisions) == 1
+        assert hasattr(decisions[0], 'recommended_tier')

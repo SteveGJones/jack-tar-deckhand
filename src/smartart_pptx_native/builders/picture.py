@@ -93,7 +93,7 @@ def _extract_items(
         if isinstance(item, str):
             items.append({"label": item.strip(), "image_path": None})
         elif isinstance(item, dict):
-            label = item.get("label", "")
+            label = item.get("label") or item.get("text", "")
             if not isinstance(label, str):
                 raise PictureBuildError(
                     f"item label must be a string, got {type(label).__name__}"
@@ -214,7 +214,7 @@ def build(
             next_image_rid += 1
 
             # Child node: blipFill in spPr, empty text body
-            fill_mode = item.get("image_fill_mode", "fit")
+            fill_mode = item.get("image_fill_mode", "fill")
 
             # Compute image aspect ratio for correct fit/fill insets
             img_ar = 1.0  # default square

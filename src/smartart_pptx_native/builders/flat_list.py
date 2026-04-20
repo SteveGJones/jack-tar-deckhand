@@ -57,13 +57,26 @@ def _extract_items(extracted: dict[str, Any], entry: dict[str, Any]) -> list[str
         raise FlatListBuildError(
             f"flat_list value must be a list, got {type(value).__name__}"
         )
-    if not all(isinstance(s, str) for s in value):
-        bad = sorted({type(s).__name__ for s in value if not isinstance(s, str)})
-        raise FlatListBuildError(
-            f"flat_list items must be strings; found {bad}"
-        )
 
-    return [s.strip() for s in value]
+    items = []
+    for item in value:
+        if isinstance(item, str):
+            items.append(item.strip())
+        elif isinstance(item, dict):
+            label = item.get("text") or item.get("label") or ""
+            if not isinstance(label, str):
+                raise FlatListBuildError(
+                    f"flat_list dict item 'text'/'label' must be a string, "
+                    f"got {type(label).__name__}"
+                )
+            items.append(label.strip())
+        else:
+            raise FlatListBuildError(
+                f"flat_list items must be strings or dicts with 'text'/'label' key; "
+                f"found {type(item).__name__!r}"
+            )
+
+    return items
 
 
 def _check_constraints(items: list[str], entry: dict[str, Any]) -> None:

@@ -70,7 +70,16 @@ Return ONLY this JSON structure. No other text.
 {
   "verdict": "pass",
   "confidence": 0.9,
+  "strengths": [
+    "Speaker is dominant figure, left third of frame",
+    "Warm/cool lighting contrast works well"
+  ],
   "issues": [],
+  "composition_notes": {
+    "subject_placement": "speaker left foreground — correct",
+    "scale_hierarchy": "speaker dominates frame as intended",
+    "text_rendering": "no text requested, none present"
+  },
   "summary": "One sentence describing what works"
 }
 ```
@@ -81,10 +90,19 @@ Return ONLY this JSON structure. No other text.
 {
   "verdict": "refine",
   "confidence": 0.85,
-  "issues": [
-    "specific actionable observation 1",
-    "specific actionable observation 2"
+  "strengths": [
+    "Speaker is dominant figure, left third of frame",
+    "Warm/cool lighting contrast between factory and stage"
   ],
+  "issues": [
+    "Factory section labels are illegible",
+    "Captain is too prominent — same scale as speaker"
+  ],
+  "composition_notes": {
+    "subject_placement": "speaker left foreground — correct",
+    "scale_hierarchy": "speaker and captain similar size — wrong",
+    "text_rendering": "banner OK, section labels failed"
+  },
   "summary": "One sentence summary of the core problem"
 }
 ```
@@ -93,7 +111,9 @@ Return ONLY this JSON structure. No other text.
 
 - **verdict**: `"pass"` or `"refine"` — binary, no ambiguity
 - **confidence**: 0.0–1.0 — how certain you are of the assessment
+- **strengths**: array of strings — what the image got RIGHT. Be specific about composition, colour, subject placement. These are preserved during prompt refinement. Always populated, even on refine verdicts.
 - **issues**: array of strings — each a specific, actionable observation. Empty on pass. Be concrete: "garbled text at top-center" not "text issues"
+- **composition_notes**: object with three optional keys: `subject_placement`, `scale_hierarchy`, `text_rendering`
 - **summary**: one sentence — this is what the calling context keeps. Make it informative enough to guide the next action without seeing the image again
 
 ## Examples
@@ -113,10 +133,19 @@ Iteration: 1 of 10
 {
   "verdict": "refine",
   "confidence": 0.92,
+  "strengths": [
+    "Android/human side-profile concept clearly rendered",
+    "Brand teal palette dominant throughout"
+  ],
   "issues": [
     "garbled text at top of image reading 'API HEB CH HOSTAR LA2'",
     "secondary garbled text below reading 'Nanittonhoer tap'"
   ],
+  "composition_notes": {
+    "subject_placement": "android left, human right — correct",
+    "scale_hierarchy": "both figures equal scale — appropriate for this concept",
+    "text_rendering": "spurious text artifacts at top — must be eliminated"
+  },
   "summary": "Android/human concept correct with good palette, but garbled text artifacts at top need elimination"
 }
 ```
@@ -126,7 +155,16 @@ Iteration: 1 of 10
 {
   "verdict": "pass",
   "confidence": 0.88,
+  "strengths": [
+    "Clean side-profile composition with clear left/right split",
+    "Dark background provides clear quadrants for text overlay"
+  ],
   "issues": [],
+  "composition_notes": {
+    "subject_placement": "android left foreground, human right foreground — correct",
+    "scale_hierarchy": "equal scale appropriate for comparison concept",
+    "text_rendering": "no text requested, none present"
+  },
   "summary": "Clean android/human profile composition, teal/mint palette matches brand, dark background with clear quadrants for text overlay"
 }
 ```

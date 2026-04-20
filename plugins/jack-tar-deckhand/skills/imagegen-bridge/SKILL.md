@@ -315,9 +315,16 @@ For `pragmatic_composition` slides, calculate the target aspect ratio from the s
 ```
 
 ### For jack-tar-cloud:image (hero/pattern in production mode):
+```bash
+/jack-tar-cloud:image "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-TYPE.png --provider PROVIDER --model MODEL
 ```
-/jack-tar-cloud:image "TRANSLATED_PROMPT" --output ./tmp/deck/images/slide-NN-TYPE.png --provider PROVIDER --quality QUALITY_TIER
-```
+
+When provider is `google`, the `--model` parameter selects the tier:
+- Draft/budget: `--model imagen-4.0-fast-generate-001` ($0.02)
+- Standard production: `--model gemini-3.1-flash-image-preview` ($0.067)
+- Premium (text-heavy, complex): `--model gemini-3-pro-image-preview` ($0.134)
+
+The routing matrix and production-upgrade-plan already specify the correct model. Use the model from the plan entry directly — do NOT hardcode model names in the bridge.
 
 ### For jack-tar-cloud:icon (icon_set in any mode):
 ```
@@ -396,13 +403,58 @@ For each entry:
 
 ### raster_upscale entries
 
-Invoke `jack-tar-cloud:image` with the plan's provider, model, and dimensions:
+For entries where `image_id` contains `elem-`, skip the refinement loop — use `draft_prompt` directly with a single Pro call (element images are already validated during drafting).
 
-```bash
-/jack-tar-cloud:image "DRAFT_PROMPT" --provider PROVIDER --model MODEL --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero.png
-```
+For all other `raster_upscale` entries, execute the cross-tier refinement loop:
 
-The draft prompt is carried from the draft ImageManifest via the plan's `draft_prompt` field. Use it directly — it was already validated during drafting.
+**Phase 1 — Flash draft and refinement (up to 3 iterations)**
+
+1. Generate a Flash draft using `gemini-3.1-flash-image-preview` with the plan's `draft_prompt`:
+   ```
+   /jack-tar-cloud:image "DRAFT_PROMPT" --provider google --model gemini-3.1-flash-image-preview --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero-flash-v1.png
+   ```
+
+2. Dispatch the `image-reviewer` agent on the Flash output. If verdict is `pass`, skip Phase 2 entirely — Flash quality is sufficient and no Pro spend is needed. Store the Flash image as the final output.
+
+3. If verdict is `refine`, dispatch `prompt-engineer` in refinement mode:
+   ```json
+   {
+     "mode": "refine",
+     "original_prompt": "<draft_prompt>",
+     "iteration": 1,
+     "reviewer_feedback": {
+       "strengths": ["<from reviewer strengths[]>"],
+       "issues": ["<from reviewer issues[]>"],
+       "composition_notes": {"<from reviewer composition_notes{}>"}
+     },
+     "brand_constraints": {"palette_hex": ["<from brand-profile.json>"]},
+     "funnel_stage": "cloud_low"
+   }
+   ```
+
+4. Generate Flash v2 with the refined prompt → re-review. If pass, use Flash as final; skip Pro.
+
+5. If still refine after v2, do a third Flash iteration (total: 3 Flash calls max). Flash iterations are cheap (~$0.067 each) — iterate freely.
+
+6. If all 3 Flash iterations return `refine`, escalate to Speaker:
+   - Present all 3 Flash attempts with their reviewer feedback
+   - Ask Speaker to confirm whether to proceed to Pro or accept the best Flash version
+   - Do not auto-escalate to Pro after 3 Flash failures
+
+**Phase 2 — Pro escalation (single shot)**
+
+7. If Flash passes (on any iteration), take the prompt that produced the passing Flash result and generate once with `gemini-3-pro-image-preview`:
+   ```
+   /jack-tar-cloud:image "REFINED_PROMPT" --provider google --model gemini-3-pro-image-preview --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero.png
+   ```
+
+8. Dispatch `image-reviewer` on the Pro output. Pro gets ONE shot — no iterations.
+   - If pass: use Pro as final output.
+   - If refine: flag for Speaker with `status: "flag_for_speaker"` in the manifest. Include both the Pro and best Flash versions so the Speaker can choose. Do not retry Pro.
+
+**Manifest recording**
+
+Always store the `source_prompt` used for the final accepted image — this may be the original `draft_prompt` or a refined version. Record the iteration count and which tier produced the final image (`flash_v1`, `flash_v2`, `flash_v3`, `pro`) in `review_summary`.
 
 ### vector_conversion entries
 

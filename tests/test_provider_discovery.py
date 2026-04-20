@@ -216,6 +216,52 @@ class TestRecraftDefault:
         assert result['recraft']['available'] is True
 
 
+class TestGoogleTiers:
+    """Google provider discovery should report all available tiers."""
+
+    def test_google_tiers_when_available(self):
+        from src.provider_discovery import discover_providers
+        with patch.dict(os.environ, {'GOOGLE_API_KEY': 'test-key'}):
+            result = discover_providers(config_path=None)
+        google = result['google']
+        assert google['available'] is True
+        assert 'tiers' in google
+        tiers = google['tiers']
+        assert 'nanobanana_flash' in tiers
+        assert tiers['nanobanana_flash']['model'] == 'gemini-3.1-flash-image-preview'
+        assert tiers['nanobanana_flash']['cost'] == 0.067
+        assert 'nanobanana_pro' in tiers
+        assert tiers['nanobanana_pro']['model'] == 'gemini-3-pro-image-preview'
+        assert tiers['nanobanana_pro']['cost'] == 0.134
+        assert 'imagen_fast' in tiers
+        assert tiers['imagen_fast']['model'] == 'imagen-4.0-fast-generate-001'
+        assert tiers['imagen_fast']['cost'] == 0.020
+        assert 'imagen_standard' in tiers
+        assert tiers['imagen_standard']['model'] == 'imagen-4.0-generate-001'
+        assert tiers['imagen_standard']['cost'] == 0.040
+
+    def test_google_tiers_empty_when_unavailable(self):
+        from src.provider_discovery import discover_providers
+        env = {k: '' for k in ['GOOGLE_API_KEY', 'GOOGLE_APPLICATION_CREDENTIALS',
+                                'OPENAI_API_KEY', 'FAL_KEY', 'RECRAFT_API_KEY']}
+        with patch.dict(os.environ, env, clear=False):
+            for k in env:
+                os.environ.pop(k, None)
+            result = discover_providers(config_path=None)
+        google = result['google']
+        assert google['available'] is False
+        assert google.get('tiers', {}) == {}
+
+    def test_google_backward_compat_available_and_model_fields(self):
+        """Existing code reads google['available'] and google['model'] — keep them."""
+        from src.provider_discovery import discover_providers
+        with patch.dict(os.environ, {'GOOGLE_API_KEY': 'test-key'}):
+            result = discover_providers(config_path=None)
+        google = result['google']
+        assert google['available'] is True
+        assert 'model' in google  # backward compat
+
+
 class TestProjectConfig:
     """Project config file overrides default env var names."""
 

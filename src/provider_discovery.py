@@ -46,6 +46,14 @@ _PROVIDER_DEFAULTS = {
     },
 }
 
+# Google image generation tiers — both API families use the same credential
+_GOOGLE_TIERS = {
+    'nanobanana_flash': {'model': 'gemini-3.1-flash-image-preview', 'cost': 0.067},
+    'nanobanana_pro': {'model': 'gemini-3-pro-image-preview', 'cost': 0.134},
+    'imagen_fast': {'model': 'imagen-4.0-fast-generate-001', 'cost': 0.020},
+    'imagen_standard': {'model': 'imagen-4.0-generate-001', 'cost': 0.040},
+}
+
 
 def _load_config(config_path):
     """Load project-level provider config, if it exists.
@@ -180,6 +188,7 @@ def discover_providers(config_path='provider_config.json'):
 
     google_vars = _resolve_env_vars('google', config)
     google_result = probe_env_provider(google_vars, 'google', 'imagen-4')
+    google_result['tiers'] = _GOOGLE_TIERS if google_result['available'] else {}
 
     recraft_vars = _resolve_env_vars('recraft', config)
     recraft_result = probe_env_provider(recraft_vars, 'recraft', 'recraft-v4')
