@@ -19,7 +19,8 @@ RoutingTarget = namedtuple('RoutingTarget', [
     'provider',        # provider key: 'ollama', 'openai', 'google', 'fal', 'recraft', 'local'
     'model',           # model identifier: 'x/z-image-turbo', 'gpt-image-1.5', etc.
     'cost_per_image',  # estimated USD cost
-])
+    'tier',            # 'draft', 'standard', 'premium', or None
+], defaults=[None])
 
 RoutingDecision = namedtuple('RoutingDecision', [
     'slide_number',    # which slide this is for
@@ -29,7 +30,8 @@ RoutingDecision = namedtuple('RoutingDecision', [
     'model',           # chosen model
     'cost_per_image',  # estimated cost
     'is_fallback',     # whether this was a fallback choice
-])
+    'tier',            # 'draft', 'standard', 'premium', or None (from the chosen RoutingTarget)
+], defaults=[None])
 
 UpgradeDecision = namedtuple('UpgradeDecision', [
     'slide_number',
@@ -42,7 +44,8 @@ UpgradeDecision = namedtuple('UpgradeDecision', [
     'target_size',      # size string e.g. '1536x1024' (None if keep)
     'estimated_cost_usd',
     'warnings',         # list of warning strings (empty list if none)
-])
+    'recommended_tier', # 'draft', 'standard', 'premium', or None
+], defaults=[None])
 
 
 # --- Routing Matrix ---
@@ -58,7 +61,7 @@ ROUTING_MATRIX = {
     ('hero_image', 'production'): [
         RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
         RoutingTarget('cloud-generate-image', 'openai', 'gpt-image-1.5-med', 0.034),
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4-standard', 0.04),
+        RoutingTarget('cloud-generate-image', 'google', 'gemini-3.1-flash-image-preview', 0.067, 'standard'),
         RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
     ],
     ('icon_set', 'draft'): [
@@ -71,11 +74,11 @@ ROUTING_MATRIX = {
     ],
     ('pattern_background', 'draft'): [
         RoutingTarget('ollama-pattern', 'ollama', 'x/z-image-turbo', 0.00),
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4-fast', 0.02),
+        RoutingTarget('cloud-generate-image', 'google', 'imagen-4.0-fast-generate-001', 0.02, 'draft'),
         RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
     ],
     ('pattern_background', 'production'): [
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4-fast', 0.02),
+        RoutingTarget('cloud-generate-image', 'google', 'imagen-4.0-fast-generate-001', 0.02, 'draft'),
         RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
         RoutingTarget('ollama-pattern', 'ollama', 'x/z-image-turbo', 0.00),
     ],
@@ -99,7 +102,7 @@ ROUTING_MATRIX = {
 # Budget-degraded routing overrides
 BUDGET_DEGRADED_MATRIX = {
     ('hero_image', 'allow_with_caps'): [
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4-fast', 0.02),
+        RoutingTarget('cloud-generate-image', 'google', 'imagen-4.0-fast-generate-001', 0.02, 'draft'),
         RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
         RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
     ],
@@ -272,6 +275,7 @@ def route_slide(slide, mode, available_providers, budget_state):
                 model=target.model,
                 cost_per_image=target.cost_per_image,
                 is_fallback=is_fallback,
+                tier=target.tier,
             )
         is_fallback = True
 
@@ -291,6 +295,7 @@ def route_slide(slide, mode, available_providers, budget_state):
                     model=target.model,
                     cost_per_image=target.cost_per_image,
                     is_fallback=True,
+                    tier=target.tier,
                 )
 
     # All fallbacks exhausted: placeholder
@@ -465,6 +470,7 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
             target_size=target_size,
             estimated_cost_usd=route.cost_per_image,
             warnings=warnings,
+            recommended_tier=route.tier,
         ))
 
     return decisions
