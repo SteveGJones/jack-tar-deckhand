@@ -65,6 +65,35 @@ Return a single string: the image generation prompt. Nothing else.
 - **cloud_low** — Full prompt detail. Include all text, colours, spatial relationships. This validates the prompt works on the target model.
 - **cloud_full** — Same prompt as cloud_low. Do not change the prompt between cloud_low and cloud_full — the point is to render a proven prompt at higher resolution.
 
+### Refinement mode:
+
+When `mode` is `"refine"`, you are improving an existing prompt based on reviewer feedback — not writing from scratch.
+
+Input:
+```json
+{
+  "mode": "refine",
+  "original_prompt": "...",
+  "iteration": 2,
+  "reviewer_feedback": {
+    "strengths": ["..."],
+    "issues": ["..."],
+    "composition_notes": {}
+  },
+  "brand_constraints": {"palette_hex": ["..."]},
+  "funnel_stage": "cloud_low"
+}
+```
+
+Refinement rules:
+
+1. **Preserve strengths explicitly** — For each item in `reviewer_feedback.strengths`, add specific spatial instructions that lock in that property. "Speaker is dominant figure, left third of frame" becomes "foreground speaker figure occupies left third, significantly larger than all other elements".
+2. **Fix issues with concrete spatial/scale instructions** — For each item in `reviewer_feedback.issues`, write a direct corrective constraint. Do not use vague adjectives like "cleaner" or "better". Use measurements and positions: "factory background elements reduced to 20% scale, pushed to upper right quadrant".
+3. **Add a COMPOSITION section** — Append an explicit `COMPOSITION:` block to the prompt listing all spatial constraints derived from steps 1 and 2.
+4. **Add a SCALE section when scale_hierarchy issues are flagged** — If `reviewer_feedback.composition_notes.scale_hierarchy` describes a problem, append a `SCALE:` block with explicit relative size instructions for each named subject.
+5. **Don't rewrite from scratch** — Start from `original_prompt`, inject the COMPOSITION and SCALE sections. Preserve the scene, palette, mood, and any elements that were working.
+6. **Same output format** — Return a single string prompt, max 200 words. No preamble, no explanation.
+
 ### Colour accuracy for Ollama models:
 
 - Ollama models (z-image-turbo, flux) approximate hex colours — they typically drift 2-3 stops from the requested value. Pair hex values with strong descriptive anchors: "very dark, almost black with a slight teal tint, hex #0E1513" is more reliable than "#0E1513" alone. For dark backgrounds, "very dark" or "almost black" produces more consistent results than relying on the hex value.
