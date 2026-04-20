@@ -267,3 +267,67 @@ def test_picture_builder_rejects_long_labels():
                 {"label": "OK"},
             ]
         }, entry)
+
+
+def test_picture_builder_accepts_text_key():
+    """Items with 'text' key should work the same as 'label' key."""
+    from src.smartart_pptx_native.builders.picture import _extract_items
+
+    catalog_entry = {
+        "id": "vList3", "min_nodes": 2, "max_nodes": 8, "max_label_chars": 30,
+    }
+    extracted = {
+        "items": [
+            {"text": "Alpha", "image_path": "/tmp/fake.png"},
+            {"text": "Beta", "image_path": "/tmp/fake2.png"},
+        ]
+    }
+    items, has_images = _extract_items(extracted, catalog_entry)
+    assert items[0]["label"] == "Alpha"
+    assert items[1]["label"] == "Beta"
+    assert has_images is True
+
+
+def test_picture_builder_label_key_still_works():
+    """Existing 'label' key must still work (regression check)."""
+    from src.smartart_pptx_native.builders.picture import _extract_items
+
+    catalog_entry = {
+        "id": "vList3", "min_nodes": 2, "max_nodes": 8, "max_label_chars": 30,
+    }
+    extracted = {
+        "items": [
+            {"label": "Gamma", "image_path": "/tmp/fake.png"},
+            {"label": "Delta", "image_path": "/tmp/fake2.png"},
+        ]
+    }
+    items, has_images = _extract_items(extracted, catalog_entry)
+    assert items[0]["label"] == "Gamma"
+    assert items[1]["label"] == "Delta"
+
+
+def test_picture_builder_default_fill_mode(test_images):
+    """Items without explicit fill mode should default to 'fill' in build()."""
+    from src.smartart_pptx_native.builders import picture
+    from src.smartart_pptx_native.layouts import catalog
+
+    catalog.load_catalog.cache_clear()
+    entry = catalog.get_entry("pList1")
+
+    data = {
+        "items": [
+            {"label": "A", "image_path": str(test_images["blue"])},
+            {"label": "B", "image_path": str(test_images["red"])},
+        ]
+    }
+    data_xml, _ = picture.build(data, entry)
+    xml_str = data_xml.decode("utf-8")
+    # "fill" mode produces negative fillRect insets (crop overflow):
+    #   <a:fillRect l="-50000" r="-50000"/>
+    # "fit" mode produces positive fillRect insets (letterbox):
+    #   <a:fillRect l="25000" r="25000"/>
+    # With 100x100 square images (ar=1.0) and box_ar=0.5, "fill" gives
+    # negative insets. Default should be "fill", so we expect "-".
+    assert 'l="-' in xml_str, (
+        "default fill mode should be 'fill' (negative insets), not 'fit' (positive)"
+    )
