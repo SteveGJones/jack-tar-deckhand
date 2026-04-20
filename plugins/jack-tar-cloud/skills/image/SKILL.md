@@ -35,7 +35,7 @@ Parse `$ARGUMENTS` for:
 - **Prompt**: The quoted description
 - **--output PATH**: Where to save
 - **--size SIZE**: Dimensions (default: `1536x1024`)
-- **--quality QUALITY**: `low`, `medium`, or `high` (default: `medium`)
+- **--model MODEL**: Specific model ID (passed through to the provider skill)
 - **--provider PROVIDER**: Force a specific provider instead of auto-routing
 
 ## Discover Available Providers
@@ -45,7 +45,7 @@ PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import os, json
 providers = {}
 providers['openai'] = bool(os.environ.get('OPENAI_API_KEY'))
-providers['google'] = bool(os.environ.get('GOOGLE_CLOUD_PROJECT'))
+providers['google'] = bool(os.environ.get('GOOGLE_CLOUD_PROJECT') or os.environ.get('GOOGLE_API_KEY'))
 providers['fal'] = bool(os.environ.get('FAL_KEY'))
 print(json.dumps(providers))
 "
@@ -57,13 +57,23 @@ Parse the JSON. If `--provider` was specified, check that provider is available.
 
 If `--provider` is specified and available, use it directly.
 
-Otherwise, route in priority order: `fal` first (FLUX is best quality/cost), then `openai`, then `google`.
+Otherwise, route based on content suitability:
+
+1. **Text-heavy content** (slides with visible text, labels, diagrams) → prefer Google Nanobanana (best text rendering), then OpenAI, then FAL
+2. **Photorealistic imagery** (scenes, people, objects) → prefer FAL FLUX (best photorealism), then OpenAI, then Google
+3. **Budget bulk generation** (backgrounds, patterns, simple scenes) → prefer Google Imagen (cheapest at $0.02), then FAL, then OpenAI
+4. **Default** (no clear category) → `fal` first, then `openai`, then `google`
+
+When routing to Google, pass the appropriate `--model` based on use case:
+- Budget: `--model imagen-4.0-fast-generate-001`
+- Standard: `--model gemini-3.1-flash-image-preview`
+- Premium: `--model gemini-3-pro-image-preview`
 
 Dispatch the appropriate per-provider skill:
 - `fal` → `/jack-tar-cloud:fal-image`
 - `openai` → `/jack-tar-cloud:openai-image`
 - `google` → `/jack-tar-cloud:google-image`
 
-Pass through all arguments (--output, --size, --quality, original prompt).
+Pass through all arguments (--output, --size, --model, original prompt).
 
-If the first provider fails, try the next available provider.
+If the first provider fails, try the next available provider in the priority order.
