@@ -45,7 +45,7 @@ python3 -c "
 import os
 providers = {
     'openai': bool(os.environ.get('OPENAI_API_KEY')),
-    'google': bool(os.environ.get('GOOGLE_CLOUD_PROJECT')),
+    'google': bool(os.environ.get('GOOGLE_CLOUD_PROJECT') or os.environ.get('GOOGLE_API_KEY')),
     'fal': bool(os.environ.get('FAL_KEY')),
 }
 # Recraft uses OPENAI_API_KEY
@@ -76,15 +76,22 @@ DEPENDENCIES:
   fal-client:      READY
 
 PROVIDERS:
-  openai:          READY (OPENAI_API_KEY set)
-  google:          NOT_READY (GOOGLE_CLOUD_PROJECT not set)
-  fal:             READY (FAL_KEY set)
-  recraft:         READY (uses OPENAI_API_KEY)
+  openai:              READY (OPENAI_API_KEY set)
+  google-nanobanana:   READY (Flash + Pro via GOOGLE_API_KEY)
+  google-imagen:       READY (Fast + Standard via GOOGLE_API_KEY)
+  fal:                 READY (FAL_KEY set)
+  recraft:             READY (uses OPENAI_API_KEY)
+
+GOOGLE TIERS:
+  Nanobanana Flash:    gemini-3.1-flash-image-preview     $0.067/image  (best text rendering)
+  Nanobanana Pro:      gemini-3-pro-image-preview          $0.134/image  (premium quality)
+  Imagen Fast:         imagen-4.0-fast-generate-001        $0.020/image  (budget bulk)
+  Imagen Standard:     imagen-4.0-generate-001             $0.040/image  (standard quality)
 
 CAPABILITIES:
   image:           READY (3/4 providers available)
   icon:            READY (recraft available)
 
 STATUS: PARTIALLY_AVAILABLE
-REASON: Google provider not configured (missing GOOGLE_CLOUD_PROJECT)
+REASON: All providers configured
 ```
