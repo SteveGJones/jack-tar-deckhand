@@ -23,7 +23,7 @@ _SCHEMA_DIR = os.path.join(os.path.dirname(__file__), 'schemas')
 _FULL_RENDER_TYPES = {'title', 'section_divider', 'closing', 'blank_visual', 'quote'}
 
 # Slide types that must stay programmatic (precise text, data, labels)
-_COMPOSED_TYPES = {'data_chart', 'diagram', 'code'}
+_COMPOSED_TYPES = {'data_chart', 'code'}
 
 # Maximum body points before a content slide should use backdrop instead of full render
 _BACKDROP_BULLET_THRESHOLD = 2
@@ -70,7 +70,17 @@ def classify_slide_strategy(slide, template_mode=False, template_layout=None):
             'speaker_override': None,
         }
 
-    # Charts and diagrams must stay composed (precise text/labels)
+    # Diagram slides route to SmartArt assembly (pptx_native placeholders)
+    if slide_type == 'diagram':
+        return {
+            'slide_number': slide_number,
+            'strategy': 'smartart',
+            'rationale': 'diagram slide — routed to SmartArt assembly for editable graphics',
+            'render_funnel': ['ollama'],
+            'speaker_override': None,
+        }
+
+    # Charts and code must stay composed (precise text/labels)
     if slide_type in _COMPOSED_TYPES or visual_type == 'chart':
         return {
             'slide_number': slide_number,
