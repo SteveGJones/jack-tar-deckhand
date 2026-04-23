@@ -62,7 +62,7 @@ Agreement on `background_kind` is 0/10 for Variants A and B, 10/10 for Variant C
 - OOXML parser reports `"default"` (no `<p:bg>` element) for all three variants' slides because PptxGenJS doesn't emit `<p:bg>` for colour-only backgrounds — it just sets `bgColor` on the slide element.
 - JS parser reports `"solid"` when it sees `slide.background = { color: "..." }` assignments.
 
-Both are correct reads of their respective sources, but they disagree on what to *call* a colour background. For the analyser's needs, either signal is sufficient to classify "this slide has/doesn't have a custom background." Field definition needs minor alignment.
+Both are correct reads of their respective sources, but they disagree on what to *call* a colour background. Critically, this is a genuine OOXML-side gap rather than semantic disagreement: the OOXML parser never inspects `bgColor` on the slide element, so for any /pptx-authored slide with a colour background, OOXML reports `"default"` incorrectly. The HYBRID decision's "OOXML primary" works for slides with image backgrounds (OOXML has `<p:bg><a:blipFill>`) but misses colour-only backgrounds. To cover this in production, the OOXML parser must additionally check the slide element's `bgColor` attribute. Captured as spec update item #7 below.
 
 ### JS parsing complexity — an important methodology observation
 
@@ -73,6 +73,10 @@ The plan's template JS parser passed tests only after the implementer added thre
 3. **ObjectPattern destructuring + template literals** — Variant C uses `const { x, y, w, h, slug } = opts; const name = \`IMAGE:${slug}\`;`. Parser must resolve destructuring and evaluate the template literal to recover the marker string.
 
 These aren't hypothetical; they were encountered in real /pptx output from three variants run 48 hours apart. Each variant's subagent chose a different JS idiom for the same job. That variability is the core robustness concern the team review flagged — confirmed empirically.
+
+## Scope note — F7 classifier deferred
+
+The plan's file structure listed `parsers/classifier.py` (F7 — derived classification: text-heavy / list/process / already-rich). No task implemented it; the spike answered its core question without needing to. Rationale: classification is a thin derivation over the already-extracted `SlideFacts` fields (`text_content`, `element_types`, `markers`). Both parsers produce the same shape, so either feeds the classifier identically. The decision between sources does not depend on F7 behaviour. Deferred to the analyser's production implementation in the bridge plugin — not to a future spike.
 
 ## Field-by-field scoring
 
@@ -140,6 +144,8 @@ Concrete changes to the Superpower Bridge spec from this spike's decision:
 5. **Risk Register.** Update the "Build script format changes" row — mitigation is now "parser used only as fallback; primary path is OOXML which has a stable schema". Reduce severity accordingly.
 
 6. **Plugin Structure.** `src/analyser.py` imports both `python-pptx` and `esprima`. Declare `esprima` as a dependency in the plugin's `requirements.txt`.
+
+7. **OOXML `bgColor` handling.** The production OOXML parser must inspect the slide element's `bgColor` attribute in addition to `<p:bg>` to correctly detect colour backgrounds on /pptx-authored slides (Spike 3's OOXML parser did not, and the comparison found 0/10 background agreement for Variants A and B as a result). Update Section 3.1's extraction list to call this out explicitly.
 
 ## Next steps
 
