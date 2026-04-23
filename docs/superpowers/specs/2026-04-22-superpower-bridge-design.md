@@ -457,14 +457,20 @@ Phase 3:
 
 | In scope | Out of scope (v2+) |
 |----------|-------------------|
-| Narrative pre-brief skill | Custom data viz (Mermaid/Vega-Lite charts) |
-| Build script analyser | Full slide re-renders (full_render strategy) |
-| AI background enrichment | Backdrop strategy with vision analysis |
-| Editable SmartArt enrichment (pptx_native) | Pragmatic composition (multi-element positioning) |
-| AI element images via placeholder markers | Wrapped single-command invocation |
-| Ollama-first draft/review cycle | Modifying the pptx superpower |
-| Internal review before delivery | Animation or transition injection |
-| Cost tracking and reporting | |
+| Narrative pre-brief skill (Narrative Brief Architect persona) | Custom data viz (Mermaid/Vega-Lite charts) |
+| OOXML analyser (primary) via python-pptx | Full slide re-renders (full_render strategy) |
+| JS build-script fallback parser via esprima (AST-only) | Backdrop strategy with vision analysis |
+| AI background enrichment | Pragmatic composition (multi-element positioning) |
+| Editable SmartArt enrichment (pptx_native) | Wrapped single-command invocation |
+| AI element images via placeholder markers | Modifying the pptx superpower |
+| Ollama-first draft/review cycle | Animation or transition injection |
+| Enrichment Cohesion Reviewer (deck-level) | `confidentiality: restricted` tier bypasses for offline deployments |
+| Cost tracking with `budget_cap_usd` (default $1.00) | |
+| Privacy tiering (`public` / `internal` / `restricted`) | |
+| Image-path allowlist + .pptx pre-flight + XML parser hardening | |
+| Transactional (all-or-nothing) enrichment application | |
+| SMARTART marker-adjacent text overlap verifier (analyser-side) | |
+| Structured `enrichment-report.md` output | |
 
 ## Key Design Decisions
 
@@ -501,6 +507,65 @@ Phase 3:
 | Unbounded cloud spend | A single run could accidentally cost many dollars on Nanobanana Pro | `budget_cap_usd` input (default $1.00), hard ceiling, per-call cost deducted. See Security & Privacy § Budget cap. | Not spiked. Cap mechanism captured. |
 | OOXML misses colour-only backgrounds | Slides with PptxGenJS `bgColor` (no `<p:bg>`) misclassified | Analyser checks both `<p:bg>` AND slide element's `bgColor` attribute (Section 3.1). | **Spike 3:** observed 0/10 background agreement before fix; now required. |
 
+## AI Personas
+
+The bridge introduces ONE new AI persona (Narrative Brief Architect, Phase 1) plus ONE deck-level reviewer persona (Enrichment Cohesion Reviewer, Phase 3). Phase 3's `enrich-deck` skill is **orchestration code**, not a persona — it invokes existing personas (Prompt Engineer, Image Reviewer) and the new deck-level reviewer but does not itself carry creative-output authority.
+
+Full persona contracts live at [docs/architecture/ai-personas/superpower-bridge-personas.md](../../architecture/ai-personas/superpower-bridge-personas.md). Summary:
+
+| Persona | Scope | Authority | Risk tier | Model |
+|---------|-------|-----------|-----------|-------|
+| **Narrative Brief Architect** | Transforms topic + audience + duration into `creative-brief.md` | Invoker (user approves before save) | Tier 1 | Sonnet |
+| **Enrichment Cohesion Reviewer** | Reviews assembled enriched deck for cross-slide cohesion | Invoker (advisory verdicts only) | Tier 1 | Haiku, Sonnet on escalation |
+| Image Reviewer (reused) | Per-image quality verdict | Unchanged | Unchanged | Unchanged |
+| Prompt Engineer (reused) | Prompt construction with two new composition modes | Unchanged | Unchanged | Unchanged |
+
+The existing `narrative-architect` skill was considered as an alternative to the new Narrative Brief Architect persona. Decision: new persona. `narrative-architect` operates on DeckContext + StyleGuide + brand profile; the brief-writing context is pre-DeckContext and operates on topic + audience + duration only. The shapes are different enough that overloading `narrative-architect` with a "brief mode" would harm its existing responsibilities without meaningfully reducing scope here.
+
+The full 19-section definitions (Chapters 6–7 of the methodology) are deferred to the implementation plan. The persona skeleton captures the Three Questions of Delegation, authority model, risk classification, data contracts, escalation triggers, prohibited actions, model sizing, and measurement hooks — enough for implementation to begin.
+
+## Enrichment Report Schema
+
+The `enrichment-report.md` delivered alongside `presentation-enriched.pptx` has a fixed structure to enable post-hoc audit and automated cost accounting. Minimum required fields:
+
+```markdown
+# Enrichment Report — <deck-name>
+
+**Source:** <absolute path to original .pptx>
+**Output:** <absolute path to enriched .pptx>
+**Run timestamp:** <ISO8601>
+**Bridge version:** <plugin version>
+
+## Summary
+
+- Slides enriched: <n> of <total>
+- Enrichments applied: <count by type — backgrounds / element images / SmartArt>
+- Total cost: $<X.XX>
+- Budget cap: $<cap> (<remaining>$ unused)
+- Confidentiality tier: <public|internal|restricted>
+
+## Per-enrichment ledger
+
+| Slide | Type | Marker | Engine/Provider | Iterations | Cost | Verdict |
+|-------|------|--------|-----------------|------------|------|---------|
+| 1 | background | BG:dramatic-opening | ollama→nanobanana-flash | 2→1 | $0.067 | pass |
+| 3 | image | IMAGE:agent-architecture | ollama | 1 | $0.00 | pass |
+| 5 | smartart | SMARTART:three-pillars | pptx_native (process1) | n/a | $0.00 | pass |
+
+## Flags for user attention
+
+(Any cohesion-reviewer verdicts that didn't block but are worth noting, e.g.
+ "slide 8 background contrast is borderline; consider re-running if delivering
+ in high ambient light".)
+
+## PowerPoint rendering note
+
+If SmartArt is present, the report includes a one-line PowerPoint-export
+instruction and the exact `tools/pptx_to_pdf.sh` invocation string.
+```
+
+The schema is machine-parseable (front-matter + consistent table column order) for regression tests and aggregate-cost analysis across runs. Implementation lives in `src/enrichment_report.py`.
+
 ## Spike validation (2026-04-23)
 
 Before writing the implementation plan, two spikes validated the design's highest-risk assumptions.
@@ -529,7 +594,22 @@ Three API corrections folded into Section 3.4 above:
 2. `InjectionRequest.placeholder_name` accepts the marker string directly — the plan's marker-renaming step is unnecessary.
 3. Flat-list SmartArt items must be plain strings — dicts raise `FlatListBuildError`.
 
-One non-blocking cosmetic issue surfaced and got a contract resolution: marker-adjacent body text clearing (Section 3.4 step 4).
+One non-blocking cosmetic issue surfaced and was later resolved by Spike 3's analyser-side verifier (Section 3.1).
+
+### Spike 3 — Analyser source comparison
+
+[docs/spikes/2026-04-23-analyser-source-comparison/README.md](../../spikes/2026-04-23-analyser-source-comparison/README.md) — **GO with HYBRID**. Two parsers (OOXML via python-pptx, JS via esprima) were built against a shared `SlideFacts` contract and run on 3 real /pptx variants + 1 non-/pptx control:
+
+| Case | OOXML markers | JS markers | Implication |
+|------|---------------|------------|-------------|
+| Variant A (`objectName:`) | 8 | 8 | Both parsers agree; primary path works |
+| Variant B (`name:`, dropped by PptxGenJS) | 0 | 8 | **JS rescues markers OOXML loses** |
+| Variant C (`name:`, dropped) | 0 | 10 | Same rescue pattern |
+| Control (no build.js) | 1 | n/a | **OOXML works when JS unavailable** |
+
+Decision: OOXML primary + JS fallback for markers only. Exploits each source's strengths without inheriting JS's primary-path complexity. Text-scan fallback from Spike 1 is subsumed. The spike also surfaced that JS parsing required three rounds of feature additions across three variants generated 48 hours apart — empirical confirmation that LLM-authored JS is variable enough to be unsuitable as a primary source.
+
+Findings folded into Section 3.1 above, Key Design Decision #2, and the Risk Register.
 
 ## Related
 
@@ -540,3 +620,6 @@ One non-blocking cosmetic issue surfaced and got a contract resolution: marker-a
 - #45 / PR #46 (template-driven layouts — template analyser)
 - [Spike 1: /pptx marker adherence](../../spikes/2026-04-23-pptx-marker-adherence/README.md) (2026-04-23)
 - [Spike 2: python-pptx enrichment](../../spikes/2026-04-23-python-pptx-enrichment/README.md) (2026-04-23)
+- [Spike 3: Analyser source comparison](../../spikes/2026-04-23-analyser-source-comparison/README.md) (2026-04-23)
+- [Team review synthesis](2026-04-23-superpower-bridge-team-review.md) (2026-04-23)
+- [AI Persona definitions](../../architecture/ai-personas/superpower-bridge-personas.md) (2026-04-23)
