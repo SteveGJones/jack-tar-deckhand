@@ -1,0 +1,68 @@
+{
+  "variants": [
+    {
+      "variant": "A",
+      "brief": "brief-a-minimal.md",
+      "requested": {
+        "IMAGE": 2,
+        "SMARTART": 1,
+        "BG": 1
+      },
+      "emitted": {
+        "BG": 2,
+        "IMAGE": 3,
+        "SMARTART": 3
+      },
+      "overall_rate": 1.0,
+      "verdict": "full",
+      "missing": {},
+      "extra": {
+        "IMAGE": 1,
+        "SMARTART": 2,
+        "BG": 1
+      },
+      "marker_count": 8,
+      "slide_count": 10
+    },
+    {
+      "variant": "B",
+      "brief": "brief-b-explicit.md",
+      "requested": {
+        "IMAGE": 2,
+        "SMARTART": 1,
+        "BG": 1
+      },
+      "emitted": {},
+      "overall_rate": 0.0,
+      "verdict": "none",
+      "missing": {
+        "IMAGE": 2,
+        "SMARTART": 1,
+        "BG": 1
+      },
+      "extra": {},
+      "marker_count": 0,
+      "slide_count": 10
+    },
+    {
+      "variant": "C",
+      "brief": "brief-c-exemplar.md",
+      "requested": {
+        "IMAGE": 2,
+        "SMARTART": 1,
+        "BG": 1
+      },
+      "emitted": {},
+      "overall_rate": 0.0,
+      "verdict": "none",
+      "missing": {
+        "IMAGE": 2,
+        "SMARTART": 1,
+        "BG": 1
+      },
+      "extra": {},
+      "marker_count": 0,
+      "slide_count": 10
+    }
+  ]
+}
