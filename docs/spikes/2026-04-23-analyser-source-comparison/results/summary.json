@@ -1,0 +1,104 @@
+{
+  "cases": [
+    {
+      "case": "control",
+      "pptx_slides": 3,
+      "js_slides": null,
+      "js_error": null,
+      "pptx_markers": 1,
+      "js_markers": null,
+      "agreement_by_field": {
+        "markers": {
+          "agree": 0,
+          "total": 3,
+          "rate": 0.0
+        },
+        "background_kind": {
+          "agree": 0,
+          "total": 3,
+          "rate": 0.0
+        },
+        "text_content_len": {
+          "agree": 0,
+          "total": 3,
+          "rate": 0.0
+        }
+      }
+    },
+    {
+      "case": "variant-a",
+      "pptx_slides": 10,
+      "js_slides": 10,
+      "js_error": null,
+      "pptx_markers": 8,
+      "js_markers": 8,
+      "agreement_by_field": {
+        "markers": {
+          "agree": 10,
+          "total": 10,
+          "rate": 1.0
+        },
+        "background_kind": {
+          "agree": 0,
+          "total": 10,
+          "rate": 0.0
+        },
+        "text_content_len": {
+          "agree": 7,
+          "total": 10,
+          "rate": 0.7
+        }
+      }
+    },
+    {
+      "case": "variant-b",
+      "pptx_slides": 10,
+      "js_slides": 10,
+      "js_error": null,
+      "pptx_markers": 0,
+      "js_markers": 8,
+      "agreement_by_field": {
+        "markers": {
+          "agree": 2,
+          "total": 10,
+          "rate": 0.2
+        },
+        "background_kind": {
+          "agree": 0,
+          "total": 10,
+          "rate": 0.0
+        },
+        "text_content_len": {
+          "agree": 9,
+          "total": 10,
+          "rate": 0.9
+        }
+      }
+    },
+    {
+      "case": "variant-c",
+      "pptx_slides": 10,
+      "js_slides": 10,
+      "js_error": null,
+      "pptx_markers": 0,
+      "js_markers": 10,
+      "agreement_by_field": {
+        "markers": {
+          "agree": 0,
+          "total": 10,
+          "rate": 0.0
+        },
+        "background_kind": {
+          "agree": 10,
+          "total": 10,
+          "rate": 1.0
+        },
+        "text_content_len": {
+          "agree": 3,
+          "total": 10,
+          "rate": 0.3
+        }
+      }
+    }
+  ]
+}

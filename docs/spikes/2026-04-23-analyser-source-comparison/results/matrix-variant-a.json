@@ -1,0 +1,272 @@
+{
+  "case_name": "variant-a",
+  "pptx_slide_count": 10,
+  "js_slide_count": 10,
+  "js_error": null,
+  "pptx_marker_total": 8,
+  "js_marker_total": 8,
+  "slide_comparisons": [
+    {
+      "slide_index": 1,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "BG:title-hero-dark-grid"
+          ],
+          "js_value": [
+            "BG:title-hero-dark-grid"
+          ],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 204,
+          "js_value": 204,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 2,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "IMAGE:demo-vs-prod-split"
+          ],
+          "js_value": [
+            "IMAGE:demo-vs-prod-split"
+          ],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 420,
+          "js_value": 420,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 3,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 313,
+          "js_value": 155,
+          "agree": false
+        }
+      ]
+    },
+    {
+      "slide_index": 4,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "SMARTART:three-pillars-relationship"
+          ],
+          "js_value": [
+            "SMARTART:three-pillars-relationship"
+          ],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 217,
+          "js_value": 217,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 5,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "SMARTART:planning-replan-loop"
+          ],
+          "js_value": [
+            "SMARTART:planning-replan-loop"
+          ],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 351,
+          "js_value": 351,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 6,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "IMAGE:memory-layers-illustration"
+          ],
+          "js_value": [
+            "IMAGE:memory-layers-illustration"
+          ],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 375,
+          "js_value": 375,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 7,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "SMARTART:tool-call-sequence"
+          ],
+          "js_value": [
+            "SMARTART:tool-call-sequence"
+          ],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 423,
+          "js_value": 423,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 8,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "BG:case-study-server-room"
+          ],
+          "js_value": [
+            "BG:case-study-server-room"
+          ],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 493,
+          "js_value": 218,
+          "agree": false
+        }
+      ]
+    },
+    {
+      "slide_index": 9,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "IMAGE:case-study-dashboard"
+          ],
+          "js_value": [
+            "IMAGE:case-study-dashboard"
+          ],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 465,
+          "js_value": 149,
+          "agree": false
+        }
+      ]
+    },
+    {
+      "slide_index": 10,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 301,
+          "js_value": 301,
+          "agree": true
+        }
+      ]
+    }
+  ]
+}

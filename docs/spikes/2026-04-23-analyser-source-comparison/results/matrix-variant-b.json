@@ -1,0 +1,256 @@
+{
+  "case_name": "variant-b",
+  "pptx_slide_count": 10,
+  "js_slide_count": 10,
+  "js_error": null,
+  "pptx_marker_total": 0,
+  "js_marker_total": 8,
+  "slide_comparisons": [
+    {
+      "slide_index": 1,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [
+            "BG:dramatic-contrast"
+          ],
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 135,
+          "js_value": 135,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 2,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [
+            "IMAGE:demo-vs-production-hero"
+          ],
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 268,
+          "js_value": 268,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 3,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [
+            "SMARTART:three-pillars"
+          ],
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 148,
+          "js_value": 148,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 4,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [
+            "IMAGE:pillar-planning-architecture"
+          ],
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 298,
+          "js_value": 298,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 5,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [
+            "IMAGE:pillar-memory-diagram"
+          ],
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 277,
+          "js_value": 277,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 6,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [
+            "IMAGE:pillar-tool-use-sketch"
+          ],
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 332,
+          "js_value": 332,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 7,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 368,
+          "js_value": 368,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 8,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [
+            "SMARTART:rollout-timeline"
+          ],
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 139,
+          "js_value": 139,
+          "agree": true
+        }
+      ]
+    },
+    {
+      "slide_index": 9,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [],
+          "agree": true
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 427,
+          "js_value": 70,
+          "agree": false
+        }
+      ]
+    },
+    {
+      "slide_index": 10,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": [
+            "BG:calm-minimal"
+          ],
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "solid",
+          "js_value": "default",
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 240,
+          "js_value": 240,
+          "agree": true
+        }
+      ]
+    }
+  ]
+}
