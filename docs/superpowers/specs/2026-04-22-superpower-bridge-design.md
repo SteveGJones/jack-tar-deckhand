@@ -121,29 +121,62 @@ The creative brief influences the deck through prompt context:
 
 ### 3.1 Deck Analysis
 
-**Input:** The Node.js build script that the superpower generated, plus the .pptx file path for later enrichment.
+> **Validated by [Spike 3](../../spikes/2026-04-23-analyser-source-comparison/README.md) on 2026-04-23.** The HYBRID source strategy below was selected from a three-way empirical comparison (OOXML-only / JS-only / HYBRID) across four real cases.
 
-The skill accepts the .pptx path and looks for the build script in the same directory (the superpower leaves it alongside the output). If the build script isn't found, the skill asks the user to provide its path. The .pptx is only used during enrichment application (Section 3.4) — all analysis works from the build script because it's richer and more readable than reverse-engineering the compiled .pptx.
+**Input:** The .pptx file path. The Node.js build script (`build.js`), if present in the same directory, is consumed as a targeted fallback only.
 
-The analyser parses the JS build script to extract per-slide information:
-- Text content (from `addText()` calls)
-- Shape names (looking for `IMAGE:`, `SMARTART:`, `BG:` markers)
-- Shape coordinates and dimensions (from marker shapes)
-- Background state (solid colour vs. image)
-- Element types present (charts, tables, images, plain text)
+#### Primary analysis — OOXML via python-pptx
 
-**Classification per slide:**
+The analyser opens the .pptx with python-pptx and extracts per-slide information directly from OOXML:
+
+- **Marker shape names** via `<p:cNvPr @name>` matching `^(IMAGE|SMARTART|BG):[A-Za-z0-9_-]+$`
+- **Marker geometry** via `<a:xfrm>` child elements (left / top / width / height in EMU)
+- **Text content** via `<a:t>` descendants across every text frame
+- **Background state** via both `<p:bg><p:bgPr>` (image / solid / gradient fills) **and** the slide element's `bgColor` attribute (PptxGenJS emits colour backgrounds via `bgColor`, not `<p:bg>` — Spike 3 observed a 0/10 agreement on this field when `bgColor` was ignored)
+- **Element types present** (charts, tables, images, plain text, shapes) via python-pptx's `MSO_SHAPE_TYPE`
+
+OOXML is chosen as primary because it is a stable, schema-defined format that is available in every case — including user-edited decks, Keynote exports, and corporate templates that have no `build.js` alongside them. Spike 3's "control" case proved that OOXML analysis produces useful results even when the build script is entirely absent.
+
+**Security:** all XML parsing uses `lxml.etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)`. See the Security & Privacy section for the full input-validation contract.
+
+#### Fallback — JS build-script parsing for marker extraction only
+
+When **all three** conditions hold, the analyser additionally parses `build.js` via the `esprima` Python package (AST-based, read-only — the script is **never executed, imported, required, or spawned as a subprocess**):
+
+1. OOXML analysis produced **zero markers** (the brief likely used PptxGenJS's `name` property which PptxGenJS 4.0.1 silently drops — see Section C in Phase 1).
+2. A file named `build.js` exists in the same directory as the .pptx.
+3. JS parsing does not raise — if it does, the analyser logs the error and reports "no markers" rather than propagating.
+
+The JS fallback extracts marker information from `slide.addShape(..., { objectName|name: "IMAGE:...", x, y, w, h })` calls, resolving PptxGenJS helper-function indirection (Spike 3 found three idioms across three real variants: block-scoped slide bindings, helper functions taking slide as parameter, and ObjectPattern destructuring with template-literal marker construction).
+
+Because the JS fallback runs **only** when OOXML already found zero markers, the complexity of JS parsing is quarantined away from the primary path. A JS parse failure degrades the deck to "no markers found" plus a user-facing diagnostic — the same failure mode as OOXML-only analysis.
+
+Spike 1's originally-proposed text-scan fallback (scan slide body text for marker strings when OOXML shape names are absent) is **subsumed by the JS fallback**. The marker strings appear in the JS source via `addText()` calls, so parsing the JS covers the same cases that text-scanning the rendered OOXML would cover, with the added benefit of recovering positional information. A text-scan mode was evaluated during Spike 3 and rejected as redundant.
+
+#### Classification per slide
 
 | Category | Criteria | Enrichment |
 |----------|----------|------------|
 | Marker: IMAGE | Shape named `IMAGE:*` | AI element image at marker position |
 | Marker: SMARTART | Shape named `SMARTART:*` | Editable SmartArt replacing marker |
-| Marker: BG | Shape named `BG:*` | AI atmospheric background |
+| Marker: BG | Shape named `BG:*` (geometry is IGNORED — BG applies to the slide background, not to the marker's rectangle) | AI atmospheric background |
 | Text-heavy (unmarked) | High text density, no images/charts | Candidate for AI background |
 | List/process (unmarked) | Bullet points matching SmartArt patterns | Candidate for SmartArt |
 | Already rich | Has charts, images, complex layout | Leave alone |
 
 Unmarked slides can still be proposed for enrichment based on content analysis — markers just make it explicit and provide positioning.
+
+#### Marker uniqueness and grammar
+
+- **Grammar:** `^(IMAGE|SMARTART|BG):[A-Za-z0-9_-]+$`. The identifier after the colon is lowercase letters, digits, hyphens, underscores.
+- **Semantics of the identifier:** for `IMAGE:` and `BG:`, the identifier is a descriptive slug (e.g. `IMAGE:agent-architecture`, `BG:dramatic-opening`). For `SMARTART:`, the identifier hints at the graphic's *subject*, not the catalog layout ID — e.g. `SMARTART:three-pillars`, not `SMARTART:process1`. Layout selection is a separate step in Section 3.3 and uses the SmartArt item count plus graphic-type detection, not the slug.
+- **Uniqueness:** marker identifiers must be unique within a deck. Duplicate identifiers are a brief-authoring error; the analyser flags them for user resolution before proceeding.
+
+#### SMARTART marker-adjacent text — verifier (analyser-side)
+
+For every slide carrying a `SMARTART:*` marker, the analyser additionally checks whether any **other** shape's bounding box on that slide intersects the marker's geometry. If an overlap is found, the analyser reports it in the enrichment menu with three user options: **proceed anyway** (accept faint residual text behind the injected SmartArt), **clear overlapping text** (remove the conflicting shape at enrichment time), or **drop this enrichment**.
+
+This replaces the earlier "brief-side contract" where the brief asked the superpower to leave SMARTART slides uncluttered — Spike 2 surfaced the cosmetic issue, but a brief-side promise is unverifiable. The analyser-side verifier makes the contract enforceable at deck-reading time.
 
 ### 3.2 Enrichment Menu
 
@@ -242,21 +275,20 @@ Apply all reviewed assets to a **copy** of the .pptx (never modify the original)
 
    Reference: [op3_inject_smartart.py](../../spikes/2026-04-23-python-pptx-enrichment/prototypes/op3_inject_smartart.py).
 
-4. **Marker-adjacent text clearing contract.** Spike 2 surfaced a cosmetic issue: when a SMARTART marker is replaced with an injected diagram, body text living in *other text boxes* on the same slide that happen to overlap the marker's geometry remains visible behind the SmartArt. The marker shape itself is cleanly removed; the fragments are from independent text frames. Two viable resolutions:
-   - **Brief-side contract (preferred for v1):** the brief instructs the superpower that any slide carrying a SMARTART marker must contain only the slide title plus the marker — no competing body text. Simple, verifiable at analysis time.
-   - **Enrichment-side geometric clearing:** on SMARTART replacement, enumerate all shapes on the slide whose bounding boxes intersect the marker's geometry and remove their content (or the shapes themselves). More complex, easy to over-delete.
-   The brief-side contract is strictly simpler and fails safely; adopt it for v1 and reconsider if user feedback warrants.
+4. **All-or-nothing application (transactional gate).** Enrichments are applied against a single in-memory `Presentation` object held open throughout the ops cycle. Op1 and Op2 mutate the in-memory tree; the object is saved to a temporary file (`presentation-enriched.pptx.tmp-<pid>`) only after BOTH succeed. SmartArt injection (Op3) then runs against the saved temp file using `assembler_patch.inject()`, which is itself read-all → mutate → write-fresh internally. If every op has succeeded, the temp file is renamed to `presentation-enriched.pptx` via `os.replace()` (atomic on POSIX). If any op raises, the temp file is discarded and no output is produced. This gives all-or-nothing semantics: the user never receives a half-enriched deck. The SMARTART analyser-side verifier (Section 3.1) catches overlap issues BEFORE enrichment begins, so any shape-removal for overlap resolution happens during Op2-equivalent preparation, not mid-injection.
 
-5. **Render for review** — convert enriched .pptx to slide images via LibreOffice → PDF → pdftoppm (same toolchain the superpower uses). SmartArt slides will render poorly in LibreOffice but AI images and backgrounds will be visible. For authoritative visual verification of SmartArt, use PowerPoint Mac via [tools/pptx_to_pdf.sh](../../../tools/pptx_to_pdf.sh) (forces SmartArt cache regen on save).
+5. **Handle SMARTART marker-adjacent text clearing.** If the analyser's verifier (Section 3.1) flagged overlapping shapes on a SMARTART slide AND the user selected "clear overlapping text", the enrichment step removes those shapes from the in-memory tree before Op3 runs. If the user selected "proceed anyway", no clearing happens and the user accepts the known cosmetic trade-off. If the user selected "drop this enrichment", the SMARTART op is skipped entirely (the marker shape is NOT removed from the deck so the user can re-run later).
 
-6. **Internal deck review** — view every slide image:
+6. **Render for review** — convert the temporary enriched .pptx to slide images via LibreOffice → PDF → pdftoppm (same toolchain the superpower uses). SmartArt slides will render poorly in LibreOffice but AI images and backgrounds will be visible. For authoritative visual verification of SmartArt, use PowerPoint Mac via [tools/pptx_to_pdf.sh](../../../tools/pptx_to_pdf.sh) (forces SmartArt cache regen on save).
+
+7. **Internal deck review** — view every slide image:
    - Do AI backgrounds overpower the text? (contrast, readability)
    - Do element images fit their allocated space?
    - Is the visual style cohesive across enriched slides?
    - Do enriched slides feel consistent with non-enriched slides?
    - Any slides where the enrichment made things worse?
 
-7. **Fix issues** — regenerate images, adjust, or drop an enrichment. Repeat until the deck passes internal review.
+8. **Fix issues** — regenerate images, adjust, or drop an enrichment. When a fix is applied, the entire enrichment cycle is re-run from step 1 against a fresh copy of the source .pptx — we never patch a previously-enriched output. This keeps the all-or-nothing semantics intact even across iteration rounds.
 
 ### 3.5 Delivery
 
@@ -272,6 +304,74 @@ Only after internal review passes, present the enriched deck to the user:
 
 **PDF conversion note:** The superpower's text-only decks convert cleanly to PDF. AI backgrounds and element images also survive PDF conversion (they're embedded raster images). SmartArt may not render correctly in LibreOffice PDF export — the enrichment report flags this and recommends PowerPoint for PDF export if SmartArt was applied.
 
+## Security & Privacy
+
+The bridge reads user-authored .pptx files, parses user-influenced JS, writes modified .pptx files, and sends prompts derived from user briefs to external cloud providers. The review panel (security-architect lens) surfaced five risks that the implementation must address. They are captured here as hard contracts on the plugin's behaviour.
+
+### Image-path allowlist (High — addresses review C1)
+
+Any path passed to `python-pptx`'s image-loading APIs (`Image.from_file()`, `slide.shapes.add_picture()`) is **resolved against an explicit allowlist of directories** before loading. The default allowlist is:
+
+- The working directory's `generated/` subdirectory (where the imagegen-bridge writes AI-generated images for this run)
+- The plugin's run-local `carriers/` subdirectory (SmartArt carrier files)
+
+After `Path(p).resolve()`, the path MUST satisfy `path.is_relative_to(allowed_root)` for at least one allowed_root. Symlinks are rejected outright (`path.is_symlink()` short-circuits to an error). Paths failing this check raise a hard error; they are never embedded into the output .pptx.
+
+This prevents a malicious or mistake-filled brief from directing the bridge to embed arbitrary files (`~/.ssh/id_rsa`, `~/.aws/credentials`, arbitrary workspace files) as "PNG" parts in the output — python-pptx validates content-type headers but still embeds the raw bytes of anything it accepts as an image, which can exfiltrate sensitive files via a seemingly-innocuous deck.
+
+### JS parsing is read-only (High — addresses review C2)
+
+The JS fallback parser in Section 3.1 **never executes, imports, `require()`s, or spawns** the build script. It uses `esprima.parseScript()` with `tolerant=True` against the source text, then walks the AST. The allowed operations on a loaded build script are: read the AST, walk it, extract literal values. Any code path that would run or even partially evaluate user-authored JavaScript is prohibited.
+
+This contract is testable — a simple test asserts that no `subprocess`, `eval`, `exec`, or module-import API is called during analyser execution on a build.js that *would* misbehave if run (e.g. one that `require('child_process').execSync(...)` inside a top-level call).
+
+### .pptx input hardening (Medium-High — addresses review C3)
+
+Every loaded .pptx must pass pre-flight checks before python-pptx opens it:
+
+- **Decompressed size ceiling:** 200 MB. Refuse files whose compressed→decompressed ratio exceeds 100:1 (zip-bomb signal).
+- **Part count ceiling:** 2,000 parts per package.
+- **Per-part size ceiling:** 50 MB.
+- **XML parser configuration:** `lxml.etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)` everywhere slide XML is parsed by bridge code — not just in the fallback path. This shuts down XXE and DTD-expansion attacks at the parser level.
+
+These checks are front-loaded: a failing file is rejected before any enrichment work starts. The error is surfaced to the user with a diagnostic naming the specific check that failed.
+
+### Atomic file writes (Medium — addresses review C4)
+
+The output `presentation-enriched.pptx` is written via the pattern described in Section 3.4 step 4 — write to `presentation-enriched.pptx.tmp-<pid>` in the same directory, `fsync`, then `os.replace()` to the final name. Atomic on POSIX. If the destination file exists and is locked (PowerPoint has it open on macOS, or Windows file-lock semantics), the rename fails loudly with a "close PowerPoint first" diagnostic. The bridge never leaves a half-written output file on disk.
+
+Timestamped backup of any pre-existing `presentation-enriched.pptx` before overwrite is NOT automatic — the user can request it via a flag, but defaulting to non-destructive writes would create unbounded on-disk clutter for users who iterate repeatedly.
+
+### Privacy tiering for cloud providers (Medium — addresses review D1)
+
+Briefs contain audience context, product names, and narrative intent. When the bridge escalates AI image generation from Ollama to cloud providers (Nanobanana, Imagen, FLUX via FAL), it sends user-authored prompt text — derived from the brief — to external APIs. For users handling confidential material this is an exfiltration risk.
+
+The brief gains a `confidentiality` field with three values:
+
+| Tier | Behaviour |
+|------|-----------|
+| `public` | Default. Full Ollama-first pipeline, cloud escalation allowed, prompts sent to cloud providers as-is. |
+| `internal` | Cloud escalation allowed, but before the FIRST cloud call per run the bridge prompts the user for explicit confirmation, showing the exact prompt text about to be sent and the provider URL. |
+| `restricted` | Cloud providers are DISABLED. Ollama is the only image source. If the brief wants cloud-quality results on a restricted deck, the user is told explicitly and asked to relax the tier or drop the enrichment. |
+
+The tier defaults to `public` if the brief does not set it — existing jack-tar users see no change in behaviour.
+
+### Budget cap (Medium — addresses review D3, converged recommendation)
+
+The `/enrich-deck` invocation accepts a `budget_cap_usd` flag (default: **$1.00**). Every cloud API call's cost is deducted from a running total maintained in `image_bridge.py`. When the remaining budget falls below the cheapest-available cloud provider's per-call cost, the bridge halts cloud generation and either:
+
+- Falls back to Ollama (free) if the affected enrichment tolerates draft quality.
+- Stops and reports to the user with the per-enrichment cost ledger so far plus the remaining slides unspent.
+
+The cap is a hard ceiling, not a suggestion. The user raises it by re-running with `--budget-cap=N.NN`.
+
+### Supply-chain note (Medium)
+
+The bridge imports from `plugins/jack-tar-msft-smartart/src` via PLUGIN_ROOT discovery (the same pattern every jack-tar plugin uses, documented in CLAUDE.md). This grants the msft-smartart plugin code execution inside the bridge's Python process. Two mitigations:
+
+1. Plugin versions are pinned in `plugin.json`. Breaking-change versions of msft-smartart require an explicit bridge version bump.
+2. The imported surface is named explicitly (`engine.render`, `assembler_patch.InjectionRequest`, `assembler_patch.inject`). Any expansion requires a spec amendment.
+
 ## Plugin Structure
 
 New plugin: `jack-tar-superpower-bridge`
@@ -279,24 +379,33 @@ New plugin: `jack-tar-superpower-bridge`
 ```
 plugins/jack-tar-superpower-bridge/
   .claude-plugin/
-    plugin.json
+    plugin.json             # Dependencies include esprima (>=4.0.1) for JS fallback
+  requirements.txt          # esprima, python-pptx, lxml (explicit pins)
   skills/
     bridge-brief/
       SKILL.md              # Phase 1: narrative pre-brief
     enrich-deck/
       SKILL.md              # Phase 3: analyse + propose + apply
+  agents/
+    enrichment-cohesion-reviewer.md   # Deck-level visual review persona
   src/
-    analyser.py             # Parse JS build script, classify slides
-    enrichment.py           # Apply enrichments to .pptx via python-pptx
+    analyser.py             # OOXML primary (python-pptx); JS fallback (esprima)
+    enrichment.py           # Apply enrichments via python-pptx, transactional gate
     placeholder.py          # Placeholder protocol — find/parse/remove markers
     smartart_bridge.py      # Spec construction + carrier render + injection
-    image_bridge.py         # Draft/review cycle for AI images
+    image_bridge.py         # Draft/review cycle for AI images + budget tracking
+    security.py             # Image-path allowlist, .pptx pre-flight, XML parser config
+    enrichment_report.py    # Structured enrichment report writer (see Enrichment Report Schema below)
   tests/
     test_analyser.py
     test_enrichment.py
     test_placeholder.py
     test_smartart_bridge.py
     test_image_bridge.py
+    test_security.py
+    test_contract_pptx_superpower.py  # Pinned fixtures + /pptx behaviour contract tests
+  docs/
+    personas.md             # AI Persona definitions (see Personas section below)
 ```
 
 ### Dependencies on other jack-tar plugins
@@ -361,7 +470,7 @@ Phase 3:
 
 1. **Three phases, not one.** The superpower is good at building decks. We don't replace it — we wrap around it with narrative guidance before and visual enrichment after.
 
-2. **Analyse the build script, not the .pptx.** The JS script has richer semantic information than the compiled binary. Coordinates, text content, shape names, intent — all readable as text.
+2. **OOXML primary, JS build script fallback (HYBRID).** The analyser reads the .pptx via python-pptx as the primary source — OOXML is a stable schema, available in every case including non-/pptx decks (Keynote exports, corporate templates). The JS build script is parsed as a narrow fallback ONLY when OOXML finds zero markers AND `build.js` exists alongside the .pptx; this covers briefs that used the wrong PptxGenJS property key (Spike 1's `name`/`objectName` finding). Spike 3 proved each source has a failure mode the other doesn't — OOXML misses markers when the brief drifts; JS is unusable without a build script. The hybrid exploits both strengths without inheriting JS's primary-path complexity.
 
 3. **Placeholder protocol via named shapes.** The pre-brief instructs the superpower to leave markers. The enrichment skill finds them by name. Same proven pattern as jack-tar's SmartArt placeholder injection.
 
@@ -381,10 +490,16 @@ Phase 3:
 |------|--------|------------|--------------|
 | Superpower doesn't follow placeholder instructions | Markers missing → fewer enrichment targets | Analyser still proposes enrichments for unmarked text-heavy/list slides | **Spike 1:** confirmed 100% adherence with the `objectName` protocol; 0% with `name`. Fall-back path still required for briefs that drift. |
 | LibreOffice SmartArt rendering poor | Internal review can't visually verify SmartArt | SmartArt is deterministic + structurally validated; flag in report. Use PowerPoint Mac via tools/pptx_to_pdf.sh for authoritative checks. | **Spike 2:** PowerPoint Mac open/save/PDF-export round-trip passes on first try. |
-| Build script format changes | Analyser parsing breaks | Parser is heuristic (looking for `addText`, `addShape`, shape names), not a formal JS AST — resilient to formatting changes | Not spiked. **Open design question:** should the analyser parse the .pptx directly instead of the build script? OOXML has shape names, coordinates, text content — everything the script has. To be decided. |
+| Build script format changes | JS fallback parser silently under-matches on a new /pptx idiom | JS is a fallback only (used when OOXML finds zero markers). Primary path is OOXML, which has a stable schema and does not depend on build-script formatting. A JS parse failure degrades to "no markers found" — the same diagnosable failure mode as OOXML-only analysis. | **Spike 3:** confirmed. Three /pptx variants generated 48 hours apart required three rounds of JS-parser feature additions; this variability is exactly why JS is not the primary path. |
 | python-pptx and PptxGenJS produce subtly different OOXML | Enrichment corrupts superpower's output | Validate with PPTXSchemaValidator after enrichment; test on real superpower output | **Spike 2:** all three ops pass against real PptxGenJS-produced OOXML with no corruption. File-size drop (python-pptx compacts zip) is cosmetic, not lossy. |
 | User confusion about three-phase flow | Abandonment, partial usage | Clear invocation names, brief explains the full flow, each phase works independently | Not spiked. To be assessed via dogfooding once v1 ships. |
-| Marker-adjacent body text bleeds through injected SmartArt | Visual artefact on SMARTART slides | Brief-side contract: SMARTART marker slides carry only title + marker (see Section 3.4 step 4) | **Spike 2:** issue observed on one slide; contract proposed and accepted. |
+| Marker-adjacent body text bleeds through injected SmartArt | Visual artefact on SMARTART slides | Analyser-side verifier (Section 3.1) detects geometric overlap and surfaces 3 user options (proceed / clear overlapping text / drop enrichment) BEFORE enrichment runs. Replaces the earlier brief-side promise, which was unverifiable. | **Spike 2:** issue observed; now addressed by a verifiable analyser check rather than a brief-side contract. |
+| Arbitrary file read via image paths | Attacker-influenced brief could embed `~/.ssh/id_rsa` as a "PNG" | Image-path allowlist: resolve paths, enforce `is_relative_to(allowed_root)`, reject symlinks. See Security & Privacy § Image-path allowlist. | Not spiked. Contract captured; implementation must ship with tests. |
+| JS build script execution | Malicious build.js could `require('child_process').execSync(...)` if the parser ever runs it | Parser is AST-only via `esprima.parseScript()`. No `eval`, no `require`, no subprocess spawning. Testable via assertion on which APIs are called. See Security & Privacy § JS parsing is read-only. | Not spiked. Contract captured; implementation tests this. |
+| .pptx zip-bomb / XXE / part-explosion | Malicious .pptx could exhaust resources or exfiltrate via XXE | Pre-flight checks: decompressed size ≤200 MB, part count ≤2000, per-part ≤50 MB. XML parser hardened with `resolve_entities=False, no_network=True, huge_tree=False`. | Not spiked. Contract captured. |
+| PII exfiltration to cloud providers | Brief prompts sent to Nanobanana/Imagen/FLUX may contain confidential names | Brief `confidentiality` tier: `public` (default), `internal` (explicit confirmation before first cloud call), `restricted` (Ollama-only). See Security & Privacy § Privacy tiering. | Not spiked. Tier mechanism captured. |
+| Unbounded cloud spend | A single run could accidentally cost many dollars on Nanobanana Pro | `budget_cap_usd` input (default $1.00), hard ceiling, per-call cost deducted. See Security & Privacy § Budget cap. | Not spiked. Cap mechanism captured. |
+| OOXML misses colour-only backgrounds | Slides with PptxGenJS `bgColor` (no `<p:bg>`) misclassified | Analyser checks both `<p:bg>` AND slide element's `bgColor` attribute (Section 3.1). | **Spike 3:** observed 0/10 background agreement before fix; now required. |
 
 ## Spike validation (2026-04-23)
 
