@@ -1,0 +1,29 @@
+{
+  "variant": "B",
+  "brief": "brief-b-explicit.md",
+  "analysis": {
+    "source": "docs/spikes/2026-04-23-pptx-marker-adherence/outputs/variant-b/presentation.pptx",
+    "markers": [],
+    "totals": {
+      "markers": 0,
+      "slides": 10,
+      "by_kind": {}
+    }
+  },
+  "adherence": {
+    "requested": {
+      "IMAGE": 2,
+      "SMARTART": 1,
+      "BG": 1
+    },
+    "emitted": {},
+    "overall_rate": 0.0,
+    "verdict": "none",
+    "missing": {
+      "IMAGE": 2,
+      "SMARTART": 1,
+      "BG": 1
+    },
+    "extra": {}
+  }
+}
