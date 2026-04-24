@@ -68,3 +68,36 @@ def test_preflight_failure_propagates(tmp_path):
 def test_analyser_options_disable_js_fallback(seed_variant_b):
     result = analyse_pptx(seed_variant_b, options=AnalyserOptions(enable_js_fallback=False))
     assert result.js_fallback_used is False
+
+
+def test_slide_count_mismatch_is_logged_in_notes(tmp_path):
+    """If the JS fallback produces a different number of slides than OOXML,
+    the analyser must log the discrepancy in notes (never silent)."""
+    # Build a 2-slide deck with no markers in OOXML (triggers JS fallback).
+    from pptx import Presentation
+    from pptx.util import Inches
+
+    prs = Presentation()
+    for _ in range(2):
+        prs.slides.add_slide(prs.slide_layouts[6])
+    out = tmp_path / "two-slide.pptx"
+    prs.save(out)
+
+    # Write a build.js that describes 3 slides (mismatch vs the .pptx's 2 slides).
+    build_js = tmp_path / "build.js"
+    build_js.write_text(
+        "const pres = new pptxgen();\n"
+        "const s1 = pres.addSlide();\n"
+        "s1.addShape('rect', { objectName: 'IMAGE:a', x:1, y:1, w:1, h:1 });\n"
+        "const s2 = pres.addSlide();\n"
+        "s2.addShape('rect', { objectName: 'IMAGE:b', x:1, y:1, w:1, h:1 });\n"
+        "const s3 = pres.addSlide();\n"
+        "s3.addShape('rect', { objectName: 'IMAGE:c', x:1, y:1, w:1, h:1 });\n"
+    )
+
+    result = analyse_pptx(out)
+    assert result.js_fallback_used is True
+    # Notes must include the mismatch diagnostic
+    assert any("produced 3 slides vs OOXML 2" in n for n in result.notes), (
+        f"no slide-count mismatch note in {result.notes}"
+    )

@@ -62,6 +62,11 @@ def analyse_pptx(
             notes.append(f"JS fallback failed; reporting no markers ({exc})")
         else:
             js_fallback_used = True
+            if len(js_facts) != len(slides):
+                notes.append(
+                    f"JS fallback produced {len(js_facts)} slides vs OOXML "
+                    f"{len(slides)}; aligned by index, mismatched indices skipped"
+                )
             # Merge JS-recovered markers onto matching slide indices.
             # If JS produces more or fewer slides than OOXML, align by index.
             for js_slide in js_facts:
