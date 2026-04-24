@@ -69,6 +69,10 @@ def resolve_within_allowlist(path: Path | str, allowed_roots: Iterable[Path]) ->
 # .pptx pre-flight
 # ---------------------------------------------------------------------------
 
+# Raising any of these ceilings weakens zip-bomb / resource-exhaustion
+# protection. The defaults are calibrated for typical conference decks
+# (1-200 slides, ~50-100 parts, <50MB compressed). Override only with
+# an explicit threat-model justification.
 DEFAULT_DECOMPRESSED_CEILING_BYTES = 200 * 1024 * 1024     # 200 MB
 DEFAULT_PART_COUNT_CEILING = 2000
 DEFAULT_PER_PART_CEILING_BYTES = 50 * 1024 * 1024          # 50 MB

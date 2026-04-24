@@ -50,6 +50,27 @@ def test_allowlist_rejects_symlinks(tmp_path):
         resolve_within_allowlist(link, allowed_roots=[allowed])
 
 
+def test_allowlist_rejects_path_through_symlinked_parent_dir(tmp_path):
+    """Defense against parent-symlink escape: an attacker creates a
+    symlink INSIDE the allowed root pointing OUTSIDE, then references a
+    file through that symlink. is_symlink() is False on the child path,
+    but resolve() pulls it outside the allowlist — relative_to() must
+    catch this."""
+    allowed = tmp_path / "generated"
+    allowed.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.png"
+    secret.write_bytes(b"x")
+    # Create a symlink inside the allowed root pointing to the outside dir
+    os.symlink(outside, allowed / "linked-dir")
+    # The child path is_symlink() == False (the parent dir is the symlink),
+    # but resolving pulls it outside the allowlist
+    child_through_symlink = allowed / "linked-dir" / "secret.png"
+    with pytest.raises(AllowedPathError, match="outside the image-path allowlist"):
+        resolve_within_allowlist(child_through_symlink, allowed_roots=[allowed])
+
+
 def test_allowlist_supports_multiple_roots(tmp_path):
     a = tmp_path / "a"; a.mkdir()
     b = tmp_path / "b"; b.mkdir()
