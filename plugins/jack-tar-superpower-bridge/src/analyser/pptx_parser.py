@@ -65,6 +65,9 @@ def parse_pptx(path: Path | str) -> list[SlideFacts]:
     for idx, slide in enumerate(prs.slides, start=1):
         text_parts: list[str] = []
         markers: list[Marker] = []
+        # All 5 keys pre-initialised at 0 so downstream consumers can index
+        # by key without .get() defaults — keeps the JSON-serialised report
+        # shape uniform across slides.
         counts: dict[str, int] = {"text": 0, "shape": 0, "image": 0,
                                    "chart": 0, "table": 0}
         for shape in slide.shapes:

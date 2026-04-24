@@ -45,7 +45,18 @@ def test_text_content_extracted_from_text_frames(seed_variant_a):
 
 def test_element_types_counts_charts_images(seed_variant_a):
     facts = parse_pptx(seed_variant_a)
-    assert all(s.element_types.get("text", 0) >= 0 for s in facts)
+    # Every slide must have all 5 keys present (uniform shape contract; downstream
+    # consumers index by key without .get() defaults).
+    for slide in facts:
+        for key in ("text", "shape", "image", "chart", "table"):
+            assert key in slide.element_types, (
+                f"slide {slide.slide_index} missing element_types[{key!r}]"
+            )
+    # Variant A is text+shape heavy with no charts/tables/images outside markers
+    assert all(s.element_types["chart"] == 0 for s in facts)
+    assert all(s.element_types["table"] == 0 for s in facts)
+    # At least one slide has body text shapes
+    assert sum(s.element_types["text"] for s in facts) > 0
 
 
 def test_bgcolor_attribute_recognised_as_solid_background(tmp_path):
