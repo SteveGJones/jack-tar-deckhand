@@ -55,3 +55,31 @@ def test_loader_restores_bridge_src_modules_after_load():
         "bridge's src.placeholder was clobbered by msft-smartart's src.* — "
         "the loader did not restore bridge's modules"
     )
+
+
+def test_api_fields_match_allowed_symbols_count():
+    """I-1 drift guard — if a future change adds a fourth loaded symbol to
+    MsftSmartArtAPI, the ALLOWED_SYMBOLS constant must be updated in lockstep
+    or this test fails."""
+    from src.msft_smartart_loader import MsftSmartArtAPI
+    import dataclasses
+    field_names = {f.name for f in dataclasses.fields(MsftSmartArtAPI)}
+    # Map ALLOWED_SYMBOLS ("engine.render") to dataclass field names ("engine")
+    # by taking the prefix before the first dot.
+    expected_fields = {s.split(".")[0] for s in ALLOWED_SYMBOLS}
+    assert field_names == expected_fields, (
+        f"MsftSmartArtAPI fields {field_names} do not match ALLOWED_SYMBOLS "
+        f"{expected_fields} — update the constant or the dataclass in lockstep"
+    )
+
+
+def test_loader_logs_resolved_plugin_root(caplog):
+    """I-2 troubleshooting hook — the loader must log which plugin_root it picked,
+    so stale-cache bugs can be diagnosed."""
+    import logging
+    with caplog.at_level(logging.INFO, logger="src.msft_smartart_loader"):
+        load_msft_smartart_api()
+    # At least one INFO record must mention "plugin_root"
+    assert any("plugin_root" in rec.getMessage() for rec in caplog.records), (
+        f"loader did not log plugin_root; records: {[r.getMessage() for r in caplog.records]}"
+    )

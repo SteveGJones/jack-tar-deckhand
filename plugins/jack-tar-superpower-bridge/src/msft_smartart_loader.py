@@ -20,11 +20,14 @@ explicitly via ALLOWED_SYMBOLS — any expansion requires a spec amendment
 """
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_SYMBOLS = ("engine.render", "InjectionRequest", "inject")
 
@@ -90,6 +93,8 @@ def load_msft_smartart_api() -> MsftSmartArtAPI:
             "JACK_TAR_SUPERPOWER_BRIDGE_FORCE_MSFT_ROOT, or run from a worktree that "
             "contains plugins/jack-tar-msft-smartart."
         )
+
+    logger.info("msft-smartart loader resolved plugin_root=%s", plugin_root)
 
     plugin_str = str(plugin_root)
 
