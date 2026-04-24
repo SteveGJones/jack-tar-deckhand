@@ -52,3 +52,50 @@ def test_history_records_each_charge():
     assert len(cap.history) == 2
     assert cap.history[0].kind == "generation"
     assert cap.history[1].kind == "review"
+
+
+from src.image_bridge import PrivacyTierGate, RestrictedTierError
+
+
+def test_public_tier_allows_cloud_with_no_confirmation():
+    gate = PrivacyTierGate(tier="public")
+    assert gate.cloud_allowed() is True
+    # public tier never asks for confirmation
+    assert gate.requires_confirmation_before_cloud() is False
+
+
+def test_internal_tier_requires_confirmation_before_first_cloud():
+    gate = PrivacyTierGate(tier="internal")
+    assert gate.cloud_allowed() is True
+    assert gate.requires_confirmation_before_cloud() is True
+    gate.mark_confirmation_received()
+    # After confirmation, subsequent calls don't re-prompt
+    assert gate.requires_confirmation_before_cloud() is False
+
+
+def test_restricted_tier_blocks_cloud_outright():
+    gate = PrivacyTierGate(tier="restricted")
+    assert gate.cloud_allowed() is False
+
+
+def test_restricted_tier_charge_attempt_raises():
+    gate = PrivacyTierGate(tier="restricted")
+    with pytest.raises(RestrictedTierError, match="restricted"):
+        gate.guard_cloud_call(provider="nanobanana_flash")
+
+
+def test_internal_tier_unconfirmed_raises():
+    gate = PrivacyTierGate(tier="internal")
+    with pytest.raises(RuntimeError, match="confirmation"):
+        gate.guard_cloud_call(provider="nanobanana_flash")
+
+
+def test_internal_tier_after_confirmation_passes():
+    gate = PrivacyTierGate(tier="internal")
+    gate.mark_confirmation_received()
+    gate.guard_cloud_call(provider="nanobanana_flash")  # no raise
+
+
+def test_invalid_tier_rejected():
+    with pytest.raises(ValueError):
+        PrivacyTierGate(tier="confidential")
