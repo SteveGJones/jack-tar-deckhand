@@ -59,10 +59,79 @@ _CAPACITY = {
     "target3": (3, 5),
 }
 
+# Per-layout maximum label character counts. Mirrors the msft-smartart catalog
+# `max_label_chars` field. The bridge truncates labels to this cap as a graceful
+# degradation when the slide body contains prose rather than crisp bullets.
+_MAX_LABEL_CHARS = {
+    "process1": 24,
+    "cycle2": 24,
+    "list1": 24,
+    "venn1": 24,
+    "pyramid2": 24,
+    "matrix2": 24,
+    "funnel1": 24,
+    "target3": 24,
+    "orgChart1": 32,
+}
+
+# Delimiters used to split a label-style line like
+#   "SMARTART: three pillars — Planning  |  Memory  |  Tool Use"
+# into individual items. Order matters: try strongest signal first.
+_LABEL_DELIMITERS = ("|", "→", "->", ";")
+
+
+def _split_label_line(line: str) -> list[str] | None:
+    """If `line` is a marker-style descriptor line containing a delimiter,
+    return the delimiter-split items. Otherwise return None.
+
+    Example input:
+      "SMARTART: three pillars — Planning  |  Memory  |  Tool Use  (radial)"
+    Output:
+      ["Planning", "Memory", "Tool Use"]
+    """
+    # Strip leading "SMARTART:"/"BG:"/"IMAGE:" prefix and any em-dash preamble.
+    body = line
+    for prefix in ("SMARTART:", "BG:", "IMAGE:"):
+        if body.startswith(prefix):
+            body = body[len(prefix):].strip()
+            break
+    # If the line contains an em-dash, the post-dash portion is usually the item list.
+    for em in (" — ", " - "):
+        if em in body:
+            body = body.split(em, 1)[1].strip()
+            break
+    for delim in _LABEL_DELIMITERS:
+        if delim in body:
+            parts = [p.strip() for p in body.split(delim) if p.strip()]
+            # Drop trailing parenthetical commentary on the last item, e.g. "Tool Use (radial)"
+            cleaned = []
+            for p in parts:
+                if "(" in p:
+                    p = p.split("(", 1)[0].strip()
+                if p:
+                    cleaned.append(p)
+            if len(cleaned) >= 2:
+                return cleaned
+    return None
+
 
 def _items_from_text(text_content: str, marker_id: str) -> list[str]:
-    """Split slide text into items; drop the marker label line if present."""
-    lines = [ln.strip() for ln in text_content.splitlines() if ln.strip()]
+    """Split slide text into items; drop the marker label line if present.
+
+    If a line in the slide body looks like a marker descriptor (starts with
+    SMARTART:/BG:/IMAGE: and contains a delimiter), use ITS sub-items rather
+    than the surrounding prose lines. This handles Spike 1 Variant A style
+    content where the SMARTART label encodes the intended items inline.
+    """
+    raw_lines = [ln.strip() for ln in text_content.splitlines() if ln.strip()]
+    # Look for an inline label-style line first — strongest signal.
+    for ln in raw_lines:
+        if ln.startswith(("SMARTART:", "BG:", "IMAGE:")):
+            split = _split_label_line(ln)
+            if split:
+                return split
+
+    lines = list(raw_lines)
     # Drop leading lines that ARE the marker label
     marker_label_dropped = False
     while lines and lines[0] == marker_id:
@@ -78,6 +147,26 @@ def _items_from_text(text_content: str, marker_id: str) -> list[str]:
             lines = lines[1:]
     # Strip leading bullet glyphs
     return [ln.lstrip("-•* \t") for ln in lines]
+
+
+def _truncate_to_cap(items: list[str], layout_id: str) -> list[str]:
+    """Truncate each item to the layout's max_label_chars cap with an ellipsis.
+
+    Graceful degradation when prose lines find their way into a SMARTART spec.
+    The unit tests use crisp inputs that fit the cap, so this is a no-op for
+    them; only triggers on real prose content.
+    """
+    cap = _MAX_LABEL_CHARS.get(layout_id)
+    if cap is None:
+        return items
+    out = []
+    for it in items:
+        if len(it) <= cap:
+            out.append(it)
+        else:
+            # Reserve 1 char for the ellipsis
+            out.append(it[: cap - 1].rstrip() + "…")
+    return out
 
 
 def _detect_keyword(marker_id: str) -> tuple[str, str] | None:
@@ -176,6 +265,8 @@ def build_spec_from_slide(
         raise SmartArtBridgeError(
             f"layout {layout_id} capacity {cap} violated by {len(items)} items"
         )
+    # Truncate to per-layout char cap (graceful degradation for prose content).
+    items = _truncate_to_cap(items, layout_id)
     return {
         "graphic_type": graphic_type,
         "layout_id": layout_id,
