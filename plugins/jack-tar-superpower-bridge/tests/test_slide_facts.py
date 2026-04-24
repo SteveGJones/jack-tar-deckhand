@@ -21,6 +21,15 @@ def test_marker_roundtrip_dict():
                  "left_emu": 1, "top_emu": 2, "width_emu": 3, "height_emu": 4}
 
 
+def test_marker_from_dict_ignores_unknown_keys():
+    m = Marker.from_dict({"kind": "IMAGE", "identifier": "x",
+                          "left_emu": 0, "top_emu": 0,
+                          "width_emu": 0, "height_emu": 0,
+                          "future_field": 99})
+    assert m.kind == "IMAGE"
+    assert m.identifier == "x"
+
+
 def test_slide_facts_default_collections():
     sf = SlideFacts(slide_index=1, text_content="")
     assert sf.markers == []

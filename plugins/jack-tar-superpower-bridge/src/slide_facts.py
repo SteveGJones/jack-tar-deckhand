@@ -7,7 +7,7 @@ production analyser orchestrator and the enrichment menu.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal
+from typing import Any
 
 VALID_MARKER_KINDS = {"IMAGE", "SMARTART", "BG"}
 VALID_ENRICHMENT_KINDS = {"background", "image", "smartart"}
@@ -29,6 +29,17 @@ class Marker:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Marker":
+        return cls(
+            kind=d["kind"],
+            identifier=d["identifier"],
+            left_emu=int(d["left_emu"]),
+            top_emu=int(d["top_emu"]),
+            width_emu=int(d["width_emu"]),
+            height_emu=int(d["height_emu"]),
+        )
 
 
 @dataclass
@@ -53,7 +64,7 @@ class SlideFacts:
         return cls(
             slide_index=d["slide_index"],
             text_content=d["text_content"],
-            markers=[Marker(**m) for m in d.get("markers", [])],
+            markers=[Marker.from_dict(m) for m in d.get("markers", [])],
             background_kind=d.get("background_kind", "default"),
             element_types=dict(d.get("element_types", {})),
         )
