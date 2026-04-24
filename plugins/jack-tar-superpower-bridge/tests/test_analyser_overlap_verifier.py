@@ -74,3 +74,24 @@ def test_multiple_overlapping_shapes_collected(tmp_path):
     warnings = find_overlaps(out)
     assert len(warnings) == 1
     assert len(warnings[0].overlapping_shape_names) == 3
+
+
+def test_overlapping_shape_names_are_sorted(tmp_path):
+    """Deterministic output — overlapping_shape_names must be sorted, not in
+    slide Z-order. Matches find_duplicate_marker_ids convention."""
+    from pptx.util import Inches
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    marker = slide.shapes.add_shape(1, Inches(1), Inches(1), Inches(5), Inches(3))
+    marker.name = "SMARTART:foo"
+    # Insert body shapes in REVERSE alphabetical order — sorted output should
+    # re-order them.
+    for name in ("Zulu", "Yankee", "Xray", "Whiskey"):
+        b = slide.shapes.add_textbox(Inches(2), Inches(2), Inches(1), Inches(0.3))
+        b.name = name
+        b.text_frame.text = "x"
+    out = tmp_path / "sorted.pptx"
+    prs.save(out)
+    warnings = find_overlaps(out)
+    assert len(warnings) == 1
+    assert warnings[0].overlapping_shape_names == ["Whiskey", "Xray", "Yankee", "Zulu"]

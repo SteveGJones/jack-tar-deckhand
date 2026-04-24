@@ -48,9 +48,9 @@ def find_overlaps(pptx_path: Path | str) -> list[OverlapWarning]:
             if shape.has_text_frame and shape.text_frame.text.strip():
                 other_shapes.append((name, _bbox(shape)))
         for marker_id, marker_box in smartart_markers:
-            overlap_names = [
+            overlap_names = sorted(
                 name for name, box in other_shapes if _intersects(marker_box, box)
-            ]
+            )
             if overlap_names:
                 warnings.append(OverlapWarning(
                     slide_index=idx,
