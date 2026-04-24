@@ -161,7 +161,7 @@ def parse_js(path: Path | str) -> list[SlideFacts]:
         props = _extract_object_properties_with_env(call.arguments[1], eval_env)
         object_name = props.get("objectName") or props.get("name")
         if isinstance(object_name, str):
-            parsed = parse_marker(object_name.lower() if object_name and ":" in object_name and not object_name.startswith(("IMAGE", "SMARTART", "BG")) else object_name)
+            parsed = parse_marker(object_name)
             if parsed is not None:
                 kind, ident = parsed
                 facts.markers.append(Marker(
