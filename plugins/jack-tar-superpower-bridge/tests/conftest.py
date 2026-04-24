@@ -9,6 +9,14 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PLUGIN_ROOT / "src"
 FIXTURE_DIR = PLUGIN_ROOT / "tests" / "fixtures"
 
+# Ensure the bridge plugin's src is on sys.path at conftest load time so test
+# modules can `from src.X import Y` at collection time. The autouse fixture
+# below clears any sibling-plugin caches per test.
+_PLUGIN_STR = str(PLUGIN_ROOT)
+if _PLUGIN_STR in sys.path:
+    sys.path.remove(_PLUGIN_STR)
+sys.path.insert(0, _PLUGIN_STR)
+
 # Spikes hold the real /pptx output we use as test seeds. Resolved once.
 WORKTREE_ROOT = PLUGIN_ROOT.parents[1]
 SPIKE1_DIR = WORKTREE_ROOT / "docs" / "spikes" / "2026-04-23-pptx-marker-adherence"
