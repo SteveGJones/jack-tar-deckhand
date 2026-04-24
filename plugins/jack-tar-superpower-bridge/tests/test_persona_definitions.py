@@ -52,3 +52,31 @@ def test_narrative_brief_architect_describes_user_approval_gate():
     # Must state explicit user approval before saving creative-brief.md
     assert "approval" in text.lower() or "approve" in text.lower()
     assert "creative-brief.md" in text
+
+
+def test_enrichment_cohesion_reviewer_definition_exists():
+    fm = _frontmatter(_read_agent("enrichment-cohesion-reviewer"))
+    assert fm["name"] == "enrichment-cohesion-reviewer"
+    assert fm["model"] == "haiku"
+
+
+def test_enrichment_cohesion_reviewer_returns_per_slide_verdicts():
+    text = _read_agent("enrichment-cohesion-reviewer")
+    # Must enumerate the verdict alphabet
+    for verdict in ("pass", "flag_contrast", "flag_inconsistency",
+                     "flag_overcrowded", "unassessable_rasterisation"):
+        assert verdict in text
+
+
+def test_enrichment_cohesion_reviewer_does_not_apply_fixes():
+    text = _read_agent("enrichment-cohesion-reviewer").lower()
+    assert "must not" in text
+    # Strong prohibitions
+    assert "must not apply" in text or "must not regenerate" in text
+    assert "advisory" in text or "verdict" in text
+
+
+def test_enrichment_cohesion_reviewer_severity_field():
+    text = _read_agent("enrichment-cohesion-reviewer")
+    assert "blocking" in text
+    assert "suggestion" in text
