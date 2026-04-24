@@ -71,6 +71,46 @@
       "items": {
         "$ref": "#/$defs/Measurement"
       }
+    },
+    "crossDomainSopRegister": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sopId", "owner", "consumers", "archetype", "cac", "changeTrigger"],
+        "properties": {
+          "sopId": {"type": "string"},
+          "owner": {"type": "string"},
+          "consumers": {"type": "array", "items": {"type": "string"}},
+          "archetype": {"enum": ["Observer", "Collaborator", "Co-owner"]},
+          "rationale": {"type": "string"},
+          "cac": {
+            "type": "object",
+            "required": ["consumer_rep", "provider_rep", "ai_rm"],
+            "properties": {
+              "consumer_rep": {"type": "string"},
+              "provider_rep": {"type": "string"},
+              "ai_rm": {"type": "string"}
+            }
+          },
+          "changeTrigger": {"type": "string"}
+        }
+      }
+    },
+    "dependencyRegister": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "consumer", "provider", "surface", "kind"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^DEP-[A-Z0-9-]+$"},
+          "consumer": {"type": "string"},
+          "provider": {"type": "string"},
+          "surface": {"type": "string"},
+          "kind": {"enum": ["python_import", "skill_invocation",
+                              "external_artifact_consumption", "python_library"]},
+          "version_pin": {"type": "string"}
+        }
+      }
     }
   },
   "required": ["modelMetadata", "services"],
