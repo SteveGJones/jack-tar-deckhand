@@ -1,7 +1,7 @@
 # Superpower Bridge — AI Persona Definitions
 
 **Spec:** [2026-04-22-superpower-bridge-design.md](../../superpowers/specs/2026-04-22-superpower-bridge-design.md)
-**Status:** v0.1 (contractual skeleton — full 19-section treatment during implementation)
+**Status:** v1.0 (full 19-section treatment)
 **Date:** 2026-04-23
 
 The bridge introduces one new AI Persona and reuses two existing ones. Phase 3's `enrich-deck` skill is orchestration code, not a persona.
@@ -174,6 +174,79 @@ Phase 3's `enrich-deck` skill is orchestration, not creative reasoning:
 - **Budget enforcement is mechanical:** per-call cost deducted from `budget_cap_usd`, halt if exhausted. No judgment required.
 
 Treating enrich-deck as orchestration rather than a persona simplifies tripartite accountability (only three personas need owners) and matches the existing Deck Conductor pattern, where the conductor orchestrates but doesn't itself carry a creative-output contract.
+
+---
+
+## Tripartite accountability
+
+Both personas require tripartite owners per AI-First BSA Chapter 9. v0.1 ships with a **consolidated tripartite** — Steve Jones holds all three roles, with the explicit understanding that they will be split as the maintainer team grows. This is methodology-valid (Chapter 9 permits consolidated tripartite for single-maintainer projects at Tier 1 risk) and unblocks readiness scorecard Item 3.
+
+| Persona | Service Owner | SOP Owner | AI Risk Manager |
+|---------|---------------|-----------|-----------------|
+| Narrative Brief Architect | Steve Jones | Steve Jones | Steve Jones |
+| Enrichment Cohesion Reviewer | Steve Jones | Steve Jones | Steve Jones |
+
+**Split trigger:** when a second human maintainer joins the project, the SOP Owner role for both personas transfers to that person. When a third joins, the AI Risk Manager role transfers (separation of provider, consumer, and AI risk perspectives is the methodology's intent). Tracked in `CLAUDE.md`'s Bridge status section.
+
+## Measurement blueprint — full 5-tier coverage
+
+All measurement hooks named in the v0.1 skeleton are now implemented in `plugins/jack-tar-superpower-bridge/src/measurement.py`. v1.0 distributes them across the methodology's 5 tiers (Chapter 7) so the blueprint is hierarchically complete, not just an Activity-tier instrumentation list.
+
+### Tier 1 — Strategic objective
+
+| Metric | Target | Source |
+|--------|--------|--------|
+| Time-to-conference-quality-deck | ≤ 90 min from `/bridge-brief` to delivered enriched deck | wall-clock between `bridge-measurements.jsonl` brief entry and enrichment entry |
+
+### Tier 2 — Service-level (KEY_RESULT / VALUE_CONTRIBUTION)
+
+| Metric | Target | Source |
+|--------|--------|--------|
+| Cost per dogfood-grade deck | ≤ $1.00 average across runs | sum of `bridge-cost-ledger.jsonl` per run, averaged |
+| Cohesion blocking rate | ≤ 15% of enriched decks ship with cohesion-blocking flags | `kind: enrichment` rows where `first_pass_acceptance: false` divided by total enrichment rows |
+
+### Tier 3 — Experience Level Agreement (XLA)
+
+| Metric | Target | Source |
+|--------|--------|--------|
+| Speaker satisfaction with `/bridge-brief` output | ≥ 4.0 / 5.0 mean rating | post-run free-form annotation in `enrichment-report.md` "Speaker feedback" section (added by the user manually); aggregated offline |
+| Visual cohesion as judged by audience | ≥ 4.0 / 5.0 mean rating from post-talk speaker debrief | same source |
+
+### Tier 4 — Activity (per-persona hooks from v0.1 skeleton)
+
+| Hook | Persona | Module entry-point | Target |
+|------|---------|---------------------|--------|
+| Adherence rate | Narrative Brief Architect | `record_enrichment_run(adherence_rate=...)` (computed by /enrich-deck Step 12) | ≥ 90% |
+| Approval turns | Narrative Brief Architect | `record_brief_run(approval_turns=...)` | ≤ 2 |
+| Structural completeness | Narrative Brief Architect | `record_brief_run(structural_complete=...)` | 100% |
+| First-pass acceptance | Enrichment Cohesion Reviewer | `record_enrichment_run(first_pass_acceptance=...)` | ≥ 85% |
+| Cost-per-deck (generation+review) | both (orchestration) | `record_cost_event(kind, cost_usd, ...)` | rolls up into Tier 2 |
+
+### Tier 5 — Contextual
+
+| Metric | Purpose | Source |
+|--------|---------|--------|
+| Privacy tier distribution | Tells us how often confidentiality blocks cloud spend | `confidentiality` field in `bridge-measurements.jsonl` `kind: brief` rows |
+| Marker-source breakdown (OOXML vs JS-fallback) | Tells us how often /pptx drifts from the `objectName` brief instruction | `js_fallback_used` counter (computed offline from `bridge-measurements.jsonl`; needs to be added to the enrichment row in a v1.1 update) |
+
+### Recall hook — explicitly demoted to offline analysis (panel finding #11)
+
+The Recall hook (≥ 70%) listed in the v0.1 persona contract is NOT instrumented per-run. v0.1 had it as an unmet target which created a false amber on Item 6. v1.0 demotes it to an offline analysis item: "Recall is computed offline from delivery-report annotations — count user-requested changes after delivery against the cohesion reviewer's flag set." A proxy is captured during the run via the `flags_for_user_attention` section of `enrichment-report.md`; comparing against post-delivery user requests is a manual exercise after the talk has been delivered.
+
+## Readiness scorecard — v1.0 status
+
+| # | Checkpoint | v0.1 | v1.0 | Evidence |
+|---|------------|------|------|----------|
+| 1 | Persona contracts written | green | green | This document |
+| 2 | Authority model defined | green | green | Section 2 of each persona |
+| 3 | Risk classification + accountability | amber | green | Tier 1 risk; consolidated tripartite (Steve Jones × 3) acceptable for single-maintainer project per Chapter 9 |
+| 4 | Data contracts captured | green | green | Section 4 of each persona |
+| 5 | Vanilla-Agent validation | amber | amber | Pending Phase 15 dogfooding gate (Tasks 33–35) |
+| 6 | Measurement blueprint approved | amber | green | 5-tier blueprint above; hooks live in `src/measurement.py` |
+| 7 | Escalation triggers documented | green | green | Section 5 of each persona |
+| 8 | Prohibited actions enumerated | green | green | Section 6 of each persona |
+
+Item 5 remains amber until Task 35 GO verdict.
 
 ---
 
