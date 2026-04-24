@@ -168,7 +168,7 @@ Unmarked slides can still be proposed for enrichment based on content analysis �
 
 #### Marker uniqueness and grammar
 
-- **Grammar:** `^(IMAGE|SMARTART|BG):[A-Za-z0-9_-]+$`. The identifier after the colon is lowercase letters, digits, hyphens, underscores.
+- **Grammar:** `^(IMAGE|SMARTART|BG):[a-z0-9_-]+$`. The identifier after the colon is lowercase letters, digits, hyphens, underscores only. Uppercase in identifiers is rejected (brief authors lowercase their slugs; the prefix `IMAGE`/`SMARTART`/`BG` is the ONLY uppercase).
 - **Semantics of the identifier:** for `IMAGE:` and `BG:`, the identifier is a descriptive slug (e.g. `IMAGE:agent-architecture`, `BG:dramatic-opening`). For `SMARTART:`, the identifier hints at the graphic's *subject*, not the catalog layout ID — e.g. `SMARTART:three-pillars`, not `SMARTART:process1`. Layout selection is a separate step in Section 3.3 and uses the SmartArt item count plus graphic-type detection, not the slug.
 - **Uniqueness:** marker identifiers must be unique within a deck. Duplicate identifiers are a brief-authoring error; the analyser flags them for user resolution before proceeding.
 
@@ -275,9 +275,19 @@ Apply all reviewed assets to a **copy** of the .pptx (never modify the original)
 
    Reference: [op3_inject_smartart.py](../../spikes/2026-04-23-python-pptx-enrichment/prototypes/op3_inject_smartart.py).
 
-4. **All-or-nothing application (transactional gate).** Enrichments are applied against a single in-memory `Presentation` object held open throughout the ops cycle. Op1 and Op2 mutate the in-memory tree; the object is saved to a temporary file (`presentation-enriched.pptx.tmp-<pid>`) only after BOTH succeed. SmartArt injection (Op3) then runs against the saved temp file using `assembler_patch.inject()`, which is itself read-all → mutate → write-fresh internally. If every op has succeeded, the temp file is renamed to `presentation-enriched.pptx` via `os.replace()` (atomic on POSIX). If any op raises, the temp file is discarded and no output is produced. This gives all-or-nothing semantics: the user never receives a half-enriched deck. The SMARTART analyser-side verifier (Section 3.1) catches overlap issues BEFORE enrichment begins, so any shape-removal for overlap resolution happens during Op2-equivalent preparation, not mid-injection.
+4. **All-or-nothing application (transactional gate).** Enrichments are applied against a single in-memory `Presentation` object held open throughout the ops cycle:
+   - Op1 (backgrounds) and Op2 (element images) mutate the in-memory tree.
+   - **Pre-Op3 overlap clearing:** if the analyser verifier (Section 3.1) flagged SMARTART slides with overlapping text AND the user selected "clear overlapping text", those shapes are removed from the in-memory tree at this point — before any SmartArt carrier is built.
+   - The in-memory object is saved to a temporary file `presentation-enriched.pptx.tmp-<pid>` only after Op1, Op2, and pre-Op3 clearing have all succeeded.
+   - Op3 (SmartArt injection) runs `assembler_patch.inject()` against the temp file. `assembler_patch.inject()` is itself read-all → mutate → write-fresh internally, but the contract is: on success it leaves the temp file valid; on failure it MAY leave the temp file in an inconsistent state.
+   - After every op succeeds, the temp file is renamed to `presentation-enriched.pptx` via `os.replace()` (atomic on POSIX).
 
-5. **Handle SMARTART marker-adjacent text clearing.** If the analyser's verifier (Section 3.1) flagged overlapping shapes on a SMARTART slide AND the user selected "clear overlapping text", the enrichment step removes those shapes from the in-memory tree before Op3 runs. If the user selected "proceed anyway", no clearing happens and the user accepts the known cosmetic trade-off. If the user selected "drop this enrichment", the SMARTART op is skipped entirely (the marker shape is NOT removed from the deck so the user can re-run later).
+   **Cleanup contract:** the enrichment function wraps the entire cycle in `try / except / finally`. On any exception from any op, the finally block calls `os.unlink(tmp_path)` (best-effort — ignores `FileNotFoundError`) and re-raises. No output file is ever produced on a failure path. The user never receives a half-enriched deck.
+
+5. **SMARTART selection branches per user choice.** The overlap verifier (Section 3.1) surfaces three options per flagged SMARTART slide in the enrichment menu:
+   - **"Proceed anyway"** — no clearing, no special handling. User accepts the known cosmetic trade-off (faint residual text behind the injected SmartArt).
+   - **"Clear overlapping text"** — overlapping shapes are removed during step 4's pre-Op3 clearing (see above).
+   - **"Drop this enrichment"** — the SMARTART op is skipped entirely. The marker shape is NOT removed from the deck so the user can re-run the bridge later with different choices.
 
 6. **Render for review** — convert the temporary enriched .pptx to slide images via LibreOffice → PDF → pdftoppm (same toolchain the superpower uses). SmartArt slides will render poorly in LibreOffice but AI images and backgrounds will be visible. For authoritative visual verification of SmartArt, use PowerPoint Mac via [tools/pptx_to_pdf.sh](../../../tools/pptx_to_pdf.sh) (forces SmartArt cache regen on save).
 
