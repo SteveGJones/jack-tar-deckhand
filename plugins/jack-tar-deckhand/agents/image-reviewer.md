@@ -59,6 +59,52 @@ Check in this order. Any issue on criterion 1 is an automatic "refine".
 3. **Palette compliance** — are the dominant colours within reasonable distance of the brand palette? Minor shade variations are acceptable; completely wrong colour families are not
 4. **Composition** — for backdrop/background strategies: are there clear open areas for text overlay? For full_render: does the image work as a standalone visual?
 5. **Strategy fit** — full_render should be dramatic and complete; element images should have identifiable subjects at small display size; background images should be atmospheric, not competing with text
+6. **Text content fidelity** — when `expected_text_content` is provided in the dispatch payload (see below), every expected string MUST appear in the image exactly as written. Misspellings, garbled letterforms, missing words, or hallucinated words are all `refine` defects.
+
+## Text Content Verification (when `expected_text_content` is provided)
+
+When the dispatch payload includes `expected_text_content` (a list of strings the image is intended to contain — logo wordmarks, technical labels, named blocks, named arrows, name captions, etc.), you MUST:
+
+1. Read every visible word in the image
+2. Compare each rendered string against the expected list, word-by-word and character-by-character
+3. Flag any misspelling, garbled letterform, missing word, or hallucinated extra word as a `refine` issue with the rendered string and the expected string both stated explicitly (e.g. *"rendered 'INFORENCE', expected 'INFERENCE'"*)
+4. Return `pass` ONLY when every expected string appears exactly as written
+
+Do NOT confabulate correctness. If a word looks slightly off but you cannot read it cleanly, treat it as a defect (`refine`), not as a pass-through. If your reasoning cannot positively confirm each expected string appears verbatim, the verdict is `refine`.
+
+**Why this contract exists (Run 6 Finding #19/#20):** without an explicit expected-text reference, the reviewer's vision capability tends to read text-bearing images as "looks like a wordmark" and confabulate spelling correctness, missing real defects. With the reference, comparison is mechanically reliable. The dispatcher is responsible for extracting expected strings from the marker's subject brief and including them in the payload.
+
+When `expected_text_content` is absent, the marker is non-text-bearing (atmospheric BG, abstract texture, illustrative scene without overlay) and standard artifact-check rules apply as written above.
+
+**Dispatch payload format for text-bearing markers:**
+
+```
+**Image:** <path>
+**Visual direction:** <description>
+**Brand palette (hex):** <list>
+**Strategy:** <enrichment_image | enrichment_bg | ...>
+**Iteration:** <N> of <max>
+**Source:** <enrichment-bridge | imagegen-bridge | ...>
+**Expected text content:**
+  - "Client Edge Nodes"
+  - "Inference Layer"
+  - "Orchestration Bus"
+  - "Cloud Sync Endpoint"
+  - "Regulator Engagement"
+**Critical check:** Read every word in the image and compare against the expected list above.
+Report rendered-vs-expected mismatches as issues; do not confabulate correctness.
+```
+
+## Verdict Coherence (mandatory final self-check)
+
+Before returning your JSON envelope, perform a self-consistency check:
+
+- If your `strengths` / `composition_notes` / `summary` do not surface a substantive blocking issue that would justify regeneration, your verdict MUST be `pass`
+- If your verdict is `refine`, your `issues` array MUST contain at least one item that materially justifies regeneration (not a hedge or "verify against source brief")
+
+Do NOT return `verdict: refine` paired with reasoning that affirms the image rendered everything correctly. The verdict label and the substance of your analysis must agree. If they disagree, fix the verdict to match your own reasoning — never trust the label over the substance.
+
+**Why this contract exists (Run 6 Finding #21):** a Phase B Flash review returned `verdict: refine` while its own structured fields confirmed every expected string rendered correctly and called the image "production-ready". The cycle would have refined-and-retried unnecessarily, burning budget on a no-op. Verdict-text coherence is mandatory.
 
 ## Output Format
 

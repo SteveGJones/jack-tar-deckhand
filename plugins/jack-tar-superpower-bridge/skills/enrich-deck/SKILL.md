@@ -28,8 +28,11 @@ if os.environ.get('JACK_TAR_SUPERPOWER_BRIDGE_ROOT'):
     print(os.environ['JACK_TAR_SUPERPOWER_BRIDGE_ROOT']); sys.exit()
 home = Path.home()
 for base in [home / '.claude' / 'plugins' / 'cache']:
-    for p in base.rglob('jack-tar-superpower-bridge/.claude-plugin/plugin.json'):
-        print(str(p.parent.parent)); sys.exit()
+    # Note: Python 3.14 Path.rglob does not match multi-segment patterns reliably;
+    # use a 2-segment pattern + parts filter so discovery works across versions.
+    for p in base.rglob('.claude-plugin/plugin.json'):
+        if 'jack-tar-superpower-bridge' in p.parts:
+            print(str(p.parent.parent)); sys.exit()
 dev = Path.cwd() / 'plugins' / 'jack-tar-superpower-bridge'
 if dev.exists():
     print(str(dev)); sys.exit()
@@ -44,26 +47,45 @@ mkdir -p "$RUN_DIR/generated" "$RUN_DIR/carriers" "$RUN_DIR/slide-images"
 
 `$RUN_DIR` is the per-run scratchpad. Image generation writes to `$RUN_DIR/generated/`; SmartArt carriers go to `$RUN_DIR/carriers/`; slide rasters used for cohesion review go to `$RUN_DIR/slide-images/`. The image-path allowlist in `src/security.py` is configured with `[$RUN_DIR/generated, $RUN_DIR/carriers]`.
 
-## Step 1 — Read the brief if available
+## Step 1 — Read the brief if available, derive brand palette
 
 ```bash
 PYTHONPATH="$PLUGIN_ROOT" python3 - <<PY
 from pathlib import Path
 from src.creative_brief import parse_brief_markdown, DEFAULT_BUDGET_CAP_USD
+from src.colors_xml_builder import derive_palette_from_brief_text
 brief_path = Path("$BRIEF_PATH")
 if brief_path.exists():
     brief = parse_brief_markdown(brief_path.read_text())
     print(f"BUDGET={brief.budget_cap_usd}")
     print(f"CONFIDENTIALITY={brief.confidentiality}")
     print(f"VISUAL_PERSONALITY={brief.visual_personality}")
+    # Derive brand palette so SmartArt graphics render in brief colours
+    # (Contract 1 / Finding #10). When the brief's Section B includes a
+    # palette table with role keywords (structural / surface / body text /
+    # accent), the heuristic returns a BrandPalette to use in Step 7.
+    palette = derive_palette_from_brief_text(brief.visual_personality or "")
+    if palette is not None:
+        print(f"BRAND_PALETTE_PRIMARY={palette.primary_fill_hex}")
+        print(f"BRAND_PALETTE_TEXT_ON_PRIMARY={palette.text_on_primary_hex}")
+        print(f"BRAND_PALETTE_TEXT_ON_SURFACE={palette.text_on_surface_hex}")
+    else:
+        print("BRAND_PALETTE_PRIMARY=")
+        print("BRAND_PALETTE_TEXT_ON_PRIMARY=")
+        print("BRAND_PALETTE_TEXT_ON_SURFACE=")
 else:
     print(f"BUDGET={DEFAULT_BUDGET_CAP_USD}")
     print("CONFIDENTIALITY=public")
     print("VISUAL_PERSONALITY=")
+    print("BRAND_PALETTE_PRIMARY=")
+    print("BRAND_PALETTE_TEXT_ON_PRIMARY=")
+    print("BRAND_PALETTE_TEXT_ON_SURFACE=")
 PY
 ```
 
 CLI flags override brief values when both supplied.
+
+If the heuristic could not derive a palette (the brief omits role-keyworded hex values, or the brief is absent), `BRAND_PALETTE_PRIMARY` is empty and Step 7 will skip palette injection. SmartArt slides in that case will render in default Microsoft palette — log this as a degraded outcome and recommend the user add palette hex values to the brief's Section B if their deck contains SmartArt.
 
 ## Step 2 — Run the analyser
 
@@ -125,6 +147,21 @@ For SMARTART markers that have overlap warnings, present the three options:
 - **clear overlapping text** (`apply_clear_overlap`) — remove the overlapping shapes during enrichment
 - **drop this enrichment** — skip the SmartArt op entirely; marker stays in the deck for re-running later
 
+**SMARTART-FROM-LIST bullet length pre-flight (Finding #13 — repeated across Runs 4, 5, 6):** for each `SMARTART-FROM-LIST` marker, inspect the marker shape's text frame and check the longest bullet item against the layout cap of the default routing target (`process1` = 24 chars; `list1` = 30 chars). If any bullet exceeds the cap, surface a warning to the Speaker BEFORE Step 7 apply (which would otherwise raise `EnrichmentApplyError` mid-transaction):
+
+```
+⚠ Slide N — SMARTART-FROM-LIST:<slug> has 2 bullet(s) exceeding process1's 24-char cap:
+  - "Edge inference for our regulated-vertical customers"  (52 chars)
+  - "Customer overlap: 3 of 7 already on our platform"     (48 chars)
+
+Options:
+  (1) shorten the bullets in the source build.js and re-run /pptx, then re-run /enrich-deck
+  (2) drop this enrichment from the plan; marker stays in deck for later
+  (3) accept auto-truncation to 24 chars (text will be clipped — degraded outcome)
+
+Recommended: (1). Run 4/5/6 dogfood pattern is hand-shortened bullets ≤24 chars.
+```
+
 Capture the user's selections as a list of `EnrichmentItem` records.
 
 ## Step 4 — Initialise budget + privacy gate
@@ -157,7 +194,7 @@ For each background and element-image enrichment, run the loop:
 
 ### Step 5a — Compose the initial prompt
 
-Dispatch the `prompt-engineer` agent (existing persona) with a structured brief containing:
+Dispatch the `jack-tar-deckhand:prompt-engineer` agent (existing persona, namespaced under jack-tar-deckhand) with a structured brief containing:
 - `mode: "compose"`
 - `marker_kind`: `IMAGE` or `BG`
 - `marker_id`: full marker string
@@ -221,9 +258,9 @@ PY
 
 If `BudgetExhaustedError` raises before generation, the SKILL.md halts this enrichment with status `halted_budget` and proceeds to the next.
 
-**(ii) View and dispatch the image-reviewer agent**
+**(ii) View and dispatch the `jack-tar-deckhand:image-reviewer` agent**
 
-VIEW the generated image with the Read tool (mandatory per CLAUDE.md "MANDATORY: Visual Output Review"). Then dispatch the `image-reviewer` agent (existing persona, contract-extended) with:
+VIEW the generated image with the Read tool (mandatory per CLAUDE.md "MANDATORY: Visual Output Review"). Then dispatch the `jack-tar-deckhand:image-reviewer` agent (existing persona, contract-extended, namespaced under jack-tar-deckhand) with:
 
 ```
 Review this generated image for quality.
@@ -234,6 +271,21 @@ Strategy: enrichment_$MARKER_KIND_lower    # enrichment_image OR enrichment_bg
 Iteration: $ATTEMPT of $MAX_FOR_PHASE
 Source: enrichment-bridge
 ```
+
+**For text-bearing IMAGE markers, ALWAYS append `expected_text_content`** (Run 6 Findings #19/#20 — the reviewer's text-rendering check is unreliable without an explicit comparison reference). Extract the expected strings from the marker's subject brief in the creative brief's Section C per-slide marker assignment table (e.g. for `IMAGE:edge-stack-architecture`, extract `["Client Edge Nodes", "Inference Layer", "Orchestration Bus", "Cloud Sync Endpoint", "Regulator Engagement"]`). Append:
+
+```
+**Expected text content:**
+  - "Client Edge Nodes"
+  - "Inference Layer"
+  - "Orchestration Bus"
+  - "Cloud Sync Endpoint"
+  - "Regulator Engagement"
+**Critical check:** Read every word in the image and compare against the expected list above.
+Report rendered-vs-expected mismatches as issues; do not confabulate correctness.
+```
+
+Heuristic for whether a marker is text-bearing: look in the brief's Section C subject brief for any of these patterns — a quoted multi-word string, the word "label", the word "wordmark", a proper-noun-style company/product name, a list of named blocks/arrows. When in doubt, include `expected_text_content` — it never hurts to provide it for non-text-bearing markers (the agent will treat it as no-op when no text is rendered).
 
 Capture the agent's JSON envelope.
 
@@ -285,8 +337,8 @@ PY
 
 **(v) Act on the decision**
 
-- `refine_and_retry` → dispatch the `prompt-engineer` agent in `mode: "refine"` with the reviewer's `strengths`, `issues`, `composition_notes`, the prior prompt, and the iteration number. The agent returns a refined prompt string. Update `$PROMPT` and loop back to (i) with `state = decision.next_state`.
-- `escalate_to_cloud` → dispatch `prompt-engineer` in `mode: "refine"` once to incorporate the Phase A reviewer's last feedback at higher fidelity. Update `state = decision.next_state` and loop back to (i).
+- `refine_and_retry` → dispatch the `jack-tar-deckhand:prompt-engineer` agent in `mode: "refine"` with the reviewer's `strengths`, `issues`, `composition_notes`, the prior prompt, and the iteration number. The agent returns a refined prompt string. Update `$PROMPT` and loop back to (i) with `state = decision.next_state`.
+- `escalate_to_cloud` → dispatch `jack-tar-deckhand:prompt-engineer` in `mode: "refine"` once to incorporate the Phase A reviewer's last feedback at higher fidelity. Update `state = decision.next_state` and loop back to (i).
 - `escalate_to_pro` → keep the prompt unchanged (the Flash-passing prompt is the proven prompt). Update `state = decision.next_state` and loop back to (i).
 - `terminate_pass` → record final image, exit loop. Use `decision.tier_used` for the manifest.
 - `terminate_accepted_with_issues` → keep the last image, record `status: accepted_with_issues`, surface to user.
@@ -334,20 +386,45 @@ The spec is held in memory and passed to the orchestrator; carriers are rendered
 PYTHONPATH="$PLUGIN_ROOT" python3 - <<PY
 from pathlib import Path
 from src.enrichment import EnrichmentPlan, EnrichmentItem, apply_enrichment
+from src.colors_xml_builder import BrandPalette
+
 items = [
-    # one EnrichmentItem per user-approved enrichment, populated from prior steps
+    # one EnrichmentItem per user-approved enrichment, populated from prior steps.
+    # For markers detected as SMARTART-FROM-LIST, set kind="smartart_from_list"
+    # and leave smartart_spec=None — the bridge will extract bullet items from
+    # the marker shape's text frame at apply time. For traditional SMARTART
+    # markers (full content zone), set kind="smartart" and supply smartart_spec.
 ]
+
+# Construct BrandPalette if Step 1 derived one. When all three slots are
+# populated, brand-native rendering is the default; otherwise SmartArt falls
+# back to Microsoft default palette (degraded but functional).
+brand_palette = None
+if "$BRAND_PALETTE_PRIMARY" and "$BRAND_PALETTE_TEXT_ON_PRIMARY" and "$BRAND_PALETTE_TEXT_ON_SURFACE":
+    brand_palette = BrandPalette(
+        primary_fill_hex="$BRAND_PALETTE_PRIMARY",
+        text_on_primary_hex="$BRAND_PALETTE_TEXT_ON_PRIMARY",
+        text_on_surface_hex="$BRAND_PALETTE_TEXT_ON_SURFACE",
+    )
+
 plan = EnrichmentPlan(
     source_pptx=Path("$PPTX_PATH"),
     output_pptx=Path("$PPTX_PATH").with_name("presentation-enriched.pptx"),
     items=items,
 )
-apply_enrichment(plan, allowed_image_roots=[Path("$RUN_DIR/generated"),
-                                              Path("$RUN_DIR/carriers")])
+apply_enrichment(
+    plan,
+    allowed_image_roots=[Path("$RUN_DIR/generated"), Path("$RUN_DIR/carriers")],
+    brand_palette=brand_palette,
+)
 PY
 ```
 
 If `apply_enrichment` raises `EnrichmentApplyError`, surface the message to the user. The output file does not exist; the user can re-run after fixing the cause (e.g. an image path outside the allowlist, a missing marker name).
+
+**Brand palette default (Contract 1 / Finding #10):** when Step 1 derived a `brand_palette`, Step 7 passes it to `apply_enrichment`, which patches every SmartArt carrier's `colors1.xml` with brand hex values before injection. SmartArt slides therefore render in the brief's palette by default. When the brief omits role-keyworded hex values, `brand_palette` is `None` and SmartArt falls back to Microsoft default palette — mention this in the per-deck report so the speaker can fix the brief if needed.
+
+**SMARTART-FROM-LIST default (Contract 2 / Finding #9):** for analyser-detected markers of kind `SMARTART-FROM-LIST`, construct `EnrichmentItem(kind="smartart_from_list", marker_name="SMARTART-FROM-LIST:<slug>", smartart_spec=None, ...)`. The bridge extracts bullet items from the marker shape's text frame at apply time and replaces the list with the rendered SmartArt at the same coordinates. Title and surrounding prose on the slide remain untouched. This is the **preferred authoring pattern** — only fall back to traditional `SMARTART:` (full content zone, explicit `smartart_spec`) for graphic-only divider slides where the bridge owns the entire content area.
 
 ## Step 8 — Render slide images for cohesion review
 
@@ -378,7 +455,7 @@ Build the manifest:
 }
 ```
 
-Dispatch the `enrichment-cohesion-reviewer` agent with this manifest. It returns the JSON envelope defined in its agent definition.
+Dispatch the `jack-tar-superpower-bridge:enrichment-cohesion-reviewer` agent with this manifest. Plugin agents are registered under the plugin namespace; bare names resolve to "agent type not found". It returns the JSON envelope defined in its agent definition.
 
 ```bash
 PYTHONPATH="$PLUGIN_ROOT" python3 - <<PY

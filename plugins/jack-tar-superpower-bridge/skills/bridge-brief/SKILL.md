@@ -33,8 +33,11 @@ if os.environ.get('JACK_TAR_SUPERPOWER_BRIDGE_ROOT'):
     print(os.environ['JACK_TAR_SUPERPOWER_BRIDGE_ROOT']); sys.exit()
 home = Path.home()
 for base in [home / '.claude' / 'plugins' / 'cache']:
-    for p in base.rglob('jack-tar-superpower-bridge/.claude-plugin/plugin.json'):
-        print(str(p.parent.parent)); sys.exit()
+    # Note: Python 3.14 Path.rglob does not match multi-segment patterns reliably;
+    # use a 2-segment pattern + parts filter so discovery works across versions.
+    for p in base.rglob('.claude-plugin/plugin.json'):
+        if 'jack-tar-superpower-bridge' in p.parts:
+            print(str(p.parent.parent)); sys.exit()
 dev = Path.cwd() / 'plugins' / 'jack-tar-superpower-bridge'
 if dev.exists():
     print(str(dev)); sys.exit()
@@ -61,7 +64,7 @@ Capture the answer.
 
 ## Step 2 — dispatch the Narrative Brief Architect agent
 
-Use the `Agent` tool with `subagent_type="narrative-brief-architect"`.
+Use the `Agent` tool with `subagent_type="jack-tar-superpower-bridge:narrative-brief-architect"`. Plugin agents are registered under the plugin namespace; bare names resolve to "agent type not found".
 
 The dispatch prompt MUST contain the topic, duration, audience, confidentiality, and budget cap. Pass through every collaborative round — when the user requests a revision, dispatch a new agent turn including the prior draft and the revision request.
 
@@ -78,6 +81,29 @@ Propose 2-3 narrative arcs with trade-offs and a recommendation. Wait for my cho
 ```
 
 The agent runs in collaborative mode — it proposes, you relay to the user, the user picks or adjusts, you re-dispatch with the updated context. Loop until the user approves a complete draft. (Target: ≤ 2 revision rounds per the persona's measurement hooks.)
+
+**Working dispatch pattern (Run 2/3 dogfood evidence — Finding #7):** the persona is reliable on small scoped dispatches but drifts on whole-brief drafts and surgical-edit-of-prior-output. Use the four-dispatch pattern from the start:
+
+1. **R1 — propose 2–3 arcs** with trade-offs; wait for Speaker selection.
+2. **R2 — propose communication intent (2–3 takeaway phrasings) + 2–3 visual personalities;** wait for Speaker selection.
+3. **R3a — Sections A and B only.** Lock the arc, takeaway, and personality decisions explicitly in the prompt. Use hard scope rules: "Begin your output with `## Section A — Narrative Architecture`. End your output with the close of the Section B palette table." Do NOT include Section C.
+4. **R3b — Section C only.** Use hard scope rules: "Begin your output with `## Section C — Placeholder Instructions`. End your output with the closing ``` of the API note." Do NOT repeat Sections A or B.
+
+Whole-brief dispatches and surgical-edit-of-prior-output dispatches drift unpredictably. Avoid them.
+
+**Section C lead pattern (Contracts 1 + 2 default behaviour):** the persona's Section C should lead with `SMARTART-FROM-LIST:` as the preferred SmartArt pattern (preserves slide structure, picks layout from list content, brand-palette inherited from Section B automatically). `SMARTART:` (full content zone) is the secondary "graphic-only divider" pattern. The persona contract documents this; if R3b drifts back toward leading with `SMARTART:`, redispatch with explicit "lead with SMARTART-FROM-LIST" instruction.
+
+**Section C must include sub-page scale typology + chart routing + BG-on-pivot guidance + EXACT spelled labels for text-bearing IMAGE markers + SMARTART-FROM-LIST bullet-length constraint** (Runs 5+6 evidence — without these, /pptx defaults to content-zone-width markers, routes chart-shaped subjects to IMAGE markers where Ollama text rendering corrupts them, ships images with misspellings, or fails apply on long bullets):
+- **Sub-page scale typology** with explicit inch coordinates for SMARTART-FROM-LIST (side-accent ~3.5×3.5 / inline ~3.0×3.0 / banner ~10.0×2.0) and IMAGE (side-accent ~4.0×3.5 / inline ~3.0×3.0 / banner ~10.0×1.8).
+- **Native chart routing language** explicitly redirecting chart-shaped subjects (X-vs-Y, time series, projection) to `addChart()`, NOT IMAGE markers.
+- **BG marker default to 0–1 per deck**, on the single structural register-shift pivot if the arc has one.
+- **Build.js BG marker authoring caveat**: rect only with `objectName="BG:slug"`, NO standalone `addText` label (Finding #17 — addText survives enrichment as residual cosmetic).
+- **EXACT spelled labels REQUIRED list for any text-bearing IMAGE marker** (Run 6 Findings #19/#20 — without an explicit expected-text reference in the subject brief, the image-reviewer confabulates spelling correctness and ships misspellings). The persona's Section C subject brief MUST list every expected wordmark, label, named block, and named arrow verbatim. /enrich-deck extracts this list and passes it on reviewer dispatch so the reviewer can compare every rendered word against the expected list.
+- **SMARTART-FROM-LIST bullets ≤24 chars** for the bridge's default `process1` layout (Run 4/5/6 Finding #13 reaffirmed) — longer items either truncate at apply or fail outright. If the deck's argument requires longer prose-style bullets, the slide is better served by a native bulleted list or table than by a SmartArt graphic.
+
+The persona's agent definition codifies all of these. **Run 6's brief** at `output/dogfood-bridge-run-6/creative-brief.md` is the canonical example for institutional / board / M&A registers. **Run 5's brief** at `output/dogfood-bridge-run-5/creative-brief.md` is canonical for senior-leadership strategy. **Run 4's brief** at `output/dogfood-bridge-run-4/creative-brief.md` is canonical for engineering-leadership / data-led decks. Direct the persona toward the closest example when in doubt.
+
+**Section B palette table is REQUIRED for any deck containing SmartArt** (Contract 1 / Run 4 Finding #12). The persona's agent definition templates the table; reject any draft where Section B omits it for a SmartArt-bearing deck. The "Structural / Primary fill" row pins the bridge's `derive_palette_from_brief_text` heuristic.
 
 ## Step 3 — show the draft to the user and request approval
 
