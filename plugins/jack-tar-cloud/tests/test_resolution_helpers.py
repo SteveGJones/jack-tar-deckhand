@@ -45,3 +45,36 @@ class TestNormaliseResolution:
     def test_none_raises(self):
         with pytest.raises(TypeError):
             _normalise_resolution(None)
+
+
+class TestProviderResolutionUnsupportedError:
+    def test_carries_attributes(self):
+        err = ProviderResolutionUnsupportedError(
+            provider="openai",
+            model="gpt-image-1.5",
+            requested="4K",
+            supported=["1K"],
+        )
+        assert err.provider == "openai"
+        assert err.model == "gpt-image-1.5"
+        assert err.requested == "4K"
+        assert err.supported == ["1K"]
+
+    def test_message_includes_supported(self):
+        err = ProviderResolutionUnsupportedError(
+            provider="google",
+            model="gemini-3.1-flash-image-preview",
+            requested="8K",
+            supported=["512", "1K", "2K", "4K"],
+        )
+        msg = str(err)
+        assert "google" in msg
+        assert "8K" in msg
+        assert "512" in msg
+        assert "4K" in msg
+        assert "Retry with one of those" in msg
+
+    def test_is_value_error_subclass(self):
+        # So callers can `except ValueError` if they want generic handling.
+        err = ProviderResolutionUnsupportedError("p", "m", "4K", ["1K"])
+        assert isinstance(err, ValueError)
