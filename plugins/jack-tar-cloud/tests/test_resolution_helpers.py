@@ -46,6 +46,12 @@ class TestNormaliseResolution:
         with pytest.raises(TypeError):
             _normalise_resolution(None)
 
+    def test_whitespace_stripped_512(self):
+        assert _normalise_resolution("  512  ") == "512"
+
+    def test_lowercase_with_whitespace(self):
+        assert _normalise_resolution("  2k  ") == "2K"
+
 
 class TestProviderResolutionUnsupportedError:
     def test_carries_attributes(self):
@@ -78,3 +84,10 @@ class TestProviderResolutionUnsupportedError:
         # So callers can `except ValueError` if they want generic handling.
         err = ProviderResolutionUnsupportedError("p", "m", "4K", ["1K"])
         assert isinstance(err, ValueError)
+
+    def test_positional_args_carry_attributes(self):
+        err = ProviderResolutionUnsupportedError("fal", "fal-ai/flux-2-pro", "4K", ["1K", "2K"])
+        assert err.provider == "fal"
+        assert err.model == "fal-ai/flux-2-pro"
+        assert err.requested == "4K"
+        assert err.supported == ["1K", "2K"]
