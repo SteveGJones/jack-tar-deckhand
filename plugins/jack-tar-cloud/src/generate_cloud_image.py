@@ -222,29 +222,56 @@ def estimate_fal_cost(model='fal-ai/flux-2-pro', image_size='landscape_16_9'):
 
 # --- Provider implementations ---
 
-def generate_openai(prompt, output_path, size='1536x1024', quality='medium',
-                    background='auto', model='gpt-image-1.5'):
+def generate_openai(prompt, output_path, *, resolution='1K', size=None,
+                    quality='medium', background='auto', model='gpt-image-1.5'):
     """Generate an image using OpenAI GPT Image API.
 
     Args:
         prompt: Text prompt for image generation.
         output_path: Where to save the generated PNG.
-        size: Image dimensions ('1024x1024', '1536x1024', '1024x1536').
+        resolution: '1K' only (gpt-image-1.5 caps at ~1.5MP). '2K'/'4K'/'512'
+            raise ProviderResolutionUnsupportedError. Default '1K'.
+        size: Explicit dimensions ('1024x1024', '1536x1024', '1024x1536').
+            If provided, takes precedence over resolution. If None, derived
+            from resolution.
         quality: Quality tier ('low', 'medium', 'high').
         background: Background type ('auto', 'transparent').
         model: Model name.
 
     Returns:
-        dict: {file_path, provider, model_used, cost_usd, status}
+        dict: {file_path, provider, model_used, cost_usd, status, resolution}
 
     Raises:
         ProviderNotConfiguredError: If OPENAI_API_KEY is not set.
+        ProviderResolutionUnsupportedError: resolution='2K'/'4K'/'512' and
+            no explicit size provided.
     """
     if not os.environ.get('OPENAI_API_KEY'):
         raise ProviderNotConfiguredError(
             'OpenAI not configured: OPENAI_API_KEY environment variable is not set. '
             'See research/04-cloud-api-setup-licensing.md section A for setup.'
         )
+
+    resolution = _normalise_resolution(resolution)
+
+    # Validate resolution unless an explicit size is given.
+    # When size is explicit, the user's intent overrides resolution semantics
+    # — we use the size and log a warning if there's a mismatch.
+    if size is None:
+        if resolution != '1K':
+            raise ProviderResolutionUnsupportedError(
+                provider='openai', model=model,
+                requested=resolution, supported=['1K'],
+            )
+        # Default 1K mapping for OpenAI
+        size = '1024x1024'
+    else:
+        if resolution != '1K':
+            logger.warning(
+                'OpenAI: explicit size=%r overrides resolution=%r; '
+                'using size, ignoring resolution. (gpt-image-1.5 caps at 1.5MP.)',
+                size, resolution,
+            )
 
     output_format = 'png' if background == 'transparent' else 'png'
 
@@ -272,6 +299,7 @@ def generate_openai(prompt, output_path, size='1536x1024', quality='medium',
         'model_used': model,
         'cost_usd': cost,
         'status': 'generated',
+        'resolution': resolution,
     }
 
 
