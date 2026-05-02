@@ -16,7 +16,7 @@ from pathlib import Path
 import fal_client
 import requests
 from google import genai
-from google.genai.types import GenerateContentConfig, GenerateImagesConfig
+from google.genai.types import GenerateContentConfig, GenerateImagesConfig, ImageConfig
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
@@ -457,10 +457,17 @@ def generate_google(prompt, output_path, **kwargs):
     }
 
 
-def _generate_via_nano_banana(client, model, prompt, resolution=None):
-    """Generate image via Nano Banana (generate_content API).
+def _generate_via_nano_banana(client, model, prompt, resolution='1K'):
+    """Generate image via Nano Banana (generate_content API) at given resolution.
 
-    NOTE: resolution parameter accepted but not yet wired (Phase 4 task).
+    Uses PATH-B per spike (docs/spikes/2026-05-02-google-genai-image-config-spike.md):
+    typed ImageConfig from google.genai.types.
+
+    Args:
+        client: google.genai.Client instance.
+        model: 'gemini-3-pro-image-preview' or 'gemini-3.1-flash-image-preview'.
+        prompt: text prompt.
+        resolution: '512' | '1K' | '2K' | '4K' (must be supported by model).
 
     Returns:
         bytes: Raw image bytes from the response.
@@ -470,6 +477,7 @@ def _generate_via_nano_banana(client, model, prompt, resolution=None):
     """
     config = GenerateContentConfig(
         response_modalities=['IMAGE', 'TEXT'],
+        image_config=ImageConfig(image_size=resolution),
     )
     response = client.models.generate_content(
         model=model,

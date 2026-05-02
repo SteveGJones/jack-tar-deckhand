@@ -139,3 +139,63 @@ class TestImagenCostDualPricing:
             model="gemini-3-pro-image-preview", resolution="4K",
         )
         assert cost_dev == cost_vertex == 0.24
+
+
+class TestNanoBananaResolution:
+    def test_pro_4k_sets_image_config(self, mock_google_client, tmp_path):
+        out = tmp_path / "out.png"
+        result = generate_google(
+            prompt="test", output_path=str(out),
+            model="gemini-3-pro-image-preview",
+            resolution="4K",
+        )
+        call_kwargs = mock_google_client.models.generate_content.call_args.kwargs
+        config = call_kwargs["config"]
+        # PATH-B: typed ImageConfig — assert image_config.image_size attribute
+        assert config.image_config.image_size == "4K"
+        # And the return dict carries resolution
+        assert result["resolution"] == "4K"
+
+    def test_pro_2k_works(self, mock_google_client, tmp_path):
+        out = tmp_path / "out.png"
+        result = generate_google(
+            prompt="test", output_path=str(out),
+            model="gemini-3-pro-image-preview",
+            resolution="2K",
+        )
+        # Verify the call succeeded; no exception raised; image_config set.
+        call_kwargs = mock_google_client.models.generate_content.call_args.kwargs
+        assert call_kwargs["config"].image_config.image_size == "2K"
+        assert result["resolution"] == "2K"
+
+    def test_pro_512_raises(self, mock_google_client, tmp_path):
+        out = tmp_path / "out.png"
+        with pytest.raises(ProviderResolutionUnsupportedError) as excinfo:
+            generate_google(
+                prompt="test", output_path=str(out),
+                model="gemini-3-pro-image-preview",
+                resolution="512",
+            )
+        assert "1K" in excinfo.value.supported
+        assert "512" not in excinfo.value.supported
+
+    def test_flash_full_ladder(self, mock_google_client, tmp_path):
+        out = tmp_path / "out.png"
+        for res in ("512", "1K", "2K", "4K"):
+            generate_google(
+                prompt="test", output_path=str(out),
+                model="gemini-3.1-flash-image-preview",
+                resolution=res,
+            )
+        # All four should succeed
+        assert mock_google_client.models.generate_content.call_count == 4
+
+    def test_flash_unsupported_raises(self, mock_google_client, tmp_path):
+        out = tmp_path / "out.png"
+        with pytest.raises(ValueError):
+            # 8K isn't in _VALID_RESOLUTIONS
+            generate_google(
+                prompt="test", output_path=str(out),
+                model="gemini-3.1-flash-image-preview",
+                resolution="8K",
+            )
