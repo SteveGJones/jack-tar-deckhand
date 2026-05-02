@@ -122,11 +122,40 @@ def estimate_openai_cost(size='1536x1024', quality='medium'):
     return _OPENAI_COSTS[key]
 
 
-_GOOGLE_COSTS = {
-    'imagen-4.0-fast-generate-001': 0.020,
-    'imagen-4.0-generate-001': 0.040,
-    'gemini-3.1-flash-image-preview': 0.067,
-    'gemini-3-pro-image-preview': 0.134,
+# Google Imagen has dual pricing depending on backend:
+#   - Vertex AI (GOOGLE_APPLICATION_CREDENTIALS): flat per-image pricing
+#   - Gemini Developer API (GOOGLE_API_KEY only): token-based, 2K is dearer
+# Nano Banana Pro/Flash bill identically on both backends (per-image).
+
+# Per-resolution costs (provider-agnostic, used for Nano Banana too).
+# Sourced from research May 2026; see EPIC #58 pricing table.
+_NANO_BANANA_COSTS = {
+    ('gemini-3-pro-image-preview', '1K'): 0.134,
+    ('gemini-3-pro-image-preview', '2K'): 0.134,
+    ('gemini-3-pro-image-preview', '4K'): 0.24,
+    ('gemini-3.1-flash-image-preview', '512'): 0.045,
+    ('gemini-3.1-flash-image-preview', '1K'): 0.067,
+    ('gemini-3.1-flash-image-preview', '2K'): 0.101,
+    ('gemini-3.1-flash-image-preview', '4K'): 0.151,
+}
+
+# Imagen Vertex AI flat pricing (per-tier, uniform within tier).
+_IMAGEN_VERTEX_COSTS = {
+    ('imagen-4.0-fast-generate-001', '1K'): 0.020,
+    ('imagen-4.0-generate-001', '1K'): 0.040,
+    ('imagen-4.0-generate-001', '2K'): 0.040,
+    ('imagen-4.0-ultra-generate-001', '1K'): 0.060,
+    ('imagen-4.0-ultra-generate-001', '2K'): 0.060,
+}
+
+# Imagen Gemini Developer API token-based pricing.
+# 1K matches Vertex flat; 2K is dearer (1680 tokens at the Imagen rate).
+_IMAGEN_DEVELOPER_COSTS = {
+    ('imagen-4.0-fast-generate-001', '1K'): 0.020,
+    ('imagen-4.0-generate-001', '1K'): 0.040,
+    ('imagen-4.0-generate-001', '2K'): 0.101,
+    ('imagen-4.0-ultra-generate-001', '1K'): 0.060,
+    ('imagen-4.0-ultra-generate-001', '2K'): 0.101,  # treat as token-based too
 }
 
 # Models that use generate_content API (Nano Banana) vs generate_images API (Imagen 4)
@@ -138,27 +167,69 @@ _NANO_BANANA_MODELS = {
 _IMAGEN_MODELS = {
     'imagen-4.0-generate-001',
     'imagen-4.0-fast-generate-001',
+    'imagen-4.0-ultra-generate-001',
+}
+
+# Per-model supported resolutions (used by validation and discovery).
+_MODEL_RESOLUTIONS = {
+    'imagen-4.0-fast-generate-001': ['1K'],
+    'imagen-4.0-generate-001': ['1K', '2K'],
+    'imagen-4.0-ultra-generate-001': ['1K', '2K'],
+    'gemini-3.1-flash-image-preview': ['512', '1K', '2K', '4K'],
+    'gemini-3-pro-image-preview': ['1K', '2K', '4K'],
 }
 
 
-def estimate_google_cost(model='gemini-3.1-flash-image-preview'):
+def estimate_google_cost(model='gemini-3.1-flash-image-preview', resolution='1K'):
     """Return estimated USD cost for a Google image generation call.
+
+    For Imagen models, billing depends on which Google backend the SDK uses:
+      - GOOGLE_APPLICATION_CREDENTIALS set -> Vertex AI flat per-image
+      - GOOGLE_API_KEY only -> Gemini Developer API token-based
+
+    Nano Banana Pro/Flash bill identically across both backends.
 
     Args:
         model: Google model name.
+        resolution: '512' | '1K' | '2K' | '4K' (case-insensitive). Default '1K'.
 
     Returns:
         float: Estimated cost in USD.
 
     Raises:
-        ValueError: If the model is unknown.
+        ValueError: If the model/resolution combination is unknown.
     """
-    if model not in _GOOGLE_COSTS:
-        raise ValueError(
-            f"Unknown Google model: {model}. "
-            f"Valid models: {list(_GOOGLE_COSTS)}"
+    resolution = _normalise_resolution(resolution)
+
+    if model in _NANO_BANANA_MODELS:
+        key = (model, resolution)
+        if key not in _NANO_BANANA_COSTS:
+            raise ValueError(
+                f"Unknown Nano Banana model/resolution: {model}/{resolution}. "
+                f"Supported: {sorted(k for k in _NANO_BANANA_COSTS if k[0] == model)}"
+            )
+        return _NANO_BANANA_COSTS[key]
+
+    if model in _IMAGEN_MODELS:
+        # Detect backend: Vertex (ADC) wins over Developer API if both are set.
+        backend = (
+            'vertex'
+            if os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+            else 'developer'
         )
-    return _GOOGLE_COSTS[model]
+        table = _IMAGEN_VERTEX_COSTS if backend == 'vertex' else _IMAGEN_DEVELOPER_COSTS
+        key = (model, resolution)
+        if key not in table:
+            raise ValueError(
+                f"Unknown Imagen model/resolution: {model}/{resolution} "
+                f"(backend={backend}). Check supported_resolutions for this model."
+            )
+        return table[key]
+
+    raise ValueError(
+        f"Unknown Google model: {model}. "
+        f"Valid models: {sorted(_NANO_BANANA_MODELS | _IMAGEN_MODELS)}"
+    )
 
 
 # FAL.ai cost data (from research/04-cloud-api-setup-licensing.md)
@@ -306,12 +377,6 @@ def generate_openai(prompt, output_path, *, resolution='1K', size=None,
 def generate_google(prompt, output_path, **kwargs):
     """Generate an image using Google Nano Banana or Imagen 4 APIs.
 
-    Two API paths are supported:
-    - Nano Banana models (generate_content API): gemini-3.1-flash-image-preview,
-      gemini-3-pro-image-preview
-    - Imagen 4 models (generate_images API): imagen-4.0-generate-001,
-      imagen-4.0-fast-generate-001
-
     Auth: GOOGLE_API_KEY (Gemini Developer API) or
           GOOGLE_APPLICATION_CREDENTIALS (Vertex AI).
 
@@ -321,12 +386,15 @@ def generate_google(prompt, output_path, **kwargs):
         **kwargs: Optional arguments:
             model: Model name (default: 'gemini-3.1-flash-image-preview').
             aspect_ratio: Aspect ratio for Imagen 4 (e.g. '16:9', '1:1').
+            resolution: '512' | '1K' | '2K' | '4K'. Default '1K'.
+                Per-model support varies; see _MODEL_RESOLUTIONS.
 
     Returns:
-        dict: {file_path, provider, model_used, cost_usd, status}
+        dict: {file_path, provider, model_used, cost_usd, status, resolution}
 
     Raises:
         ProviderNotConfiguredError: If neither Google auth env var is set.
+        ProviderResolutionUnsupportedError: model doesn't support resolution.
     """
     api_key = os.environ.get('GOOGLE_API_KEY')
     has_adc = bool(os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'))
@@ -339,6 +407,20 @@ def generate_google(prompt, output_path, **kwargs):
 
     model = kwargs.get('model', 'gemini-3.1-flash-image-preview')
     aspect_ratio = kwargs.get('aspect_ratio', '16:9')
+    resolution = _normalise_resolution(kwargs.get('resolution', '1K'))
+
+    # Validate resolution against per-model capability
+    supported = _MODEL_RESOLUTIONS.get(model)
+    if supported is None:
+        raise ValueError(
+            f"Unknown Google model: {model}. "
+            f"Valid: {sorted(_NANO_BANANA_MODELS | _IMAGEN_MODELS)}"
+        )
+    if resolution not in supported:
+        raise ProviderResolutionUnsupportedError(
+            provider='google', model=model,
+            requested=resolution, supported=supported,
+        )
 
     # Build client — use API key if available, otherwise ADC
     client_kwargs = {}
@@ -347,9 +429,9 @@ def generate_google(prompt, output_path, **kwargs):
     client = genai.Client(**client_kwargs)
 
     if model in _NANO_BANANA_MODELS:
-        image_bytes = _generate_via_nano_banana(client, model, prompt)
+        image_bytes = _generate_via_nano_banana(client, model, prompt, resolution)
     elif model in _IMAGEN_MODELS:
-        image_bytes = _generate_via_imagen(client, model, prompt, aspect_ratio)
+        image_bytes = _generate_via_imagen(client, model, prompt, aspect_ratio, resolution)
     else:
         raise ValueError(
             f"Unknown Google model: {model}. "
@@ -359,8 +441,11 @@ def generate_google(prompt, output_path, **kwargs):
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(image_bytes)
 
-    cost = estimate_google_cost(model=model)
-    logger.info('Google image generated: %s (model: %s, cost: $%.3f)', output_path, model, cost)
+    cost = estimate_google_cost(model=model, resolution=resolution)
+    logger.info(
+        'Google image generated: %s (model: %s, resolution: %s, cost: $%.3f)',
+        output_path, model, resolution, cost,
+    )
 
     return {
         'file_path': str(output_path),
@@ -368,11 +453,14 @@ def generate_google(prompt, output_path, **kwargs):
         'model_used': model,
         'cost_usd': cost,
         'status': 'generated',
+        'resolution': resolution,
     }
 
 
-def _generate_via_nano_banana(client, model, prompt):
+def _generate_via_nano_banana(client, model, prompt, resolution=None):
     """Generate image via Nano Banana (generate_content API).
+
+    NOTE: resolution parameter accepted but not yet wired (Phase 4 task).
 
     Returns:
         bytes: Raw image bytes from the response.
@@ -399,8 +487,8 @@ def _generate_via_nano_banana(client, model, prompt):
     )
 
 
-def _generate_via_imagen(client, model, prompt, aspect_ratio):
-    """Generate image via Imagen 4 (generate_images API).
+def _generate_via_imagen(client, model, prompt, aspect_ratio, resolution):
+    """Generate image via Imagen 4 (generate_images API) at the given resolution.
 
     Returns:
         bytes: Raw image bytes from the response.
@@ -409,6 +497,7 @@ def _generate_via_imagen(client, model, prompt, aspect_ratio):
         number_of_images=1,
         aspect_ratio=aspect_ratio,
         output_mime_type='image/png',
+        image_size=resolution,
     )
     response = client.models.generate_images(
         model=model,
