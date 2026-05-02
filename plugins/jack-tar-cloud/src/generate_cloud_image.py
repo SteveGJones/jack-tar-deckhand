@@ -30,6 +30,61 @@ class ProviderNotImplementedError(NotImplementedError):
     """Raised when a provider is configured but implementation is pending."""
 
 
+class ProviderResolutionUnsupportedError(ValueError):
+    """Raised when a provider/model combination cannot honour the requested resolution.
+
+    Carries the closest supported tier so callers can retry intelligently.
+    """
+
+    def __init__(self, provider, model, requested, supported):
+        self.provider = provider
+        self.model = model
+        self.requested = requested
+        self.supported = supported
+        super().__init__(
+            f"{provider}/{model} does not support resolution={requested!r}. "
+            f"Supported: {supported}. Retry with one of those, or pick a "
+            f"different model."
+        )
+
+
+# --- Resolution normalisation -----------------------------------------------
+
+_VALID_RESOLUTIONS = ("512", "1K", "2K", "4K")
+
+
+def _normalise_resolution(resolution):
+    """Case-fold and validate a resolution string.
+
+    '1k' -> '1K'.  '512' -> '512'.  '8K' raises ValueError.
+
+    Args:
+        resolution: str — one of '512', '1K', '2K', '4K' (case-insensitive
+            for the K-suffixed values).
+
+    Returns:
+        str: normalised value.
+
+    Raises:
+        TypeError: resolution is not a string.
+        ValueError: resolution is not one of the recognised values.
+    """
+    if not isinstance(resolution, str):
+        raise TypeError(
+            f"resolution must be str, got {type(resolution).__name__}"
+        )
+    stripped = resolution.strip()
+    upper = stripped.upper()
+    if upper in {"1K", "2K", "4K"}:
+        return upper
+    if stripped == "512":
+        return "512"
+    raise ValueError(
+        f"resolution={resolution!r} not recognised. "
+        f"Valid values: {_VALID_RESOLUTIONS}"
+    )
+
+
 # --- Cost tables (from research/04-cloud-api-setup-licensing.md) ---
 
 _OPENAI_COSTS = {
