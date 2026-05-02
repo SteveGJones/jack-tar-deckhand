@@ -8,7 +8,7 @@
 
 ## Vision
 
-The existing `/pptx` skill produces solid slide decks, but conference-quality presentations demand more: bespoke hero imagery, data-driven infographics, speaker-ready layouts, and a visual identity that holds up on a 40-foot projector screen in front of 2,000 people. This project closes that gap.
+The upstream `/pptx` skill produces solid slide decks, but conference-quality presentations demand more: bespoke hero imagery, data-driven infographics, speaker-ready layouts, and a visual identity that holds up on a 40-foot projector screen in front of 2,000 people. This project closes that gap.
 
 Jack-Tar is a coordinated suite of Claude skills and orchestration agents that combine image generation models, layout intelligence, and content-authoring tools into a single end-to-end pipeline. It offers **two entry points**: the Superpower Bridge route (the default, which collaborates with `/pptx`) and the Direct route (full Jack-Tar pipeline from a brief, no `/pptx` involvement). A speaker describes their talk — through either route — and the system delivers a polished, stage-ready `.pptx`.
 
@@ -46,14 +46,12 @@ Both routes support 1K / 2K / 4K cloud-rendered visuals via the `jack-tar-cloud`
                  Yes                                            No
                   │                                              │
                   ▼                                              ▼
-      Bridge route, review-first              Are you starting from a brief?
+      Bridge route, review-first              Want to keep using /pptx?
       ──────────────────────────                          │
       /enrich-deck output.pptx           ┌────────────────┴────────────────┐
-                                       Yes,                            Yes,
-                                  collaborate with                full Jack-Tar
-                                      /pptx                       pipeline only
-                                        │                               │
-                                        ▼                               ▼
+                                        Yes                               No
+                                          │                               │
+                                          ▼                               ▼
                             Bridge route (default)              Direct route
                             ──────────────────────              ────────────
                             /bridge-brief →                /jack-tar-deckhand:
@@ -216,14 +214,14 @@ This project follows a high-ceremony, quality-first SDLC:
 - BSA v1.4.0 (33 services, 6 AI personas, 60 interactions)
 - 1010 monorepo + 33 cross-plugin integration tests passing
 - Bridge route shipped through v0.1.0 → v0.2.0 (`jack-tar-superpower-bridge` plugin)
-- EPIC #58 (1K / 2K / 4K resolution capability) in progress — available for testing via `jack-tar-cloud`
+- EPIC #58 (1K / 2K / 4K resolution capability) — 1K available via `jack-tar-cloud`; 2K / 4K wiring in flight (#59 / #60 / #61)
 
 ---
 
 ## Roadmap
 
-| Phase | Milestone | Key Deliverables |
-|-------|-----------|------------------|
+| Phase | Milestone | Key Deliverables | Status |
+|-------|-----------|------------------|--------|
 | **0 — Foundation** | Data contracts & project scaffolding | JSON schemas for all contracts, project directory structure, eval prompt library | Done |
 | **1 — Content Core** | `narrative-architect` + `speaker-notes-writer` | Working outline generation, speaker notes, eval results | Done |
 | **2 — Visual Identity** | `slide-stylist` + `chart-renderer` | Palette derivation, layout templates, chart rendering pipeline | Done |
