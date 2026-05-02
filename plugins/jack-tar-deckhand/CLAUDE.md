@@ -39,3 +39,14 @@ Without engine plugins, the pipeline produces text-only slides with placeholder 
 ```
 
 Then use the deck-conductor agent to orchestrate a full deck build.
+
+## See also — Superpower Bridge route
+
+If you'd rather start from `/pptx` (the upstream skill in the
+`superpowers-toolkit` plugin) and have Jack-Tar enrich the resulting
+deck, use the **Superpower Bridge** plugin instead of the
+`deck-conductor` direct pipeline. The bridge offers `/bridge-brief`
+(plan a talk and prep a brief that drives `/pptx`) and `/enrich-deck`
+(review an existing `/pptx` deck and layer Jack-Tar visuals onto it).
+See `plugins/jack-tar-superpower-bridge/CLAUDE.md` and the
+"Choosing your route" section of the top-level `README.md`.
