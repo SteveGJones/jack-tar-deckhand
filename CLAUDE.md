@@ -203,7 +203,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Claude Code permissions:** `.claude/settings.local.json` (tracked, per-developer overrides) controls which commands Claude can run silently vs prompts for. The free iteration loop (Ollama draft + slide review) needs minimal prompting — see `docs/dev/claude-permissions-guide.md` for the three-tier model and the exact commands the SmartArt loop needs. Use wildcard prefix matches (`Bash(tool:*)`) over exact strings.
 
-- **CI is pre-existing broken:** The `AI-First SDLC Validation` GitHub Actions workflow fails on every commit (including main itself) because it references a `tools/` directory that doesn't exist. The failures predate any feature work. Don't try to fix this as part of feature PRs. The substantive `Code Quality Analysis` check passes — that's the one to watch. When merging, `mergeStateStatus: UNSTABLE` from these failing checks is expected.
+- **CI:** `.github/workflows/validation.yml` runs five jobs on every PR — `code-quality` (flake8 + pre-commit), `plugin-tests` (pytest matrix per plugin), `integration-tests` (cross-plugin contracts), `json-validation` (canonical model + marketplace + per-plugin manifests parse and version-match), and a `summary` PR comment. All jobs must pass before merge. **No `--admin` merging** — if CI fails, fix it.
 
 - **Merge convention:** Use `gh pr merge <n> --merge` (merge commit), never `--squash`. This project ships features through many small fix commits during iteration rounds, and squashing destroys the per-fix granularity.
 
