@@ -1,198 +1,277 @@
-name: AI-First SDLC Validation
+name: Validation
 
 on:
   push:
-    branches: [ main, develop, 'feature/**', 'fix/**', 'docs/**' ]
+    branches: [main, develop, "feat/**", "fix/**", "docs/**", "chore/**"]
   pull_request:
-    branches: [ main, develop ]
-  schedule:
-    - cron: '0 2 * * *'
+    branches: [main, develop]
   workflow_dispatch:
-    inputs:
-      strict_mode:
-        description: 'Force strict validation mode'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
-  issues: write
   pull-requests: write
-  actions: read
   checks: write
 
 jobs:
-  # Job 1: Core SDLC Compliance
-  sdlc-validation:
-    runs-on: ubuntu-latest
-    name: SDLC Compliance Check
 
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.9'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-    - name: Branch Compliance Check
-      run: python tools/validation/validate-pipeline.py --checks branch --ci
-
-    - name: Feature Proposal Check
-      if: github.event_name == 'pull_request'
-      run: |
-        BRANCH_NAME="${{ github.head_ref }}"
-        python tools/validation/check-feature-proposal.py --branch "$BRANCH_NAME"
-
-    - name: Architecture Validation
-      run: |
-        if [ "${{ inputs.strict_mode }}" == "true" ]; then
-          python tools/validation/validate-architecture.py --mode strict
-        else
-          python tools/validation/validate-architecture.py
-        fi
-
-    - name: Technical Debt Check
-      run: python tools/validation/check-technical-debt.py .
-
-    - name: Check /tmp usage
-      run: python tools/validation/check-tmp-usage.py
-
-    - name: Retrospective Check
-      if: github.event_name == 'pull_request'
-      run: python tools/validation/validate-pipeline.py --checks retrospective
-
-    - name: Security Scan
-      run: python tools/validation/validate-pipeline.py --checks security --ci
-
-    - name: Type Safety Check
-      run: python tools/validation/validate-pipeline.py --checks type-safety --ci
-
-    - name: Generate Compliance Report
-      if: always()
-      run: |
-        python tools/validation/validate-pipeline.py --ci --export json --output sdlc-compliance.json || true
-        python tools/validation/validate-pipeline.py --ci --export markdown --output sdlc-compliance.md || true
-
-  # Job 2: Code Quality
+  # ---------------------------------------------------------------------------
+  # Code quality — flake8 + pre-commit on the whole tree
+  # ---------------------------------------------------------------------------
   code-quality:
     runs-on: ubuntu-latest
-    name: Code Quality Analysis
-
+    name: Code Quality (flake8 + pre-commit)
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.9'
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
 
-    - name: Install quality tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pre-commit
+      - name: Install quality tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pre-commit
 
-    - name: Flake8 Linting
-      run: |
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 . --count --exit-zero --max-complexity=15 --max-line-length=127 --statistics
+      - name: Flake8 — fail on real errors only
+        run: |
+          # E9 / F63 / F7 / F82 are syntax + undefined-name errors. These
+          # MUST not slip into main. Style issues are reported but
+          # non-fatal (exit-zero with statistics).
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=127 --statistics
 
-    - name: Pre-commit Hooks
-      run: pre-commit run --all-files || echo "::warning::Pre-commit checks failed"
+      - name: Pre-commit hooks (warn-only)
+        run: pre-commit run --all-files || echo "::warning::pre-commit checks failed (non-blocking)"
 
-  # Job 3: Framework Tool Testing (Python matrix)
-  test-framework-tools:
+  # ---------------------------------------------------------------------------
+  # Plugin tests — one job per plugin, parallel
+  #
+  # We can't run pytest across all plugins/* in one invocation because each
+  # plugin has a tests/test_plugin_imports.py and pytest's rootdir-based
+  # module resolution treats the duplicated basename as a collision. Per-
+  # plugin runs sidestep this and also surface failures plugin-by-plugin.
+  # ---------------------------------------------------------------------------
+  plugin-tests:
     runs-on: ubuntu-latest
-    name: Framework Tools (Python ${{ matrix.python-version }})
+    name: Plugin tests — ${{ matrix.plugin }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ['3.9', '3.11', '3.12']
-
+        plugin:
+          - jack-tar-cloud
+          - jack-tar-deckhand
+          - jack-tar-msft-smartart
+          - jack-tar-custom-smartart
+          - jack-tar-ollama
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Cloud-provider SDKs needed by jack-tar-cloud and downstream plugin tests
+          pip install google-genai openai fal-client
 
-    - name: Test framework tools
-      run: |
-        python tools/automation/progress-tracker.py --help
-        python tools/automation/context-manager.py --help
-        python tools/validation/validate-pipeline.py --help
-        python -m py_compile tools/validation/check-feature-proposal.py
+      - name: Skip if no tests directory
+        id: check
+        run: |
+          if [ ! -d "plugins/${{ matrix.plugin }}/tests" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::No tests/ for ${{ matrix.plugin }} — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
-  # Job 4: Summary
+      - name: Run pytest
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          python -m pytest plugins/${{ matrix.plugin }}/tests/ -v --tb=short
+
+  # ---------------------------------------------------------------------------
+  # Cross-plugin integration tests — verify contracts between plugins
+  # (marketplace.json structure, plugin.json presence, verify-skill output
+  # shape, plugin_root discovery, etc.).
+  # ---------------------------------------------------------------------------
+  integration-tests:
+    runs-on: ubuntu-latest
+    name: Cross-plugin integration tests
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install google-genai openai fal-client
+
+      - name: Skip if no integration_tests/
+        id: check
+        run: |
+          if [ ! -d "plugins/integration_tests" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::no plugins/integration_tests/ — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run integration tests
+        if: steps.check.outputs.skip == 'false'
+        run: python -m pytest plugins/integration_tests/ -v --tb=short
+
+  # ---------------------------------------------------------------------------
+  # JSON schema validation — canonical model + marketplace + plugin manifests
+  # parse cleanly. Schema-level structural drift catches BSA-vs-code
+  # divergence before it lands.
+  # ---------------------------------------------------------------------------
+  json-validation:
+    runs-on: ubuntu-latest
+    name: JSON validation
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Validate JSON files parse
+        run: |
+          fail=0
+          for f in \
+            .bsa/models/jack-tar-deckhand.json \
+            .claude-plugin/marketplace.json \
+            plugins/*/.claude-plugin/plugin.json
+          do
+            [ -f "$f" ] || continue
+            if ! python -c "import json; json.load(open('$f'))" 2>/dev/null; then
+              echo "::error file=$f::JSON parse failed"
+              fail=1
+            else
+              echo "  OK: $f"
+            fi
+          done
+          exit $fail
+
+      - name: Verify marketplace.json lists all plugin manifests
+        run: |
+          python <<'EOF'
+          import json, sys, pathlib
+          mp = json.load(open('.claude-plugin/marketplace.json'))
+          listed = {p['name'] for p in mp.get('plugins', [])}
+          on_disk = {
+              p.parent.parent.name
+              for p in pathlib.Path('plugins').glob('*/.claude-plugin/plugin.json')
+          }
+          missing_in_marketplace = on_disk - listed
+          missing_on_disk = listed - on_disk
+          ok = True
+          if missing_in_marketplace:
+              print(f"::error::plugins on disk but not in marketplace.json: {missing_in_marketplace}")
+              ok = False
+          if missing_on_disk:
+              print(f"::error::plugins in marketplace.json but no manifest on disk: {missing_on_disk}")
+              ok = False
+          if not ok:
+              sys.exit(1)
+          print(f"OK - marketplace lists all {len(listed)} plugin manifests on disk")
+          EOF
+
+      - name: Verify plugin versions match marketplace.json
+        run: |
+          python <<'EOF'
+          import json, sys, pathlib
+          mp = json.load(open('.claude-plugin/marketplace.json'))
+          marketplace_versions = {p['name']: p['version'] for p in mp.get('plugins', [])}
+          ok = True
+          for manifest in pathlib.Path('plugins').glob('*/.claude-plugin/plugin.json'):
+              p = json.load(open(manifest))
+              name, version = p['name'], p['version']
+              expected = marketplace_versions.get(name)
+              if expected != version:
+                  print(f"::error file={manifest}::{name} plugin.json says v{version}; marketplace.json says v{expected}")
+                  ok = False
+              else:
+                  print(f"  OK: {name} v{version}")
+          if not ok:
+              sys.exit(1)
+          EOF
+
+  # ---------------------------------------------------------------------------
+  # Summary — single PR comment with all check results.
+  # ---------------------------------------------------------------------------
   summary:
     runs-on: ubuntu-latest
-    needs: [sdlc-validation, code-quality, test-framework-tools]
+    needs: [code-quality, plugin-tests, integration-tests, json-validation]
     if: always()
     name: Validation Summary
     permissions:
       pull-requests: write
       issues: write
-
     steps:
-    - uses: actions/checkout@v6
+      - name: Compose summary
+        id: compose
+        run: |
+          {
+            echo "## Validation Summary"
+            echo ""
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| Code Quality | ${{ needs.code-quality.result }} |"
+            echo "| Plugin Tests | ${{ needs.plugin-tests.result }} |"
+            echo "| Integration Tests | ${{ needs.integration-tests.result }} |"
+            echo "| JSON Validation | ${{ needs.json-validation.result }} |"
+          } > summary.md
+          if [[ "${{ needs.code-quality.result }}" != "success" || \
+                "${{ needs.plugin-tests.result }}" != "success" || \
+                "${{ needs.integration-tests.result }}" != "success" || \
+                "${{ needs.json-validation.result }}" != "success" ]]; then
+            echo "" >> summary.md
+            echo "**One or more checks failed. See logs above.**" >> summary.md
+            cat summary.md
+            exit 1
+          fi
+          cat summary.md
 
-    - name: Create Summary Report
-      run: |
-        echo "## AI-First SDLC Validation Summary" > summary.md
-        echo "" >> summary.md
-        echo "| Check | Status |" >> summary.md
-        echo "|-------|--------|" >> summary.md
-        echo "| SDLC Compliance | ${{ needs.sdlc-validation.result == 'success' && 'Pass' || 'Fail' }} |" >> summary.md
-        echo "| Code Quality | ${{ needs.code-quality.result == 'success' && 'Pass' || 'Warn' }} |" >> summary.md
-        echo "| Framework Tools | ${{ needs.test-framework-tools.result == 'success' && 'Pass' || 'Warn' }} |" >> summary.md
-
-        if [[ "${{ needs.sdlc-validation.result }}" == "failure" ]]; then
-          echo "" >> summary.md
-          echo "**SDLC validation failed. Review logs above.**" >> summary.md
-          exit 1
-        fi
-
-    - name: Comment PR
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v8
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          const summary = fs.readFileSync('summary.md', 'utf8');
-          const { data: comments } = await github.rest.issues.listComments({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-          });
-          const botComment = comments.find(c =>
-            c.user.type === 'Bot' && c.body.includes('SDLC Validation Summary')
-          );
-          if (botComment) {
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: botComment.id,
-              body: summary
-            });
-          } else {
-            await github.rest.issues.createComment({
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('summary.md', 'utf8');
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: summary
             });
-          }
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Validation Summary')
+            );
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary,
+              });
+            }
