@@ -259,6 +259,26 @@ _FAL_SIZE_MEGAPIXELS = {
 
 _FAL_FALLBACK_COST = 0.045  # Conservative fallback for unknown models
 
+# FAL FLUX 2 Pro caps at 2048x2048. Higher tiers raise.
+_FAL_RESOLUTION_TO_IMAGE_SIZE = {
+    'fal-ai/flux-2-pro': {
+        '1K': 'landscape_16_9',  # existing preset (~1MP)
+        '2K': {'width': 2048, 'height': 2048},
+    },
+    'fal-ai/flux-2-klein': {
+        '1K': 'landscape_16_9',
+    },
+    'fal-ai/ideogram/v3': {
+        '1K': 'landscape_16_9',
+    },
+}
+
+_FAL_SUPPORTED_RESOLUTIONS = {
+    'fal-ai/flux-2-pro': ['1K', '2K'],
+    'fal-ai/flux-2-klein': ['1K'],
+    'fal-ai/ideogram/v3': ['1K'],
+}
+
 
 def estimate_fal_cost(model='fal-ai/flux-2-pro', image_size='landscape_16_9'):
     """Return estimated USD cost for a FAL.ai image generation call.
@@ -519,9 +539,6 @@ def _generate_via_imagen(client, model, prompt, aspect_ratio, resolution):
 def generate_fal(prompt, output_path, **kwargs):
     """Generate an image using FAL.ai (FLUX.2 Pro, Klein, Ideogram, etc.).
 
-    Uses fal_client.subscribe() for synchronous generation. The result
-    contains a URL which is downloaded via requests.
-
     Auth: FAL_KEY environment variable.
 
     Args:
@@ -529,16 +546,18 @@ def generate_fal(prompt, output_path, **kwargs):
         output_path: Where to save the generated PNG.
         **kwargs: Optional arguments:
             model: FAL endpoint (default: 'fal-ai/flux-2-pro').
-            image_size: FAL size preset (default: 'landscape_16_9').
-                Options: 'square_hd', 'square', 'portrait_4_3',
-                'portrait_16_9', 'landscape_4_3', 'landscape_16_9',
-                or a dict {'width': W, 'height': H}.
+            resolution: '1K' | '2K' (FLUX 2 Pro caps at 2048x2048; Klein and
+                Ideogram support 1K only). Default '1K'.
+            image_size: Explicit FAL image_size (preset string OR
+                {'width': W, 'height': H} dict). When provided, takes
+                precedence over resolution.
 
     Returns:
-        dict: {file_path, provider, model_used, cost_usd, status}
+        dict: {file_path, provider, model_used, cost_usd, status, resolution}
 
     Raises:
         ProviderNotConfiguredError: If FAL_KEY is not set.
+        ProviderResolutionUnsupportedError: model doesn't support resolution.
     """
     if not os.environ.get('FAL_KEY'):
         raise ProviderNotConfiguredError(
@@ -547,7 +566,32 @@ def generate_fal(prompt, output_path, **kwargs):
         )
 
     model = kwargs.get('model', 'fal-ai/flux-2-pro')
-    image_size = kwargs.get('image_size', 'landscape_16_9')
+    resolution = _normalise_resolution(kwargs.get('resolution', '1K'))
+
+    # Determine image_size: explicit kwarg wins; otherwise resolve from resolution.
+    if 'image_size' in kwargs:
+        image_size = kwargs['image_size']
+        if resolution != '1K':
+            logger.warning(
+                'FAL: explicit image_size=%r overrides resolution=%r.',
+                image_size, resolution,
+            )
+    else:
+        # Validate the resolution against per-model capability
+        supported = _FAL_SUPPORTED_RESOLUTIONS.get(model, ['1K'])
+        if resolution not in supported:
+            raise ProviderResolutionUnsupportedError(
+                provider='fal', model=model,
+                requested=resolution, supported=supported,
+            )
+        # Map resolution -> image_size
+        mapping = _FAL_RESOLUTION_TO_IMAGE_SIZE.get(model, {})
+        if resolution not in mapping:
+            raise ProviderResolutionUnsupportedError(
+                provider='fal', model=model,
+                requested=resolution, supported=list(mapping.keys()),
+            )
+        image_size = mapping[resolution]
 
     result = fal_client.subscribe(model, arguments={
         'prompt': prompt,
@@ -563,7 +607,10 @@ def generate_fal(prompt, output_path, **kwargs):
     Path(output_path).write_bytes(response.content)
 
     cost = estimate_fal_cost(model=model, image_size=image_size)
-    logger.info('FAL.ai image generated: %s (model: %s, cost: $%.3f)', output_path, model, cost)
+    logger.info(
+        'FAL.ai image generated: %s (model: %s, resolution: %s, cost: $%.3f)',
+        output_path, model, resolution, cost,
+    )
 
     return {
         'file_path': str(output_path),
@@ -571,6 +618,7 @@ def generate_fal(prompt, output_path, **kwargs):
         'model_used': model,
         'cost_usd': cost,
         'status': 'generated',
+        'resolution': resolution,
     }
 
 
