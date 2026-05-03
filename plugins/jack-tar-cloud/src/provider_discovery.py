@@ -26,6 +26,27 @@ logger = logging.getLogger(__name__)
 # Known FAL.ai image generation models
 _FAL_IMAGE_MODELS = ['flux-2-pro', 'recraft-v4', 'ideogram-3']
 
+# Per-model supported resolutions — exposed via discover_providers().
+# Matches _MODEL_RESOLUTIONS in generate_cloud_image.py for Google models;
+# mirrors the FAL/OpenAI capability per model.
+_PROVIDER_MODEL_RESOLUTIONS = {
+    'openai': {
+        'gpt-image-1.5': ['1K'],
+    },
+    'google': {
+        'imagen-4.0-fast-generate-001': ['1K'],
+        'imagen-4.0-generate-001': ['1K', '2K'],
+        'imagen-4.0-ultra-generate-001': ['1K', '2K'],
+        'gemini-3.1-flash-image-preview': ['512', '1K', '2K', '4K'],
+        'gemini-3-pro-image-preview': ['1K', '2K', '4K'],
+    },
+    'fal': {
+        'fal-ai/flux-2-pro': ['1K', '2K'],
+        'fal-ai/flux-2-klein': ['1K'],
+        'fal-ai/ideogram/v3': ['1K'],
+    },
+}
+
 # Default env vars per provider (matches official SDK conventions)
 _PROVIDER_DEFAULTS = {
     'openai': {
@@ -192,10 +213,21 @@ def discover_providers(config_path='provider_config.json'):
         'models': _FAL_IMAGE_MODELS if fal_available else [],
     }
 
-    return {
+    result = {
         'ollama': ollama_result,
         'openai': openai_result,
         'google': google_result,
         'fal': fal_result,
         'recraft': recraft_result,
     }
+
+    # Attach per-model resolution capability metadata so callers can filter
+    # resolution-tier requests against capability before dispatch.
+    for provider_name, models in _PROVIDER_MODEL_RESOLUTIONS.items():
+        if provider_name in result:
+            result[provider_name]['models'] = {
+                model: {'supported_resolutions': resolutions}
+                for model, resolutions in models.items()
+            }
+
+    return result

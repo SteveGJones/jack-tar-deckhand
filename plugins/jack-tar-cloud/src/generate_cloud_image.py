@@ -273,10 +273,10 @@ _FAL_RESOLUTION_TO_IMAGE_SIZE = {
     },
 }
 
+# Derived from _FAL_RESOLUTION_TO_IMAGE_SIZE so the two tables can never drift.
 _FAL_SUPPORTED_RESOLUTIONS = {
-    'fal-ai/flux-2-pro': ['1K', '2K'],
-    'fal-ai/flux-2-klein': ['1K'],
-    'fal-ai/ideogram/v3': ['1K'],
+    model: list(mapping.keys())
+    for model, mapping in _FAL_RESOLUTION_TO_IMAGE_SIZE.items()
 }
 
 
@@ -631,25 +631,34 @@ _PROVIDERS = {
 }
 
 
-def generate_cloud_image(prompt, provider, output_path, **kwargs):
-    """Generate an image using the specified cloud provider.
+def generate_cloud_image(prompt, provider, output_path, *, resolution='1K', **kwargs):
+    """Generate an image using the specified cloud provider at the requested resolution.
 
     Args:
         prompt: Text prompt for image generation.
         provider: Provider name ('openai', 'google', 'fal').
         output_path: Where to save the generated image.
-        **kwargs: Provider-specific arguments (size, quality, etc.).
+        resolution: '512' | '1K' | '2K' | '4K' (case-insensitive, default '1K').
+            Per-provider/model support varies; ProviderResolutionUnsupportedError
+            is raised for unsupported combinations. See provider_discovery for
+            per-model capability.
+        **kwargs: Provider-specific arguments (size, model, image_size, etc.).
+            If a kwarg conflicts with `resolution` semantics, the kwarg wins
+            with a logger warning (provider-specific).
 
     Returns:
-        dict: Result from the provider function.
+        dict: Result from the provider function. Includes 'resolution' field.
 
     Raises:
-        ValueError: If provider is unknown.
+        ValueError: If provider is unknown or resolution string is invalid.
         ProviderNotConfiguredError: If provider credentials are missing.
+        ProviderResolutionUnsupportedError: provider/model can't honour resolution.
     """
     if provider not in _PROVIDERS:
         raise ValueError(
             f"Unknown provider '{provider}'. "
             f"Available: {list(_PROVIDERS)}"
         )
-    return _PROVIDERS[provider](prompt, output_path, **kwargs)
+    return _PROVIDERS[provider](
+        prompt, output_path, resolution=resolution, **kwargs,
+    )
