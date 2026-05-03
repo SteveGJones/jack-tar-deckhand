@@ -1,0 +1,73 @@
+name: bsa-feature-update
+description: >
+  Containerised Business Service Architecture (BSA) update workflow. Reads
+  a code-feature PR's diff, spec, plan, and current canonical model, then
+  produces BSA updates in lockstep with code: canonical model JSON edits,
+  schema validation, dependency-register entries, architecture-doc updates,
+  and a methodology-compliance review.
+
+  Use when: a code feature has landed (or is about to land) and the BSA
+  needs to be updated to reflect the architectural change. Run this AFTER
+  the code/tests are stable and BEFORE the PR merges, so BSA + code ship
+  together.
+
+  Input: a feature branch with the spec, plan, code, and tests; plus the
+  current `.bsa/models/jack-tar-deckhand.json` and methodology references.
+
+  Output: a BSA update commit on the same branch, plus a synthesis report
+  at /workspace/reports/bsa-synthesis/findings.md for speaker review.
+
+  Pattern: bsa-plan -> bsa-draft -> bsa-validate -> bsa-review -> bsa-synthesise.
+  The draft/validate cycle is the schema-aware iteration; speaker review of
+  the synthesis report is the outer human gate before merge.
+
+provider: claude
+
+nodes:
+  - id: bsa-plan
+    command: bsa-plan
+    image: sdlc-worker:bsa-team
+    context: fresh
+    timeout: 1200000
+    model: claude-opus-4-7
+    budget: 5.0
+
+  - id: bsa-draft
+    depends_on:
+      - bsa-plan
+    command: bsa-draft
+    image: sdlc-worker:bsa-team
+    context: fresh
+    timeout: 1800000
+    model: claude-sonnet-4-6
+    budget: 5.0
+
+  - id: bsa-validate
+    depends_on:
+      - bsa-draft
+    command: bsa-validate
+    image: sdlc-worker:bsa-team
+    context: fresh
+    timeout: 600000
+    model: claude-sonnet-4-6
+    budget: 2.0
+
+  - id: bsa-review
+    depends_on:
+      - bsa-validate
+    command: bsa-review
+    image: sdlc-worker:bsa-team
+    context: fresh
+    timeout: 900000
+    model: claude-opus-4-7
+    budget: 5.0
+
+  - id: bsa-synthesise
+    depends_on:
+      - bsa-review
+    command: bsa-synthesise
+    image: sdlc-worker:bsa-team
+    context: fresh
+    timeout: 600000
+    model: claude-sonnet-4-6
+    budget: 2.0
