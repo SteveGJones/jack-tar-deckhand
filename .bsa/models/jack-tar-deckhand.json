@@ -143,7 +143,7 @@
       "level": 2,
       "parentId": "image-services",
       "serviceType": "core",
-      "mission": "Entry point for all image generation. Discovers available providers at runtime, routes to best model per asset type and budget, returns generated image.",
+      "mission": "Entry point for all image generation. Discovers available providers at runtime and produces the AvailableProviders data contract — keyed per-model with supported_resolutions and pricing_backend metadata — consumed by image-cloud-generate, image-keynote-rendering, and deck-conductor for routing decisions. Routes to best model per asset type, budget, and per-model resolution capability, returns generated image.",
       "owner": "Steve Jones",
       "isAIPersona": false,
       "tags": ["l2", "skill", "imagegen-bridge", "routing"]

@@ -1,7 +1,7 @@
 # Data Contract Summary -- Jack-Tar Deckhand
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
-> Date: 2026-04-03
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.1
+> Date: 2026-05-03
 > Full JSON schemas: see [Research Paper #12 -- DeckContext Serialisation & Pipeline State Management](../../research/12-deckcontext-state-management.md)
 
 This document summarises all data contracts that flow between services in the Jack-Tar Deckhand architecture. Each contract is a JSON file persisted in the `./tmp/deck/` directory, forming the DeckContext shared state.

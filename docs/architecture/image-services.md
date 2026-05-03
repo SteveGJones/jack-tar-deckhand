@@ -1,7 +1,7 @@
 # Image Services -- L1 Service Document
 
-> Generated from canonical model: `jack-tar-deckhand.json` v1.4.0
-> Date: 2026-04-03
+> Generated from canonical model: `jack-tar-deckhand.json` v1.4.1
+> Date: 2026-05-03
 > Service ID: `image-services`
 > Parent: `presentation-engineering` (L0)
 
