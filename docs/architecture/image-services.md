@@ -102,13 +102,21 @@ Two cloud skills handle generation via cloud APIs with provider routing:
 
 ### Cloud Image Generation (`cloud-generate-image`)
 
-Generates images via cloud APIs with automatic provider selection:
+Generates images via cloud APIs with automatic provider selection, including resolution-aware routing:
 
-| Provider | Model | Strengths |
-|---|---|---|
-| OpenAI | GPT Image 1.5 | Highest quality, best text rendering, strong prompt adherence |
-| Google Vertex AI | Imagen 4 / Imagen 4 Fast | Cost-effective, good for backgrounds and textures |
-| FAL.ai | FLUX.2 Pro, Ideogram 3.0 | Photorealism (FLUX.2), typography (Ideogram) |
+| Provider | Model | Strengths | Resolutions |
+|---|---|---|---|
+| OpenAI | GPT Image 1.5 | Highest quality, best text rendering, strong prompt adherence | 1K |
+| Google Vertex AI | Imagen 4 Fast | Cost-effective backgrounds and textures | 1K |
+| Google Vertex AI / Gemini API | Imagen 4 Standard / Ultra | Cost-effective, dual-pricing (Vertex flat / Dev API token) | 1K, 2K |
+| Google Gemini API | Nano Banana Flash | Full ladder, cheap-to-mid hero renders | 0.5K, 1K, 2K, 4K |
+| Google Gemini API | Nano Banana Pro | Premium hero renders, character-rich output | 1K, 2K, 4K |
+| FAL.ai | FLUX.2 Pro | Photorealism (caps at 2048²) | 1K, 2K |
+| FAL.ai | Ideogram 3.0 | Typography | 1K |
+
+#### Resolution Selection
+
+`generate_cloud_image()` accepts a unified `resolution=` kwarg (`"512" | "1K" | "2K" | "4K"`, default `"1K"`). The value is normalised to uppercase-K before dispatch and mapped to each provider's native field (`size` for OpenAI, `image_size`/`imageConfig.imageSize` for Google, `image_size` for FAL). When a provider or model does not support the requested resolution, `ProviderResolutionUnsupportedError` is raised; the exception carries `supported_resolutions` metadata so the caller can retry at the nearest supported tier. Explicit provider-specific kwargs (e.g. `size=`, `image_size=`) take precedence over the `resolution=`-derived value with a logger warning. Imagen 4 pricing is dual-tier: flat per-image when authenticated via `GOOGLE_APPLICATION_CREDENTIALS` (Vertex), token-based when authenticated via `GOOGLE_API_KEY` (Gemini Developer API); `estimate_google_cost()` auto-detects the active backend from env vars.
 
 ### Cloud Icon Generation (`cloud-generate-icon`)
 
@@ -480,7 +488,7 @@ For `backdrop` slides, template positions are targets -- vision analysis may adj
 | Ollama Icon Generation | `ollama-generate-icon` | -- | -- | Upstream (do not fork) |
 | Ollama Pattern Generation | `ollama-generate-pattern` | -- | -- | Upstream (do not fork) |
 | Ollama Diagram Generation | `ollama-generate-diagram` | -- | -- | Upstream (do not fork) |
-| Cloud Image Generation | `cloud-generate-image` | `src/generate_cloud_image.py` | 49 | Done (Phase 4B) |
+| Cloud Image Generation | `cloud-generate-image` | `src/generate_cloud_image.py` | ~84 | Done (Phase 4B + resolution control) |
 | Cloud Icon Generation | `cloud-generate-icon` | `src/generate_cloud_icon.py` | 28 | Done (Phase 4B) |
 | Chart Rendering | `chart-renderer` | `src/render_chart.py` | 15 | Done (Phase 1) |
 | Image Post-Processing | `image-processor` | `src/process_image.py` | 19 | Done (Phase 4A) |

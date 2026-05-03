@@ -4,10 +4,10 @@
     "id": "jack-tar-deckhand",
     "name": "Jack-Tar Deckhand — Presentation Engineering",
     "description": "AI-First Business Service Architecture for a Claude Code skill suite that generates conference-quality PowerPoint presentations. Services are designed as independent, reusable domains orchestrated by a Deck Conductor agent.",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "organisation": "Jack-Tar",
     "createdDate": "2026-03-29",
-    "lastModifiedDate": "2026-04-03",
+    "lastModifiedDate": "2026-05-03",
     "authors": ["Steve Jones", "Claude"],
     "status": "draft"
   },
@@ -198,7 +198,7 @@
       "level": 2,
       "parentId": "image-services",
       "serviceType": "core",
-      "mission": "Generate images via cloud APIs (OpenAI GPT Image 1.5, Google Imagen 4, FLUX.2 Pro) with provider routing based on availability and asset type.",
+      "mission": "Generate images via cloud APIs (OpenAI GPT Image 1.5, Google Imagen 4, Google Nano Banana Pro/Flash, FLUX.2 Pro) at requested resolution (1K / 2K / 4K) with provider routing based on availability, asset type, and per-model resolution support. Unsupported provider/model/resolution combinations raise ProviderResolutionUnsupportedError carrying the closest supported tier so callers can retry.",
       "owner": "Steve Jones",
       "isAIPersona": false,
       "tags": ["l2", "skill", "cloud-generate-image", "cloud"]
@@ -796,7 +796,7 @@
       "id": "sys-openai",
       "name": "OpenAI API",
       "type": "Cloud image generation API",
-      "description": "GPT Image 1.5 — highest quality general-purpose image generation. Best text rendering, strong prompt adherence. $0.009-$0.133/image depending on quality tier. Requires OPENAI_API_KEY.",
+      "description": "GPT Image 1.5 — highest quality general-purpose image generation. Best text rendering, strong prompt adherence. $0.009-$0.133/image depending on quality tier. Resolution: 1K only (1024×1024 / 1536×1024 / 1024×1536); 2K/4K requests raise ProviderResolutionUnsupportedError. Requires OPENAI_API_KEY.",
       "serviceAssociations": [
         {
           "serviceId": "image-cloud-generate",
@@ -809,7 +809,7 @@
       "id": "sys-google-vertex",
       "name": "Google Vertex AI",
       "type": "Cloud image generation API",
-      "description": "Imagen 4 and Gemini Flash — cost-effective image generation. Imagen 4 Fast at $0.02/image is the budget workhorse for backgrounds and textures. Requires GOOGLE_CLOUD_PROJECT and service account.",
+      "description": "Imagen 4 (Fast/Standard/Ultra) and Gemini 3 Image (Nano Banana Pro/Flash) — cost-effective image generation across the 1K/2K/4K ladder. Imagen 4 Fast at $0.02/image (1K only) is the budget workhorse for backgrounds; Nano Banana Flash supports 0.5K/1K/2K/4K ($0.045-$0.151); Nano Banana Pro supports 1K/2K/4K ($0.134-$0.24) for hero renders. Imagen pricing is dual-tier — flat per-image on Vertex (GOOGLE_APPLICATION_CREDENTIALS) vs token-based on Gemini Developer API (GOOGLE_API_KEY); jack-tar-cloud auto-detects via env var. Requires GOOGLE_CLOUD_PROJECT + service account, OR GOOGLE_API_KEY for the Developer API path.",
       "serviceAssociations": [
         {
           "serviceId": "image-cloud-generate",
@@ -822,7 +822,7 @@
       "id": "sys-fal",
       "name": "FAL.ai",
       "type": "Cloud model aggregator API",
-      "description": "Unified access to 600+ models including FLUX.2 Pro (photorealism), Recraft V4 (SVG icons), and Ideogram 3.0 (typography). Single API key. Recommended aggregation layer. Requires FAL_KEY.",
+      "description": "Unified access to 600+ models including FLUX.2 Pro (photorealism), Recraft V4 (SVG icons), and Ideogram 3.0 (typography). FLUX.2 Pro supports 1K/2K (caps at 2048²); 4K requests raise ProviderResolutionUnsupportedError. Single API key — recommended aggregation layer. Requires FAL_KEY.",
       "serviceAssociations": [
         {
           "serviceId": "image-cloud-generate",
@@ -1044,21 +1044,21 @@
       "sourceId": "image-cloud-generate",
       "targetId": "sys-openai",
       "type": "invocation",
-      "description": "Cloud skills call OpenAI API for GPT Image 1.5 generation"
+      "description": "Cloud skills call OpenAI API for GPT Image 1.5 generation. Resolution maps to native size kwarg (1K only — 2K/4K requests raise ProviderResolutionUnsupportedError before the call is made)."
     },
     {
       "id": "int-cloud-skills-to-google",
       "sourceId": "image-cloud-generate",
       "targetId": "sys-google-vertex",
       "type": "invocation",
-      "description": "Cloud skills call Google Vertex AI for Imagen 4 generation"
+      "description": "Cloud skills call Google for image generation. Imagen 4 (1K/2K) via Vertex AI predict endpoint or Gemini Developer API; Nano Banana Pro/Flash (1K/2K/4K) via Gemini generateContent endpoint with imageConfig.imageSize. Resolution kwarg is normalised to uppercase-K before dispatch."
     },
     {
       "id": "int-cloud-skills-to-fal",
       "sourceId": "image-cloud-generate",
       "targetId": "sys-fal",
       "type": "invocation",
-      "description": "Cloud skills call FAL.ai for FLUX.2 and Ideogram generation"
+      "description": "Cloud skills call FAL.ai for FLUX.2 and Ideogram generation. Resolution maps to native image_size kwarg (preset for 1K, explicit width/height dict for 2K). Explicit caller-supplied image_size= overrides resolution-derived dict."
     },
     {
       "id": "int-cloud-icon-to-recraft",
@@ -1448,6 +1448,19 @@
         { "name": "prohibited_image_styles", "type": "array", "description": "Image styles prohibited by brand guidelines (e.g., 'cartoon', 'stock photo clichés')" },
         { "name": "compliance_mode", "type": "string", "description": "Brand compliance enforcement level: 'strict' (exact colours/fonts only) or 'guided' (brand-inspired with creative latitude)" },
         { "name": "extracted_at", "type": "string", "description": "ISO 8601 timestamp of when the profile was created or last updated" }
+      ]
+    },
+    {
+      "id": "contract-available-providers",
+      "name": "AvailableProviders",
+      "description": "Runtime manifest of which cloud and local image-generation providers are reachable in the current environment, what models each exposes, and what resolutions each model supports. Produced by provider_discovery.discover_providers() at the start of each pipeline run; consumed by the routing layer for model selection and by the cost estimator for tier selection.",
+      "producedBy": "image-routing-discovery",
+      "consumedBy": ["image-cloud-generate", "image-keynote-rendering", "deck-conductor"],
+      "fields": [
+        { "name": "providers", "type": "object", "description": "Keyed by provider id (openai | google | fal | recraft | ollama). Each value carries availability flag, missing-credential reason, and a models map." },
+        { "name": "providers[].models", "type": "object", "description": "Keyed by model id (e.g. gpt-image-1.5, gemini-3-pro-image-preview, gemini-3.1-flash-image-preview, imagen-4.0-fast-generate-001, fal-ai/flux-2-pro). Each value carries supported_resolutions, cost_table_ref, and capability flags." },
+        { "name": "providers[].models[].supported_resolutions", "type": "array", "description": "List of resolution tiers the model honours: subset of [\"512\", \"1K\", \"2K\", \"4K\"]. Routing must intersect this with the requested resolution before dispatch." },
+        { "name": "providers[].models[].pricing_backend", "type": "string", "description": "For Google Imagen models only: \"vertex\" (flat per-image) or \"developer\" (token-based), auto-detected from GOOGLE_APPLICATION_CREDENTIALS vs GOOGLE_API_KEY env vars." }
       ]
     }
   ],

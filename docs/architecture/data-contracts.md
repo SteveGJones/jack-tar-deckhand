@@ -404,15 +404,16 @@ The runtime manifest of which image generation providers are available for this 
 
 | Field | Type | Description |
 |---|---|---|
-| `ollama` | object | Available: boolean, models: string[], endpoint: string |
-| `openai` | object | Available: boolean, model: string |
-| `google_vertex` | object | Available: boolean, model: string |
-| `fal` | object | Available: boolean, models: string[] |
-| `recraft` | object | Available: boolean, model: string |
+| `providers` | object | Keyed by provider id (`openai` \| `google` \| `fal` \| `recraft` \| `ollama`). Each entry carries availability flag, missing-credential reason, and a `models` map. |
+| `providers[].models` | object | Keyed by model id (e.g. `gpt-image-1.5`, `gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`, `imagen-4.0-fast-generate-001`, `fal-ai/flux-2-pro`). Each entry carries `supported_resolutions`, `cost_table_ref`, and capability flags. |
+| `providers[].models[].supported_resolutions` | array | Resolution tiers the model honours: subset of `["512", "1K", "2K", "4K"]`. Routing intersects this with the requested `resolution=` before dispatch. Added by jack-tar-cloud v1.2.0 (cloud resolution control, #59). |
+| `providers[].models[].pricing_backend` | string | For Google Imagen models only: `"vertex"` (flat per-image) or `"developer"` (token-based), auto-detected from `GOOGLE_APPLICATION_CREDENTIALS` vs `GOOGLE_API_KEY` env vars. |
+
+> **Note (jack-tar-cloud v1.2.0):** Per-model `supported_resolutions` is now a first-class routing decision input rather than a debug aid. The contract is formally defined in the canonical model (`contract-available-providers`). See #60 for the routing layer changes that consume it.
 
 ### Lifecycle
 
-1. Produced by imagegen-bridge at the start of the image generation phase
+1. Produced by `provider_discovery.discover_providers()` at the start of each pipeline run
 2. Reported to the Deck Conductor in conversation context
 3. Conductor confirms available capabilities with the Speaker before proceeding
 4. Not persisted as a separate file (captured in pipeline-state.json if needed)

@@ -63,7 +63,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 ### Current Status (2026-04-16)
 
-- **BSA Architecture:** v1.4.0, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics
+- **BSA Architecture:** v1.4.1, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics + cloud resolution control (1K/2K/4K)
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
 
