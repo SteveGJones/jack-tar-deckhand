@@ -223,3 +223,9 @@ node_modules/
 
 # Output decks (generated, not version controlled)
 output/
+
+# Archon workflow infrastructure — caches and build outputs
+.archon/inputs/*
+!.archon/inputs/README.md
+.archon/teams/.generated/
+.archon/workflows/.generated/

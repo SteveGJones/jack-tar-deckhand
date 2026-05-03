@@ -1,0 +1,29 @@
+schema_version: '1.0'
+name: docs-team
+description: 'Documentation team for README sweeps, plugin CLAUDE.md cross-referencing,
+  decision-tree authoring, and onboarding content. Reusable across docs-only initiatives.
+  Composes documentation-architect (information architecture + docs strategy), technical-writer
+  (prose + plain-language drafting), and ux-ui-architect (decision-tree clarity, accessibility
+  review of the reader''s path). Brainstorming and doc-coauthoring skills support
+  iterative collaborative drafting under speaker review.
+
+  '
+status: active
+created: 2026-05-02
+updated: '2026-05-02T08:10:41.741172+00:00'
+plugins:
+- sdlc-team-docs
+- sdlc-team-fullstack
+- superpowers
+- document-skills
+agents:
+- sdlc-team-docs:documentation-architect
+- sdlc-team-docs:technical-writer
+- sdlc-team-fullstack:ux-ui-architect
+skills:
+- superpowers:brainstorming
+- document-skills:doc-coauthoring
+context:
+- CONSTITUTION.md
+- CLAUDE.md
+image_built: '2026-05-02T08:10:41.741172+00:00'
