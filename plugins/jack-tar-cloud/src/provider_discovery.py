@@ -184,13 +184,57 @@ def discover_providers(config_path='provider_config.json'):
         config_path: Optional path to provider_config.json for env var overrides.
 
     Returns:
-        dict: {
-            'ollama': {'available': bool, 'models': list[str], 'endpoint': str},
-            'openai': {'available': bool, 'model': str, 'env_var_found': str|None},
-            'google': {'available': bool, 'model': str, 'env_var_found': str|None},
-            'fal': {'available': bool, 'models': list[str]},
-            'recraft': {'available': bool, 'model': str, 'env_var_found': str|None},
-        }
+        dict: Per-provider availability and capability metadata.
+            Each provider entry contains 'available' (bool) plus provider-specific
+            fields. For openai/google/fal, a 'models' dict is attached with
+            per-model resolution capability after the base probe completes:
+
+            {
+                'ollama': {
+                    'available': bool,
+                    'models': list[str],   # list of installed model name strings
+                    'endpoint': str,
+                },
+                'openai': {
+                    'available': bool,
+                    'model': str,
+                    'env_var_found': str|None,
+                    'models': {
+                        'gpt-image-1.5': {'supported_resolutions': ['1K']},
+                    },
+                },
+                'google': {
+                    'available': bool,
+                    'model': str,
+                    'env_var_found': str|None,
+                    'models': {
+                        'imagen-4.0-fast-generate-001': {'supported_resolutions': ['1K']},
+                        'imagen-4.0-generate-001': {'supported_resolutions': ['1K', '2K']},
+                        'imagen-4.0-ultra-generate-001': {'supported_resolutions': ['1K', '2K']},
+                        'gemini-3.1-flash-image-preview': {'supported_resolutions': ['512', '1K', '2K', '4K']},
+                        'gemini-3-pro-image-preview': {'supported_resolutions': ['1K', '2K', '4K']},
+                    },
+                },
+                'fal': {
+                    'available': bool,
+                    'models': {
+                        'fal-ai/flux-2-pro': {'supported_resolutions': ['1K', '2K']},
+                        'fal-ai/flux-2-klein': {'supported_resolutions': ['1K']},
+                        'fal-ai/ideogram/v3': {'supported_resolutions': ['1K']},
+                    },
+                },
+                'recraft': {
+                    'available': bool,
+                    'model': str,
+                    'env_var_found': str|None,
+                    # no 'models' key — recraft is not in _PROVIDER_MODEL_RESOLUTIONS
+                },
+            }
+
+            Note: ollama 'models' is a list[str] of installed model name strings
+            (no resolution metadata — Ollama is a local model lister, not a
+            resolution-capable cloud provider). Only openai/google/fal gain the
+            per-model resolution surface via _PROVIDER_MODEL_RESOLUTIONS.
     """
     config = _load_config(config_path)
 
