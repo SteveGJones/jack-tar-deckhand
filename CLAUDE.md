@@ -49,9 +49,21 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
+### Current Status (2026-05-03)
+
+- **Cloud Resolution Control (Issue #59 — landed):** `jack-tar-cloud` v1.2.0 adds a unified `resolution=` kwarg routing 1K / 2K / 4K to each provider's native API field. New `ProviderResolutionUnsupportedError` carries supported-tier metadata for retry. Per-model capability surfaced via `provider_discovery.discover_providers()`. Imagen dual-pricing detection (Vertex flat vs Gemini Developer API token-based) wired into `estimate_google_cost`.
+  - **What's wired:** Nano Banana Pro (1K/2K/4K), Nano Banana Flash (0.5K/1K/2K/4K), Imagen Standard/Ultra (1K/2K), Imagen Fast (1K only), FLUX 2 Pro (1K/2K). 4K ladder validated end-to-end on real API ($0.659 smoke-test spend).
+  - **What's deferred:** SKILL.md surface, render funnel `cloud_2k`/`cloud_4k` stages, image-router upgrade tiers, cross-tier refinement loop integration → Issue #60. Recraft V4 raster as first-class provider → Issue #61.
+  - **EPIC:** [#58](https://github.com/SteveGJones/jack-tar-deckhand/issues/58) (1 of 4 child issues complete; #62 docs already merged via PR #63)
+  - **Spec:** `docs/superpowers/specs/2026-05-02-cloud-resolution-control-design.md`
+  - **Plan:** `docs/superpowers/plans/2026-05-02-cloud-resolution-control.md` (10 phases, all complete)
+  - **Spike:** `docs/spikes/2026-05-02-google-genai-image-config-spike.md` (PATH-B: typed `ImageConfig` from `google.genai.types`)
+  - **Smoke test:** `docs/superpowers/dogfooding/2026-05-03-resolution-smoke-test.md` — Jack Tar wallchart through Ollama → Flash 1K → Flash 4K → Pro 1K → Pro 4K. Pro 4K hero render at 4096×4096 in `output/smoke-test-jack-tar-on-a-page/pro-4k/render.png`. Real bug caught: legacy `src/` at worktree root collides with plugin `src/` on direct Python invocation (does not affect skill-based invocation; documented in dogfood report).
+  - **Tests:** 50 unit tests in `plugins/jack-tar-cloud/tests/` (was 4 before this work).
+
 ### Current Status (2026-04-16)
 
-- **BSA Architecture:** v1.4.0, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics
+- **BSA Architecture:** v1.4.1, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics + cloud resolution control (1K/2K/4K)
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
 

@@ -16,7 +16,7 @@ from pathlib import Path
 import fal_client
 import requests
 from google import genai
-from google.genai.types import GenerateContentConfig, GenerateImagesConfig
+from google.genai.types import GenerateContentConfig, GenerateImagesConfig, ImageConfig
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,61 @@ class ProviderNotConfiguredError(Exception):
 
 class ProviderNotImplementedError(NotImplementedError):
     """Raised when a provider is configured but implementation is pending."""
+
+
+class ProviderResolutionUnsupportedError(ValueError):
+    """Raised when a provider/model combination cannot honour the requested resolution.
+
+    Carries the closest supported tier so callers can retry intelligently.
+    """
+
+    def __init__(self, provider, model, requested, supported):
+        self.provider = provider
+        self.model = model
+        self.requested = requested
+        self.supported = supported
+        super().__init__(
+            f"{provider}/{model} does not support resolution={requested!r}. "
+            f"Supported: {supported}. Retry with one of those, or pick a "
+            f"different model."
+        )
+
+
+# --- Resolution normalisation -----------------------------------------------
+
+_VALID_RESOLUTIONS = ("512", "1K", "2K", "4K")
+
+
+def _normalise_resolution(resolution):
+    """Case-fold and validate a resolution string.
+
+    '1k' -> '1K'.  '512' -> '512'.  '8K' raises ValueError.
+
+    Args:
+        resolution: str — one of '512', '1K', '2K', '4K' (case-insensitive
+            for the K-suffixed values).
+
+    Returns:
+        str: normalised value.
+
+    Raises:
+        TypeError: resolution is not a string.
+        ValueError: resolution is not one of the recognised values.
+    """
+    if not isinstance(resolution, str):
+        raise TypeError(
+            f"resolution must be str, got {type(resolution).__name__}"
+        )
+    stripped = resolution.strip()
+    upper = stripped.upper()
+    if upper in {"1K", "2K", "4K"}:
+        return upper
+    if stripped == "512":
+        return "512"
+    raise ValueError(
+        f"resolution={resolution!r} not recognised. "
+        f"Valid values: {_VALID_RESOLUTIONS}"
+    )
 
 
 # --- Cost tables (from research/04-cloud-api-setup-licensing.md) ---
@@ -67,11 +122,40 @@ def estimate_openai_cost(size='1536x1024', quality='medium'):
     return _OPENAI_COSTS[key]
 
 
-_GOOGLE_COSTS = {
-    'imagen-4.0-fast-generate-001': 0.020,
-    'imagen-4.0-generate-001': 0.040,
-    'gemini-3.1-flash-image-preview': 0.067,
-    'gemini-3-pro-image-preview': 0.134,
+# Google Imagen has dual pricing depending on backend:
+#   - Vertex AI (GOOGLE_APPLICATION_CREDENTIALS): flat per-image pricing
+#   - Gemini Developer API (GOOGLE_API_KEY only): token-based, 2K is dearer
+# Nano Banana Pro/Flash bill identically on both backends (per-image).
+
+# Per-resolution costs (provider-agnostic, used for Nano Banana too).
+# Sourced from research May 2026; see EPIC #58 pricing table.
+_NANO_BANANA_COSTS = {
+    ('gemini-3-pro-image-preview', '1K'): 0.134,
+    ('gemini-3-pro-image-preview', '2K'): 0.134,
+    ('gemini-3-pro-image-preview', '4K'): 0.24,
+    ('gemini-3.1-flash-image-preview', '512'): 0.045,
+    ('gemini-3.1-flash-image-preview', '1K'): 0.067,
+    ('gemini-3.1-flash-image-preview', '2K'): 0.101,
+    ('gemini-3.1-flash-image-preview', '4K'): 0.151,
+}
+
+# Imagen Vertex AI flat pricing (per-tier, uniform within tier).
+_IMAGEN_VERTEX_COSTS = {
+    ('imagen-4.0-fast-generate-001', '1K'): 0.020,
+    ('imagen-4.0-generate-001', '1K'): 0.040,
+    ('imagen-4.0-generate-001', '2K'): 0.040,
+    ('imagen-4.0-ultra-generate-001', '1K'): 0.060,
+    ('imagen-4.0-ultra-generate-001', '2K'): 0.060,
+}
+
+# Imagen Gemini Developer API token-based pricing.
+# 1K matches Vertex flat; 2K is dearer (1680 tokens at the Imagen rate).
+_IMAGEN_DEVELOPER_COSTS = {
+    ('imagen-4.0-fast-generate-001', '1K'): 0.020,
+    ('imagen-4.0-generate-001', '1K'): 0.040,
+    ('imagen-4.0-generate-001', '2K'): 0.101,
+    ('imagen-4.0-ultra-generate-001', '1K'): 0.060,
+    ('imagen-4.0-ultra-generate-001', '2K'): 0.101,  # treat as token-based too
 }
 
 # Models that use generate_content API (Nano Banana) vs generate_images API (Imagen 4)
@@ -83,27 +167,69 @@ _NANO_BANANA_MODELS = {
 _IMAGEN_MODELS = {
     'imagen-4.0-generate-001',
     'imagen-4.0-fast-generate-001',
+    'imagen-4.0-ultra-generate-001',
+}
+
+# Per-model supported resolutions (used by validation and discovery).
+_MODEL_RESOLUTIONS = {
+    'imagen-4.0-fast-generate-001': ['1K'],
+    'imagen-4.0-generate-001': ['1K', '2K'],
+    'imagen-4.0-ultra-generate-001': ['1K', '2K'],
+    'gemini-3.1-flash-image-preview': ['512', '1K', '2K', '4K'],
+    'gemini-3-pro-image-preview': ['1K', '2K', '4K'],
 }
 
 
-def estimate_google_cost(model='gemini-3.1-flash-image-preview'):
+def estimate_google_cost(model='gemini-3.1-flash-image-preview', resolution='1K'):
     """Return estimated USD cost for a Google image generation call.
+
+    For Imagen models, billing depends on which Google backend the SDK uses:
+      - GOOGLE_APPLICATION_CREDENTIALS set -> Vertex AI flat per-image
+      - GOOGLE_API_KEY only -> Gemini Developer API token-based
+
+    Nano Banana Pro/Flash bill identically across both backends.
 
     Args:
         model: Google model name.
+        resolution: '512' | '1K' | '2K' | '4K' (case-insensitive). Default '1K'.
 
     Returns:
         float: Estimated cost in USD.
 
     Raises:
-        ValueError: If the model is unknown.
+        ValueError: If the model/resolution combination is unknown.
     """
-    if model not in _GOOGLE_COSTS:
-        raise ValueError(
-            f"Unknown Google model: {model}. "
-            f"Valid models: {list(_GOOGLE_COSTS)}"
+    resolution = _normalise_resolution(resolution)
+
+    if model in _NANO_BANANA_MODELS:
+        key = (model, resolution)
+        if key not in _NANO_BANANA_COSTS:
+            raise ValueError(
+                f"Unknown Nano Banana model/resolution: {model}/{resolution}. "
+                f"Supported: {sorted(k for k in _NANO_BANANA_COSTS if k[0] == model)}"
+            )
+        return _NANO_BANANA_COSTS[key]
+
+    if model in _IMAGEN_MODELS:
+        # Detect backend: Vertex (ADC) wins over Developer API if both are set.
+        backend = (
+            'vertex'
+            if os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+            else 'developer'
         )
-    return _GOOGLE_COSTS[model]
+        table = _IMAGEN_VERTEX_COSTS if backend == 'vertex' else _IMAGEN_DEVELOPER_COSTS
+        key = (model, resolution)
+        if key not in table:
+            raise ValueError(
+                f"Unknown Imagen model/resolution: {model}/{resolution} "
+                f"(backend={backend}). Check supported_resolutions for this model."
+            )
+        return table[key]
+
+    raise ValueError(
+        f"Unknown Google model: {model}. "
+        f"Valid models: {sorted(_NANO_BANANA_MODELS | _IMAGEN_MODELS)}"
+    )
 
 
 # FAL.ai cost data (from research/04-cloud-api-setup-licensing.md)
@@ -132,6 +258,26 @@ _FAL_SIZE_MEGAPIXELS = {
 }
 
 _FAL_FALLBACK_COST = 0.045  # Conservative fallback for unknown models
+
+# FAL FLUX 2 Pro caps at 2048x2048. Higher tiers raise.
+_FAL_RESOLUTION_TO_IMAGE_SIZE = {
+    'fal-ai/flux-2-pro': {
+        '1K': 'landscape_16_9',  # existing preset (~1MP)
+        '2K': {'width': 2048, 'height': 2048},
+    },
+    'fal-ai/flux-2-klein': {
+        '1K': 'landscape_16_9',
+    },
+    'fal-ai/ideogram/v3': {
+        '1K': 'landscape_16_9',
+    },
+}
+
+# Derived from _FAL_RESOLUTION_TO_IMAGE_SIZE so the two tables can never drift.
+_FAL_SUPPORTED_RESOLUTIONS = {
+    model: list(mapping.keys())
+    for model, mapping in _FAL_RESOLUTION_TO_IMAGE_SIZE.items()
+}
 
 
 def estimate_fal_cost(model='fal-ai/flux-2-pro', image_size='landscape_16_9'):
@@ -167,29 +313,56 @@ def estimate_fal_cost(model='fal-ai/flux-2-pro', image_size='landscape_16_9'):
 
 # --- Provider implementations ---
 
-def generate_openai(prompt, output_path, size='1536x1024', quality='medium',
-                    background='auto', model='gpt-image-1.5'):
+def generate_openai(prompt, output_path, *, resolution='1K', size=None,
+                    quality='medium', background='auto', model='gpt-image-1.5'):
     """Generate an image using OpenAI GPT Image API.
 
     Args:
         prompt: Text prompt for image generation.
         output_path: Where to save the generated PNG.
-        size: Image dimensions ('1024x1024', '1536x1024', '1024x1536').
+        resolution: '1K' only (gpt-image-1.5 caps at ~1.5MP). '2K'/'4K'/'512'
+            raise ProviderResolutionUnsupportedError. Default '1K'.
+        size: Explicit dimensions ('1024x1024', '1536x1024', '1024x1536').
+            If provided, takes precedence over resolution. If None, derived
+            from resolution.
         quality: Quality tier ('low', 'medium', 'high').
         background: Background type ('auto', 'transparent').
         model: Model name.
 
     Returns:
-        dict: {file_path, provider, model_used, cost_usd, status}
+        dict: {file_path, provider, model_used, cost_usd, status, resolution}
 
     Raises:
         ProviderNotConfiguredError: If OPENAI_API_KEY is not set.
+        ProviderResolutionUnsupportedError: resolution='2K'/'4K'/'512' and
+            no explicit size provided.
     """
     if not os.environ.get('OPENAI_API_KEY'):
         raise ProviderNotConfiguredError(
             'OpenAI not configured: OPENAI_API_KEY environment variable is not set. '
             'See research/04-cloud-api-setup-licensing.md section A for setup.'
         )
+
+    resolution = _normalise_resolution(resolution)
+
+    # Validate resolution unless an explicit size is given.
+    # When size is explicit, the user's intent overrides resolution semantics
+    # — we use the size and log a warning if there's a mismatch.
+    if size is None:
+        if resolution != '1K':
+            raise ProviderResolutionUnsupportedError(
+                provider='openai', model=model,
+                requested=resolution, supported=['1K'],
+            )
+        # Default 1K mapping for OpenAI
+        size = '1024x1024'
+    else:
+        if resolution != '1K':
+            logger.warning(
+                'OpenAI: explicit size=%r overrides resolution=%r; '
+                'using size, ignoring resolution. (gpt-image-1.5 caps at 1.5MP.)',
+                size, resolution,
+            )
 
     output_format = 'png' if background == 'transparent' else 'png'
 
@@ -217,17 +390,12 @@ def generate_openai(prompt, output_path, size='1536x1024', quality='medium',
         'model_used': model,
         'cost_usd': cost,
         'status': 'generated',
+        'resolution': resolution,
     }
 
 
 def generate_google(prompt, output_path, **kwargs):
     """Generate an image using Google Nano Banana or Imagen 4 APIs.
-
-    Two API paths are supported:
-    - Nano Banana models (generate_content API): gemini-3.1-flash-image-preview,
-      gemini-3-pro-image-preview
-    - Imagen 4 models (generate_images API): imagen-4.0-generate-001,
-      imagen-4.0-fast-generate-001
 
     Auth: GOOGLE_API_KEY (Gemini Developer API) or
           GOOGLE_APPLICATION_CREDENTIALS (Vertex AI).
@@ -238,12 +406,15 @@ def generate_google(prompt, output_path, **kwargs):
         **kwargs: Optional arguments:
             model: Model name (default: 'gemini-3.1-flash-image-preview').
             aspect_ratio: Aspect ratio for Imagen 4 (e.g. '16:9', '1:1').
+            resolution: '512' | '1K' | '2K' | '4K'. Default '1K'.
+                Per-model support varies; see _MODEL_RESOLUTIONS.
 
     Returns:
-        dict: {file_path, provider, model_used, cost_usd, status}
+        dict: {file_path, provider, model_used, cost_usd, status, resolution}
 
     Raises:
         ProviderNotConfiguredError: If neither Google auth env var is set.
+        ProviderResolutionUnsupportedError: model doesn't support resolution.
     """
     api_key = os.environ.get('GOOGLE_API_KEY')
     has_adc = bool(os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'))
@@ -256,6 +427,20 @@ def generate_google(prompt, output_path, **kwargs):
 
     model = kwargs.get('model', 'gemini-3.1-flash-image-preview')
     aspect_ratio = kwargs.get('aspect_ratio', '16:9')
+    resolution = _normalise_resolution(kwargs.get('resolution', '1K'))
+
+    # Validate resolution against per-model capability
+    supported = _MODEL_RESOLUTIONS.get(model)
+    if supported is None:
+        raise ValueError(
+            f"Unknown Google model: {model}. "
+            f"Valid: {sorted(_NANO_BANANA_MODELS | _IMAGEN_MODELS)}"
+        )
+    if resolution not in supported:
+        raise ProviderResolutionUnsupportedError(
+            provider='google', model=model,
+            requested=resolution, supported=supported,
+        )
 
     # Build client — use API key if available, otherwise ADC
     client_kwargs = {}
@@ -264,9 +449,9 @@ def generate_google(prompt, output_path, **kwargs):
     client = genai.Client(**client_kwargs)
 
     if model in _NANO_BANANA_MODELS:
-        image_bytes = _generate_via_nano_banana(client, model, prompt)
+        image_bytes = _generate_via_nano_banana(client, model, prompt, resolution)
     elif model in _IMAGEN_MODELS:
-        image_bytes = _generate_via_imagen(client, model, prompt, aspect_ratio)
+        image_bytes = _generate_via_imagen(client, model, prompt, aspect_ratio, resolution)
     else:
         raise ValueError(
             f"Unknown Google model: {model}. "
@@ -276,8 +461,11 @@ def generate_google(prompt, output_path, **kwargs):
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(image_bytes)
 
-    cost = estimate_google_cost(model=model)
-    logger.info('Google image generated: %s (model: %s, cost: $%.3f)', output_path, model, cost)
+    cost = estimate_google_cost(model=model, resolution=resolution)
+    logger.info(
+        'Google image generated: %s (model: %s, resolution: %s, cost: $%.3f)',
+        output_path, model, resolution, cost,
+    )
 
     return {
         'file_path': str(output_path),
@@ -285,11 +473,21 @@ def generate_google(prompt, output_path, **kwargs):
         'model_used': model,
         'cost_usd': cost,
         'status': 'generated',
+        'resolution': resolution,
     }
 
 
-def _generate_via_nano_banana(client, model, prompt):
-    """Generate image via Nano Banana (generate_content API).
+def _generate_via_nano_banana(client, model, prompt, resolution='1K'):
+    """Generate image via Nano Banana (generate_content API) at given resolution.
+
+    Uses PATH-B per spike (docs/spikes/2026-05-02-google-genai-image-config-spike.md):
+    typed ImageConfig from google.genai.types.
+
+    Args:
+        client: google.genai.Client instance.
+        model: 'gemini-3-pro-image-preview' or 'gemini-3.1-flash-image-preview'.
+        prompt: text prompt.
+        resolution: '512' | '1K' | '2K' | '4K' (must be supported by model).
 
     Returns:
         bytes: Raw image bytes from the response.
@@ -299,6 +497,7 @@ def _generate_via_nano_banana(client, model, prompt):
     """
     config = GenerateContentConfig(
         response_modalities=['IMAGE', 'TEXT'],
+        image_config=ImageConfig(image_size=resolution),
     )
     response = client.models.generate_content(
         model=model,
@@ -316,8 +515,8 @@ def _generate_via_nano_banana(client, model, prompt):
     )
 
 
-def _generate_via_imagen(client, model, prompt, aspect_ratio):
-    """Generate image via Imagen 4 (generate_images API).
+def _generate_via_imagen(client, model, prompt, aspect_ratio, resolution):
+    """Generate image via Imagen 4 (generate_images API) at the given resolution.
 
     Returns:
         bytes: Raw image bytes from the response.
@@ -326,6 +525,7 @@ def _generate_via_imagen(client, model, prompt, aspect_ratio):
         number_of_images=1,
         aspect_ratio=aspect_ratio,
         output_mime_type='image/png',
+        image_size=resolution,
     )
     response = client.models.generate_images(
         model=model,
@@ -339,9 +539,6 @@ def _generate_via_imagen(client, model, prompt, aspect_ratio):
 def generate_fal(prompt, output_path, **kwargs):
     """Generate an image using FAL.ai (FLUX.2 Pro, Klein, Ideogram, etc.).
 
-    Uses fal_client.subscribe() for synchronous generation. The result
-    contains a URL which is downloaded via requests.
-
     Auth: FAL_KEY environment variable.
 
     Args:
@@ -349,16 +546,18 @@ def generate_fal(prompt, output_path, **kwargs):
         output_path: Where to save the generated PNG.
         **kwargs: Optional arguments:
             model: FAL endpoint (default: 'fal-ai/flux-2-pro').
-            image_size: FAL size preset (default: 'landscape_16_9').
-                Options: 'square_hd', 'square', 'portrait_4_3',
-                'portrait_16_9', 'landscape_4_3', 'landscape_16_9',
-                or a dict {'width': W, 'height': H}.
+            resolution: '1K' | '2K' (FLUX 2 Pro caps at 2048x2048; Klein and
+                Ideogram support 1K only). Default '1K'.
+            image_size: Explicit FAL image_size (preset string OR
+                {'width': W, 'height': H} dict). When provided, takes
+                precedence over resolution.
 
     Returns:
-        dict: {file_path, provider, model_used, cost_usd, status}
+        dict: {file_path, provider, model_used, cost_usd, status, resolution}
 
     Raises:
         ProviderNotConfiguredError: If FAL_KEY is not set.
+        ProviderResolutionUnsupportedError: model doesn't support resolution.
     """
     if not os.environ.get('FAL_KEY'):
         raise ProviderNotConfiguredError(
@@ -367,7 +566,32 @@ def generate_fal(prompt, output_path, **kwargs):
         )
 
     model = kwargs.get('model', 'fal-ai/flux-2-pro')
-    image_size = kwargs.get('image_size', 'landscape_16_9')
+    resolution = _normalise_resolution(kwargs.get('resolution', '1K'))
+
+    # Determine image_size: explicit kwarg wins; otherwise resolve from resolution.
+    if 'image_size' in kwargs:
+        image_size = kwargs['image_size']
+        if resolution != '1K':
+            logger.warning(
+                'FAL: explicit image_size=%r overrides resolution=%r.',
+                image_size, resolution,
+            )
+    else:
+        # Validate the resolution against per-model capability
+        supported = _FAL_SUPPORTED_RESOLUTIONS.get(model, ['1K'])
+        if resolution not in supported:
+            raise ProviderResolutionUnsupportedError(
+                provider='fal', model=model,
+                requested=resolution, supported=supported,
+            )
+        # Map resolution -> image_size
+        mapping = _FAL_RESOLUTION_TO_IMAGE_SIZE.get(model, {})
+        if resolution not in mapping:
+            raise ProviderResolutionUnsupportedError(
+                provider='fal', model=model,
+                requested=resolution, supported=list(mapping.keys()),
+            )
+        image_size = mapping[resolution]
 
     result = fal_client.subscribe(model, arguments={
         'prompt': prompt,
@@ -383,7 +607,10 @@ def generate_fal(prompt, output_path, **kwargs):
     Path(output_path).write_bytes(response.content)
 
     cost = estimate_fal_cost(model=model, image_size=image_size)
-    logger.info('FAL.ai image generated: %s (model: %s, cost: $%.3f)', output_path, model, cost)
+    logger.info(
+        'FAL.ai image generated: %s (model: %s, resolution: %s, cost: $%.3f)',
+        output_path, model, resolution, cost,
+    )
 
     return {
         'file_path': str(output_path),
@@ -391,6 +618,7 @@ def generate_fal(prompt, output_path, **kwargs):
         'model_used': model,
         'cost_usd': cost,
         'status': 'generated',
+        'resolution': resolution,
     }
 
 
@@ -403,25 +631,34 @@ _PROVIDERS = {
 }
 
 
-def generate_cloud_image(prompt, provider, output_path, **kwargs):
-    """Generate an image using the specified cloud provider.
+def generate_cloud_image(prompt, provider, output_path, *, resolution='1K', **kwargs):
+    """Generate an image using the specified cloud provider at the requested resolution.
 
     Args:
         prompt: Text prompt for image generation.
         provider: Provider name ('openai', 'google', 'fal').
         output_path: Where to save the generated image.
-        **kwargs: Provider-specific arguments (size, quality, etc.).
+        resolution: '512' | '1K' | '2K' | '4K' (case-insensitive, default '1K').
+            Per-provider/model support varies; ProviderResolutionUnsupportedError
+            is raised for unsupported combinations. See provider_discovery for
+            per-model capability.
+        **kwargs: Provider-specific arguments (size, model, image_size, etc.).
+            If a kwarg conflicts with `resolution` semantics, the kwarg wins
+            with a logger warning (provider-specific).
 
     Returns:
-        dict: Result from the provider function.
+        dict: Result from the provider function. Includes 'resolution' field.
 
     Raises:
-        ValueError: If provider is unknown.
+        ValueError: If provider is unknown or resolution string is invalid.
         ProviderNotConfiguredError: If provider credentials are missing.
+        ProviderResolutionUnsupportedError: provider/model can't honour resolution.
     """
     if provider not in _PROVIDERS:
         raise ValueError(
             f"Unknown provider '{provider}'. "
             f"Available: {list(_PROVIDERS)}"
         )
-    return _PROVIDERS[provider](prompt, output_path, **kwargs)
+    return _PROVIDERS[provider](
+        prompt, output_path, resolution=resolution, **kwargs,
+    )
