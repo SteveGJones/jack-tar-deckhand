@@ -14,10 +14,16 @@ def _read_skill(name):
 
 
 def _argument_hint_flags(text):
-    """Return the set of long-form CLI flags declared in argument-hint frontmatter."""
+    """Return the set of long-form CLI flags declared in argument-hint frontmatter.
+
+    Hard-fails if argument-hint is missing or wrapped onto multiple lines —
+    a silent empty-set return would disable drift detection without warning.
+    """
     match = re.search(r'^argument-hint:\s*"?(.+?)"?\s*$', text, re.MULTILINE)
-    if not match:
-        return set()
+    assert match, (
+        "SKILL.md missing single-line argument-hint frontmatter. "
+        "Multi-line YAML scalar (>, |) is not supported by the drift detector."
+    )
     hint = match.group(1)
     return set(re.findall(r'--([a-z][a-z0-9-]*)', hint))
 
@@ -42,7 +48,15 @@ def _generate_block_kwargs(text):
 # Map CLI flag name -> kwarg name expected in generate_cloud_image call.
 # A flag may legitimately be consumed before generate_cloud_image (eg. --output,
 # --provider) so it isn't required to appear as a kwarg.
-_NON_KWARG_FLAGS = {'output', 'provider', 'tier', 'colors', 'format'}
+# Flags consumed by the skill before generate_cloud_image() is called, so
+# they don't (and shouldn't) appear as kwargs on the call itself.
+_NON_KWARG_FLAGS = {
+    'output',    # consumed as output_path; CLI/kwarg naming diverges
+    'provider',  # selects which generate_cloud_image provider= value to pass
+    'tier',      # resolved to --model before call (see google-image)
+    'colors',    # recraft-icon: passed to a different function
+    'format',    # recraft-icon: SVG vs PNG selector
+}
 
 # Some flags are CLI-named differently from the kwarg
 _FLAG_TO_KWARG = {
