@@ -147,6 +147,190 @@ def _phase_c_decision(verdict: str) -> Decision:
                      reason="Pro single-shot returned refine; flag for speaker")
 
 
+@dataclass
+class EscalationRecommendation:
+    """Result of verifying whether a reviewer's verdict warrants a second opinion.
+
+    Run 8 Finding #28: Haiku's image-reviewer caught the Condor's gross text
+    corruption ("Gysmnogaps alfanianus") but missed the Thylacine's
+    fine-grained mid-word corruption ("cynogechalus" / "Tasnia") — verdict
+    was ``pass`` with confidence 0.92, even with EXACT-labels supplied.
+
+    The escalation path is NOT automatic dual-dispatch (which doubles cost on
+    every text-bearing review). It is *verification-then-confirmation*:
+
+    1. After Haiku review, the orchestrator calls
+       :func:`verify_review_evidences_comparison` with the verdict and the
+       expected-text list passed at dispatch.
+    2. The helper returns this dataclass: ``should_escalate`` is True when
+       the verdict claims a pass but the reviewer's analysis fields do NOT
+       quote any of the expected labels back. Quoting is the only evidence
+       we have that Haiku actually performed the comparison; absence of
+       quoting is the smell that triggers escalation.
+    3. The orchestrator surfaces ``reason`` to the user and asks whether to
+       dispatch a second reviewer at a higher tier (Sonnet/Opus).
+    4. Only after explicit user confirmation does the second dispatch run.
+
+    This preserves cost discipline (low-confidence reviews get scrutiny;
+    high-confidence pass-with-evidence reviews don't) and respects operator
+    agency (no silent budget-doubling on every text-bearing marker).
+    """
+
+    should_escalate: bool
+    reason: str | None = None
+    matched_labels: tuple[str, ...] = ()
+    expected_labels: tuple[str, ...] = ()
+
+
+def _collect_review_analysis_text(verdict_payload: dict[str, Any]) -> str:
+    """Concatenate the reviewer's analysis fields into a single haystack string.
+
+    The image-reviewer agent contract surfaces its analysis in three fields:
+    ``strengths`` (list of strings), ``issues`` (list of strings), and
+    ``summary`` (string), plus optional ``composition_notes`` (dict with
+    ``subject_placement``, ``scale_hierarchy``, ``text_rendering`` strings).
+    This helper flattens them all into one string for substring searches —
+    used by :func:`verify_review_evidences_comparison` to test whether
+    expected labels appear anywhere in the reviewer's prose.
+    """
+    parts: list[str] = []
+    for key in ("strengths", "issues"):
+        val = verdict_payload.get(key) or []
+        if isinstance(val, list):
+            parts.extend(str(item) for item in val)
+        else:
+            parts.append(str(val))
+    summary = verdict_payload.get("summary")
+    if summary:
+        parts.append(str(summary))
+    notes = verdict_payload.get("composition_notes")
+    if isinstance(notes, dict):
+        for key in ("subject_placement", "scale_hierarchy", "text_rendering"):
+            val = notes.get(key)
+            if val:
+                parts.append(str(val))
+    return "\n".join(parts)
+
+
+def verify_review_evidences_comparison(
+    verdict_payload: dict[str, Any],
+    expected_text_content: list[str] | tuple[str, ...] | None,
+) -> EscalationRecommendation:
+    """Decide whether a reviewer's pass verdict warrants escalation (Finding #28).
+
+    Run 8 evidence: Haiku reviewers have a character-level reliability gap.
+    With identical patch surface and identical EXACT-labels structure, Haiku
+    caught the Condor's gross corruption but missed the Thylacine's
+    fine-grained mid-word corruption. The reviewer's prose claimed
+    correctness without quoting back any of the expected labels — a smell
+    we can detect deterministically.
+
+    The verification heuristic:
+
+    - If ``expected_text_content`` is empty or None — no escalation. (The
+      marker is atmospheric; text-content fidelity is not load-bearing.)
+    - If ``verdict != "pass"`` — no escalation. (A refine verdict already
+      surfaces concrete issues the cycle can act on.)
+    - If at least one expected label appears verbatim in the reviewer's
+      prose — no escalation. (The reviewer has evidenced the comparison.)
+    - Otherwise — escalation recommended. (The reviewer claimed a pass
+      without quoting evidence; trust is unverified.)
+
+    The match is case-insensitive substring containment to tolerate small
+    rendering variations in the reviewer's prose. Labels with fewer than
+    3 alphanumeric characters are skipped to avoid false matches on common
+    short tokens (e.g. ``"of"`` would match almost any prose).
+
+    The orchestrator should surface :attr:`EscalationRecommendation.reason`
+    to the user and ask whether to dispatch a second reviewer. Escalation
+    must NOT be automatic (operator-cost discipline + Run 8 user-feedback
+    requirement: "verification escalation, and confirmation of escalation,
+    not just going from Haiku to Opus").
+    """
+    if not expected_text_content:
+        return EscalationRecommendation(should_escalate=False)
+
+    if verdict_payload.get("verdict") != "pass":
+        return EscalationRecommendation(should_escalate=False)
+
+    expected_tuple = tuple(str(item) for item in expected_text_content)
+    haystack = _collect_review_analysis_text(verdict_payload).lower()
+
+    matched: list[str] = []
+    significant: list[str] = []
+    for label in expected_tuple:
+        # Skip tokens too short to be reliably distinctive in prose.
+        alnum = "".join(ch for ch in label if ch.isalnum())
+        if len(alnum) < 3:
+            continue
+        significant.append(label)
+        if label.lower() in haystack:
+            matched.append(label)
+
+    if not significant:
+        # All expected labels were too short to verify; pass through without
+        # escalation rather than over-trigger.
+        return EscalationRecommendation(should_escalate=False)
+
+    if matched:
+        return EscalationRecommendation(
+            should_escalate=False,
+            matched_labels=tuple(matched),
+            expected_labels=expected_tuple,
+        )
+
+    return EscalationRecommendation(
+        should_escalate=True,
+        reason=(
+            f"Reviewer returned verdict=pass but did not quote any of "
+            f"{len(significant)} expected labels in its analysis. "
+            f"Haiku may have confabulated correctness without performing "
+            f"the comparison. Recommend dispatching a second reviewer at "
+            f"Sonnet/Opus tier for verification — operator confirmation "
+            f"required (Run 8 Finding #28)."
+        ),
+        matched_labels=(),
+        expected_labels=expected_tuple,
+    )
+
+
+def coerce_verdict_for_coherence(
+    verdict_payload: dict[str, Any],
+) -> tuple[dict[str, Any], bool]:
+    """Defence-in-depth guard for Run 6 Finding #21 — verdict-text contradictions.
+
+    The image-reviewer agent contract requires a final self-consistency check
+    (a ``refine`` verdict must be paired with at least one substantive issue).
+    The Run 6 motivating case slipped through anyway: a Phase B Flash review
+    returned ``verdict: refine`` while its own ``issues`` array, ``strengths``,
+    and ``summary`` confirmed the image rendered all expected text correctly.
+    The cycle would have refined-and-retried unnecessarily, burning ~$0.067
+    per affected marker on a no-op.
+
+    The guard rule (deliberately conservative):
+
+    - ``verdict == "refine"`` AND ``issues`` is empty (or missing) → coerce
+      to ``pass``. The reviewer has no concrete defect to act on, so a retry
+      cannot improve the outcome.
+
+    The original payload is not mutated — a shallow copy is returned alongside
+    a boolean indicating whether coercion happened (so callers can log the
+    coercion in the cost ledger / report).
+
+    More aggressive heuristics (e.g. detecting "verify against source"-style
+    hedges in non-empty issues lists) are deliberately out of scope here —
+    those judgments belong in the agent's self-check, not in defence-in-depth.
+    """
+    if verdict_payload.get("verdict") != "refine":
+        return verdict_payload, False
+    issues = verdict_payload.get("issues")
+    if issues:
+        return verdict_payload, False
+    coerced = dict(verdict_payload)
+    coerced["verdict"] = "pass"
+    return coerced, True
+
+
 def advance_after_review(
     *,
     state: CycleState,
@@ -158,7 +342,15 @@ def advance_after_review(
     agent and received its JSON envelope. Pure function — does not charge
     budget or mutate state. The SKILL.md is responsible for charging budget
     BEFORE calling advance_after_review (review charges are unconditional —
-    caveat #6)."""
+    caveat #6).
+
+    The verdict-coherence guard (Finding #21) is applied first, so callers
+    who consume ``advance_after_review`` directly cannot accidentally bypass
+    it. Callers that need to log the coercion should call
+    ``coerce_verdict_for_coherence`` separately and pass the returned payload
+    in.
+    """
+    verdict_payload, _ = coerce_verdict_for_coherence(verdict_payload)
     verdict = verdict_payload.get("verdict")
     if verdict not in ("pass", "refine"):
         raise ValueError(f"verdict {verdict!r} not in (pass, refine)")

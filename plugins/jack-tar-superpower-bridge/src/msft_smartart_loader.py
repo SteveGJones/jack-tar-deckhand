@@ -20,6 +20,7 @@ explicitly via ALLOWED_SYMBOLS — any expansion requires a spec amendment
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -43,6 +44,32 @@ class MsftSmartArtAPI:
     inject: callable
 
 
+def _semver_tuple(version: str) -> tuple[int, ...]:
+    """Parse a version string like ``1.2.10`` into a tuple ``(1, 2, 10)``.
+
+    Pre-release and build metadata are stripped first (semver spec):
+    ``1.2.0-alpha`` and ``1.2.0+build.5`` both parse as ``(1, 2, 0)``.
+    Non-numeric core segments parse to 0 so unparseable versions sort below
+    well-formed ones. Used by ``_candidate_roots()`` to pick the
+    highest-version cache install when multiple are present (Run 8 #27).
+    """
+    # Strip semver pre-release (-) and build metadata (+) before splitting.
+    core = version.split("-", 1)[0].split("+", 1)[0]
+    parts: list[int] = []
+    for segment in core.split("."):
+        head = ""
+        for ch in segment:
+            if ch.isdigit():
+                head += ch
+            else:
+                break
+        if not head:
+            parts.append(0)
+        else:
+            parts.append(int(head))
+    return tuple(parts) if parts else (0,)
+
+
 def _candidate_roots() -> list[Path]:
     candidates: list[Path] = []
     forced = os.environ.get("JACK_TAR_SUPERPOWER_BRIDGE_FORCE_MSFT_ROOT")
@@ -53,11 +80,30 @@ def _candidate_roots() -> list[Path]:
     home = Path.home()
     cache_root = home / ".claude" / "plugins" / "cache"
     if cache_root.exists():
-        for plugin_json in cache_root.rglob(
-            "jack-tar-msft-smartart/.claude-plugin/plugin.json"
-        ):
-            candidates.append(plugin_json.parent.parent)
-            break
+        # Python 3.14 Path.rglob does not match multi-segment patterns reliably
+        # (e.g. 'jack-tar-msft-smartart/.claude-plugin/plugin.json' returns no
+        # matches even when the file exists). Use a 2-segment pattern + parts
+        # filter so discovery works across Python versions and caught in dogfood.
+        cache_matches: list[tuple[tuple[int, ...], Path]] = []
+        for plugin_json in cache_root.rglob(".claude-plugin/plugin.json"):
+            if "jack-tar-msft-smartart" not in plugin_json.parts:
+                continue
+            plugin_root = plugin_json.parent.parent
+            try:
+                manifest = json.loads(plugin_json.read_text())
+                version = manifest.get("version", "0")
+            except (OSError, ValueError):
+                version = "0"
+            cache_matches.append((_semver_tuple(version), plugin_root))
+
+        # Run 8 Finding #27: prefer the highest-version cache install when
+        # multiple are present. ``/reload-plugins`` may re-create older
+        # versions even after they have been deleted, and the marketplace
+        # only declares one current version. Sorting by semver picks the
+        # version the marketplace intends to be current.
+        if cache_matches:
+            cache_matches.sort(key=lambda pair: pair[0], reverse=True)
+            candidates.append(cache_matches[0][1])
 
     # Local dev — walk upwards looking for plugins/jack-tar-msft-smartart
     for parent in [Path.cwd(), *Path.cwd().parents]:

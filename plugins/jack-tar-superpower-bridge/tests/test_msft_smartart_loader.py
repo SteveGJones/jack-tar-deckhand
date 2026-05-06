@@ -73,6 +73,46 @@ def test_api_fields_match_allowed_symbols_count():
     )
 
 
+def test_candidate_roots_finds_plugin_in_cache_via_rglob(monkeypatch, tmp_path):
+    """Regression for the Python 3.14 rglob 3-segment-pattern bug caught in
+    the first bridge dogfood run: when the plugin is installed under the
+    standard marketplace cache path, _candidate_roots must discover it via
+    the cache-root rglob branch.
+
+    Before the fix, base.rglob('jack-tar-msft-smartart/.claude-plugin/plugin.json')
+    returned zero matches under Python 3.14 even when the file existed, so
+    end-users installing the bridge from a marketplace would hit
+    MsftSmartArtNotFoundError unless the local-dev fallback happened to fire.
+    """
+    from src.msft_smartart_loader import _candidate_roots
+
+    fake_home = tmp_path / "fake-home"
+    # Mirror the exact production layout: cache/<marketplace>/<plugin>/<version>/
+    version_dir = (
+        fake_home
+        / ".claude"
+        / "plugins"
+        / "cache"
+        / "some-marketplace"
+        / "jack-tar-msft-smartart"
+        / "1.2.0"
+    )
+    (version_dir / ".claude-plugin").mkdir(parents=True)
+    (version_dir / ".claude-plugin" / "plugin.json").write_text(
+        '{"name":"jack-tar-msft-smartart","version":"1.2.0"}'
+    )
+
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.delenv("JACK_TAR_SUPERPOWER_BRIDGE_FORCE_MSFT_ROOT", raising=False)
+    monkeypatch.chdir(tmp_path)  # avoid the cwd-walk-up fallback leaking in
+
+    roots = _candidate_roots()
+    assert version_dir in roots, (
+        f"_candidate_roots should find the cache-installed plugin at "
+        f"{version_dir} but returned {roots}"
+    )
+
+
 def test_loader_logs_resolved_plugin_root(caplog):
     """I-2 troubleshooting hook — the loader must log which plugin_root it picked,
     so stale-cache bugs can be diagnosed."""

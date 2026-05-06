@@ -28,13 +28,19 @@ from typing import Any
 from pptx import Presentation
 from pptx.oxml.ns import qn
 
+from src.colors_xml_builder import BrandPalette, patch_carrier_palette
 from src.enrichment_ops.background import apply_background_in_memory
 from src.enrichment_ops.element_image import replace_image_marker_in_memory
 from src.enrichment_ops.smartart import inject_smartart_into_file
-from src.smartart_bridge import render_carrier
+from src.enrichment_ops.smartart_from_list import (
+    extract_list_items_from_marker_shape,
+    select_layout_for_bullets,
+)
+from src.security import resolve_within_allowlist
+from src.smartart_bridge import render_carrier, select_layout_for_slide
 
 
-VALID_KINDS = {"background", "image", "smartart"}
+VALID_KINDS = {"background", "image", "smartart", "smartart_from_list"}
 VALID_ACTIONS = {"apply", "apply_clear_overlap", "skip"}
 
 
@@ -45,12 +51,20 @@ class EnrichmentApplyError(RuntimeError):
 @dataclass
 class EnrichmentItem:
     slide_index: int
-    kind: str                    # background | image | smartart
+    kind: str                    # background | image | smartart | smartart_from_list
     marker_name: str             # full marker string (e.g. "IMAGE:foo")
     asset_path: Path | None      # image path for background/image; None for smartart
     action: str = "apply"        # apply | apply_clear_overlap | skip
     smartart_spec: dict[str, Any] | None = None  # required when kind="smartart" and action!="skip"
     overlap_shape_names: list[str] = field(default_factory=list)
+    # Run 8 Finding #26 — picture-SmartArt image binding. When kind ==
+    # "smartart_from_list" AND this list is non-empty, the bridge routes the
+    # marker to a picture-capable layout (vList3 / vList4 / pList1) and binds
+    # one image per bullet item via <dgm:blipFill> on each child node. The
+    # length must match the bullet-item count discovered at extraction time;
+    # otherwise apply_enrichment raises EnrichmentApplyError. None means
+    # text-only routing (the existing v0.1.2 behaviour).
+    per_item_image_paths: list[Path] | None = None
 
 
 @dataclass
@@ -95,14 +109,74 @@ def _drop_marker_shape(prs, slide_index_1based: int, marker_name: str) -> None:
             spTree.remove(sp)
 
 
+def _drop_residual_marker_label_shapes(
+    prs, slide_index_1based: int, marker_name: str,
+) -> None:
+    """v0.2 #23 — extend the v0.1.x #17 BG-cleanup pattern to all marker kinds.
+
+    Build.js authoring patterns sometimes include a small ``addText`` label
+    shape next to a marker (e.g. ``"SMARTART-FROM-LIST:tooling-gaps"``
+    floating beside the bullet list) so the marker is visible in the
+    unenriched deck. After enrichment, the marker shape itself is replaced
+    by the rendered SmartArt / image, but the small label addText survives
+    as a stranded grey-italic floater on top of the rendered output.
+
+    This helper removes any ``<p:sp>`` on the slide whose visible text
+    content (concatenated ``<a:t>`` runs) equals ``marker_name`` AND
+    whose own ``cNvPr@name`` is NOT ``marker_name``. The strict-equality
+    comparison keeps legitimate slide text that merely contains the
+    marker string as a substring intact; the cNvPr-name-mismatch
+    constraint keeps the marker shape itself in place (the inject path
+    handles its replacement).
+
+    Run 6 evidence proved this pattern for ``BG:`` markers (Finding #17,
+    fixed in v0.1.x). Run 8 + Run 9 dogfood revealed the same pattern
+    affects ``SMARTART-FROM-LIST:`` markers when /pptx authors a label
+    addText alongside the bullet list. v0.2 generalises the cleanup.
+    """
+    a_t_qn = "{http://schemas.openxmlformats.org/drawingml/2006/main}t"
+    slide = prs.slides[slide_index_1based - 1]
+    cSld = slide.element.find(qn("p:cSld"))
+    spTree = cSld.find(qn("p:spTree"))
+    if spTree is None:
+        return
+    for sp in list(spTree):
+        nvSpPr = sp.find(qn("p:nvSpPr"))
+        if nvSpPr is None:
+            continue
+        cNvPr = nvSpPr.find(qn("p:cNvPr"))
+        shape_name = cNvPr.get("name") if cNvPr is not None else None
+        # Don't touch the marker shape itself — inject handles its
+        # replacement and removing it here would break that path.
+        if shape_name == marker_name:
+            continue
+        # Concatenate visible text (<a:t> runs) and compare strict.
+        parts: list[str] = []
+        for t_elem in sp.iter(a_t_qn):
+            if t_elem.text:
+                parts.append(t_elem.text)
+        visible_text = "".join(parts).strip()
+        if visible_text == marker_name:
+            spTree.remove(sp)
+
+
 def apply_enrichment(
     plan: EnrichmentPlan,
     *,
     allowed_image_roots: list[Path],
     carriers_dir: Path | None = None,
+    brand_palette: BrandPalette | None = None,
 ) -> None:
     """Apply the plan transactionally - all ops succeed and the output
-    file is renamed atomically, OR no output file is produced."""
+    file is renamed atomically, OR no output file is produced.
+
+    Optional ``brand_palette`` is applied to every SmartArt carrier between
+    ``render_carrier`` and ``inject_smartart_into_file`` so that injected
+    SmartArt graphics inherit the brief's palette instead of the SDK
+    fixture's default Microsoft palette (Finding #10, Run 3 dogfood).
+    Pass ``None`` (the default) to keep the carrier's stock colours —
+    backwards-compatible with pre-Contract-1 enrichment.
+    """
     src = Path(plan.source_pptx)
     out = Path(plan.output_pptx)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -149,18 +223,121 @@ def apply_enrichment(
                     _remove_overlapping_text_shapes(
                         prs, item.slide_index, item.overlap_shape_names,
                     )
+                # v0.2 #23 — drop residual marker-label addText shapes
+                # (same cleanup pattern as smartart_from_list / BG).
+                _drop_residual_marker_label_shapes(
+                    prs, item.slide_index, item.marker_name,
+                )
                 # Op3 is file-based; we'll do it after the save below.
+            elif item.kind == "smartart_from_list":
+                # Contract 2: the marker shape IS a text shape with bullets.
+                # Extract items from the shape's text frame; build the spec
+                # inline if the caller didn't supply one. The substitution
+                # is handled by Phase 4's inject_smartart_into_file, which
+                # finds the marker shape by name and replaces it with the
+                # rendered SmartArt at the same coordinates.
+                #
+                # Layout selection (Run 4/5/6 Finding #13): rather than
+                # hardcoding ``process1`` and forcing Speakers to hand-shorten
+                # any prose bullet > 24 chars, route to the smallest layout
+                # that fits the content. process1 / list1 / vList2 are the
+                # routing tiers; only items longer than vList2's cap are
+                # truncated, with a Speaker-visible warning attached.
+                if not item.smartart_spec:
+                    items = extract_list_items_from_marker_shape(
+                        prs=prs,
+                        slide_index_1based=item.slide_index,
+                        marker_name=item.marker_name,
+                    )
+                    # Run 8 Finding #26 — picture-SmartArt image binding.
+                    # When per_item_image_paths is supplied, force routing to
+                    # a picture-capable layout regardless of bullet length;
+                    # the bullet count must equal the image count or the
+                    # builder will refuse to render.
+                    image_paths = item.per_item_image_paths
+                    if image_paths is not None:
+                        if len(image_paths) != len(items):
+                            raise EnrichmentApplyError(
+                                f"per_item_image_paths length ({len(image_paths)}) "
+                                f"does not match marker bullet count ({len(items)}) "
+                                f"for {item.marker_name!r} on slide {item.slide_index}"
+                            )
+                        # All paths must resolve under the allowlist.
+                        resolved_image_paths = [
+                            resolve_within_allowlist(p, allowed_image_roots)
+                            for p in image_paths
+                        ]
+                        # Picture-capable layout selection: pList1 is wider
+                        # (gallery row, 5+ items); vList3 is portrait-stack
+                        # (3-5 items). Choose by item count; both honour
+                        # data_shape="picture".
+                        layout_id = "pList1" if len(items) >= 5 else "vList3"
+                        items_to_render = list(items)
+                        layout_warnings = [
+                            f"layout={layout_id} forced because "
+                            f"per_item_image_paths supplied "
+                            f"({len(image_paths)} images bound to bullets)"
+                        ]
+                        # Picture builder expects a list of dicts with
+                        # `label` + `image_path` per item (one image per
+                        # bullet). Build the parallel-array → list-of-dicts
+                        # transform here so the bridge contract stays
+                        # ergonomic (operator supplies a flat list of paths)
+                        # while the builder gets its declared input shape.
+                        spec_data: dict[str, Any] = {
+                            "items": [
+                                {"label": label, "image_path": str(img)}
+                                for label, img in zip(
+                                    items_to_render, resolved_image_paths
+                                )
+                            ],
+                        }
+                    else:
+                        layout_id, items_to_render, layout_warnings = (
+                            select_layout_for_bullets(items)
+                        )
+                        spec_data = {"items": items_to_render}
+
+                    item.smartart_spec = {
+                        "graphic_type": "flowchart",
+                        "layout_id": layout_id,
+                        "data": spec_data,
+                    }
+                    if layout_warnings:
+                        # Attach for the orchestrator to surface; the
+                        # EnrichmentReport ledger reads this in Step 11.
+                        item.smartart_spec["layout_warnings"] = layout_warnings
+                if item.action == "apply_clear_overlap":
+                    _remove_overlapping_text_shapes(
+                        prs, item.slide_index, item.overlap_shape_names,
+                    )
+                # v0.2 #23 — drop residual addText shapes whose visible
+                # text equals the marker name. /pptx authoring patterns
+                # sometimes include a small grey-italic label addText
+                # alongside the bullet list to make the marker visible
+                # in the unenriched deck; without this cleanup, that
+                # label survives enrichment as a stranded floater.
+                _drop_residual_marker_label_shapes(
+                    prs, item.slide_index, item.marker_name,
+                )
             else:
                 raise EnrichmentApplyError(f"unknown enrichment kind {item.kind!r}")
 
         # Phase 3 - Save in-memory tree to temp
         prs.save(str(tmp))
 
-        # Phase 4 - Op3 SmartArt injections against the temp file
+        # Phase 4 - Op3 SmartArt injections against the temp file.
+        # When brand_palette is supplied, patch each carrier's colors1.xml
+        # with brand colours BEFORE injection (Contract 1, Finding #10).
+        # Both ``smartart`` and ``smartart_from_list`` items use the same
+        # injection pipeline — by Phase 4 the latter has had its smartart_spec
+        # populated from the marker shape's bullet text.
         for item in active_items:
-            if item.kind != "smartart":
+            if item.kind not in ("smartart", "smartart_from_list"):
                 continue
             carrier_path = render_carrier(item.smartart_spec, output_dir=carriers_dir)
+            if brand_palette is not None:
+                patch_carrier_palette(carrier_path, brand_palette)
             inject_smartart_into_file(
                 host_pptx=tmp,
                 slide_index_1based=item.slide_index,

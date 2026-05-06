@@ -9,8 +9,12 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-VALID_MARKER_KINDS = {"IMAGE", "SMARTART", "BG"}
-VALID_ENRICHMENT_KINDS = {"background", "image", "smartart"}
+# Marker kinds use the OOXML/brief-grammar form (uppercase, hyphenated).
+# SMARTART-FROM-LIST is Contract 2 / Finding #9 — the marker IS a text shape
+# with bullet content rather than a placeholder rectangle.
+VALID_MARKER_KINDS = {"IMAGE", "SMARTART", "SMARTART-FROM-LIST", "BG"}
+# Enrichment kinds use the snake_case form internally.
+VALID_ENRICHMENT_KINDS = {"background", "image", "smartart", "smartart_from_list"}
 VALID_ENRICHMENT_ACTIONS = {"apply", "apply_clear_overlap", "skip"}
 
 
