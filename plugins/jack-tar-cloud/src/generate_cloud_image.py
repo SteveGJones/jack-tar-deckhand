@@ -11,9 +11,11 @@ direct API or FAL.
 """
 
 import base64
+import functools
 import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 
 import fal_client
@@ -23,6 +25,72 @@ from google.genai.types import GenerateContentConfig, GenerateImagesConfig, Imag
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
+
+
+# --- Connection-reset retry decorator (Run 6 Finding #16) -------------------
+#
+# Run 6 dogfood (2026-04-29) hit ConnectionResetError on the 3rd of 4 Phase C
+# Pro generations. The orchestrator retried manually; this decorator codifies
+# the retry so transient TCP resets do not abort an otherwise-successful run.
+# Three attempts with 1s/2s/5s backoff is a routine pattern for third-party
+# API resilience — not aggressive enough to mask real outages, but generous
+# enough to ride out single-packet drops or brief upstream blips.
+#
+# The decorator catches ``ConnectionResetError``, ``ConnectionError`` (the
+# Python builtin), and ``requests.exceptions.ConnectionError`` (the
+# library-specific subclass FAL.ai surfaces). It does NOT catch HTTP errors
+# (4xx/5xx), authentication errors, ValueError, or RuntimeError — those are
+# deterministic failures that retrying cannot fix.
+
+_RETRYABLE = (
+    ConnectionResetError,
+    ConnectionError,
+    requests.exceptions.ConnectionError,
+)
+
+
+def retry_on_connection_reset(
+    max_attempts: int = 3,
+    backoff_seconds: tuple[float, ...] = (1, 2, 5),
+):
+    """Decorator that retries on transient connection-reset errors.
+
+    Args:
+        max_attempts: Total attempts including the first call.
+        backoff_seconds: Seconds to ``time.sleep`` between attempts. Must be
+            at least ``max_attempts - 1`` long.
+
+    The wrapped callable is invoked normally on the first attempt; on a
+    retryable failure the wrapper sleeps the next backoff value and tries
+    again. After ``max_attempts`` failures the last exception is re-raised.
+    Non-retryable exceptions propagate immediately.
+    """
+    if len(backoff_seconds) < max_attempts - 1:
+        raise ValueError(
+            f"backoff_seconds must have at least max_attempts - 1 = "
+            f"{max_attempts - 1} entries, got {len(backoff_seconds)}"
+        )
+
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_attempts):
+                try:
+                    return fn(*args, **kwargs)
+                except _RETRYABLE as exc:
+                    if attempt + 1 >= max_attempts:
+                        raise
+                    delay = backoff_seconds[attempt]
+                    logger.warning(
+                        "Connection reset on attempt %d/%d for %s: %s. "
+                        "Retrying in %ss.",
+                        attempt + 1, max_attempts, fn.__name__, exc, delay,
+                    )
+                    time.sleep(delay)
+            # Unreachable — the loop either returns or re-raises.
+            raise RuntimeError("retry loop exited without return or raise")
+        return wrapper
+    return deco
 
 
 class ProviderNotConfiguredError(Exception):
@@ -1065,6 +1133,7 @@ _PROVIDERS = {
 }
 
 
+@retry_on_connection_reset()
 def generate_cloud_image(prompt, provider, output_path, *, resolution='1K', **kwargs):
     """Generate an image using the specified cloud provider at the requested resolution.
 
@@ -1087,6 +1156,12 @@ def generate_cloud_image(prompt, provider, output_path, *, resolution='1K', **kw
         ValueError: If provider is unknown or resolution string is invalid.
         ProviderNotConfiguredError: If provider credentials are missing.
         ProviderResolutionUnsupportedError: provider/model can't honour resolution.
+
+    Connection resilience (Run 6 Finding #16): the dispatcher is wrapped in
+    ``retry_on_connection_reset`` so transient TCP resets from third-party
+    APIs do not abort the bridge's enrichment cycle. Three attempts with
+    1s/2s/5s backoff. Non-connection failures (auth errors, quota limits,
+    ValueError, ProviderResolutionUnsupportedError) propagate immediately.
     """
     if provider not in _PROVIDERS:
         raise ValueError(
