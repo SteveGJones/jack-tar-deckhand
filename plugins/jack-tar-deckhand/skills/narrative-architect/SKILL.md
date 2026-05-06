@@ -167,3 +167,11 @@ Write the validated SlideOutline to `./tmp/deck/outline.json`.
 - Section dividers before every major narrative beat transition
 - Title slide always first, closing slide always last
 - Do NOT ask the Speaker about individual slide choices -- the arc approval is the collaboration point
+
+## Optional: hero-slide resolution annotation
+
+If the speaker is shooting for a memorable opener or closing slide, ask: "Would you like this slide rendered at 4K (Nano Banana Pro, ~$0.24) or 2K?" Annotate the slide with a `resolution` field in the SlideOutline if so — the strategy-map step will carry it through to the StrategyMap entry. Default `1K` unchanged.
+
+## Optional: brand-fidelity annotation
+
+If the talk is brand-led (product launch, company keynote, vendor pitch) or has slides where exact brand-color match is critical (logos, product shots), ask: "For [slide N], should brand colors be rendered hex-exact (`brand_fidelity: \"exact\"` → Recraft V4 raster, ~2× cost at 4K) or close-enough (default → FLUX or Nano Banana)?" Annotate `brand_fidelity` on the SlideOutline entry if so — the strategy-map step will carry it through. Default `"none"` unchanged.

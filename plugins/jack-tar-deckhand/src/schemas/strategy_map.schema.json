@@ -27,7 +27,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["ollama", "cloud_low", "cloud_full"]
+              "enum": ["ollama", "cloud_low", "cloud_full", "cloud_2k", "cloud_4k"]
             }
           },
           "speaker_override": {
@@ -37,6 +37,18 @@
           "backdrop_variant": {
             "type": "string",
             "enum": ["left_panel", "right_panel", "bottom_bar", "top_band", "center_float"]
+          },
+          "resolution": {
+            "type": "string",
+            "enum": ["512", "1K", "2K", "4K"],
+            "default": "1K",
+            "description": "Optional slide-level resolution tier. Default '1K'. Hero slides may opt into '2K' or '4K' via Google Nano Banana Pro/Flash. Cost implications surface in the strategy-map skill."
+          },
+          "brand_fidelity": {
+            "type": "string",
+            "enum": ["exact", "approximate", "none"],
+            "default": "none",
+            "description": "Optional slide-level brand-color fidelity flag. 'exact' routes to Recraft V4 raster (best hex compliance, ~2x cost at 4K — ~$0.50 vs Nano Banana Pro 4K ~$0.24). 'approximate' allows the default photorealistic pipeline. 'none' indicates brand-color fidelity is not a concern. Default 'none'."
           },
           "element_layout": {
             "type": "object",

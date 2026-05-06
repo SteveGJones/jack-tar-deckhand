@@ -78,36 +78,74 @@ import sys
 from src.generate_cloud_image import generate_cloud_image as _generate_cloud_raw
 
 
-# Resolution defaults per funnel stage
+# Resolution defaults per funnel stage (used for legacy width/height logging).
 _OLLAMA_RESOLUTIONS = {
     'ollama': {'width': 1024, 'height': 576},
     'cloud_low': {'width': 1280, 'height': 720},
     'cloud_full': {'width': 1920, 'height': 1080},
+    'cloud_2k': {'width': 2048, 'height': 2048},
+    'cloud_4k': {'width': 4096, 'height': 4096},
 }
 
-# Cloud provider quality settings per stage
+# Cloud provider quality settings per stage (OpenAI 'quality' kwarg).
+# Ignored when provider != 'openai' since other providers have no quality knob.
 _CLOUD_STAGE_QUALITY = {
     'cloud_low': 'low',
     'cloud_full': 'medium',
+    'cloud_2k': 'medium',
+    'cloud_4k': 'medium',
 }
 
 _CLOUD_STAGE_SIZE = {
     'cloud_low': '1024x1024',
     'cloud_full': '1536x1024',
+    # cloud_2k/cloud_4k drive resolution kwarg directly, no explicit size.
+}
+
+# Per-stage resolution tier — drives generate_cloud_image's resolution kwarg.
+_CLOUD_STAGE_RESOLUTION = {
+    'cloud_low': '1K',
+    'cloud_full': '1K',
+    'cloud_2k': '2K',
+    'cloud_4k': '4K',
+}
+
+# Per-stage default provider+model when the caller doesn't specify.
+# 2K/4K force Google because Nano Banana Pro/Flash are the only models
+# that support those tiers across the matrix.
+_CLOUD_STAGE_DEFAULT_PROVIDER_MODEL = {
+    'cloud_2k': ('google', 'gemini-3.1-flash-image-preview'),
+    'cloud_4k': ('google', 'gemini-3-pro-image-preview'),
 }
 
 
-def _generate_cloud(prompt, provider, output_path, funnel_stage):
-    """Wrapper for cloud generation with funnel-stage-appropriate settings."""
-    quality = _CLOUD_STAGE_QUALITY.get(funnel_stage, 'medium')
-    size = _CLOUD_STAGE_SIZE.get(funnel_stage, '1536x1024')
-    return _generate_cloud_raw(
-        prompt=prompt,
-        provider=provider,
-        output_path=output_path,
-        quality=quality,
-        size=size,
-    )
+def _generate_cloud(prompt, provider, output_path, funnel_stage, model=None):
+    """Wrapper for cloud generation with funnel-stage-appropriate settings.
+
+    For cloud_2k / cloud_4k stages, falls back to a default provider+model
+    when the caller passes None/'' — those stages are tier-defined, not
+    provider-defined. quality and size are only set when meaningful for the
+    target provider/stage combination.
+    """
+    if not provider and funnel_stage in _CLOUD_STAGE_DEFAULT_PROVIDER_MODEL:
+        default_provider, default_model = _CLOUD_STAGE_DEFAULT_PROVIDER_MODEL[funnel_stage]
+        provider = default_provider
+        if not model:
+            model = default_model
+
+    kwargs = {
+        'prompt': prompt,
+        'provider': provider,
+        'output_path': output_path,
+        'resolution': _CLOUD_STAGE_RESOLUTION.get(funnel_stage, '1K'),
+    }
+    if funnel_stage in _CLOUD_STAGE_SIZE:
+        kwargs['size'] = _CLOUD_STAGE_SIZE[funnel_stage]
+    if provider == 'openai' and funnel_stage in _CLOUD_STAGE_QUALITY:
+        kwargs['quality'] = _CLOUD_STAGE_QUALITY[funnel_stage]
+    if model:
+        kwargs['model'] = model
+    return _generate_cloud_raw(**kwargs)
 
 
 def execute_funnel_stage(deck_dir, slide_number, strategy, prompt, funnel_stage,
@@ -127,6 +165,8 @@ def execute_funnel_stage(deck_dir, slide_number, strategy, prompt, funnel_stage,
 
     Returns:
         dict: {status, file_path, cost_usd, model, resolution, error?}
+            'resolution' is a WxH string for ollama stage, a tier string
+            ('1K'/'2K'/'4K') for cloud stages.
     """
     prompt_h = hash_prompt(prompt)
     dims = _OLLAMA_RESOLUTIONS.get(funnel_stage, {'width': 1920, 'height': 1080})
@@ -146,9 +186,14 @@ def execute_funnel_stage(deck_dir, slide_number, strategy, prompt, funnel_stage,
                 check=True, capture_output=True, text=True,
             )
         else:
-            result = _generate_cloud(prompt, provider, output_path, funnel_stage)
+            result = _generate_cloud(
+                prompt, provider, output_path, funnel_stage, model=model,
+            )
             cost = result.get('cost_usd', 0.0)
-            resolution = _CLOUD_STAGE_SIZE.get(funnel_stage, '1536x1024')
+            # Cloud stages log a tier string ('1K'/'2K'/'4K') instead of WxH
+            # since each stage maps to a fixed tier. Ollama branch above logs
+            # the explicit WxH form. Schema accepts both as plain strings.
+            resolution = _CLOUD_STAGE_RESOLUTION.get(funnel_stage, '1K')
 
         # Log the attempt
         append_render_entry(deck_dir, {

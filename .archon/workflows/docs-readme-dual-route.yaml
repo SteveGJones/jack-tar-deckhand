@@ -1,0 +1,70 @@
+name: docs-readme-dual-route
+description: >
+  Containerised documentation workflow for issue #62 — surface both the
+  Superpower Bridge route and the Jack-Tar direct route in README.md, add
+  a decision tree for the three entry-point scenarios, and cross-reference
+  the plugin-level CLAUDE.md files.
+
+  Use when: a docs-only initiative needs collaborative iteration across
+  documentation-architect, technical-writer, and ux-ui-architect agents
+  in a clean container, with speaker review before merge.
+
+  Input: a GitHub issue describing the documentation goal (default: #62).
+
+  Output: edits committed to a feature branch, plus a synthesis report at
+  /workspace/reports/docs-synthesis/findings.md for speaker review.
+
+  Pattern: plan -> draft -> review -> revise -> synthesise. The
+  draft/review/revise sequence is the Ralph Loop iteration; speaker
+  review of the synthesis report is the outer human gate before merge.
+
+provider: claude
+
+nodes:
+  - id: plan
+    command: docs-plan
+    image: sdlc-worker:docs-team
+    context: fresh
+    timeout: 1200000
+    model: claude-opus-4-7
+    budget: 5.0
+
+  - id: draft
+    depends_on:
+      - plan
+    command: docs-draft
+    image: sdlc-worker:docs-team
+    context: fresh
+    timeout: 1800000
+    model: claude-sonnet-4-6
+    budget: 5.0
+
+  - id: review
+    depends_on:
+      - draft
+    command: docs-review
+    image: sdlc-worker:docs-team
+    context: fresh
+    timeout: 900000
+    model: claude-opus-4-7
+    budget: 5.0
+
+  - id: revise
+    depends_on:
+      - review
+    command: docs-revise
+    image: sdlc-worker:docs-team
+    context: fresh
+    timeout: 1500000
+    model: claude-sonnet-4-6
+    budget: 5.0
+
+  - id: synthesise
+    depends_on:
+      - revise
+    command: docs-synthesise
+    image: sdlc-worker:docs-team
+    context: fresh
+    timeout: 600000
+    model: claude-sonnet-4-6
+    budget: 2.0

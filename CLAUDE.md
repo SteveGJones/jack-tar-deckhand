@@ -49,6 +49,12 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
+### Current Status (2026-05-07)
+
+- **Superpower Bridge v0.2.0 + EPIC #58 closed — main is now at:** cloud `1.3.0`, deckhand `1.3.0`, msft-smartart `1.2.2`, bridge `0.2.0`, ollama/custom-smartart `1.1.0`.
+- **EPIC #58 (cloud image resolution control) CLOSED 2026-05-06** — 4/4 children landed: #62 (PR #63), #59 (PR #65), #60 (PRs #68 + #69), #61 (PR #70). 1K/2K/4K resolution + brand-fidelity (Recraft V4 raster) wired through render funnel + image router + imagegen-bridge Step 9A.
+- **Superpower Bridge merged 2026-05-07** — 76 committed bridge commits + v0.2 polish (Findings #17/#18/#19/#20/#21/#22/#23/#24/#25/#26/#27/#28/#29) staged into 4 finding-labeled commits. Run 10 (2026-05-01) declared GO. Bridge ships with `/bridge-brief`, `/enrich-deck`, `/verify`. Known limitation: bridge runs its own enrichment cycle separate from imagegen-bridge Step 9A — does not yet consume EPIC #58 resolution/brand-fidelity surfaces; v0.3 candidate.
+
 ### Current Status (2026-04-27)
 
 - **Superpower Bridge (issue #53) — six dogfood runs complete, all cycle paths exercised.** On branch `feat/superpower-bridge`. **225 tests passing** across the bridge suite. Plugin `jack-tar-superpower-bridge` v0.1.0 ships with `/bridge-brief`, `/enrich-deck`, `/verify`. Two new AI personas (Narrative Brief Architect; Enrichment Cohesion Reviewer) + contract extensions to Image Reviewer + Prompt Engineer. **Contracts 1+2 implemented and dogfood-validated across 6 visual personalities (Dark Industrial / Engineering Ink / Blueprint Retrospective / Redline / Boardroom Stone / Velvet Ledger).** Run 6 (2026-04-29) **fired all three uncovered cycle paths in one run** — Phase A → Phase B Flash → Phase C Pro escalation, plus the `terminate_pending_confirmation` privacy gate handshake (first time across all runs). Task 35 GO held until v0.1.x patch backlog ships.
@@ -74,6 +80,23 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 - **BSA Architecture:** v1.5.0 (bumped 2026-04-24 by superpower bridge work) — adds Bridge Services L1 with Narrative Brief Architect + Enrichment Cohesion Reviewer personas. Earlier scope: keynote pipeline, rendering strategy expansion, image reviewer, SmartArt intelligent graphics.
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` v1.5.0 (38 services, 8 AI personas, 70 interactions, plus crossDomainSopRegister + dependencyRegister top-level keys)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams; superpower-bridge-personas.md at v1.0)
+
+### Earlier Status (2026-05-03 — EPIC #58 mid-flight, pre-bridge merge)
+
+- **Cloud Resolution Control (Issue #59 — landed):** `jack-tar-cloud` v1.2.0 added a unified `resolution=` kwarg routing 1K / 2K / 4K to each provider's native API field. New `ProviderResolutionUnsupportedError` carries supported-tier metadata for retry. Per-model capability surfaced via `provider_discovery.discover_providers()`. Imagen dual-pricing detection (Vertex flat vs Gemini Developer API token-based) wired into `estimate_google_cost`.
+  - **What's wired:** Nano Banana Pro (1K/2K/4K), Nano Banana Flash (0.5K/1K/2K/4K), Imagen Standard/Ultra (1K/2K), Imagen Fast (1K only), FLUX 2 Pro (1K/2K). 4K ladder validated end-to-end on real API ($0.659 smoke-test spend).
+  - **EPIC:** [#58](https://github.com/SteveGJones/jack-tar-deckhand/issues/58) closed 2026-05-06 (4/4 children complete: #62/#59/#60/#61).
+  - **Spec:** `docs/superpowers/specs/2026-05-02-cloud-resolution-control-design.md`
+  - **Plan:** `docs/superpowers/plans/2026-05-02-cloud-resolution-control.md` (10 phases, all complete)
+  - **Spike:** `docs/spikes/2026-05-02-google-genai-image-config-spike.md` (PATH-B: typed `ImageConfig` from `google.genai.types`)
+  - **Smoke test:** `docs/superpowers/dogfooding/2026-05-03-resolution-smoke-test.md` — Jack Tar wallchart through Ollama → Flash 1K → Flash 4K → Pro 1K → Pro 4K.
+
+### Earlier Status (2026-04-16 — BSA pre-bridge)
+
+- **BSA Architecture (pre-bridge):** v1.4.1, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics + cloud resolution control (1K/2K/4K)
+  - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
+  - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
+  - Note: superseded by v1.5.0 BSA after the bridge merge above.
 
 - **Research Library:** Complete — 20 papers, ~110K words in `research/`
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
@@ -225,6 +248,34 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - 4 pipeline bugs found and fixed: strategy map smartart classification, picture builder text/fill, flat_list dict items
   - Discovered cross-tier prompt refinement pattern (Flash draft → review → refine prompt → verify → Pro)
 
+- **Resolution selection guide (issue #60, 2026-05-06):** Per-slide resolution opt-in via the StrategyMap `resolution` field. Default `1K` covers most slides. Speaker can mark hero/closer slides for `2K` or `4K` rendering through Google Nano Banana Pro/Flash.
+  - Choose `2K` when: large display (>120"), mid-detail diagrams, photographic backgrounds with subtle gradients.
+  - Choose `4K` when: hero opener / closer that may be photographed and re-shared; text-heavy slides where Nano Banana Pro's better text rendering matters at small body sizes.
+  - **Flash 4K vs Pro 4K decision rule:** for `4K` slides, the imagegen-bridge runs an optional Flash 4K pre-test at $0.151 before escalating to Pro 4K at $0.240. If Flash 4K passes review, stop — Flash text rendering at 4K is often comparable to Pro 1K. If Flash 4K refines, proceed to Pro 4K (single shot). Pattern validated end-to-end during the #59 smoke test ($0.659 spend on a 5-stage ladder).
+  - **Cost ladder per slide (worst case, 3 Flash refinements + Pro escalation):**
+    - 1K: ~$0.335 (3 × $0.067 Flash + $0.134 Pro)
+    - 2K: ~$0.437 (3 × $0.101 Flash + $0.134 Pro)
+    - 4K: ~$0.693 (3 × $0.151 Flash + $0.240 Pro)
+  - A deck with three 4K hero slides represents up to ~$2.08 of image generation spend.
+  - **Where it lives:** `slide.resolution` in StrategyMap (schema `strategy_map.schema.json`); render funnel stages `cloud_2k`/`cloud_4k`; image router rows `production_2k`/`production_4k` for hero_image; imagegen-bridge Step 9A Pro escalation honours the requested tier.
+
+- **Recraft V4 raster (issue #61, 2026-05-07):** Promoted from icon-only to first-class raster provider with 1K/2K/4K ladder. Best brand-color fidelity; speakers opt slides in via `brand_fidelity: "exact"` on the StrategyMap entry. Closes EPIC #58.
+  - **When Recraft beats Nano Banana / FLUX:** logos, product shots, brand-led hero slides with 3+ specified hexes — Recraft renders exact hex; the others approximate.
+  - **When Nano Banana / FLUX beats Recraft:** photorealistic detail, illustrative scenes — Recraft is design-centric, not photo-first.
+  - **Recraft V4 vs Nano Banana Pro at 4K decision rule:**
+    - Default 4K → Nano Banana Pro ($0.24, photorealistic)
+    - `brand_fidelity: "exact"` → Recraft V4 Pro 4K via Creative Upscale chain (~$0.50, brand-fidelity premium)
+    - The router's `production_brand_exact_4k` row encodes this; the deckhand image_router auto-derives the routing mode from `slide.brand_fidelity` and `slide.resolution`.
+  - **Cost trade-off table (per slide, single-shot):**
+    - 1K Recraft Standard: $0.04 — vs FLUX 1K $0.030 (Recraft only ~30% more for hex compliance)
+    - 2K Recraft Pro: $0.25 — same flat rate as FAL FLUX 2 Pro 2K
+    - 4K Recraft (chain): $0.50 — vs Nano Banana Pro 4K $0.24 (~2× premium)
+  - **Implementation:** `generate_recraft_direct` (RECRAFT_API_KEY) and `generate_recraft_fal` (FAL_KEY) in `plugins/jack-tar-cloud/src/generate_cloud_image.py`. 4K is generate-2K-then-`creativeUpscale` chain. `_dispatch_recraft` auto-derives `tier` from `resolution` when caller doesn't specify (1K → standard, 2K/4K → pro), so `generate_cloud_image('x', 'recraft', '/tmp/x.png', resolution='4K')` works without speakers needing to know the tier matrix.
+  - **Upscale price assumption:** Direct API upscale price not in public docs; assumed $0.25 (FAL parity). Override via `RECRAFT_UPSCALE_COST_USD` env var if discovered to differ.
+  - **New skill:** `/jack-tar-cloud:recraft-image` — per-provider raster skill with `--tier`, `--resolution`, `--colors`, `--style` flags.
+  - **Spike:** `docs/spikes/2026-05-07-recraft-creative-upscale.md` — endpoint + pricing findings.
+  - **Schema:** `slide.brand_fidelity: "exact" | "approximate" | "none"` on `strategy_map.schema.json`. Default `none`. `approximate` is documentary; only `exact` triggers Recraft routing.
+
 - **Image Reviewer Agent (2026-04-01):** Subagent-based visual quality gate
   - Dispatched per image after generation, returns compact JSON verdict (pass/refine)
   - Keeps images out of main orchestration context — bridge accumulates only summary strings
@@ -247,7 +298,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 
 - **Claude Code permissions:** `.claude/settings.local.json` (tracked, per-developer overrides) controls which commands Claude can run silently vs prompts for. The free iteration loop (Ollama draft + slide review) needs minimal prompting — see `docs/dev/claude-permissions-guide.md` for the three-tier model and the exact commands the SmartArt loop needs. Use wildcard prefix matches (`Bash(tool:*)`) over exact strings.
 
-- **CI is pre-existing broken:** The `AI-First SDLC Validation` GitHub Actions workflow fails on every commit (including main itself) because it references a `tools/` directory that doesn't exist. The failures predate any feature work. Don't try to fix this as part of feature PRs. The substantive `Code Quality Analysis` check passes — that's the one to watch. When merging, `mergeStateStatus: UNSTABLE` from these failing checks is expected.
+- **CI:** `.github/workflows/validation.yml` runs five jobs on every PR — `code-quality` (flake8 + pre-commit), `plugin-tests` (pytest matrix per plugin), `integration-tests` (cross-plugin contracts), `json-validation` (canonical model + marketplace + per-plugin manifests parse and version-match), and a `summary` PR comment. All jobs must pass before merge. **No `--admin` merging** — if CI fails, fix it.
 
 - **Merge convention:** Use `gh pr merge <n> --merge` (merge commit), never `--squash`. This project ships features through many small fix commits during iteration rounds, and squashing destroys the per-fix granularity.
 

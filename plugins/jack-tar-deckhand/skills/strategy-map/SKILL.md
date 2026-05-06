@@ -110,6 +110,44 @@ When classifying diagram slides, consider the slide's 16:9 aspect ratio when rec
 
 Include layout direction in the visual_direction prompt. For example: "Snake pattern: Row 1 left-to-right (Brief → Brand → Style → Narrative), curve down, Row 2 right-to-left (Images → Assembly), curve down, Row 3 left-to-right (QA → Deck)."
 
+## Resolution selection
+
+By default every slide renders at `1K` — economical, sufficient for most slides on a projector. The speaker may opt specific slides into `2K` or `4K` via the `resolution` field in the StrategyMap entry.
+
+**When to choose 4K:**
+- Hero opener with detailed photographic imagery
+- Closing slide that will be photographed by attendees and shared on social
+- Slides where text rendering at small body sizes is critical (Nano Banana Pro 4K renders text noticeably better than Flash 1K)
+
+**When to choose 2K:**
+- Section dividers with mid-detail imagery
+- Diagrams that may be projected on very large screens (>120")
+
+**Cost implications (per slide, single Pro escalation):**
+- `1K` (default): ~$0.13 (Nano Banana Pro)
+- `2K`: ~$0.13 (Nano Banana Pro — same flat rate within tier)
+- `4K`: ~$0.24 (Nano Banana Pro). Plus an optional Flash 4K pre-test at $0.151.
+
+Mark a slide for 2K/4K by including `"resolution": "4K"` in its StrategyMap entry. Confirm the cost with the speaker before proceeding — a deck with three 4K hero slides is ~$2 of generation spend.
+
+## Brand-fidelity selection
+
+Most slides don't need exact brand-color compliance — Nano Banana Pro and FLUX produce close-enough palette match. For slides where the brand colors must be hex-exact (logos, product shots, brand-led hero or closer slides with 3+ specified hexes), mark `brand_fidelity: "exact"` in the StrategyMap entry to route to Recraft V4 raster.
+
+**When to choose `brand_fidelity: "exact"`:**
+- Logo or wordmark renderings
+- Product shots where brand color is part of the identity
+- Hero opener for a brand-led talk where the palette must be visually unambiguous
+
+**When to leave it default (`"none"` or omitted):**
+- Photographic backgrounds (Recraft underperforms FLUX/Nano Banana on photorealism)
+- Generic illustrative imagery
+- Any slide where the palette doesn't include 3+ specified hexes
+
+**Cost implications:**
+- 2K Recraft Pro: $0.25 (matches FAL FLUX 2 Pro 2K)
+- 4K Recraft (chain: 2K + Creative Upscale): $0.50 — vs Nano Banana Pro 4K $0.24. Confirm with the speaker before marking 4K hero slides for `brand_fidelity: "exact"` — three such slides represent ~$1.50 vs ~$0.72 of generation spend.
+
 ## Output
 
 `./tmp/deck/strategy-map.json` conforming to the StrategyMap schema.

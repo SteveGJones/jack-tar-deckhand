@@ -26,6 +26,31 @@ logger = logging.getLogger(__name__)
 # Known FAL.ai image generation models
 _FAL_IMAGE_MODELS = ['flux-2-pro', 'recraft-v4', 'ideogram-3']
 
+# Per-model supported resolutions — exposed via discover_providers().
+# Matches _MODEL_RESOLUTIONS in generate_cloud_image.py for Google models;
+# mirrors the FAL/OpenAI capability per model.
+_PROVIDER_MODEL_RESOLUTIONS = {
+    'openai': {
+        'gpt-image-1.5': ['1K'],
+    },
+    'google': {
+        'imagen-4.0-fast-generate-001': ['1K'],
+        'imagen-4.0-generate-001': ['1K', '2K'],
+        'imagen-4.0-ultra-generate-001': ['1K', '2K'],
+        'gemini-3.1-flash-image-preview': ['512', '1K', '2K', '4K'],
+        'gemini-3-pro-image-preview': ['1K', '2K', '4K'],
+    },
+    'fal': {
+        'fal-ai/flux-2-pro': ['1K', '2K'],
+        'fal-ai/flux-2-klein': ['1K'],
+        'fal-ai/ideogram/v3': ['1K'],
+    },
+    'recraft': {
+        'recraft-v4-standard': ['1K'],
+        'recraft-v4-pro': ['2K', '4K'],
+    },
+}
+
 # Default env vars per provider (matches official SDK conventions)
 _PROVIDER_DEFAULTS = {
     'openai': {
@@ -163,13 +188,65 @@ def discover_providers(config_path='provider_config.json'):
         config_path: Optional path to provider_config.json for env var overrides.
 
     Returns:
-        dict: {
-            'ollama': {'available': bool, 'models': list[str], 'endpoint': str},
-            'openai': {'available': bool, 'model': str, 'env_var_found': str|None},
-            'google': {'available': bool, 'model': str, 'env_var_found': str|None},
-            'fal': {'available': bool, 'models': list[str]},
-            'recraft': {'available': bool, 'model': str, 'env_var_found': str|None},
-        }
+        dict: Per-provider availability and capability metadata.
+            Each provider entry contains 'available' (bool) plus provider-specific
+            fields. For openai/google/fal, a 'models' dict is attached with
+            per-model resolution capability after the base probe completes:
+
+            {
+                'ollama': {
+                    'available': bool,
+                    'models': list[str],   # list of installed model name strings
+                    'endpoint': str,
+                },
+                'openai': {
+                    'available': bool,
+                    'model': str,
+                    'env_var_found': str|None,
+                    'models': {
+                        'gpt-image-1.5': {'supported_resolutions': ['1K']},
+                    },
+                },
+                'google': {
+                    'available': bool,
+                    'model': str,
+                    'env_var_found': str|None,
+                    'models': {
+                        'imagen-4.0-fast-generate-001': {'supported_resolutions': ['1K']},
+                        'imagen-4.0-generate-001': {'supported_resolutions': ['1K', '2K']},
+                        'imagen-4.0-ultra-generate-001': {'supported_resolutions': ['1K', '2K']},
+                        'gemini-3.1-flash-image-preview': {'supported_resolutions': ['512', '1K', '2K', '4K']},
+                        'gemini-3-pro-image-preview': {'supported_resolutions': ['1K', '2K', '4K']},
+                    },
+                },
+                'fal': {
+                    'available': bool,
+                    'models': {
+                        'fal-ai/flux-2-pro': {'supported_resolutions': ['1K', '2K']},
+                        'fal-ai/flux-2-klein': {'supported_resolutions': ['1K']},
+                        'fal-ai/ideogram/v3': {'supported_resolutions': ['1K']},
+                    },
+                },
+                'recraft': {
+                    'available': bool,
+                    'model': str,             # SVG icon model id (legacy field, kept for compat)
+                    'env_var_found': str|None,
+                    'models': {               # Raster model ids (added by issue #61)
+                        'recraft-v4-standard': {'supported_resolutions': ['1K']},
+                        'recraft-v4-pro': {'supported_resolutions': ['2K', '4K']},
+                    },
+                },
+            }
+
+            Note: the recraft entry carries both keys — `model` (singular) is
+            the legacy SVG icon model identifier, retained for compatibility
+            with callers of `recraft-icon`; `models` (plural) is the new raster
+            surface added by issue #61, mirroring the OpenAI/Google/FAL shape.
+
+            Note: ollama 'models' is a list[str] of installed model name strings
+            (no resolution metadata — Ollama is a local model lister, not a
+            resolution-capable cloud provider). Only openai/google/fal/recraft
+            gain the per-model resolution surface via _PROVIDER_MODEL_RESOLUTIONS.
     """
     config = _load_config(config_path)
 
@@ -192,10 +269,21 @@ def discover_providers(config_path='provider_config.json'):
         'models': _FAL_IMAGE_MODELS if fal_available else [],
     }
 
-    return {
+    result = {
         'ollama': ollama_result,
         'openai': openai_result,
         'google': google_result,
         'fal': fal_result,
         'recraft': recraft_result,
     }
+
+    # Attach per-model resolution capability metadata so callers can filter
+    # resolution-tier requests against capability before dispatch.
+    for provider_name, models in _PROVIDER_MODEL_RESOLUTIONS.items():
+        if provider_name in result:
+            result[provider_name]['models'] = {
+                model: {'supported_resolutions': resolutions}
+                for model, resolutions in models.items()
+            }
+
+    return result

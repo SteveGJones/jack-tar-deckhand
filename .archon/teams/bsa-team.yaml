@@ -1,0 +1,45 @@
+schema_version: "1.0"
+name: bsa-team
+description: >
+  Business Service Architecture (BSA) maintenance team. Reads code-feature
+  PRs, spec/plan docs, and the current canonical model, then produces BSA
+  updates: canonical model JSON edits, schema validation, dependency-register
+  entries, architecture-doc updates, and methodology-compliance review.
+
+  Composes solution-architect (architectural change reasoning), data-architect
+  (canonical model JSON schema work), repo-knowledge-distiller (understands
+  the diff), compliance-auditor (governance / methodology compliance gate),
+  documentation-architect (architecture doc updates), and technical-writer
+  (BSA changelog prose). Brainstorming and doc-coauthoring skills support
+  iterative design exploration under speaker review.
+
+  Reusable across all future feature PRs that touch the canonical model:
+  cloud resolution (#59), deckhand integration (#60), Recraft promotion
+  (#61), and beyond.
+status: active
+created: 2026-05-03
+updated: 2026-05-03
+
+plugins:
+  - sdlc-team-common
+  - sdlc-team-fullstack
+  - sdlc-team-docs
+  - sdlc-team-security
+  - superpowers
+  - document-skills
+
+agents:
+  - sdlc-team-common:solution-architect
+  - sdlc-team-common:repo-knowledge-distiller
+  - sdlc-team-fullstack:data-architect
+  - sdlc-team-docs:documentation-architect
+  - sdlc-team-docs:technical-writer
+  - sdlc-team-security:compliance-auditor
+
+skills:
+  - superpowers:brainstorming
+  - document-skills:doc-coauthoring
+
+context:
+  - CONSTITUTION.md
+  - CLAUDE.md

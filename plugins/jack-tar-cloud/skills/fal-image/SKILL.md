@@ -1,7 +1,7 @@
 ---
 name: fal-image
 description: Generate images using FAL.ai FLUX API. Requires FAL_KEY environment variable.
-argument-hint: "a description of the image" [--output PATH] [--size SIZE] [--quality low|medium|high] [--model MODEL]
+argument-hint: "a description of the image" [--output PATH] [--size WxH] [--model MODEL] [--resolution 1K|2K]
 allowed-tools: Bash(python *)
 ---
 
@@ -34,9 +34,9 @@ if [ -z "$PLUGIN_ROOT" ] || [ "$PLUGIN_ROOT" = "NOT_FOUND" ]; then echo "ERROR: 
 Parse `$ARGUMENTS` for:
 - **Prompt**: The quoted description
 - **--output PATH**: Where to save (default: `output/fal-YYYYMMDD-HHMMSS.png`)
-- **--size SIZE**: Dimensions (default: `1536x1024`)
-- **--quality QUALITY**: `low`, `medium`, or `high` (default: `medium`)
-- **--model MODEL**: Override FAL model (e.g., `fal-ai/flux-pro`, `fal-ai/ideogram/v2`)
+- **--size WxH**: Explicit pixel dimensions (e.g. `1920x1080` or `2048x2048`). Translated to FAL `image_size={"width":W, "height":H}`. If both `--size` and `--resolution` are passed, `--size` wins and a warning is logged. If omitted, `--resolution` selects a sensible preset.
+- **--model MODEL**: FAL endpoint (default: `fal-ai/flux-2-pro`). Other options: `fal-ai/flux-2-klein`, `fal-ai/ideogram/v3`.
+- **--resolution RES**: Tier (`1K`, `2K`). Default: `1K`. FLUX 2 Pro supports both; Klein and Ideogram support 1K only. Unsupported model/resolution combinations raise `ProviderResolutionUnsupportedError`; the exception message lists supported tiers.
 
 ## Check Availability
 
@@ -56,16 +56,33 @@ If `not_configured`, tell the user to set `FAL_KEY` and stop.
 PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
 from src.generate_cloud_image import generate_cloud_image
-result = generate_cloud_image(
+
+kwargs = dict(
     prompt='$PROMPT',
     provider='fal',
     output_path='$OUTPUT_PATH',
-    size='$SIZE',
-    quality='$QUALITY',
+    model='$MODEL',
+    resolution='$RESOLUTION',
 )
+
+# --size 1920x1080 translates to image_size dict (FAL's native parameter form).
+size = '$SIZE'
+if size and 'x' in size:
+    w, h = size.split('x')
+    kwargs['image_size'] = {'width': int(w), 'height': int(h)}
+
+result = generate_cloud_image(**kwargs)
 print(json.dumps(result, indent=2))
 "
 ```
 
 If successful, report the file path and cost.
 If failed, report the error.
+
+## Cost Reference
+
+| Model | 1K (1MP) | 2K (~4.2MP) | Notes |
+|---|---|---|---|
+| fal-ai/flux-2-pro | $0.030 | $0.078 | tiered: $0.030 first MP + $0.015/extra MP (2048² is ~4.19 MP) |
+| fal-ai/flux-2-klein | $0.014 | n/a | flat |
+| fal-ai/ideogram/v3 | $0.060 | n/a | flat |

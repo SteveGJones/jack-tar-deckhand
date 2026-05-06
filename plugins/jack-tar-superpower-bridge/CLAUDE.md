@@ -33,11 +33,25 @@ Without engine plugins, only the `/bridge-brief` skill works; `/enrich-deck` wil
 /jack-tar-superpower-bridge:enrich-deck presentation.pptx
 ```
 
+## See also — Direct route
+
+If you want the full Jack-Tar pipeline from a brief — brand profile, narrative architect, strategy map, full QA — without `/pptx` involvement, use the **deck-conductor** in the `jack-tar-deckhand` plugin. See `plugins/jack-tar-deckhand/CLAUDE.md` and the "Choosing your route" section of the top-level `README.md`.
+
 ## Specs and personas
 
 - Design spec: `docs/superpowers/specs/2026-04-22-superpower-bridge-design.md`
 - AI Persona contracts: `docs/architecture/ai-personas/superpower-bridge-personas.md`
 - Implementation plan: `docs/superpowers/plans/2026-04-23-superpower-bridge.md`
+
+## Known limitation — parallel orchestration (issue #61 EPIC #58 follow-up)
+
+The bridge runs its own enrichment cycle (`Phase A Ollama → Phase B Flash → Phase C Pro`) in `src/enrichment.py` and `skills/enrich-deck/SKILL.md`. This is **separate from** `/jack-tar-deckhand:imagegen-bridge` Step 9A. As a result, v0.2.0 does NOT yet consume the post-EPIC-#58 surfaces:
+- `slide.resolution` (1K/2K/4K opt-in via strategy map) — bridge has no strategy-map; it analyses /pptx output directly
+- `slide.brand_fidelity` (`exact` → Recraft V4 raster) — bridge does not route via deckhand's image_router
+- Render funnel `cloud_2k`/`cloud_4k` stages — bridge picks resolution at the Phase B/C tier-shop level, defaulting Phase C Pro to 1K
+- Imagegen-bridge Flash 4K pre-test pattern — bridge has its own Phase B Flash refinement cycle
+
+These features are reachable from the deckhand pipeline today; integrating them into the bridge cycle is a v0.3 candidate.
 
 ## Canonical example briefs (dogfood-validated)
 
@@ -47,7 +61,7 @@ When writing a creative brief or extending the Narrative Brief Architect, these 
 - **Run 5 — Boardroom Stone strategy deck** (`output/dogfood-bridge-run-5/creative-brief.md`). **Best reference for senior-leadership strategy decks.** Canonical for sub-page SMARTART-FROM-LIST typology + native chart routing + BG-on-pivot + will/won't colour reservation.
 - **Run 4 — Redline incident report deck** (`output/dogfood-bridge-run-4/creative-brief.md`). **Best reference for engineering-leadership / data-led / retrospective decks.** Canonical for sub-page IMAGE typology + data-led register.
 
-Dogfood logs: `docs/superpowers/dogfooding/2026-04-{23,25,26,26,27,29}-bridge-dogfood-run-{1..6}.md` — each captures leading practices to entrench and anti-patterns to avoid. Run 6's log includes the full cloud-escalation walkthrough.
+Dogfood logs: `docs/superpowers/dogfooding/2026-04-{23,25,26,26,27,29}-bridge-dogfood-run-{1..6}.md` and `2026-05-01-bridge-dogfood-run-{7..10}.md` — each captures leading practices to entrench and anti-patterns to avoid. Run 6's log includes the full cloud-escalation walkthrough; Run 10 declared v0.2.0 GO.
 
 ## Patterns repeatable for new operators
 
