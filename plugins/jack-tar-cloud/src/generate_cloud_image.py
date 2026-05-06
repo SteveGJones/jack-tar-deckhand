@@ -11,6 +11,7 @@ FAL.ai (FLUX.2 Pro, FLUX.2 Klein, Ideogram 3.0 via fal.ai).
 import base64
 import logging
 import os
+import tempfile
 from pathlib import Path
 
 import fal_client
@@ -698,6 +699,208 @@ def generate_fal(prompt, output_path, **kwargs):
         'cost_usd': cost,
         'status': 'generated',
         'resolution': resolution,
+    }
+
+
+# --- Recraft V4 raster (direct API) ---
+
+_RECRAFT_DIRECT_BASE_URL = 'https://external.api.recraft.ai/v1'
+_RECRAFT_UPSCALE_URL = f'{_RECRAFT_DIRECT_BASE_URL}/images/creativeUpscale'
+
+# Tier -> (size string for Recraft images.generate, native pixel resolution).
+_RECRAFT_TIER_TO_SIZE = {
+    'standard': '1024x1024',
+    'pro': '2048x2048',
+}
+
+
+def generate_recraft_direct(prompt, output_path, *, tier='pro',
+                            resolution='2K', colors=None,
+                            style='realistic_image', **kwargs):
+    """Generate a raster image using the Recraft V4 direct API.
+
+    Uses OpenAI-compatible endpoint at external.api.recraft.ai/v1. For 4K
+    output the call is dispatched to `_generate_recraft_direct_with_upscale`,
+    which generates at 2K Pro and chains a Creative Upscale call.
+
+    Args:
+        prompt: Text prompt for image generation.
+        output_path: Where to save the generated PNG.
+        tier: 'standard' (1024², $0.04) or 'pro' (2048², $0.25 for 2K).
+        resolution: '1K' (standard) | '2K' (pro) | '4K' (pro + upscale chain).
+        colors: Optional list of RGB dicts for brand palette,
+                e.g. [{'rgb': [0, 51, 102]}, {'rgb': [255, 204, 0]}].
+        style: Recraft style preset (default 'realistic_image').
+
+    Returns:
+        dict: {file_path, provider, tier, resolution, model_used, cost_usd,
+               status}.
+
+    Raises:
+        ProviderNotConfiguredError: If RECRAFT_API_KEY is not set.
+        ProviderResolutionUnsupportedError: If tier doesn't support resolution.
+    """
+    api_key = os.environ.get('RECRAFT_API_KEY') or os.environ.get('RECRAFT_API')
+    if not api_key:
+        raise ProviderNotConfiguredError(
+            'Recraft not configured: RECRAFT_API_KEY environment variable is '
+            'not set. See research/04-cloud-api-setup-licensing.md section D '
+            'for setup.'
+        )
+
+    resolution = _normalise_resolution(resolution)
+
+    if tier not in _RECRAFT_TIER_RESOLUTIONS:
+        raise ValueError(
+            f"Unknown Recraft tier: {tier!r}. "
+            f"Valid: {list(_RECRAFT_TIER_RESOLUTIONS)}"
+        )
+
+    supported = _RECRAFT_TIER_RESOLUTIONS[tier]
+    if resolution not in supported:
+        raise ProviderResolutionUnsupportedError(
+            provider='recraft',
+            model=f'recraft-v4-{tier}',
+            requested=resolution,
+            supported=supported,
+        )
+
+    # 4K is generate-at-2K-Pro then Creative Upscale chain.
+    if resolution == '4K':
+        return _generate_recraft_direct_with_upscale(
+            prompt=prompt,
+            output_path=output_path,
+            api_key=api_key,
+            colors=colors,
+            style=style,
+        )
+
+    # 1K (standard) and 2K (pro) — single generation call.
+    client = OpenAI(
+        base_url=_RECRAFT_DIRECT_BASE_URL,
+        api_key=api_key,
+    )
+
+    extra_body = {'response_format': 'url'}
+    if colors:
+        extra_body['controls'] = {'colors': colors}
+
+    size = _RECRAFT_TIER_TO_SIZE[tier]
+
+    response = client.images.generate(
+        prompt=prompt,
+        model='recraftv4',
+        style=style,
+        size=size,
+        extra_body=extra_body,
+    )
+
+    image_url = response.data[0].url
+    r = requests.get(image_url, timeout=30)
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_path).write_bytes(r.content)
+
+    cost = estimate_recraft_cost(tier=tier, resolution=resolution)
+    logger.info(
+        'Recraft V4 raster generated: %s (tier: %s, resolution: %s, cost: $%.3f)',
+        output_path, tier, resolution, cost,
+    )
+
+    return {
+        'file_path': str(output_path),
+        'provider': 'recraft',
+        'tier': tier,
+        'resolution': resolution,
+        'model_used': f'recraft-v4-{tier}',
+        'cost_usd': cost,
+        'status': 'generated',
+    }
+
+
+def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
+                                          colors=None,
+                                          style='realistic_image'):
+    """Chain helper: generate at 2K Pro, then Creative Upscale to 4K.
+
+    Two-step Recraft direct API chain:
+      1. images.generate (2K Pro, 2048x2048)
+      2. POST /images/creativeUpscale (multipart file upload, Bearer auth)
+
+    The intermediate 2K render is written to a temp file and unlinked in a
+    `finally` clause so we don't leak even if the upscale fails.
+
+    Args:
+        prompt: Text prompt for image generation.
+        output_path: Final 4K PNG destination.
+        api_key: Recraft API key (already validated by the caller).
+        colors: Optional list of RGB dicts for brand palette.
+        style: Recraft style preset (default 'realistic_image').
+
+    Returns:
+        dict: Same shape as `generate_recraft_direct`, with resolution='4K'
+        and model_used='recraft-v4-pro+upscale'.
+    """
+    client = OpenAI(
+        base_url=_RECRAFT_DIRECT_BASE_URL,
+        api_key=api_key,
+    )
+
+    extra_body = {'response_format': 'url'}
+    if colors:
+        extra_body['controls'] = {'colors': colors}
+
+    # Step 1: generate at 2K Pro.
+    response = client.images.generate(
+        prompt=prompt,
+        model='recraftv4',
+        style=style,
+        size=_RECRAFT_TIER_TO_SIZE['pro'],
+        extra_body=extra_body,
+    )
+    twok_url = response.data[0].url
+    twok_bytes = requests.get(twok_url, timeout=30).content
+
+    tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    try:
+        Path(tmp_path).write_bytes(twok_bytes)
+
+        # Step 2: Creative Upscale via multipart POST (Bearer auth).
+        with open(tmp_path, 'rb') as f:
+            upscale_response = requests.post(
+                _RECRAFT_UPSCALE_URL,
+                headers={'Authorization': f'Bearer {api_key}'},
+                files={'file': f},
+                timeout=60,
+            )
+        upscale_response.raise_for_status()
+        upscaled_url = upscale_response.json()['image']['url']
+        upscaled_bytes = requests.get(upscaled_url, timeout=30).content
+
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(output_path).write_bytes(upscaled_bytes)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    cost = estimate_recraft_cost(tier='pro', resolution='4K')
+    logger.info(
+        'Recraft V4 raster 4K generated via upscale chain: %s (cost: $%.3f)',
+        output_path, cost,
+    )
+
+    return {
+        'file_path': str(output_path),
+        'provider': 'recraft',
+        'tier': 'pro',
+        'resolution': '4K',
+        'model_used': 'recraft-v4-pro+upscale',
+        'cost_usd': cost,
+        'status': 'generated',
     }
 
 
