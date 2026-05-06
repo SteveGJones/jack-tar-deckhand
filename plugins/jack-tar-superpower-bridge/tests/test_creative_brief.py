@@ -1,11 +1,13 @@
 import pytest
 from pathlib import Path
+from textwrap import dedent
 
 from src.creative_brief import (
     CreativeBrief,
     CreativeBriefValidationError,
     parse_brief_markdown,
     write_brief_markdown,
+    extract_expected_text_for_marker,
     DEFAULT_BUDGET_CAP_USD,
 )
 
@@ -116,3 +118,198 @@ def test_parse_rejects_missing_section():
     )
     with pytest.raises(CreativeBriefValidationError, match="Section C"):
         parse_brief_markdown(incomplete)
+
+
+# ---------------------------------------------------------------------------
+# Expected-text extraction (Run 6 Findings #19/#20)
+# ---------------------------------------------------------------------------
+#
+# The image-reviewer agent confabulates spelling correctness when it has no
+# explicit reference list to compare against (Finding #19 — "INFORENCE" passed
+# Phase A review on Run 6 slide 4). With an explicit list, it reliably catches
+# misspellings (Finding #20). The narrative-brief-architect agent now writes
+# Section C subject briefs with a per-marker block:
+#
+#     > Schematic integration diagram. Two ox-blood blocks side by side.
+#     >
+#     > EXACT spelled labels REQUIRED:
+#     > - block-left: "Our Platform"
+#     > - block-right: "Tessera Edge Stack"
+#     > - top-arrow: "API Gateway"
+#
+# ``extract_expected_text_for_marker`` is the deterministic Python helper the
+# /enrich-deck SKILL.md uses to lift those quoted strings out of the brief
+# and inject them into the image-reviewer dispatch payload.
+
+
+def _brief_with_section_c(section_c: str) -> str:
+    """Build a minimally-valid brief whose Section C is the supplied text."""
+    return dedent(
+        """\
+        # Creative Brief
+
+        **Topic:** Project Cardinal
+        **Audience:** Board
+        **Duration:** 15 min
+        **Confidentiality:** internal
+        **Budget cap:** $5.00
+
+        ## Section A — Narrative Architecture
+
+        **Arc:** Investigation-Verdict
+
+        narrative
+
+        ## Section B — Communication & Visual Intent
+
+        **Audience takeaway:** approve
+        **Tone:** institutional
+        **Visual personality:** ivory + ox-blood
+
+        ## Section C — Placeholder Instructions
+
+        """
+    ) + section_c
+
+
+def test_extract_expected_text_for_marker_blockquote_format():
+    """The canonical agent-produced format — markdown blockquote, EXACT header,
+    bulleted role-and-quoted-string lines."""
+    section_c = dedent(
+        """\
+        Slide 9 — Strategic fit. `IMAGE:strategic-fit-diagram` at full content.
+
+        > Schematic integration diagram. Two ox-blood burgundy blocks side by side, three labelled arrows between them.
+        >
+        > EXACT spelled labels REQUIRED:
+        > - block-left: "Our Platform"
+        > - block-right: "Tessera Edge Stack"
+        > - top-arrow: "API Gateway"
+        > - middle-arrow: "Model Registry"
+        > - bottom-arrow: "Billing Layer"
+        """
+    )
+    brief = _brief_with_section_c(section_c)
+    expected = extract_expected_text_for_marker(brief, "IMAGE:strategic-fit-diagram")
+    assert expected == [
+        "Our Platform",
+        "Tessera Edge Stack",
+        "API Gateway",
+        "Model Registry",
+        "Billing Layer",
+    ]
+
+
+def test_extract_expected_text_for_marker_unblockquoted_format():
+    """Authors who drop the `>` blockquote prefix should still parse cleanly."""
+    section_c = dedent(
+        """\
+        Slide 7 — Customer footprint. `IMAGE:customer-logo-grid` at full content.
+
+        Subject: 7-logo client grid (fintech + healthcare).
+
+        EXACT spelled labels REQUIRED:
+        - logo-1: "Halberd Capital"
+        - logo-2: "Meridian Bank"
+        - logo-3: "Procyon Pharma"
+        - logo-4: "Nivera Diagnostics"
+        """
+    )
+    brief = _brief_with_section_c(section_c)
+    expected = extract_expected_text_for_marker(brief, "IMAGE:customer-logo-grid")
+    assert expected == [
+        "Halberd Capital",
+        "Meridian Bank",
+        "Procyon Pharma",
+        "Nivera Diagnostics",
+    ]
+
+
+def test_extract_expected_text_for_marker_returns_empty_when_no_label_block():
+    """Markers without an EXACT block (atmospheric backgrounds, etc.) return []
+    so the SKILL.md can decide whether to dispatch the reviewer with or
+    without expected_text_content."""
+    section_c = dedent(
+        """\
+        Slide 10 — Pivot. `BG:pivot-moment` full-bleed.
+
+        Atmospheric warm vellum texture, no overlaid text.
+        """
+    )
+    brief = _brief_with_section_c(section_c)
+    assert extract_expected_text_for_marker(brief, "BG:pivot-moment") == []
+
+
+def test_extract_expected_text_for_marker_isolates_to_target_marker():
+    """When two markers each have an EXACT block, extraction must stop at the
+    next marker reference rather than spilling into the following block."""
+    section_c = dedent(
+        """\
+        Slide 6 — Edge Stack architecture. `IMAGE:edge-stack-architecture`.
+
+        > EXACT spelled labels REQUIRED:
+        > - node-1: "Client Edge Nodes"
+        > - node-2: "Inference Layer"
+
+        Slide 9 — Strategic fit. `IMAGE:strategic-fit-diagram`.
+
+        > EXACT spelled labels REQUIRED:
+        > - block-left: "Our Platform"
+        > - block-right: "Tessera Edge Stack"
+        """
+    )
+    brief = _brief_with_section_c(section_c)
+    edge = extract_expected_text_for_marker(brief, "IMAGE:edge-stack-architecture")
+    assert edge == ["Client Edge Nodes", "Inference Layer"]
+    fit = extract_expected_text_for_marker(brief, "IMAGE:strategic-fit-diagram")
+    assert fit == ["Our Platform", "Tessera Edge Stack"]
+
+
+def test_extract_expected_text_for_marker_unknown_marker_returns_empty():
+    """A marker_id not present anywhere in the brief returns [] without
+    raising — Section C may legitimately omit a marker if /pptx authored it
+    but the brief never described it (degraded but recoverable case)."""
+    section_c = dedent(
+        """\
+        Slide 1 — Title only.
+        """
+    )
+    brief = _brief_with_section_c(section_c)
+    assert extract_expected_text_for_marker(brief, "IMAGE:nowhere") == []
+
+
+def test_extract_expected_text_for_marker_only_searches_section_c():
+    """An EXACT block elsewhere in the brief (e.g. quoted in Section A as an
+    example) must NOT be picked up when the marker isn't actually defined in
+    Section C — preventing false positives from narrative prose."""
+    brief = dedent(
+        """\
+        # Creative Brief
+
+        **Topic:** t
+        **Audience:** a
+        **Duration:** 15 min
+        **Confidentiality:** public
+        **Budget cap:** $1.00
+
+        ## Section A — Narrative Architecture
+
+        **Arc:** x
+
+        Reference example: an `IMAGE:foo` marker might use:
+
+        > EXACT spelled labels REQUIRED:
+        > - example: "Should Not Match"
+
+        ## Section B — Communication & Visual Intent
+
+        **Audience takeaway:** x
+        **Tone:** x
+        **Visual personality:** x
+
+        ## Section C — Placeholder Instructions
+
+        Slide 1 — Title only.
+        """
+    )
+    assert extract_expected_text_for_marker(brief, "IMAGE:foo") == []

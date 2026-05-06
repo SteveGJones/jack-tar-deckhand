@@ -80,3 +80,30 @@ def test_cost_event_kinds_validated(tmp_path):
 def test_read_returns_empty_when_no_file(tmp_path):
     assert read_measurements(tmp_path) == []
     assert read_cost_ledger(tmp_path) == []
+
+
+def test_record_cost_event_accepts_cohesion_kind(tmp_path):
+    """Run 5 Finding #18: the cohesion review charge has its own kind so the
+    cost ledger separates per-image review charges (Haiku) from the deck-level
+    cohesion review charge (Sonnet), which has different unit economics."""
+    record_cost_event(cwd=tmp_path, kind="cohesion",
+                       provider="sonnet", cost_usd=0.020,
+                       slide_index=None, marker_id=None)
+    ledger = read_cost_ledger(tmp_path)
+    assert len(ledger) == 1
+    assert ledger[0]["kind"] == "cohesion"
+    assert ledger[0]["provider"] == "sonnet"
+    assert ledger[0]["cost_usd"] == 0.020
+
+
+def test_record_cost_event_accepts_brief_authoring_kind(tmp_path):
+    """Run 2 Finding #8: Phase 1 LLM authoring costs (Sonnet token spend on
+    the narrative-brief-architect dispatches) need to be visible in the
+    ledger to give enterprise speakers a complete cost picture rather than
+    only Phase 3 image generation."""
+    record_cost_event(cwd=tmp_path, kind="brief_authoring",
+                       provider="sonnet", cost_usd=0.045,
+                       slide_index=None, marker_id=None)
+    ledger = read_cost_ledger(tmp_path)
+    assert len(ledger) == 1
+    assert ledger[0]["kind"] == "brief_authoring"

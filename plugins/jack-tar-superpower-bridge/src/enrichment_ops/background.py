@@ -42,6 +42,21 @@ def _build_bg_element(rid: str):
     return etree.fromstring(xml)
 
 
+def _shape_text_content(sp_elem) -> str:
+    """Concatenate all <a:t> text in a shape's <p:txBody> for matching.
+
+    Returns the empty string when the shape has no text body. Used to detect
+    the Run 5 Finding #17 anti-pattern where /pptx emits a separate addText
+    shape whose visible text reproduces the BG marker name as a label.
+    """
+    a_t_qn = "{http://schemas.openxmlformats.org/drawingml/2006/main}t"
+    parts: list[str] = []
+    for t_elem in sp_elem.iter(a_t_qn):
+        if t_elem.text:
+            parts.append(t_elem.text)
+    return "".join(parts).strip()
+
+
 def apply_background_in_memory(
     *,
     prs,
@@ -55,6 +70,14 @@ def apply_background_in_memory(
     `image_path` is resolved through the image-path allowlist.
     The BG marker shape (if `marker_name` provided) is removed from the slide.
     The Presentation `prs` is mutated in place; the caller saves.
+
+    Run 5 Finding #17 — when ``marker_name`` is supplied, this function also
+    removes any shape on the slide whose visible text content matches the
+    marker name, even if the shape's ``cNvPr@name`` differs. /pptx commonly
+    emits a separate ``addText`` rendering "BG:slug" as a visible label
+    inside the marker rect; that label survives the rect swap as residual
+    cosmetic text on top of the new background image. Defence-in-depth on
+    top of the narrative-brief-architect's authoring guidance.
     """
     safe_image = resolve_within_allowlist(image_path, allowed_roots=allowed_image_roots)
     if slide_index_1based < 1 or slide_index_1based > len(prs.slides):
@@ -79,5 +102,13 @@ def apply_background_in_memory(
             if nvSpPr is None:
                 continue
             cNvPr = nvSpPr.find(qn("p:cNvPr"))
-            if cNvPr is not None and cNvPr.get("name") == marker_name:
+            shape_name = cNvPr.get("name") if cNvPr is not None else None
+            if shape_name == marker_name:
+                spTree.remove(sp)
+                continue
+            # Finding #17: remove residual label whose visible text
+            # exactly equals the marker name. Strict equality keeps
+            # legitimate slide text that merely contains the marker
+            # string as a substring intact.
+            if _shape_text_content(sp) == marker_name:
                 spTree.remove(sp)

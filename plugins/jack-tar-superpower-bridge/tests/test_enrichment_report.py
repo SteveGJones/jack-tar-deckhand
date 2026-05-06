@@ -104,6 +104,52 @@ def test_report_smartart_flag_includes_powerpoint_command(tmp_path):
     assert "tools/pptx_to_pdf.sh" in text
 
 
+def test_summary_counts_smartart_from_list_as_its_own_kind(tmp_path):
+    """Run 6 Finding #14: ``smartart_from_list`` is a distinct enrichment kind
+    in the ledger but the summary line previously only counted background /
+    image / smartart, so smartart_from_list entries silently fell off the
+    summary tally. This is cosmetic but confused Speakers reviewing the
+    report — fix it by giving smartart_from_list its own counter."""
+    ledger = [
+        EnrichmentLedgerEntry(
+            slide_index=2, kind="smartart_from_list",
+            marker_id="SMARTART-FROM-LIST:capability-themes",
+            engine_provider="pptx_native (list1)", iterations="n/a",
+            cost_usd=0.00, verdict="pass",
+        ),
+        EnrichmentLedgerEntry(
+            slide_index=4, kind="smartart_from_list",
+            marker_id="SMARTART-FROM-LIST:risks",
+            engine_provider="pptx_native (vList2)", iterations="n/a",
+            cost_usd=0.00, verdict="pass",
+        ),
+        EnrichmentLedgerEntry(
+            slide_index=5, kind="smartart",
+            marker_id="SMARTART:three-pillars",
+            engine_provider="pptx_native (process1)", iterations="n/a",
+            cost_usd=0.00, verdict="pass",
+        ),
+    ]
+    report = EnrichmentReport(
+        deck_name="t", source_pptx=tmp_path / "s.pptx",
+        output_pptx=tmp_path / "o.pptx",
+        bridge_version="0.1.0", confidentiality="public", budget_cap_usd=1.00,
+        ledger=ledger,
+        cohesion_summary={"pass_count": 3, "suggestion_count": 0,
+                          "blocking_count": 0, "actions": []},
+        contains_smartart=True,
+        run_timestamp=datetime(2026, 4, 23, 12, 0, 0),
+    )
+    out = tmp_path / "r.md"
+    write_report(report, out)
+    text = out.read_text()
+    # smartart_from_list count must appear separately from smartart
+    assert "smartart_from_list=2" in text
+    assert "smartart=1" in text
+    # Slides enriched still aggregates correctly
+    assert "Slides enriched: 3" in text
+
+
 def test_cohesion_actions_reproduced_in_flags_section(tmp_path):
     report = EnrichmentReport(
         deck_name="t", source_pptx=tmp_path / "s.pptx", output_pptx=tmp_path / "o.pptx",

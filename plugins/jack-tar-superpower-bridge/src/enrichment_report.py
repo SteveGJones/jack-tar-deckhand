@@ -14,7 +14,7 @@ from typing import Any
 @dataclass
 class EnrichmentLedgerEntry:
     slide_index: int
-    kind: str               # background | image | smartart
+    kind: str               # background | image | smartart | smartart_from_list
     marker_id: str
     engine_provider: str    # e.g. "ollama→nanobanana_flash" or "pptx_native (process1)"
     iterations: str         # "2→1" or "n/a"
@@ -37,13 +37,25 @@ class EnrichmentReport:
 
 
 def _format_summary(report: EnrichmentReport, total_cost: float) -> str:
+    # Run 6 Finding #14: smartart_from_list is a distinct enrichment kind
+    # but was previously absent from the summary tally, so its entries
+    # silently fell off the report's roll-up. Each kind gets its own counter.
+    counts = {
+        "backgrounds": sum(1 for e in report.ledger if e.kind == "background"),
+        "images": sum(1 for e in report.ledger if e.kind == "image"),
+        "smartart": sum(1 for e in report.ledger if e.kind == "smartart"),
+        "smartart_from_list": sum(
+            1 for e in report.ledger if e.kind == "smartart_from_list"
+        ),
+    }
     return (
         f"## Summary\n\n"
         f"- Slides enriched: {len(report.ledger)} of (deck total)\n"
         f"- Enrichments applied: "
-        f"backgrounds={sum(1 for e in report.ledger if e.kind == 'background')}, "
-        f"images={sum(1 for e in report.ledger if e.kind == 'image')}, "
-        f"smartart={sum(1 for e in report.ledger if e.kind == 'smartart')}\n"
+        f"backgrounds={counts['backgrounds']}, "
+        f"images={counts['images']}, "
+        f"smartart={counts['smartart']}, "
+        f"smartart_from_list={counts['smartart_from_list']}\n"
         f"- Total cost: ${total_cost:.2f}\n"
         f"- Budget cap: ${report.budget_cap_usd:.2f} "
         f"(${report.budget_cap_usd - total_cost:.2f} unused)\n"

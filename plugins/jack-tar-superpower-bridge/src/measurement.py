@@ -18,7 +18,12 @@ from typing import Any
 MEASUREMENT_FILENAME = "bridge-measurements.jsonl"
 COST_LEDGER_FILENAME = "bridge-cost-ledger.jsonl"
 
-VALID_COST_KINDS = {"generation", "review"}
+VALID_COST_KINDS = {
+    "generation",       # cloud image gen (Phase B Flash, Phase C Pro)
+    "review",           # per-image image-reviewer (Haiku)
+    "cohesion",         # deck-level enrichment-cohesion-reviewer (Sonnet) — Run 5 Finding #18
+    "brief_authoring",  # Phase 1 narrative-brief-architect dispatches — Run 2 Finding #8
+}
 VALID_CONFIDENTIALITY = {"public", "internal", "restricted"}
 
 
