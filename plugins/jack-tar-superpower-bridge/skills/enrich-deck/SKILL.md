@@ -245,8 +245,10 @@ Repeat until `decision.kind` starts with `terminate_`:
 **(i) Generate the image** based on current `state.phase`:
 
 - `phase_a_ollama` → invoke `/jack-tar-ollama:image "$PROMPT" --output $OUTPUT --width $WIDTH --height $HEIGHT --model $OLLAMA_MODEL` (free; no budget charge)
-- `phase_b_cloud_flash` → invoke `/jack-tar-cloud:image "$PROMPT" --provider google --model gemini-3.1-flash-image-preview --output $OUTPUT --width $WIDTH --height $HEIGHT` then charge `kind="generation", provider="nanobanana_flash", cost_usd=0.067`
-- `phase_c_cloud_pro` → invoke `/jack-tar-cloud:image "$PROMPT" --provider google --model gemini-3-pro-image-preview --output $OUTPUT --width $WIDTH --height $HEIGHT` then charge `kind="generation", provider="nanobanana_pro", cost_usd=0.134`
+- `phase_b_cloud_flash` → invoke `/jack-tar-cloud:image "$PROMPT" --provider google --model gemini-3.1-flash-image-preview --output $OUTPUT --resolution 1K` then charge `kind="generation", provider="nanobanana_flash", cost_usd=0.067`
+- `phase_c_cloud_pro` → invoke `/jack-tar-cloud:image "$PROMPT" --provider google --model gemini-3-pro-image-preview --output $OUTPUT --resolution 1K` then charge `kind="generation", provider="nanobanana_pro", cost_usd=0.134`
+
+**Note (post-EPIC #58):** bridge routes Phase B/C at `1K` only. Higher tiers (2K/4K) are reachable from the deckhand pipeline via `slide.resolution` + `slide.brand_fidelity` but bridge doesn't yet consume those surfaces — see "Known limitation" in `plugins/jack-tar-superpower-bridge/CLAUDE.md`. v0.3 candidate.
 
 Cloud-tier charges go through:
 ```bash
