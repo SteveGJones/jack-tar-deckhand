@@ -31,7 +31,7 @@
 | **Hierarchy 5** (`hierarchy5`) | Hierarchy | `hierarchical` | 25 | 32 | `hierarchy` |
 | **Hierarchy 6** (`hierarchy6`) | Hierarchy | `hierarchical` | 25 | 32 | `hierarchy` |
 | **Horizontal List 6** (`hList6`) | List | `flat_list` | 8 | 30 | `list` |
-| **Vertical List 2** (`vList2`) | List | `flat_list` | 8 | 30 | `list` |
+| **Vertical List 2** (`vList2`) | List | `flat_list` | 8 | 60 | `list` |
 | **Vertical List 3** (`vList3`) | List | `picture` | 8 | 30 | `list` |
 | **Vertical List 4** (`vList4`) | List | `picture` | 8 | 30 | `list` |
 | **Vertical List 5** (`vList5`) | List | `flat_list` | 8 | 30 | `list` |
@@ -52,7 +52,7 @@
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-9 nodes, max 24 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/process1`
+- **Layout directory:** `data/smartart_layouts/process1`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#4`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -97,7 +97,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 3-8 nodes, max 20 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/cycle2`
+- **Layout directory:** `data/smartart_layouts/cycle2`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#7`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -142,7 +142,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `hierarchical`
 - **Special node types:** `asst`
 - **Capacity:** 3-25 nodes, max 32 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/orgChart1`
+- **Layout directory:** `data/smartart_layouts/orgChart1`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#3`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/colorful5`
 
@@ -187,7 +187,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/list1`
+- **Layout directory:** `data/smartart_layouts/list1`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -232,7 +232,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 4-4 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/matrix2`
+- **Layout directory:** `data/smartart_layouts/matrix2`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/3d2#1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/colorful1`
 
@@ -277,7 +277,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 3-6 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/pyramid2`
+- **Layout directory:** `data/smartart_layouts/pyramid2`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -322,7 +322,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 28 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/venn1`
+- **Layout directory:** `data/smartart_layouts/venn1`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#4`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/colorful1`
 
@@ -367,7 +367,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-9 nodes, max 24 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/process4`
+- **Layout directory:** `data/smartart_layouts/process4`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#5`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#1`
 
@@ -412,7 +412,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-9 nodes, max 24 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/chevron1`
+- **Layout directory:** `data/smartart_layouts/chevron1`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#9`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -457,7 +457,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-9 nodes, max 24 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hProcess4`
+- **Layout directory:** `data/smartart_layouts/hProcess4`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/3d2#2`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -502,7 +502,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-9 nodes, max 24 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hProcess7`
+- **Layout directory:** `data/smartart_layouts/hProcess7`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -547,7 +547,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-9 nodes, max 24 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hProcess9`
+- **Layout directory:** `data/smartart_layouts/hProcess9`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#6`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -592,7 +592,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-9 nodes, max 24 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hProcess11`
+- **Layout directory:** `data/smartart_layouts/hProcess11`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#8`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -637,7 +637,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-9 nodes, max 24 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/lProcess2`
+- **Layout directory:** `data/smartart_layouts/lProcess2`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#7`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#2`
 
@@ -682,7 +682,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 3-8 nodes, max 20 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/cycle8`
+- **Layout directory:** `data/smartart_layouts/cycle8`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#2`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/colorful1`
 
@@ -727,7 +727,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `hierarchical`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 3-25 nodes, max 32 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hierarchy2`
+- **Layout directory:** `data/smartart_layouts/hierarchy2`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -772,7 +772,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `hierarchical`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 3-25 nodes, max 32 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hierarchy4`
+- **Layout directory:** `data/smartart_layouts/hierarchy4`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/colorful1`
 
@@ -817,7 +817,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `hierarchical`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 3-25 nodes, max 32 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hierarchy5`
+- **Layout directory:** `data/smartart_layouts/hierarchy5`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple5#1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent2_2`
 
@@ -862,7 +862,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `hierarchical`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 3-25 nodes, max 32 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hierarchy6`
+- **Layout directory:** `data/smartart_layouts/hierarchy6`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple4#2`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/colorful4`
 
@@ -907,7 +907,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/hList6`
+- **Layout directory:** `data/smartart_layouts/hList6`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#16`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#5`
 
@@ -951,8 +951,8 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Layout URI:** `urn:microsoft.com/office/officeart/2005/8/layout/vList2#1`
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
-- **Capacity:** 2-8 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/vList2`
+- **Capacity:** 2-8 nodes, max 60 chars per label
+- **Layout directory:** `data/smartart_layouts/vList2`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#12`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2#4`
 
@@ -975,7 +975,7 @@ A vertical list where each item features a prominent accent shape (colored circl
 
 ### Capacity rationale
 
-First-pass default per category norms. Refine after manual gate validation.
+Refined 2026-05-01 (Run 7 Finding #22 spike validation). vList2 layout XML uses INF height + auto-shrink font (min 2pt); empirically renders prose-length bullets up to 60 chars at sub-page (3.5x3.5) and banner (10x2) scales without visible quality degradation. Bridge LAYOUT_BULLET_CAPS["vList2"]=60 now matches.
 
 ### Selector rationale template
 
@@ -997,7 +997,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `picture`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/vList3`
+- **Layout directory:** `data/smartart_layouts/vList3`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -1042,7 +1042,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `picture`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/vList4`
+- **Layout directory:** `data/smartart_layouts/vList4`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#6`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -1087,7 +1087,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/vList5`
+- **Layout directory:** `data/smartart_layouts/vList5`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -1132,7 +1132,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 28 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/venn3`
+- **Layout directory:** `data/smartart_layouts/venn3`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1#17`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -1177,7 +1177,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 28 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/funnel1`
+- **Layout directory:** `data/smartart_layouts/funnel1`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple2#7`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -1222,7 +1222,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-8 nodes, max 28 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/target3`
+- **Layout directory:** `data/smartart_layouts/target3`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -1267,7 +1267,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `picture`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-7 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/pList1`
+- **Layout directory:** `data/smartart_layouts/pList1`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 
@@ -1314,7 +1314,7 @@ First-pass default per category norms. Refine after manual gate validation.
 - **Data shape:** `flat_list`
 - **Special node types:** none (only regular nodes)
 - **Capacity:** 2-10 nodes, max 30 chars per label
-- **Layout directory:** `tests/fixtures/smartart_layouts/default`
+- **Layout directory:** `data/smartart_layouts/default`
 - **Quick style URI:** `urn:microsoft.com/office/officeart/2005/8/quickstyle/simple1`
 - **Colors URI:** `urn:microsoft.com/office/officeart/2005/8/colors/accent1_2`
 

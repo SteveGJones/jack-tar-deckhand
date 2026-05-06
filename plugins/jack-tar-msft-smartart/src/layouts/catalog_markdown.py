@@ -21,8 +21,8 @@ from pathlib import Path
 
 from src.layouts import catalog
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-OUTPUT_PATH = REPO_ROOT / "docs" / "pptx-native-smartart-catalog.md"
+PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+OUTPUT_PATH = PLUGIN_ROOT / "docs" / "pptx-native-smartart-catalog.md"
 
 
 def _bulleted(items: list[str]) -> str:
