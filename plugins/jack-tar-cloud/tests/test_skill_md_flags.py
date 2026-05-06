@@ -60,12 +60,12 @@ _NON_KWARG_FLAGS = {
 
 # Some flags are CLI-named differently from the kwarg
 _FLAG_TO_KWARG = {
-    'size': 'size',
-    'quality': 'quality',
+    'aspect-ratio': 'aspect_ratio',  # CLI hyphen -> Python underscore
     'background': 'background',
     'model': 'model',
+    'quality': 'quality',
     'resolution': 'resolution',
-    'aspect-ratio': 'aspect_ratio',  # CLI hyphen -> Python underscore
+    'size': 'size',
 }
 
 

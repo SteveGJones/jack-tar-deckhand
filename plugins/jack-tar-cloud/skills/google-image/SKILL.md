@@ -40,11 +40,13 @@ Parse `$ARGUMENTS` for:
   - `imagen-4.0-generate-001` / `imagen-4.0-ultra-generate-001`: 1K, 2K
   - `gemini-3.1-flash-image-preview`: 512, 1K, 2K, 4K
   - `gemini-3-pro-image-preview`: 1K, 2K, 4K
+
+  Unsupported model/resolution combinations raise `ProviderResolutionUnsupportedError`; the exception message lists supported tiers so callers can retry intelligently.
 - **--model MODEL**: Specific Google model ID (overrides --tier)
-- **--tier TIER**: Shorthand for model selection:
-  - `draft` → `imagen-4.0-fast-generate-001` ($0.02)
-  - `standard` → `gemini-3.1-flash-image-preview` ($0.067) — default
-  - `premium` → `gemini-3-pro-image-preview` ($0.134)
+- **--tier TIER**: Shorthand for model selection (prices shown @1K; see Cost Reference for full tier ladder):
+  - `draft` → `imagen-4.0-fast-generate-001` ($0.020 @1K, no higher tiers)
+  - `standard` → `gemini-3.1-flash-image-preview` ($0.067 @1K, $0.151 @4K) — default
+  - `premium` → `gemini-3-pro-image-preview` ($0.134 @1K, $0.240 @4K)
 
 If both `--model` and `--tier` are provided, `--model` takes precedence.
 If neither is provided, defaults to `standard` tier (Nanobanana Flash).
@@ -90,7 +92,10 @@ If failed, report the error.
 | imagen-4.0-generate-001 (Vertex) | — | $0.040 | $0.040 | n/a |
 | imagen-4.0-generate-001 (Dev API) | — | $0.040 | $0.101 | n/a |
 | imagen-4.0-ultra-generate-001 (Vertex) | — | $0.060 | $0.060 | n/a |
+| imagen-4.0-ultra-generate-001 (Dev API) | — | $0.060 | $0.101 | n/a |
 | gemini-3.1-flash-image-preview | $0.045 | $0.067 | $0.101 | $0.151 |
 | gemini-3-pro-image-preview | — | $0.134 | $0.134 | $0.240 |
 
 Imagen pricing depends on backend: `GOOGLE_APPLICATION_CREDENTIALS` set → Vertex AI flat per-image; `GOOGLE_API_KEY` only → Gemini Developer API token-based.
+
+Nano Banana (Flash and Pro) bills identically across both backends — no Vertex/Dev split — so its rows have no backend tag.
