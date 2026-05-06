@@ -5,7 +5,9 @@ authentication, API call, and file saving. The dispatch function
 routes to the correct provider.
 
 Currently configured: OpenAI (gpt-image-1.5), Google (Nano Banana + Imagen 4),
-FAL.ai (FLUX.2 Pro, FLUX.2 Klein, Ideogram 3.0 via fal.ai).
+FAL.ai (FLUX.2 Pro, FLUX.2 Klein, Ideogram 3.0 via fal.ai),
+Recraft V4 raster (1K standard, 2K Pro, 4K via Creative Upscale chain) —
+direct API or FAL.
 """
 
 import base64
@@ -1031,9 +1033,25 @@ def _generate_recraft_fal_with_upscale(prompt, output_path, *, colors=None):
 def _dispatch_recraft(prompt, output_path, **kwargs):
     """Dispatch Recraft to direct API or FAL based on which key is set.
 
+    If the caller didn't specify `tier` but did specify `resolution`, derive
+    tier from resolution (1K → standard, 2K/4K → pro). This makes Recraft
+    work cleanly through `generate_cloud_image(provider='recraft', resolution='1K')`
+    without the caller needing to know about the tier/resolution combination
+    matrix.
+
     Mirrors the icon path's dual-route logic: RECRAFT_API_KEY → direct,
     FAL_KEY → fal. Direct API is preferred when both are set.
     """
+    if 'tier' not in kwargs and 'resolution' in kwargs:
+        # Auto-pick tier from resolution
+        resolution = _normalise_resolution(kwargs['resolution'])
+        if resolution == '1K':
+            kwargs['tier'] = 'standard'
+        elif resolution in ('2K', '4K'):
+            kwargs['tier'] = 'pro'
+        # else: leave tier unset and let validation in the underlying function
+        # surface ProviderResolutionUnsupportedError
+
     if os.environ.get('RECRAFT_API_KEY') or os.environ.get('RECRAFT_API'):
         return generate_recraft_direct(prompt, output_path, **kwargs)
     return generate_recraft_fal(prompt, output_path, **kwargs)
@@ -1052,7 +1070,7 @@ def generate_cloud_image(prompt, provider, output_path, *, resolution='1K', **kw
 
     Args:
         prompt: Text prompt for image generation.
-        provider: Provider name ('openai', 'google', 'fal').
+        provider: Provider name ('openai', 'google', 'fal', 'recraft').
         output_path: Where to save the generated image.
         resolution: '512' | '1K' | '2K' | '4K' (case-insensitive, default '1K').
             Per-provider/model support varies; ProviderResolutionUnsupportedError

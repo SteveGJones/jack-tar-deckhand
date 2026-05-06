@@ -3,6 +3,7 @@
 import os
 import sys
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -47,10 +48,6 @@ def test_recraft_upscale_cost_override_via_env(monkeypatch):
     monkeypatch.setenv('RECRAFT_UPSCALE_COST_USD', '0.30')
     cost_4k = estimate_recraft_cost(tier='pro', resolution='4K')
     assert cost_4k == 0.55  # 0.25 (2K) + 0.30 (override upscale)
-
-
-from unittest import mock
-import os
 
 
 def test_generate_recraft_direct_1k_calls_recraft_api(monkeypatch, tmp_path):
@@ -248,3 +245,59 @@ def test_dispatch_recognises_recraft_provider(monkeypatch, tmp_path):
         )
 
     assert result['provider'] == 'fal-recraft'
+
+
+def test_dispatch_recraft_picks_standard_tier_for_1k(monkeypatch, tmp_path):
+    """When caller doesn't specify tier but passes resolution='1K',
+    dispatch should derive tier='standard' so the call succeeds."""
+    for key in ['RECRAFT_API_KEY', 'RECRAFT_API']:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv('FAL_KEY', 'test-fal')
+
+    fake_subscribe = mock.Mock(return_value={
+        'images': [{'url': 'https://example.com/img.png'}]
+    })
+    fake_get = mock.Mock(return_value=mock.Mock(content=b'PNG'))
+
+    with mock.patch('src.generate_cloud_image.fal_client.subscribe', fake_subscribe), \
+         mock.patch('src.generate_cloud_image.requests.get', fake_get):
+        from src.generate_cloud_image import generate_cloud_image
+        # Caller passes resolution but NOT tier — dispatch must derive
+        result = generate_cloud_image(
+            prompt='x',
+            provider='recraft',
+            output_path=str(tmp_path / 'out.png'),
+            resolution='1K',
+        )
+
+    assert result['tier'] == 'standard'
+    assert result['resolution'] == '1K'
+    # Confirm the standard endpoint was hit
+    args = fake_subscribe.call_args
+    assert args[0][0] == 'fal-ai/recraft/v4/text-to-image'
+
+
+def test_dispatch_recraft_picks_pro_tier_for_4k(monkeypatch, tmp_path):
+    """When caller passes resolution='4K' without tier, dispatch picks pro."""
+    for key in ['RECRAFT_API_KEY', 'RECRAFT_API']:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv('FAL_KEY', 'test-fal')
+
+    fake_subscribe = mock.Mock(side_effect=[
+        {'images': [{'url': 'https://example.com/2k.png'}]},
+        {'image': {'url': 'https://example.com/4k.png'}},
+    ])
+    fake_get = mock.Mock(return_value=mock.Mock(content=b'PNG'))
+
+    with mock.patch('src.generate_cloud_image.fal_client.subscribe', fake_subscribe), \
+         mock.patch('src.generate_cloud_image.requests.get', fake_get):
+        from src.generate_cloud_image import generate_cloud_image
+        result = generate_cloud_image(
+            prompt='x',
+            provider='recraft',
+            output_path=str(tmp_path / 'out.png'),
+            resolution='4K',
+        )
+
+    assert result['tier'] == 'pro'
+    assert result['resolution'] == '4K'
