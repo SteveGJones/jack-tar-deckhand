@@ -8,7 +8,7 @@ import pytest
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 # Skills that invoke generate_cloud_image() directly. recraft-icon/icon use
 # a different function (generate_cloud_icon); verify has no Generate block.
-SKILLS = ['openai-image', 'google-image', 'fal-image', 'image']
+SKILLS = ['openai-image', 'google-image', 'fal-image', 'image', 'recraft-image']
 
 # Router skills dispatch to per-provider skills rather than calling
 # generate_cloud_image() directly — they're validated by a separate
@@ -66,8 +66,11 @@ def _generate_block_kwargs(text):
 _NON_KWARG_FLAGS = {
     'output',    # consumed as output_path; CLI/kwarg naming diverges
     'provider',  # selects which generate_cloud_image provider= value to pass
-    'tier',      # resolved to --model before call (see google-image)
-    'colors',    # recraft-icon: passed to a different function
+    'tier',      # google-image: resolved to --model before call. recraft-image:
+                 # threaded as tier= kwarg. Either consumption pattern is valid;
+                 # excluded from the kwarg-presence check to allow both.
+    'colors',    # recraft-icon: passed to a different function (recraft-image
+                 # threads as kwarg via Generate block; documented separately)
     'format',    # recraft-icon: SVG vs PNG selector
 }
 
@@ -82,6 +85,7 @@ _FLAG_TO_KWARG = {
     'quality': 'quality',
     'resolution': 'resolution',
     'size': ('size', 'image_size'),  # OpenAI uses 'size'; FAL translates to 'image_size'
+    'style': 'style',                # recraft-image: forwarded to Recraft API style param
 }
 
 

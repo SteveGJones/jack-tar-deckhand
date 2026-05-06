@@ -21,6 +21,9 @@ _CANONICAL_SHARED = {
     ('fal', 'fal-ai/flux-2-pro'),
     ('fal', 'fal-ai/flux-2-klein'),
     ('fal', 'fal-ai/ideogram/v3'),
+    # Recraft V4 raster — issue #61
+    ('recraft', 'recraft-v4-standard'),
+    ('recraft', 'recraft-v4-pro'),
 }
 
 

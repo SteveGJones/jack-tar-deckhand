@@ -95,3 +95,45 @@ def test_render_funnel_rejects_unknown_stage(schema):
     }
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(sm, schema)
+
+
+# --- brand_fidelity field (issue #61) ---
+
+
+def test_brand_fidelity_exact_allowed(schema):
+    sm = {
+        'approval_mode': 'review',
+        'slides': [{**_base_slide(), 'brand_fidelity': 'exact'}],
+    }
+    jsonschema.validate(sm, schema)
+
+
+def test_brand_fidelity_approximate_allowed(schema):
+    sm = {
+        'approval_mode': 'review',
+        'slides': [{**_base_slide(), 'brand_fidelity': 'approximate'}],
+    }
+    jsonschema.validate(sm, schema)
+
+
+def test_brand_fidelity_none_allowed(schema):
+    sm = {
+        'approval_mode': 'review',
+        'slides': [{**_base_slide(), 'brand_fidelity': 'none'}],
+    }
+    jsonschema.validate(sm, schema)
+
+
+def test_invalid_brand_fidelity_rejected(schema):
+    sm = {
+        'approval_mode': 'review',
+        'slides': [{**_base_slide(), 'brand_fidelity': 'maximum'}],
+    }
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(sm, schema)
+
+
+def test_brand_fidelity_omitted_still_valid(schema):
+    """Backward compat: brand_fidelity is optional."""
+    sm = {'approval_mode': 'review', 'slides': [_base_slide()]}
+    jsonschema.validate(sm, schema)
