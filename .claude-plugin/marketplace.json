@@ -15,7 +15,7 @@
       "name": "jack-tar-cloud",
       "description": "Cloud AI image generation — OpenAI, Google, FAL.ai, Recraft with smart provider routing",
       "source": "./plugins/jack-tar-cloud",
-      "version": "1.2.0"
+      "version": "1.2.1"
     },
     {
       "name": "jack-tar-msft-smartart",
