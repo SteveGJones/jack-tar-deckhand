@@ -177,15 +177,11 @@ _MODEL_RESOLUTIONS = {
     'imagen-4.0-ultra-generate-001': ['1K', '2K'],
     'gemini-3.1-flash-image-preview': ['512', '1K', '2K', '4K'],
     'gemini-3-pro-image-preview': ['1K', '2K', '4K'],
-}
-
-# Recraft V4 raster — added in issue #61. The 'recraft-v4-*' identifiers are
-# router-side; under the hood the dispatch picks the actual endpoint
-# (text-to-image vs pro/text-to-image vs upscale chain) by tier+resolution.
-_MODEL_RESOLUTIONS.update({
+    # Recraft V4 raster (issue #61). 'recraft-v4-*' identifiers are router-side;
+    # internal dispatch picks the actual endpoint by tier+resolution.
     'recraft-v4-standard': ['1K'],
     'recraft-v4-pro': ['2K', '4K'],
-})
+}
 
 
 def estimate_google_cost(model='gemini-3.1-flash-image-preview', resolution='1K'):
@@ -309,11 +305,17 @@ _RECRAFT_TIER_RESOLUTIONS = {
 
 
 def _recraft_upscale_cost():
-    """Return the assumed upscale cost; env override allowed for hot-fix."""
+    """Return the assumed upscale cost; env override allowed for hot-fix.
+
+    Override is only honoured if it parses to a positive float — guards
+    against a speaker accidentally pricing a paid API at $0 or negative.
+    """
     override = os.environ.get('RECRAFT_UPSCALE_COST_USD')
     if override:
         try:
-            return float(override)
+            value = float(override)
+            if value > 0:
+                return value
         except ValueError:
             pass
     return _RECRAFT_UPSCALE_COST_DEFAULT

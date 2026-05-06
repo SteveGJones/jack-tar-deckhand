@@ -3,7 +3,6 @@
 import os
 import sys
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -29,9 +28,8 @@ def test_recraft_cost_4k_chain():
     assert estimate_recraft_cost(tier='pro', resolution='4K') == 0.50
 
 
-def test_recraft_cost_4k_standard_falls_back_to_pro():
-    """Standard tier doesn't have a 4K mapping; cost helper raises so the
-    caller upgrades to pro before generating."""
+def test_recraft_cost_standard_rejects_4k():
+    """Standard tier doesn't support 4K — caller is expected to upgrade tier."""
     with pytest.raises(ValueError, match='standard.*4K'):
         estimate_recraft_cost(tier='standard', resolution='4K')
 
