@@ -18,8 +18,11 @@ if os.environ.get('JACK_TAR_SUPERPOWER_BRIDGE_ROOT'):
     print(os.environ['JACK_TAR_SUPERPOWER_BRIDGE_ROOT']); sys.exit()
 home = Path.home()
 for base in [home / '.claude' / 'plugins' / 'cache']:
-    for p in base.rglob('jack-tar-superpower-bridge/.claude-plugin/plugin.json'):
-        print(str(p.parent.parent)); sys.exit()
+    # Note: Python 3.14 Path.rglob does not match multi-segment patterns reliably;
+    # use a 2-segment pattern + parts filter so discovery works across versions.
+    for p in base.rglob('.claude-plugin/plugin.json'):
+        if 'jack-tar-superpower-bridge' in p.parts:
+            print(str(p.parent.parent)); sys.exit()
 dev = Path.cwd() / 'plugins' / 'jack-tar-superpower-bridge'
 if dev.exists():
     print(str(dev)); sys.exit()

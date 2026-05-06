@@ -147,19 +147,27 @@ For SMARTART markers that have overlap warnings, present the three options:
 - **clear overlapping text** (`apply_clear_overlap`) — remove the overlapping shapes during enrichment
 - **drop this enrichment** — skip the SmartArt op entirely; marker stays in the deck for re-running later
 
-**SMARTART-FROM-LIST bullet length pre-flight (Finding #13 — repeated across Runs 4, 5, 6):** for each `SMARTART-FROM-LIST` marker, inspect the marker shape's text frame and check the longest bullet item against the layout cap of the default routing target (`process1` = 24 chars; `list1` = 30 chars). If any bullet exceeds the cap, surface a warning to the Speaker BEFORE Step 7 apply (which would otherwise raise `EnrichmentApplyError` mid-transaction):
+**SMARTART-FROM-LIST bullet length pre-flight (Findings #13 + #22 — Runs 4/5/6/7):** for each `SMARTART-FROM-LIST` marker, inspect the marker shape's text frame and call `select_layout_for_bullets` on the bullets. The bridge auto-routes by max bullet length:
+
+- ≤24 chars → `process1` (canonical chevron flow)
+- 25–30 chars → `list1` (vertical bullet list)
+- 31–60 chars → `vList2` (vertical list with accent — supports prose-length bullets, Run 7 spike validated)
+- **>60 chars → `BulletsTooLongError`** (hard fail; operator must rewrite or pick a different layout)
+
+Authors do NOT need to hand-truncate prose-length bullets up to 60 chars; the bridge routes them to the right layout automatically. The hard fail at 60 chars (Run 7 Finding #22) replaced silent ellipsis-truncation, which mangled operator content with mid-word "..." cuts.
+
+If any marker raises `BulletsTooLongError` at pre-flight, surface it to the Speaker BEFORE Step 7 apply (which would otherwise raise the same error mid-transaction):
 
 ```
-⚠ Slide N — SMARTART-FROM-LIST:<slug> has 2 bullet(s) exceeding process1's 24-char cap:
-  - "Edge inference for our regulated-vertical customers"  (52 chars)
-  - "Customer overlap: 3 of 7 already on our platform"     (48 chars)
+⚠ Slide N — SMARTART-FROM-LIST:<slug> has 1 bullet(s) exceeding the vList2 cap (60 chars):
+  - (73 chars) "Edge inference for our regulated-vertical customers, with billing seam"
 
 Options:
-  (1) shorten the bullets in the source build.js and re-run /pptx, then re-run /enrich-deck
-  (2) drop this enrichment from the plan; marker stays in deck for later
-  (3) accept auto-truncation to 24 chars (text will be clipped — degraded outcome)
+  (1) rewrite the offending bullet(s) within 60 chars and re-run /pptx, then re-run /enrich-deck
+  (2) replace the SMARTART-FROM-LIST marker with a native bulleted text shape in /pptx (no char limit)
+  (3) drop this enrichment from the plan; marker stays in deck for later
 
-Recommended: (1). Run 4/5/6 dogfood pattern is hand-shortened bullets ≤24 chars.
+Recommended: (1) for institutional / dense-prose decks; (2) when the list shape itself is the SmartArt's purpose.
 ```
 
 Capture the user's selections as a list of `EnrichmentItem` records.
@@ -272,20 +280,33 @@ Iteration: $ATTEMPT of $MAX_FOR_PHASE
 Source: enrichment-bridge
 ```
 
-**For text-bearing IMAGE markers, ALWAYS append `expected_text_content`** (Run 6 Findings #19/#20 — the reviewer's text-rendering check is unreliable without an explicit comparison reference). Extract the expected strings from the marker's subject brief in the creative brief's Section C per-slide marker assignment table (e.g. for `IMAGE:edge-stack-architecture`, extract `["Client Edge Nodes", "Inference Layer", "Orchestration Bus", "Cloud Sync Endpoint", "Regulator Engagement"]`). Append:
+**For text-bearing IMAGE markers, ALWAYS append `expected_text_content`** (Run 6 Findings #19/#20 — the reviewer's text-rendering check is unreliable without an explicit comparison reference). The bridge ships a deterministic Python extractor that lifts the EXACT spelled labels list from the brief's Section C blockquote for the current marker:
+
+```bash
+EXPECTED_TEXT_JSON=$(PYTHONPATH="$PLUGIN_ROOT" python3 - <<PY
+import json
+from pathlib import Path
+from src.creative_brief import extract_expected_text_for_marker
+brief = Path("$BRIEF_PATH").read_text() if Path("$BRIEF_PATH").exists() else ""
+print(json.dumps(extract_expected_text_for_marker(brief, "$MARKER_ID")))
+PY
+)
+```
+
+If `EXPECTED_TEXT_JSON` is non-empty (i.e. not the literal `[]`), append the comparison block to the dispatch payload:
 
 ```
 **Expected text content:**
-  - "Client Edge Nodes"
-  - "Inference Layer"
-  - "Orchestration Bus"
-  - "Cloud Sync Endpoint"
-  - "Regulator Engagement"
+  - "Our Platform"
+  - "Tessera Edge Stack"
+  - "API Gateway"
 **Critical check:** Read every word in the image and compare against the expected list above.
 Report rendered-vs-expected mismatches as issues; do not confabulate correctness.
 ```
 
-Heuristic for whether a marker is text-bearing: look in the brief's Section C subject brief for any of these patterns — a quoted multi-word string, the word "label", the word "wordmark", a proper-noun-style company/product name, a list of named blocks/arrows. When in doubt, include `expected_text_content` — it never hurts to provide it for non-text-bearing markers (the agent will treat it as no-op when no text is rendered).
+When `EXPECTED_TEXT_JSON == "[]"`, the brief deliberately omits an EXACT block for this marker (atmospheric BG, decorative texture, illustration with no overlaid text); skip the block — its absence signals to the reviewer that text-content fidelity is not load-bearing.
+
+The extractor is the load-bearing fix for Findings #19/#20: it reads the canonical blockquote format the `jack-tar-superpower-bridge:narrative-brief-architect` agent now writes for every text-bearing IMAGE marker (`> EXACT spelled labels REQUIRED:` followed by `> - role: "exact text"` bullets) and only searches Section C, so example EXACT blocks quoted in Section A as narrative cannot leak through as false positives.
 
 Capture the agent's JSON envelope.
 
@@ -310,6 +331,80 @@ PY
 ```
 
 If the review charge raises BudgetExhaustedError, halt this enrichment with `halted_budget`. Do NOT call `advance_after_review` on an unpaid verdict — caveat #6 demands the cycle stops here.
+
+**(iii.b) Verification escalation gate (Run 8 Finding #28 — text-bearing markers only)**
+
+For text-bearing IMAGE markers (those with a non-empty `EXPECTED_TEXT_JSON` from step (ii)), call `verify_review_evidences_comparison()` to decide whether the Haiku verdict warrants a second-opinion dispatch. Run 8 evidence: Haiku passed a Thylacine image with two visible misspellings ("cynogechalus" / "Tasnia") and confidence 0.92, because the reviewer's prose claimed correctness without quoting back any of the expected labels. The verification helper deterministically detects this pattern.
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 - <<PY
+import json
+from src.cycle_state import verify_review_evidences_comparison
+verdict = $VERDICT_PAYLOAD_DICT
+expected = $EXPECTED_TEXT_JSON
+rec = verify_review_evidences_comparison(verdict, expected)
+print(json.dumps({
+    "should_escalate": rec.should_escalate,
+    "reason": rec.reason,
+    "matched_labels": list(rec.matched_labels),
+    "expected_labels": list(rec.expected_labels),
+}))
+PY
+```
+
+If `should_escalate` is `False`, proceed to step (iv) directly — no escalation needed (atmospheric marker, refine verdict, or pass-with-evidence).
+
+If `should_escalate` is `True`, **DO NOT silently dispatch a second reviewer**. The escalation rule is verification-then-confirmation (operator agency over cost). Surface the recommendation to the user verbatim and ask for explicit confirmation before any second dispatch:
+
+```
+⚠ Marker $MARKER_ID — Reviewer escalation recommended
+
+The Haiku reviewer returned verdict=pass but did not quote any of the
+expected labels in its analysis fields. Run 8 evidence: this pattern
+correlates with confabulated correctness on fine-grained text errors.
+
+Expected labels:  ["Thylacine", "Thylacinus cynocephalus", "1936", "Tasmania"]
+Matched in prose: (none)
+Reviewer confidence: 0.92
+
+Options:
+  (1) Dispatch a second reviewer at higher tier (Sonnet/Opus) for
+      verification. Adds ~$0.025-0.050 to the run cost.
+  (2) Trust Haiku's verdict and proceed. Recommended only if you have
+      independently visually verified the image.
+  (3) Drop this marker from the plan; manually review the source image.
+
+Recommended: (1) for high-stakes decks where text fidelity is
+load-bearing.
+```
+
+If the user confirms (1), dispatch a second `jack-tar-deckhand:image-reviewer` (with `general-purpose` agent if Haiku is configured by default — the agent's underlying model can be swapped via `--model sonnet` or by dispatching the `general-purpose` subagent for Sonnet/Opus tiers). Pass the SAME payload as the first dispatch (image path, expected_text_content, brand palette, strategy) plus a note that this is a verification-escalation second opinion. Charge the second review:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 - <<PY
+from pathlib import Path
+from src.image_bridge import BudgetCap, BudgetExhaustedError
+from src.measurement import record_cost_event
+budget = BudgetCap(usd=$BUDGET_USD, spent=$BUDGET_SPENT)
+escalation_cost = 0.030  # Sonnet per-call estimate; calibrate from harness
+try:
+    budget.charge(kind="review", provider="sonnet", cost_usd=escalation_cost)
+    record_cost_event(cwd=Path("$RUN_DIR"), kind="review",
+                       provider="sonnet", cost_usd=escalation_cost,
+                       slide_index=$SLIDE, marker_id="$MARKER_ID")
+    print("OK")
+except BudgetExhaustedError:
+    print("HALT_BUDGET — second-opinion review not affordable")
+PY
+```
+
+Aggregate the two verdicts:
+
+- **Both pass:** Haiku was correct; proceed with original verdict to step (iv). Log the verification cost.
+- **Disagreement (Haiku pass, second opinion refine):** trust the second opinion. Update `$VERDICT_PAYLOAD_DICT` to the second reviewer's envelope. The cycle's `advance_after_review` will route to refine_and_retry with the second reviewer's issues. Surface to user that the escalation caught a confabulation.
+- **Both refine (rare — Haiku already returned refine, escalation usually skipped):** trust either; both flag the same defect.
+
+If the user declines escalation (option 2 or 3), proceed to step (iv) with the Haiku verdict as authoritative — but record a `verdict_escalation_declined` event in the cost ledger so the report can flag the marker as operator-trusted-without-verification.
 
 **(iv) Advance the state machine**
 
@@ -468,6 +563,28 @@ print(json.dumps({"deck": {"aggregate": deck.aggregate_verdict},
                    "summary": summary}, indent=2))
 PY
 ```
+
+**Charge the cohesion review (Run 5 Finding #18).** Cohesion review is a Sonnet dispatch with non-trivial token cost — record it as its own cost-ledger kind so the report's roll-up separates per-image Haiku reviews from the deck-level Sonnet cohesion review:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 - <<PY
+from pathlib import Path
+from src.image_bridge import BudgetCap, BudgetExhaustedError
+from src.measurement import record_cost_event
+budget = BudgetCap(usd=$BUDGET_USD, spent=$BUDGET_SPENT)
+cohesion_cost = 0.020  # Sonnet per-call estimate; calibrate from harness when available
+try:
+    budget.charge(kind="review", provider="sonnet", cost_usd=cohesion_cost)
+    record_cost_event(cwd=Path("$RUN_DIR"), kind="cohesion",
+                       provider="sonnet", cost_usd=cohesion_cost,
+                       slide_index=None, marker_id=None)
+    print(f"OK {budget.spent}")
+except BudgetExhaustedError:
+    print("HALT_BUDGET_BEFORE_COHESION")
+PY
+```
+
+If the cohesion charge cannot be afforded, the review still ran (it fired before this charge); record a 0-cost event with a warning so the ledger reflects the gap, and surface the budget overrun to the Speaker.
 
 ## Step 10 — Act on cohesion verdicts (caveat #2 decision table)
 

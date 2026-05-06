@@ -71,14 +71,20 @@ The brief MUST contain three labelled sections plus a top-of-file metadata heade
 |---|---|---|
 | Surface | `#XXXXXX` | Slide background |
 | Structural / Primary fill | `#XXXXXX` | SmartArt shape fills, chart fills, dark UI chrome — the deck's load-bearing dark token |
-| Body text | `#XXXXXX` | Primary body copy |
+| Text on Brand colour | `#XXXXXX` | **Contrasting text colour for labels INSIDE SmartArt shapes filled with the primary colour.** Usually pure white or the surface colour. Bridge picks this up explicitly via the v0.2 #24 keyword tier. |
+| Body text | `#XXXXXX` | Primary body copy on the surface |
 | Accent (single accent) | `#XXXXXX` | Will-build / commit / emphasis only — must EARN every appearance |
 | Subdued slate | `#XXXXXX` | Won't-build / deferred / structural chrome — present but de-energised |
 | Subtle divider | `#XXXXXX` | Horizontal rules, section borders |
 | Marker placeholder fill | `#XXXXXX` | Reserved rectangles for IMAGE / BG markers |
 | Marker placeholder border | `#XXXXXX` | Dashed border on placeholder rects |
 
-The palette table is REQUIRED for any deck containing SmartArt — its "Structural / Primary fill" row is the load-bearing token the bridge's `derive_palette_from_brief_text` heuristic reads when injecting brand colours into SmartArt carriers (Contract 1, Run 4 Finding #12). For decks without a strategic dichotomy, the "Subdued slate" row may be omitted; the table is otherwise non-negotiable when SmartArt is in scope.
+The palette table is REQUIRED for any deck containing SmartArt. Two rows are load-bearing for the bridge's `derive_palette_from_brief_text` heuristic (Contract 1):
+
+- **"Structural / Primary fill"** (or "Brand colour") — pins the load-bearing dark token the bridge fills SmartArt shapes with (Run 4 Finding #12).
+- **"Text on Brand colour"** (v0.2 #24) — pins the contrasting colour the bridge uses for label text INSIDE those filled shapes. WITHOUT this row, the heuristic infers the contrast from the surface row (correct in most cases, but operators with distinct surface vs text-on-primary intent — e.g. vellum surface + pure-white SmartArt label text — should declare it explicitly). Authors who omit this row get the v0.1.x fallback behaviour; authors who include it get exact control over the contrast.
+
+For decks without a strategic dichotomy, the "Subdued slate" row may be omitted; the table is otherwise non-negotiable when SmartArt is in scope.
 
 ## Section C — Placeholder Instructions
 
