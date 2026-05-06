@@ -60,7 +60,7 @@ If `--provider` is specified and available, use it directly.
 
 Otherwise, route based on content suitability:
 
-1. **Text-heavy content** (slides with visible text, labels, diagrams) → prefer Google Nanobanana (best text rendering), then OpenAI, then FAL
+1. **Text-heavy content** (slides with visible text, labels, diagrams) → prefer Google Nano Banana (best text rendering), then OpenAI, then FAL
 2. **Photorealistic imagery** (scenes, people, objects) → prefer FAL FLUX (best photorealism), then OpenAI, then Google
 3. **Budget bulk generation** (backgrounds, patterns, simple scenes) → prefer Google Imagen (cheapest at $0.02), then FAL, then OpenAI
 4. **Default** (no clear category) → `fal` first, then `openai`, then `google`

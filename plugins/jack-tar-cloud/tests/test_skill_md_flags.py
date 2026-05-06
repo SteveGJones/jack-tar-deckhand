@@ -88,7 +88,7 @@ _FLAG_TO_KWARG = {
 @pytest.mark.parametrize('skill', SKILLS)
 def test_every_documented_flag_reaches_generate_call(skill):
     if skill in _ROUTER_SKILLS:
-        pytest.skip(f"{skill} is a router; validated by test_router_forwards_resolution_flag")
+        pytest.skip(f"{skill} is a router; validated by test_image_router_documents_and_forwards_resolution")
 
     text = _read_skill(skill)
     flags = _argument_hint_flags(text)
