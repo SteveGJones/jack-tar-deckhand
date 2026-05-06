@@ -45,6 +45,10 @@ _PROVIDER_MODEL_RESOLUTIONS = {
         'fal-ai/flux-2-klein': ['1K'],
         'fal-ai/ideogram/v3': ['1K'],
     },
+    'recraft': {
+        'recraft-v4-standard': ['1K'],
+        'recraft-v4-pro': ['2K', '4K'],
+    },
 }
 
 # Default env vars per provider (matches official SDK conventions)
@@ -225,16 +229,24 @@ def discover_providers(config_path='provider_config.json'):
                 },
                 'recraft': {
                     'available': bool,
-                    'model': str,
+                    'model': str,             # SVG icon model id (legacy field, kept for compat)
                     'env_var_found': str|None,
-                    # no 'models' key — recraft is not in _PROVIDER_MODEL_RESOLUTIONS
+                    'models': {               # Raster model ids (added by issue #61)
+                        'recraft-v4-standard': {'supported_resolutions': ['1K']},
+                        'recraft-v4-pro': {'supported_resolutions': ['2K', '4K']},
+                    },
                 },
             }
 
+            Note: the recraft entry carries both keys — `model` (singular) is
+            the legacy SVG icon model identifier, retained for compatibility
+            with callers of `recraft-icon`; `models` (plural) is the new raster
+            surface added by issue #61, mirroring the OpenAI/Google/FAL shape.
+
             Note: ollama 'models' is a list[str] of installed model name strings
             (no resolution metadata — Ollama is a local model lister, not a
-            resolution-capable cloud provider). Only openai/google/fal gain the
-            per-model resolution surface via _PROVIDER_MODEL_RESOLUTIONS.
+            resolution-capable cloud provider). Only openai/google/fal/recraft
+            gain the per-model resolution surface via _PROVIDER_MODEL_RESOLUTIONS.
     """
     config = _load_config(config_path)
 

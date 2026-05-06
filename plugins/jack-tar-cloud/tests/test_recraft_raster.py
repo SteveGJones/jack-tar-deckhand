@@ -301,3 +301,21 @@ def test_dispatch_recraft_picks_pro_tier_for_4k(monkeypatch, tmp_path):
 
     assert result['tier'] == 'pro'
     assert result['resolution'] == '4K'
+
+
+def test_provider_discovery_includes_recraft_raster_models(monkeypatch):
+    """Recraft entry must surface raster supported_resolutions for routing
+    decisions and cross-plugin drift checks."""
+    monkeypatch.setenv('FAL_KEY', 'test-fal')
+    from src.provider_discovery import discover_providers
+    providers = discover_providers()
+    recraft = providers.get('recraft')
+    assert recraft is not None
+    # Available because FAL_KEY is set (Recraft route via FAL)
+    assert recraft.get('available') is True
+    # Raster surface — new in #61
+    models = recraft.get('models', {})
+    assert 'recraft-v4-standard' in models
+    assert models['recraft-v4-standard']['supported_resolutions'] == ['1K']
+    assert 'recraft-v4-pro' in models
+    assert models['recraft-v4-pro']['supported_resolutions'] == ['2K', '4K']
