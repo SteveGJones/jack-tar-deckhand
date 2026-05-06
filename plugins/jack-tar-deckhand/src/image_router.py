@@ -64,6 +64,12 @@ UpgradeDecision = namedtuple(
 # Maps (visual_type, mode) -> list of RoutingTargets in priority order.
 # The first target whose provider is available is selected.
 
+# ROUTING_MATRIX keys: (visual_type, mode). Within each row, RoutingTargets
+# are listed in priority order — the first available provider wins. Ordering
+# is quality-first, then cost-ascending where quality is comparable. For
+# example, the 2K hero row leads with Nano Banana Flash (best text rendering
+# in the tier despite higher cost), then FAL FLUX 2 Pro (photo workhorse),
+# then Imagen Standard (budget fallback).
 ROUTING_MATRIX = {
     ('hero_image', 'draft'): [
         RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
@@ -175,8 +181,25 @@ _UPGRADEABLE_VISUAL_TYPES = {'hero_image', 'pattern_background', 'icon_set', 'di
 # OpenAI GPT Image only supports these fixed sizes
 OPENAI_SUPPORTED_SIZES = {'1024x1024', '1536x1024', '1024x1536'}
 
-# Per-provider/model resolution capability — mirrors the cloud plugin's
-# _MODEL_RESOLUTIONS so the deckhand can validate without importing across plugins.
+# Per-provider/model resolution capability for in-process pre-validation.
+#
+# Two kinds of entries:
+#   1. Canonical model IDs — must stay byte-identical to the cloud plugin's
+#      authoritative source. Cross-plugin drift detection in
+#      plugins/integration_tests/test_router_capability_drift.py asserts
+#      these match plugins/jack-tar-cloud/src/provider_discovery.py's
+#      _PROVIDER_MODEL_RESOLUTIONS for every model that appears in both.
+#   2. Router-internal aliases (gpt-image-1.5-low, imagen-4-fast,
+#      imagen-4-standard, flux-2-pro) used in ROUTING_MATRIX rows for
+#      readability. These translate to canonical IDs at dispatch time
+#      (see imagegen-bridge SKILL.md). Aliases have no cloud-plugin
+#      counterpart and are not subject to drift checking.
+#
+# Single source of truth at runtime is provider_discovery.discover_providers(),
+# which exposes the canonical capability via available_providers[provider]
+# ['models'][model]['supported_resolutions']. This static table is for
+# router-time decisions where reaching across plugin boundaries would
+# require a live cloud-plugin import.
 _PROVIDER_MODEL_RESOLUTIONS = {
     ('openai', 'gpt-image-1.5'): ['1K'],
     ('openai', 'gpt-image-1.5-low'): ['1K'],
@@ -533,6 +556,11 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
         dim_warning = _check_openai_dimension_warning(route.provider, target_size)
         if dim_warning:
             warnings.append(dim_warning)
+        res_warning = _check_resolution_compatibility(
+            route.provider, route.model, getattr(route, 'resolution', '1K'),
+        )
+        if res_warning:
+            warnings.append(res_warning)
         decisions.append(UpgradeDecision(
             slide_number=slide_num,
             image_id=image_id,
