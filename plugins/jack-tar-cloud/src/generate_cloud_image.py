@@ -909,12 +909,141 @@ def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
     }
 
 
+# --- Recraft V4 raster (FAL.ai) ---
+
+
+def generate_recraft_fal(prompt, output_path, *, tier='pro', resolution='2K',
+                         colors=None, **kwargs):
+    """Generate a raster image using Recraft V4 via FAL.ai.
+
+    Args:
+        prompt: Text prompt for image generation.
+        output_path: Where to save the generated image.
+        tier: 'standard' (1024², $0.04) or 'pro' (2048², $0.25).
+        resolution: '1K' | '2K' | '4K'.
+        colors: Optional list of RGB dicts, e.g. [{'r': 0, 'g': 51, 'b': 102}].
+
+    Returns:
+        dict: {file_path, provider, tier, resolution, model_used, cost_usd, status}
+
+    Raises:
+        ProviderNotConfiguredError: If FAL_KEY not set.
+        ProviderResolutionUnsupportedError: If tier doesn't support resolution.
+    """
+    if not os.environ.get('FAL_KEY'):
+        raise ProviderNotConfiguredError(
+            'FAL.ai not configured: FAL_KEY environment variable is not set. '
+            'See research/04-cloud-api-setup-licensing.md section C for setup.'
+        )
+
+    resolution = _normalise_resolution(resolution)
+    supported = _RECRAFT_TIER_RESOLUTIONS.get(tier, [])
+    if resolution not in supported:
+        raise ProviderResolutionUnsupportedError(
+            provider='fal-recraft',
+            model=f'recraft-v4-{tier}',
+            requested=resolution,
+            supported=supported,
+        )
+
+    if resolution == '4K':
+        return _generate_recraft_fal_with_upscale(prompt, output_path, colors=colors)
+
+    endpoint = (
+        'fal-ai/recraft/v4/text-to-image' if tier == 'standard'
+        else 'fal-ai/recraft/v4/pro/text-to-image'
+    )
+
+    arguments = {'prompt': prompt}
+    if colors:
+        arguments['colors'] = colors
+
+    result = fal_client.subscribe(endpoint, arguments=arguments)
+    image_url = result['images'][0]['url']
+    r = requests.get(image_url, timeout=30)
+    r.raise_for_status()
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_path).write_bytes(r.content)
+
+    cost = estimate_recraft_cost(tier=tier, resolution=resolution)
+    logger.info(
+        'FAL Recraft raster generated: %s (tier: %s, resolution: %s, cost: $%.3f)',
+        output_path, tier, resolution, cost,
+    )
+
+    return {
+        'file_path': str(output_path),
+        'provider': 'fal-recraft',
+        'tier': tier,
+        'resolution': resolution,
+        'model_used': f'recraft-v4-{tier}',
+        'cost_usd': cost,
+        'status': 'generated',
+    }
+
+
+def _generate_recraft_fal_with_upscale(prompt, output_path, *, colors=None):
+    """4K chain via FAL: 2K Pro generation, then Creative Upscale."""
+    arguments = {'prompt': prompt}
+    if colors:
+        arguments['colors'] = colors
+
+    # 1) Generate at 2K Pro
+    gen_result = fal_client.subscribe(
+        'fal-ai/recraft/v4/pro/text-to-image',
+        arguments=arguments,
+    )
+    intermediate_url = gen_result['images'][0]['url']
+
+    # 2) Creative Upscale (image_url input form — FAL accepts URL or upload)
+    upscale_result = fal_client.subscribe(
+        'fal-ai/recraft/upscale/creative',
+        arguments={'image_url': intermediate_url},
+    )
+    upscaled_url = upscale_result['image']['url']
+
+    r = requests.get(upscaled_url, timeout=60)
+    r.raise_for_status()
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_path).write_bytes(r.content)
+
+    cost = estimate_recraft_cost(tier='pro', resolution='4K')
+    logger.info(
+        'FAL Recraft raster generated (4K via upscale): %s (cost: $%.3f)',
+        output_path, cost,
+    )
+
+    return {
+        'file_path': str(output_path),
+        'provider': 'fal-recraft',
+        'tier': 'pro',
+        'resolution': '4K',
+        'model_used': 'recraft-v4-pro+upscale',
+        'cost_usd': cost,
+        'status': 'generated',
+    }
+
+
 # --- Dispatch ---
+
+
+def _dispatch_recraft(prompt, output_path, **kwargs):
+    """Dispatch Recraft to direct API or FAL based on which key is set.
+
+    Mirrors the icon path's dual-route logic: RECRAFT_API_KEY → direct,
+    FAL_KEY → fal. Direct API is preferred when both are set.
+    """
+    if os.environ.get('RECRAFT_API_KEY') or os.environ.get('RECRAFT_API'):
+        return generate_recraft_direct(prompt, output_path, **kwargs)
+    return generate_recraft_fal(prompt, output_path, **kwargs)
+
 
 _PROVIDERS = {
     'openai': generate_openai,
     'google': generate_google,
     'fal': generate_fal,
+    'recraft': _dispatch_recraft,
 }
 
 

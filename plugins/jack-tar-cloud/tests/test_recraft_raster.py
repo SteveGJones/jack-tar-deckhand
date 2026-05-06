@@ -147,3 +147,104 @@ def test_generate_recraft_direct_no_api_key():
                 tier='standard',
                 resolution='1K',
             )
+
+
+def test_generate_recraft_fal_1k_calls_text_to_image(monkeypatch, tmp_path):
+    monkeypatch.setenv('FAL_KEY', 'test-fal')
+
+    fake_subscribe = mock.Mock(return_value={
+        'images': [{'url': 'https://example.com/img.png'}]
+    })
+    fake_get = mock.Mock(return_value=mock.Mock(content=b'PNG'))
+
+    with mock.patch('src.generate_cloud_image.fal_client.subscribe', fake_subscribe), \
+         mock.patch('src.generate_cloud_image.requests.get', fake_get):
+        from src.generate_cloud_image import generate_recraft_fal
+        result = generate_recraft_fal(
+            prompt='a brand badge',
+            output_path=str(tmp_path / 'out.png'),
+            tier='standard',
+            resolution='1K',
+        )
+
+    assert result['status'] == 'generated'
+    assert result['provider'] == 'fal-recraft'
+    fake_subscribe.assert_called_once()
+    args = fake_subscribe.call_args
+    assert args[0][0] == 'fal-ai/recraft/v4/text-to-image'
+
+
+def test_generate_recraft_fal_2k_calls_pro_endpoint(monkeypatch, tmp_path):
+    monkeypatch.setenv('FAL_KEY', 'test-fal')
+
+    fake_subscribe = mock.Mock(return_value={
+        'images': [{'url': 'https://example.com/img.png'}]
+    })
+    fake_get = mock.Mock(return_value=mock.Mock(content=b'PNG'))
+
+    with mock.patch('src.generate_cloud_image.fal_client.subscribe', fake_subscribe), \
+         mock.patch('src.generate_cloud_image.requests.get', fake_get):
+        from src.generate_cloud_image import generate_recraft_fal
+        generate_recraft_fal(
+            prompt='x',
+            output_path=str(tmp_path / 'out.png'),
+            tier='pro',
+            resolution='2K',
+        )
+
+    args = fake_subscribe.call_args
+    assert args[0][0] == 'fal-ai/recraft/v4/pro/text-to-image'
+
+
+def test_generate_recraft_fal_4k_chains_through_upscale(monkeypatch, tmp_path):
+    """4K = 2K Pro generation followed by fal-ai/recraft/upscale/creative."""
+    monkeypatch.setenv('FAL_KEY', 'test-fal')
+
+    fake_subscribe = mock.Mock(side_effect=[
+        {'images': [{'url': 'https://example.com/2k.png'}]},
+        {'image': {'url': 'https://example.com/4k.png'}},
+    ])
+    fake_get = mock.Mock(return_value=mock.Mock(content=b'PNG'))
+
+    with mock.patch('src.generate_cloud_image.fal_client.subscribe', fake_subscribe), \
+         mock.patch('src.generate_cloud_image.requests.get', fake_get):
+        from src.generate_cloud_image import generate_recraft_fal
+        result = generate_recraft_fal(
+            prompt='x',
+            output_path=str(tmp_path / 'out.png'),
+            tier='pro',
+            resolution='4K',
+        )
+
+    assert result['resolution'] == '4K'
+    second_call_args = fake_subscribe.call_args_list[1]
+    assert second_call_args[0][0] == 'fal-ai/recraft/upscale/creative'
+    # Second call should pass the 2K url as image_url
+    second_kwargs = second_call_args.kwargs
+    assert second_kwargs.get('arguments', {}).get('image_url') == 'https://example.com/2k.png'
+
+
+def test_dispatch_recognises_recraft_provider(monkeypatch, tmp_path):
+    """generate_cloud_image(provider='recraft', ...) routes to the new func."""
+    # Ensure RECRAFT keys are NOT set so dispatch picks FAL
+    for key in ['RECRAFT_API_KEY', 'RECRAFT_API']:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv('FAL_KEY', 'test-fal')
+
+    fake_subscribe = mock.Mock(return_value={
+        'images': [{'url': 'https://example.com/img.png'}]
+    })
+    fake_get = mock.Mock(return_value=mock.Mock(content=b'PNG'))
+
+    with mock.patch('src.generate_cloud_image.fal_client.subscribe', fake_subscribe), \
+         mock.patch('src.generate_cloud_image.requests.get', fake_get):
+        from src.generate_cloud_image import generate_cloud_image
+        result = generate_cloud_image(
+            prompt='x',
+            provider='recraft',
+            output_path=str(tmp_path / 'out.png'),
+            resolution='1K',
+            tier='standard',
+        )
+
+    assert result['provider'] == 'fal-recraft'
