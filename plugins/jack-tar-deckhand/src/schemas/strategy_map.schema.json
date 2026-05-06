@@ -27,7 +27,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["ollama", "cloud_low", "cloud_full"]
+              "enum": ["ollama", "cloud_low", "cloud_full", "cloud_2k", "cloud_4k"]
             }
           },
           "speaker_override": {
@@ -37,6 +37,12 @@
           "backdrop_variant": {
             "type": "string",
             "enum": ["left_panel", "right_panel", "bottom_bar", "top_band", "center_float"]
+          },
+          "resolution": {
+            "type": "string",
+            "enum": ["512", "1K", "2K", "4K"],
+            "default": "1K",
+            "description": "Optional slide-level resolution tier. Default '1K'. Hero slides may opt into '2K' or '4K' via Google Nano Banana Pro/Flash. Cost implications surface in the strategy-map skill."
           },
           "element_layout": {
             "type": "object",
