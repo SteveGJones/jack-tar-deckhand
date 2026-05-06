@@ -305,17 +305,33 @@ def test_dispatch_recraft_picks_pro_tier_for_4k(monkeypatch, tmp_path):
 
 def test_provider_discovery_includes_recraft_raster_models(monkeypatch):
     """Recraft entry must surface raster supported_resolutions for routing
-    decisions and cross-plugin drift checks."""
-    monkeypatch.setenv('FAL_KEY', 'test-fal')
+    decisions and cross-plugin drift checks. Models surface is populated
+    regardless of availability — the iteration over _PROVIDER_MODEL_RESOLUTIONS
+    runs unconditionally, so the test should pass even when no Recraft env
+    var is set (e.g. in CI)."""
+    # Defensive: clear any inherited env so the test is hermetic
+    for key in ['RECRAFT_API_KEY', 'RECRAFT_API', 'FAL_KEY']:
+        monkeypatch.delenv(key, raising=False)
     from src.provider_discovery import discover_providers
     providers = discover_providers()
     recraft = providers.get('recraft')
     assert recraft is not None
-    # Available because FAL_KEY is set (Recraft route via FAL)
-    assert recraft.get('available') is True
-    # Raster surface — new in #61
+    # Raster surface — new in #61. Populated by the post-probe loop over
+    # _PROVIDER_MODEL_RESOLUTIONS regardless of availability state.
     models = recraft.get('models', {})
-    assert 'recraft-v4-standard' in models
+    assert 'recraft-v4-standard' in models, (
+        f"recraft entry missing 'recraft-v4-standard' in models: {recraft!r}"
+    )
     assert models['recraft-v4-standard']['supported_resolutions'] == ['1K']
     assert 'recraft-v4-pro' in models
     assert models['recraft-v4-pro']['supported_resolutions'] == ['2K', '4K']
+
+
+def test_provider_discovery_recraft_available_when_recraft_api_set(monkeypatch):
+    """When RECRAFT_API_KEY is set, the recraft entry is marked available."""
+    for key in ['RECRAFT_API_KEY', 'RECRAFT_API', 'FAL_KEY']:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv('RECRAFT_API_KEY', 'test-key')
+    from src.provider_discovery import discover_providers
+    providers = discover_providers()
+    assert providers['recraft']['available'] is True
