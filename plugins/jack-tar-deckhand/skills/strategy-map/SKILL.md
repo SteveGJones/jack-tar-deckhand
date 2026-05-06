@@ -110,6 +110,26 @@ When classifying diagram slides, consider the slide's 16:9 aspect ratio when rec
 
 Include layout direction in the visual_direction prompt. For example: "Snake pattern: Row 1 left-to-right (Brief → Brand → Style → Narrative), curve down, Row 2 right-to-left (Images → Assembly), curve down, Row 3 left-to-right (QA → Deck)."
 
+## Resolution selection
+
+By default every slide renders at `1K` — economical, sufficient for most slides on a projector. The speaker may opt specific slides into `2K` or `4K` via the `resolution` field in the StrategyMap entry.
+
+**When to choose 4K:**
+- Hero opener with detailed photographic imagery
+- Closing slide that will be photographed by attendees and shared on social
+- Slides where text rendering at small body sizes is critical (Nano Banana Pro 4K renders text noticeably better than Flash 1K)
+
+**When to choose 2K:**
+- Section dividers with mid-detail imagery
+- Diagrams that may be projected on very large screens (>120")
+
+**Cost implications (per slide, single Pro escalation):**
+- `1K` (default): ~$0.13 (Nano Banana Pro)
+- `2K`: ~$0.13 (Nano Banana Pro — same flat rate within tier)
+- `4K`: ~$0.24 (Nano Banana Pro). Plus an optional Flash 4K pre-test at $0.151.
+
+Mark a slide for 2K/4K by including `"resolution": "4K"` in its StrategyMap entry. Confirm the cost with the speaker before proceeding — a deck with three 4K hero slides is ~$2 of generation spend.
+
 ## Output
 
 `./tmp/deck/strategy-map.json` conforming to the StrategyMap schema.
