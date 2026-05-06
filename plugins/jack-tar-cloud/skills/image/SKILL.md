@@ -74,6 +74,7 @@ Dispatch the appropriate per-provider skill:
 - `fal` → `/jack-tar-cloud:fal-image`
 - `openai` → `/jack-tar-cloud:openai-image`
 - `google` → `/jack-tar-cloud:google-image`
+- `recraft` → `/jack-tar-cloud:recraft-image`
 
 **Resolution-aware routing:** when `--resolution 4K` is requested, restrict to providers that support it (Google Nano Banana Pro/Flash). When `--resolution 2K`, restrict to Google (Imagen Standard, Nano Banana Pro/Flash) or FAL FLUX 2 Pro. When `--resolution 1K` (default), all available providers are eligible.
 
@@ -81,6 +82,12 @@ Forward the flag to the dispatched per-provider skill:
 - `--resolution 1K` (or omitted) → no change to existing routing
 - `--resolution 2K` → fal-image (FLUX 2 Pro) or google-image (Imagen Standard / Nano Banana Pro)
 - `--resolution 4K` → google-image with `--model gemini-3.1-flash-image-preview` (Flash 4K, $0.151) or `--model gemini-3-pro-image-preview` (Pro 4K, $0.240)
+
+**Brand-color-fidelity routing (issue #61):** when the prompt or context indicates exact brand-color match matters (logos, product shots, brand-led hero slides with 3+ specified hexes), prefer Recraft V4 raster over the photorealistic providers:
+- 1K, 2K → `/jack-tar-cloud:recraft-image --tier pro --resolution 2K --colors HEX,HEX,...`
+- 4K → `/jack-tar-cloud:recraft-image --tier pro --resolution 4K --colors HEX,HEX,...` (chain: 2K Pro + Creative Upscale, ~$0.50 vs Nano Banana Pro 4K $0.24 — premium for brand fidelity)
+
+Recraft V4 outperforms FLUX/Nano Banana on exact hex compliance but is ~2× cost at 4K. The deckhand strategy-map's `brand_fidelity` field controls automated routing; speakers can also force routing here via `--provider recraft`.
 
 Pass through all arguments (--output, --size, --model, --resolution, original prompt).
 
