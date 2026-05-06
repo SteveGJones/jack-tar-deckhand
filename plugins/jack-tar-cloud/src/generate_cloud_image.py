@@ -179,6 +179,14 @@ _MODEL_RESOLUTIONS = {
     'gemini-3-pro-image-preview': ['1K', '2K', '4K'],
 }
 
+# Recraft V4 raster — added in issue #61. The 'recraft-v4-*' identifiers are
+# router-side; under the hood the dispatch picks the actual endpoint
+# (text-to-image vs pro/text-to-image vs upscale chain) by tier+resolution.
+_MODEL_RESOLUTIONS.update({
+    'recraft-v4-standard': ['1K'],
+    'recraft-v4-pro': ['2K', '4K'],
+})
+
 
 def estimate_google_cost(model='gemini-3.1-flash-image-preview', resolution='1K'):
     """Return estimated USD cost for a Google image generation call.
@@ -278,6 +286,75 @@ _FAL_SUPPORTED_RESOLUTIONS = {
     model: list(mapping.keys())
     for model, mapping in _FAL_RESOLUTION_TO_IMAGE_SIZE.items()
 }
+
+
+# --- Recraft V4 raster pricing (FAL.ai parity assumption for upscale) ---
+# Generation costs verified 2026-05-07 via fal.ai/models/fal-ai/recraft/v4/*.
+# Upscale cost on direct API not surfaced in public docs; assume FAL parity
+# ($0.25). RECRAFT_UPSCALE_COST_USD env var overrides if discovered to differ.
+
+_RECRAFT_GENERATION_COSTS = {
+    ('standard', '1K'): 0.04,
+    ('pro', '2K'): 0.25,
+    # 4K is generate-at-2K then upscale chain — see estimate_recraft_cost
+}
+
+_RECRAFT_UPSCALE_COST_DEFAULT = 0.25  # FAL parity; override via env
+
+# Recraft V4 raster supported resolutions per tier
+_RECRAFT_TIER_RESOLUTIONS = {
+    'standard': ['1K'],
+    'pro': ['2K', '4K'],  # 4K is upscale-chained on top of 2K Pro
+}
+
+
+def _recraft_upscale_cost():
+    """Return the assumed upscale cost; env override allowed for hot-fix."""
+    override = os.environ.get('RECRAFT_UPSCALE_COST_USD')
+    if override:
+        try:
+            return float(override)
+        except ValueError:
+            pass
+    return _RECRAFT_UPSCALE_COST_DEFAULT
+
+
+def estimate_recraft_cost(tier='pro', resolution='2K'):
+    """Return estimated USD cost for a Recraft V4 raster generation.
+
+    Args:
+        tier: 'standard' (1024², $0.04) or 'pro' (2048², $0.25).
+        resolution: '1K' | '2K' | '4K'. 4K is a chain: 2K Pro generation
+            + Creative Upscale at the parity-assumed cost (overridable via
+            RECRAFT_UPSCALE_COST_USD env var).
+
+    Returns:
+        float: Estimated cost in USD.
+
+    Raises:
+        ValueError: If the tier/resolution combination is invalid.
+    """
+    resolution = _normalise_resolution(resolution)
+
+    if tier not in _RECRAFT_TIER_RESOLUTIONS:
+        raise ValueError(
+            f"Unknown Recraft tier: {tier!r}. "
+            f"Valid: {list(_RECRAFT_TIER_RESOLUTIONS)}"
+        )
+
+    supported = _RECRAFT_TIER_RESOLUTIONS[tier]
+    if resolution not in supported:
+        raise ValueError(
+            f"Recraft {tier} tier does not support resolution={resolution!r}. "
+            f"Supported: {supported}. "
+            f"For 4K use tier='pro' (chains 2K + Creative Upscale)."
+        )
+
+    if resolution == '4K':
+        # Chain: 2K Pro generation + Creative Upscale
+        return _RECRAFT_GENERATION_COSTS[('pro', '2K')] + _recraft_upscale_cost()
+
+    return _RECRAFT_GENERATION_COSTS[(tier, resolution)]
 
 
 def estimate_fal_cost(model='fal-ai/flux-2-pro', image_size='landscape_16_9'):
