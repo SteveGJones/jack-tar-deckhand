@@ -401,6 +401,16 @@ for entry in plan['entries']:
 
 For each entry:
 
+**Resolution-aware cost projection.** Before Phase 1, compute the projected spend for each entry using the slide's declared resolution from the strategy map (`slide.resolution`, default `"1K"`):
+
+| Tier | Flash draft (up to 3) | Pro escalation | Total (best case) | Total (worst case) |
+|------|------------------------|----------------|-------------------|--------------------|
+| 1K | $0.067 × 1-3 | $0.134 | $0.201 | $0.335 |
+| 2K | $0.101 × 1-3 | $0.134 | $0.235 | $0.437 |
+| 4K | $0.151 × 1-3 (Flash 4K pre-test) | $0.240 | $0.391 | $0.693 |
+
+Surface the per-slide projection to the speaker before Step 9A executes. A deck with three 4K hero slides represents up to ~$2.08 of generation spend. Compare against `budget_tracker.remaining_usd` and surface a warning if projected spend exceeds remaining budget.
+
 ### raster_upscale entries
 
 For entries where `image_id` contains `elem-`, skip the refinement loop — use `draft_prompt` directly with a single Pro call (element images are already validated during drafting).
@@ -441,16 +451,25 @@ For all other `raster_upscale` entries, execute the cross-tier refinement loop:
    - Ask Speaker to confirm whether to proceed to Pro or accept the best Flash version
    - Do not auto-escalate to Pro after 3 Flash failures
 
-**Phase 2 — Pro escalation (single shot)**
+**Phase 2 — Pro escalation (single shot, resolution-aware)**
 
-7. If Flash passes (on any iteration), take the prompt that produced the passing Flash result and generate once with `gemini-3-pro-image-preview`:
-   ```
-   /jack-tar-cloud:image "REFINED_PROMPT" --provider google --model gemini-3-pro-image-preview --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero.png
-   ```
+7. Read `slide.resolution` from the strategy map (defaults to `"1K"` if absent). If the slide opted into `"2K"` or `"4K"`, the Pro escalation uses that tier — not always `"1K"`.
 
-8. Dispatch `image-reviewer` on the Pro output. Pro gets ONE shot — no iterations.
-   - If pass: use Pro as final output.
-   - If refine: flag for Speaker with `status: "flag_for_speaker"` in the manifest. Include both the Pro and best Flash versions so the Speaker can choose. Do not retry Pro.
+8. **Optional Flash 4K pre-test** (only when `slide.resolution == "4K"`) — before paying for Pro 4K ($0.240), do a Flash 4K validation render at $0.151:
+   ```
+   /jack-tar-cloud:google-image "REFINED_PROMPT" --model gemini-3.1-flash-image-preview --resolution 4K --output ./tmp/deck/images/slide-NN-hero-flash4k.png
+   ```
+   Dispatch `image-reviewer`. If pass: stop, use Flash 4K as final. If refine: proceed to Pro 4K. (This pattern was validated by the resolution smoke test in #59 — Flash 4K caught prompt issues that 1K Flash missed because text rendering scales differently at 4K.)
+
+9. If Flash passes (on any iteration in Phase 1) and the slide opted into `"2K"` or `"4K"`, take the prompt that produced the passing Flash result and generate once with Pro at the requested tier:
+   ```
+   /jack-tar-cloud:google-image "REFINED_PROMPT" --model gemini-3-pro-image-preview --resolution {slide.resolution} --output ./tmp/deck/images/slide-NN-hero.png
+   ```
+   For 1K slides (the default), keep the existing single-shot Pro 1K behaviour with `--resolution 1K`.
+
+10. Dispatch `image-reviewer` on the Pro output. Pro gets ONE shot — no iterations.
+    - If pass: use Pro as final output.
+    - If refine: flag for Speaker with `status: "flag_for_speaker"` in the manifest. Include both the Pro and best Flash versions so the Speaker can choose. Do not retry Pro.
 
 **Manifest recording**
 
