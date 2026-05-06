@@ -6,7 +6,14 @@ from pathlib import Path
 import pytest
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+# Skills that invoke generate_cloud_image() directly. recraft-icon/icon use
+# a different function (generate_cloud_icon); verify has no Generate block.
 SKILLS = ['openai-image', 'google-image', 'fal-image', 'image']
+
+# Router skills dispatch to per-provider skills rather than calling
+# generate_cloud_image() directly — they're validated by a separate
+# forwarding test, not the call-site detector.
+_ROUTER_SKILLS = {'image'}
 
 
 def _read_skill(name):
@@ -80,6 +87,9 @@ _FLAG_TO_KWARG = {
 
 @pytest.mark.parametrize('skill', SKILLS)
 def test_every_documented_flag_reaches_generate_call(skill):
+    if skill in _ROUTER_SKILLS:
+        pytest.skip(f"{skill} is a router; validated by test_router_forwards_resolution_flag")
+
     text = _read_skill(skill)
     flags = _argument_hint_flags(text)
     kwargs = _generate_block_kwargs(text)
@@ -98,4 +108,19 @@ def test_every_documented_flag_reaches_generate_call(skill):
         f"SKILL.md drift in {skill}: documented flag(s) not threaded "
         f"to generate_cloud_image: {missing}. "
         f"argument-hint flags: {sorted(flags)}; kwargs in Generate: {sorted(kwargs)}"
+    )
+
+
+def test_image_router_documents_and_forwards_resolution():
+    """The image router skill must document --resolution in argument-hint
+    and describe forwarding it to the dispatched per-provider skill."""
+    text = _read_skill('image')
+    flags = _argument_hint_flags(text)
+    assert 'resolution' in flags, (
+        "image router missing --resolution in argument-hint frontmatter"
+    )
+    # The body must describe resolution-aware routing OR forwarding
+    body_lower = text.lower()
+    assert '--resolution' in text and ('forward' in body_lower or 'resolution-aware' in body_lower), (
+        "image router SKILL.md must document forwarding/routing for --resolution"
     )

@@ -1,7 +1,7 @@
 ---
 name: image
 description: Smart router — generates an image using the best available cloud provider. Tries providers in priority order: FAL (FLUX), OpenAI (GPT Image), Google (Imagen). Requires at least one provider configured.
-argument-hint: "a description of the image" [--output PATH] [--size SIZE] [--quality low|medium|high] [--provider openai|google|fal]
+argument-hint: "a description of the image" [--output PATH] [--size WxH] [--quality low|medium|high] [--provider openai|google|fal] [--model MODEL] [--resolution 1K|2K|4K]
 allowed-tools: Bash(python *), Skill
 ---
 
@@ -37,6 +37,7 @@ Parse `$ARGUMENTS` for:
 - **--size SIZE**: Dimensions (default: `1536x1024`)
 - **--model MODEL**: Specific model ID (passed through to the provider skill)
 - **--provider PROVIDER**: Force a specific provider instead of auto-routing
+- **--resolution RES**: Tier (`1K`, `2K`, `4K`). Default: `1K`. Forwarded to the chosen per-provider skill. Provider must support the requested tier — see EPIC #58 capability matrix.
 
 ## Discover Available Providers
 
@@ -74,6 +75,13 @@ Dispatch the appropriate per-provider skill:
 - `openai` → `/jack-tar-cloud:openai-image`
 - `google` → `/jack-tar-cloud:google-image`
 
-Pass through all arguments (--output, --size, --model, original prompt).
+**Resolution-aware routing:** when `--resolution 4K` is requested, restrict to providers that support it (Google Nano Banana Pro/Flash). When `--resolution 2K`, restrict to Google (Imagen Standard, Nano Banana Pro/Flash) or FAL FLUX 2 Pro. When `--resolution 1K` (default), all available providers are eligible.
+
+Forward the flag to the dispatched per-provider skill:
+- `--resolution 1K` (or omitted) → no change to existing routing
+- `--resolution 2K` → fal-image (FLUX 2 Pro) or google-image (Imagen Standard / Nano Banana Pro)
+- `--resolution 4K` → google-image with `--model gemini-3.1-flash-image-preview` (Flash 4K, $0.151) or `--model gemini-3-pro-image-preview` (Pro 4K, $0.240)
+
+Pass through all arguments (--output, --size, --model, --resolution, original prompt).
 
 If the first provider fails, try the next available provider in the priority order.
