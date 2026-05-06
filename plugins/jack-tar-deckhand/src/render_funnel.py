@@ -165,6 +165,8 @@ def execute_funnel_stage(deck_dir, slide_number, strategy, prompt, funnel_stage,
 
     Returns:
         dict: {status, file_path, cost_usd, model, resolution, error?}
+            'resolution' is a WxH string for ollama stage, a tier string
+            ('1K'/'2K'/'4K') for cloud stages.
     """
     prompt_h = hash_prompt(prompt)
     dims = _OLLAMA_RESOLUTIONS.get(funnel_stage, {'width': 1920, 'height': 1080})
@@ -188,6 +190,9 @@ def execute_funnel_stage(deck_dir, slide_number, strategy, prompt, funnel_stage,
                 prompt, provider, output_path, funnel_stage, model=model,
             )
             cost = result.get('cost_usd', 0.0)
+            # Cloud stages log a tier string ('1K'/'2K'/'4K') instead of WxH
+            # since each stage maps to a fixed tier. Ollama branch above logs
+            # the explicit WxH form. Schema accepts both as plain strings.
             resolution = _CLOUD_STAGE_RESOLUTION.get(funnel_stage, '1K')
 
         # Log the attempt

@@ -14,7 +14,7 @@
         "properties": {
           "slide_number": {"type": "integer", "minimum": 1},
           "strategy": {"type": "string", "enum": ["full_render", "backdrop_render"]},
-          "funnel_stage": {"type": "string", "enum": ["ollama", "cloud_low", "cloud_full"]},
+          "funnel_stage": {"type": "string", "enum": ["ollama", "cloud_low", "cloud_full", "cloud_2k", "cloud_4k"]},
           "prompt_hash": {"type": "string"},
           "model": {"type": "string"},
           "resolution": {"type": "string"},

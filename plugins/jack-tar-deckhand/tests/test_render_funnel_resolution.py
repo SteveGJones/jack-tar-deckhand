@@ -83,3 +83,48 @@ def test_cloud_full_default_passes_1k(tmp_path):
             provider='google',
         )
     assert fake.call_args.kwargs['resolution'] == '1K'
+
+
+# --- Schema conformance ----------------------------------------------------
+
+import json  # noqa: E402
+
+import jsonschema  # noqa: E402
+
+_SCHEMA_PATH = (
+    Path(__file__).resolve().parent.parent
+    / 'src' / 'schemas' / 'render_log.schema.json'
+)
+
+
+def test_render_log_schema_accepts_cloud_2k_and_cloud_4k():
+    """The render-log schema must accept entries for the new funnel stages
+    so downstream validators don't reject logs from cloud_2k/cloud_4k slides."""
+    schema = json.loads(_SCHEMA_PATH.read_text())
+    log = {
+        'entries': [
+            {
+                'slide_number': 1,
+                'strategy': 'full_render',
+                'funnel_stage': 'cloud_2k',
+                'prompt_hash': 'abc123',
+                'model': 'gemini-3.1-flash-image-preview',
+                'resolution': '2K',
+                'iteration': 1,
+                'cost_usd': 0.101,
+                'timestamp': '2026-05-06T12:00:00Z',
+            },
+            {
+                'slide_number': 2,
+                'strategy': 'full_render',
+                'funnel_stage': 'cloud_4k',
+                'prompt_hash': 'def456',
+                'model': 'gemini-3-pro-image-preview',
+                'resolution': '4K',
+                'iteration': 1,
+                'cost_usd': 0.240,
+                'timestamp': '2026-05-06T12:00:01Z',
+            },
+        ],
+    }
+    jsonschema.validate(log, schema)  # raises on mismatch
