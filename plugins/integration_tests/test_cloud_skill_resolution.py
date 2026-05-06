@@ -32,9 +32,12 @@ def _exec_generate_block(skill_name, env_substitutions):
     assert py_match, f"{skill_name}: no python3 -c body found in generate block"
     py_body = py_match.group(1)
 
-    # Substitute placeholders ($PROMPT, $OUTPUT_PATH, $RESOLUTION, etc.)
-    for k, v in env_substitutions.items():
-        py_body = py_body.replace(f'${k}', v)
+    # Substitute placeholders ($PROMPT, $OUTPUT_PATH, $RESOLUTION, etc.).
+    # Sort by key length descending so longer placeholders (e.g. $OUTPUT_PATH)
+    # are substituted before shorter prefixes (e.g. $OUTPUT) — prevents
+    # corruption if a future SKILL.md uses both.
+    for k in sorted(env_substitutions, key=len, reverse=True):
+        py_body = py_body.replace(f'${k}', env_substitutions[k])
 
     # Capture kwargs without making an API call
     captured = {}
