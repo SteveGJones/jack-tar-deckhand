@@ -204,6 +204,23 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - A deck with three 4K hero slides represents up to ~$2.08 of image generation spend.
   - **Where it lives:** `slide.resolution` in StrategyMap (schema `strategy_map.schema.json`); render funnel stages `cloud_2k`/`cloud_4k`; image router rows `production_2k`/`production_4k` for hero_image; imagegen-bridge Step 9A Pro escalation honours the requested tier.
 
+- **Recraft V4 raster (issue #61, 2026-05-07):** Promoted from icon-only to first-class raster provider with 1K/2K/4K ladder. Best brand-color fidelity; speakers opt slides in via `brand_fidelity: "exact"` on the StrategyMap entry. Closes EPIC #58.
+  - **When Recraft beats Nano Banana / FLUX:** logos, product shots, brand-led hero slides with 3+ specified hexes — Recraft renders exact hex; the others approximate.
+  - **When Nano Banana / FLUX beats Recraft:** photorealistic detail, illustrative scenes — Recraft is design-centric, not photo-first.
+  - **Recraft V4 vs Nano Banana Pro at 4K decision rule:**
+    - Default 4K → Nano Banana Pro ($0.24, photorealistic)
+    - `brand_fidelity: "exact"` → Recraft V4 Pro 4K via Creative Upscale chain (~$0.50, brand-fidelity premium)
+    - The router's `production_brand_exact_4k` row encodes this; the deckhand image_router auto-derives the routing mode from `slide.brand_fidelity` and `slide.resolution`.
+  - **Cost trade-off table (per slide, single-shot):**
+    - 1K Recraft Standard: $0.04 — vs FLUX 1K $0.030 (Recraft only ~30% more for hex compliance)
+    - 2K Recraft Pro: $0.25 — same flat rate as FAL FLUX 2 Pro 2K
+    - 4K Recraft (chain): $0.50 — vs Nano Banana Pro 4K $0.24 (~2× premium)
+  - **Implementation:** `generate_recraft_direct` (RECRAFT_API_KEY) and `generate_recraft_fal` (FAL_KEY) in `plugins/jack-tar-cloud/src/generate_cloud_image.py`. 4K is generate-2K-then-`creativeUpscale` chain. `_dispatch_recraft` auto-derives `tier` from `resolution` when caller doesn't specify (1K → standard, 2K/4K → pro), so `generate_cloud_image('x', 'recraft', '/tmp/x.png', resolution='4K')` works without speakers needing to know the tier matrix.
+  - **Upscale price assumption:** Direct API upscale price not in public docs; assumed $0.25 (FAL parity). Override via `RECRAFT_UPSCALE_COST_USD` env var if discovered to differ.
+  - **New skill:** `/jack-tar-cloud:recraft-image` — per-provider raster skill with `--tier`, `--resolution`, `--colors`, `--style` flags.
+  - **Spike:** `docs/spikes/2026-05-07-recraft-creative-upscale.md` — endpoint + pricing findings.
+  - **Schema:** `slide.brand_fidelity: "exact" | "approximate" | "none"` on `strategy_map.schema.json`. Default `none`. `approximate` is documentary; only `exact` triggers Recraft routing.
+
 - **Image Reviewer Agent (2026-04-01):** Subagent-based visual quality gate
   - Dispatched per image after generation, returns compact JSON verdict (pass/refine)
   - Keeps images out of main orchestration context — bridge accumulates only summary strings
