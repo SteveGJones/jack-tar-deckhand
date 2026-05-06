@@ -797,6 +797,7 @@ def generate_recraft_direct(prompt, output_path, *, tier='pro',
 
     image_url = response.data[0].url
     r = requests.get(image_url, timeout=30)
+    r.raise_for_status()
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(r.content)
@@ -859,7 +860,9 @@ def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
         extra_body=extra_body,
     )
     twok_url = response.data[0].url
-    twok_bytes = requests.get(twok_url, timeout=30).content
+    twok_response = requests.get(twok_url, timeout=30)
+    twok_response.raise_for_status()
+    twok_bytes = twok_response.content
 
     tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
     tmp_path = tmp.name
@@ -877,7 +880,9 @@ def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
             )
         upscale_response.raise_for_status()
         upscaled_url = upscale_response.json()['image']['url']
-        upscaled_bytes = requests.get(upscaled_url, timeout=30).content
+        upscaled_response = requests.get(upscaled_url, timeout=30)
+        upscaled_response.raise_for_status()
+        upscaled_bytes = upscaled_response.content
 
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         Path(output_path).write_bytes(upscaled_bytes)
