@@ -65,6 +65,7 @@ _FLAG_TO_KWARG = {
     'background': 'background',
     'model': 'model',
     'resolution': 'resolution',
+    'aspect-ratio': 'aspect_ratio',  # CLI hyphen -> Python underscore
 }
 
 
