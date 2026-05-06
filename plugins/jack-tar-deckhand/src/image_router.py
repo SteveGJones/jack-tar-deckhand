@@ -91,6 +91,19 @@ ROUTING_MATRIX = {
         RoutingTarget('cloud-generate-image', 'google', 'gemini-3-pro-image-preview', 0.24, '4K'),
         RoutingTarget('cloud-generate-image', 'google', 'gemini-3.1-flash-image-preview', 0.151, '4K'),
     ],
+    # Brand-fidelity-exact rows — added by issue #61. The router upgrades
+    # mode to 'production_brand_exact' / 'production_brand_exact_4k' when
+    # slide.brand_fidelity == 'exact'. First target is Recraft (best hex
+    # compliance); fallbacks preserve existing photorealistic providers
+    # when Recraft is unavailable.
+    ('hero_image', 'production_brand_exact'): [
+        RoutingTarget('cloud-generate-image', 'recraft', 'recraft-v4-pro', 0.25, '2K'),
+        RoutingTarget('cloud-generate-image', 'fal', 'fal-ai/flux-2-pro', 0.075, '2K'),
+    ],
+    ('hero_image', 'production_brand_exact_4k'): [
+        RoutingTarget('cloud-generate-image', 'recraft', 'recraft-v4-pro', 0.50, '4K'),
+        RoutingTarget('cloud-generate-image', 'google', 'gemini-3-pro-image-preview', 0.24, '4K'),
+    ],
     ('icon_set', 'draft'): [
         RoutingTarget('cloud-generate-icon', 'recraft', 'recraft-v4-svg', 0.08),
         RoutingTarget('cloud-generate-icon', 'fal', 'recraft-v4', 0.08),
@@ -215,6 +228,9 @@ _PROVIDER_MODEL_RESOLUTIONS = {
     ('fal', 'flux-2-pro'): ['1K', '2K'],
     ('fal', 'fal-ai/flux-2-klein'): ['1K'],
     ('fal', 'fal-ai/ideogram/v3'): ['1K'],
+    # Recraft V4 raster (issue #61)
+    ('recraft', 'recraft-v4-standard'): ['1K'],
+    ('recraft', 'recraft-v4-pro'): ['2K', '4K'],
 }
 
 
@@ -343,9 +359,20 @@ def route_slide(slide, mode, available_providers, budget_state):
     # Resolution-aware mode upgrade: a slide-level resolution hint upgrades
     # the mode key so we hit the high-res routing rows in ROUTING_MATRIX.
     requested_resolution = slide.get('resolution', '1K')
+    brand_fidelity = slide.get('brand_fidelity', 'none')
     effective_mode = mode
-    if mode == 'production' and requested_resolution in ('2K', '4K'):
-        effective_mode = f'production_{requested_resolution.lower()}'
+    if mode == 'production':
+        if brand_fidelity == 'exact':
+            # Brand-fidelity-exact takes priority over resolution upgrade — use
+            # the dedicated routing row that prefers Recraft, with resolution
+            # encoded in the row key for 4K. 'approximate' is documentary only
+            # and doesn't change routing.
+            if requested_resolution == '4K':
+                effective_mode = 'production_brand_exact_4k'
+            else:
+                effective_mode = 'production_brand_exact'
+        elif requested_resolution in ('2K', '4K'):
+            effective_mode = f'production_{requested_resolution.lower()}'
 
     # Select routing targets based on budget state
     if budget_state in ('allow_with_caps', 'degrade'):
