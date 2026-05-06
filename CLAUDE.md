@@ -193,6 +193,17 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - "Try cheap first" principle: start at cheaper tier, reviewer evaluates, escalate if needed
   - **Spec:** `docs/superpowers/specs/2026-03-31-production-rendering-engine-strategy.md`
 
+- **Resolution selection guide (issue #60, 2026-05-06):** Per-slide resolution opt-in via the StrategyMap `resolution` field. Default `1K` covers most slides. Speaker can mark hero/closer slides for `2K` or `4K` rendering through Google Nano Banana Pro/Flash.
+  - Choose `2K` when: large display (>120"), mid-detail diagrams, photographic backgrounds with subtle gradients.
+  - Choose `4K` when: hero opener / closer that may be photographed and re-shared; text-heavy slides where Nano Banana Pro's better text rendering matters at small body sizes.
+  - **Flash 4K vs Pro 4K decision rule:** for `4K` slides, the imagegen-bridge runs an optional Flash 4K pre-test at $0.151 before escalating to Pro 4K at $0.240. If Flash 4K passes review, stop — Flash text rendering at 4K is often comparable to Pro 1K. If Flash 4K refines, proceed to Pro 4K (single shot). Pattern validated end-to-end during the #59 smoke test ($0.659 spend on a 5-stage ladder).
+  - **Cost ladder per slide (worst case, 3 Flash refinements + Pro escalation):**
+    - 1K: ~$0.335 (3 × $0.067 Flash + $0.134 Pro)
+    - 2K: ~$0.437 (3 × $0.101 Flash + $0.134 Pro)
+    - 4K: ~$0.693 (3 × $0.151 Flash + $0.240 Pro)
+  - A deck with three 4K hero slides represents up to ~$2.08 of image generation spend.
+  - **Where it lives:** `slide.resolution` in StrategyMap (schema `strategy_map.schema.json`); render funnel stages `cloud_2k`/`cloud_4k`; image router rows `production_2k`/`production_4k` for hero_image; imagegen-bridge Step 9A Pro escalation honours the requested tier.
+
 - **Image Reviewer Agent (2026-04-01):** Subagent-based visual quality gate
   - Dispatched per image after generation, returns compact JSON verdict (pass/refine)
   - Keeps images out of main orchestration context — bridge accumulates only summary strings

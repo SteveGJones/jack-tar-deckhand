@@ -167,3 +167,7 @@ Write the validated SlideOutline to `./tmp/deck/outline.json`.
 - Section dividers before every major narrative beat transition
 - Title slide always first, closing slide always last
 - Do NOT ask the Speaker about individual slide choices -- the arc approval is the collaboration point
+
+## Optional: hero-slide resolution annotation
+
+If the speaker is shooting for a memorable opener or closing slide, ask: "Would you like this slide rendered at 4K (Nano Banana Pro, ~$0.24) or 2K?" Annotate the slide with a `resolution` field in the SlideOutline if so — the strategy-map step will carry it through to the StrategyMap entry. Default `1K` unchanged.

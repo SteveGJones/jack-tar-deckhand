@@ -14,41 +14,62 @@ import os
 from collections import namedtuple
 
 
-RoutingTarget = namedtuple('RoutingTarget', [
-    'skill',           # skill name: 'ollama-image', 'cloud-generate-image', etc.
-    'provider',        # provider key: 'ollama', 'openai', 'google', 'fal', 'recraft', 'local'
-    'model',           # model identifier: 'x/z-image-turbo', 'gpt-image-1.5', etc.
-    'cost_per_image',  # estimated USD cost
-])
+RoutingTarget = namedtuple(
+    'RoutingTarget',
+    [
+        'skill',           # skill name: 'ollama-image', 'cloud-generate-image', etc.
+        'provider',        # provider key: 'ollama', 'openai', 'google', 'fal', 'recraft', 'local'
+        'model',           # model identifier: 'x/z-image-turbo', 'gpt-image-1.5', etc.
+        'cost_per_image',  # estimated USD cost
+        'resolution',      # '1K'/'2K'/'4K' tier (defaults to '1K' for back-compat)
+    ],
+    defaults=['1K'],
+)
 
-RoutingDecision = namedtuple('RoutingDecision', [
-    'slide_number',    # which slide this is for
-    'visual_type',     # classified visual type
-    'skill',           # chosen skill name
-    'provider',        # chosen provider
-    'model',           # chosen model
-    'cost_per_image',  # estimated cost
-    'is_fallback',     # whether this was a fallback choice
-])
+RoutingDecision = namedtuple(
+    'RoutingDecision',
+    [
+        'slide_number',    # which slide this is for
+        'visual_type',     # classified visual type
+        'skill',           # chosen skill name
+        'provider',        # chosen provider
+        'model',           # chosen model
+        'cost_per_image',  # estimated cost
+        'is_fallback',     # whether this was a fallback choice
+        'resolution',      # '1K'/'2K'/'4K' tier (defaults to '1K')
+    ],
+    defaults=['1K'],
+)
 
-UpgradeDecision = namedtuple('UpgradeDecision', [
-    'slide_number',
-    'image_id',
-    'action',           # 'upgrade' or 'keep'
-    'reason',
-    'draft_prompt',     # carried from draft manifest (None if absent)
-    'target_provider',  # provider for upgrade (None if keep)
-    'target_model',     # model for upgrade (None if keep)
-    'target_size',      # size string e.g. '1536x1024' (None if keep)
-    'estimated_cost_usd',
-    'warnings',         # list of warning strings (empty list if none)
-])
+UpgradeDecision = namedtuple(
+    'UpgradeDecision',
+    [
+        'slide_number',
+        'image_id',
+        'action',           # 'upgrade' or 'keep'
+        'reason',
+        'draft_prompt',     # carried from draft manifest (None if absent)
+        'target_provider',  # provider for upgrade (None if keep)
+        'target_model',     # model for upgrade (None if keep)
+        'target_size',      # size string e.g. '1536x1024' (None if keep)
+        'target_resolution',  # '1K'/'2K'/'4K' tier (defaults to '1K')
+        'estimated_cost_usd',
+        'warnings',         # list of warning strings (empty list if none)
+    ],
+    defaults=['1K', 0.0, []],
+)
 
 
 # --- Routing Matrix ---
 # Maps (visual_type, mode) -> list of RoutingTargets in priority order.
 # The first target whose provider is available is selected.
 
+# ROUTING_MATRIX keys: (visual_type, mode). Within each row, RoutingTargets
+# are listed in priority order — the first available provider wins. Ordering
+# is quality-first, then cost-ascending where quality is comparable. For
+# example, the 2K hero row leads with Nano Banana Flash (best text rendering
+# in the tier despite higher cost), then FAL FLUX 2 Pro (photo workhorse),
+# then Imagen Standard (budget fallback).
 ROUTING_MATRIX = {
     ('hero_image', 'draft'): [
         RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
@@ -60,6 +81,15 @@ ROUTING_MATRIX = {
         RoutingTarget('cloud-generate-image', 'openai', 'gpt-image-1.5-med', 0.034),
         RoutingTarget('cloud-generate-image', 'google', 'imagen-4-standard', 0.04),
         RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
+    ],
+    ('hero_image', 'production_2k'): [
+        RoutingTarget('cloud-generate-image', 'google', 'gemini-3.1-flash-image-preview', 0.101, '2K'),
+        RoutingTarget('cloud-generate-image', 'fal', 'fal-ai/flux-2-pro', 0.075, '2K'),
+        RoutingTarget('cloud-generate-image', 'google', 'imagen-4.0-generate-001', 0.04, '2K'),
+    ],
+    ('hero_image', 'production_4k'): [
+        RoutingTarget('cloud-generate-image', 'google', 'gemini-3-pro-image-preview', 0.24, '4K'),
+        RoutingTarget('cloud-generate-image', 'google', 'gemini-3.1-flash-image-preview', 0.151, '4K'),
     ],
     ('icon_set', 'draft'): [
         RoutingTarget('cloud-generate-icon', 'recraft', 'recraft-v4-svg', 0.08),
@@ -151,6 +181,62 @@ _UPGRADEABLE_VISUAL_TYPES = {'hero_image', 'pattern_background', 'icon_set', 'di
 # OpenAI GPT Image only supports these fixed sizes
 OPENAI_SUPPORTED_SIZES = {'1024x1024', '1536x1024', '1024x1536'}
 
+# Per-provider/model resolution capability for in-process pre-validation.
+#
+# Two kinds of entries:
+#   1. Canonical model IDs — must stay byte-identical to the cloud plugin's
+#      authoritative source. Cross-plugin drift detection in
+#      plugins/integration_tests/test_router_capability_drift.py asserts
+#      these match plugins/jack-tar-cloud/src/provider_discovery.py's
+#      _PROVIDER_MODEL_RESOLUTIONS for every model that appears in both.
+#   2. Router-internal aliases (gpt-image-1.5-low, imagen-4-fast,
+#      imagen-4-standard, flux-2-pro) used in ROUTING_MATRIX rows for
+#      readability. These translate to canonical IDs at dispatch time
+#      (see imagegen-bridge SKILL.md). Aliases have no cloud-plugin
+#      counterpart and are not subject to drift checking.
+#
+# Single source of truth at runtime is provider_discovery.discover_providers(),
+# which exposes the canonical capability via available_providers[provider]
+# ['models'][model]['supported_resolutions']. This static table is for
+# router-time decisions where reaching across plugin boundaries would
+# require a live cloud-plugin import.
+_PROVIDER_MODEL_RESOLUTIONS = {
+    ('openai', 'gpt-image-1.5'): ['1K'],
+    ('openai', 'gpt-image-1.5-low'): ['1K'],
+    ('openai', 'gpt-image-1.5-med'): ['1K'],
+    ('google', 'imagen-4-fast'): ['1K'],
+    ('google', 'imagen-4.0-fast-generate-001'): ['1K'],
+    ('google', 'imagen-4-standard'): ['1K', '2K'],
+    ('google', 'imagen-4.0-generate-001'): ['1K', '2K'],
+    ('google', 'imagen-4.0-ultra-generate-001'): ['1K', '2K'],
+    ('google', 'gemini-3.1-flash-image-preview'): ['512', '1K', '2K', '4K'],
+    ('google', 'gemini-3-pro-image-preview'): ['1K', '2K', '4K'],
+    ('fal', 'fal-ai/flux-2-pro'): ['1K', '2K'],
+    ('fal', 'flux-2-pro'): ['1K', '2K'],
+    ('fal', 'fal-ai/flux-2-klein'): ['1K'],
+    ('fal', 'fal-ai/ideogram/v3'): ['1K'],
+}
+
+
+def _check_resolution_compatibility(provider, model, resolution):
+    """Return a warning string if provider/model doesn't support the tier.
+
+    Returns None if the tier is supported or the provider/model is unknown
+    (unknown is not an error — the underlying call will surface the failure).
+    """
+    if not resolution:
+        return None
+    supported = _PROVIDER_MODEL_RESOLUTIONS.get((provider, model))
+    if supported is None:
+        return None  # unknown — let the cloud plugin surface the error
+    if resolution in supported:
+        return None
+    return (
+        f"{provider}/{model} does not support resolution={resolution!r}. "
+        f"Supported tiers: {supported}. "
+        f"Pick a different model or downgrade the slide's resolution request."
+    )
+
 
 def _check_openai_dimension_warning(provider, target_dims):
     """Return a warning string if OpenAI is the provider and dims are non-standard.
@@ -225,6 +311,7 @@ def route_slide(slide, mode, available_providers, budget_state):
             model='none',
             cost_per_image=0.0,
             is_fallback=False,
+            resolution='1K',
         )
 
     # Charts always route to render_chart regardless of budget
@@ -237,6 +324,7 @@ def route_slide(slide, mode, available_providers, budget_state):
             model='matplotlib',
             cost_per_image=0.0,
             is_fallback=False,
+            resolution='1K',
         )
 
     # Typography-only: placeholder for everything except charts
@@ -249,16 +337,24 @@ def route_slide(slide, mode, available_providers, budget_state):
             model='none',
             cost_per_image=0.0,
             is_fallback=True,
+            resolution='1K',
         )
+
+    # Resolution-aware mode upgrade: a slide-level resolution hint upgrades
+    # the mode key so we hit the high-res routing rows in ROUTING_MATRIX.
+    requested_resolution = slide.get('resolution', '1K')
+    effective_mode = mode
+    if mode == 'production' and requested_resolution in ('2K', '4K'):
+        effective_mode = f'production_{requested_resolution.lower()}'
 
     # Select routing targets based on budget state
     if budget_state in ('allow_with_caps', 'degrade'):
         targets = BUDGET_DEGRADED_MATRIX.get(
             (visual_type, budget_state),
-            ROUTING_MATRIX.get((visual_type, mode), [])
+            ROUTING_MATRIX.get((visual_type, effective_mode), [])
         )
     else:
-        targets = ROUTING_MATRIX.get((visual_type, mode), [])
+        targets = ROUTING_MATRIX.get((visual_type, effective_mode), [])
 
     # Find first available target
     is_fallback = False
@@ -272,12 +368,13 @@ def route_slide(slide, mode, available_providers, budget_state):
                 model=target.model,
                 cost_per_image=target.cost_per_image,
                 is_fallback=is_fallback,
+                resolution=getattr(target, 'resolution', '1K'),
             )
         is_fallback = True
 
     # No targets available: try the full fallback chain from normal routing
     if budget_state in ('allow_with_caps', 'degrade'):
-        normal_targets = ROUTING_MATRIX.get((visual_type, mode), [])
+        normal_targets = ROUTING_MATRIX.get((visual_type, effective_mode), [])
         for target in normal_targets:
             # In degrade mode, only fall back to free (local/ollama) providers
             if budget_state == 'degrade' and target.cost_per_image > 0:
@@ -291,6 +388,7 @@ def route_slide(slide, mode, available_providers, budget_state):
                     model=target.model,
                     cost_per_image=target.cost_per_image,
                     is_fallback=True,
+                    resolution=getattr(target, 'resolution', '1K'),
                 )
 
     # All fallbacks exhausted: placeholder
@@ -302,6 +400,7 @@ def route_slide(slide, mode, available_providers, budget_state):
         model='none',
         cost_per_image=0.0,
         is_fallback=True,
+        resolution='1K',
     )
 
 
@@ -403,6 +502,7 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
                 target_provider=None,
                 target_model=None,
                 target_size=None,
+                target_resolution='1K',
                 estimated_cost_usd=0.0,
                 warnings=[],
             ))
@@ -419,6 +519,7 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
                 target_provider=None,
                 target_model=None,
                 target_size=None,
+                target_resolution='1K',
                 estimated_cost_usd=0.0,
                 warnings=[],
             ))
@@ -443,6 +544,7 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
                 target_provider=None,
                 target_model=None,
                 target_size=None,
+                target_resolution='1K',
                 estimated_cost_usd=0.0,
                 warnings=[],
             ))
@@ -454,6 +556,11 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
         dim_warning = _check_openai_dimension_warning(route.provider, target_size)
         if dim_warning:
             warnings.append(dim_warning)
+        res_warning = _check_resolution_compatibility(
+            route.provider, route.model, getattr(route, 'resolution', '1K'),
+        )
+        if res_warning:
+            warnings.append(res_warning)
         decisions.append(UpgradeDecision(
             slide_number=slide_num,
             image_id=image_id,
@@ -463,6 +570,7 @@ def plan_production_upgrade(draft_manifest, outline, available_providers, budget
             target_provider=route.provider,
             target_model=route.model,
             target_size=target_size,
+            target_resolution=getattr(route, 'resolution', '1K'),
             estimated_cost_usd=route.cost_per_image,
             warnings=warnings,
         ))
