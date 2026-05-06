@@ -11,7 +11,11 @@ from unittest import mock
 
 import pytest
 
-CLOUD_PLUGIN = Path(__file__).resolve().parent.parent / 'jack-tar-cloud'
+# PLUGIN_ROOT is the canonical name conftest._isolate_src_namespace looks for
+# to activate per-test src.* cleanup + sys.path prepending. CLOUD_PLUGIN was
+# the original name — kept as an alias for readability inside this file.
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent / 'jack-tar-cloud'
+CLOUD_PLUGIN = PLUGIN_ROOT
 
 
 def _exec_generate_block(skill_name, env_substitutions):
