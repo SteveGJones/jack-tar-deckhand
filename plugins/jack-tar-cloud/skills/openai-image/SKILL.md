@@ -1,7 +1,7 @@
 ---
 name: openai-image
 description: Generate images using OpenAI GPT Image API. Requires OPENAI_API_KEY environment variable.
-argument-hint: "a description of the image" [--output PATH] [--size SIZE] [--quality low|medium|high] [--background auto|transparent] [--model MODEL]
+argument-hint: "a description of the image" [--output PATH] [--size SIZE] [--quality low|medium|high] [--background auto|transparent] [--model MODEL] [--resolution 1K]
 allowed-tools: Bash(python *), Read, Glob
 ---
 
@@ -47,6 +47,7 @@ Parse `$ARGUMENTS` for:
 - **--quality QUALITY**: Quality tier (`low`, `medium`, `high`). Default: `medium`
 - **--background BG**: Background type (`auto`, `transparent`). Default: `auto`
 - **--model MODEL**: Override model name (e.g., `gpt-image-1.5`)
+- **--resolution RES**: Tier preset (`1K`, `2K`, `4K`). Default: `1K`. Note: gpt-image-1.5 supports `1K` only; passing `2K`/`4K` raises `ProviderResolutionUnsupportedError` with a recommendation to switch provider.
 
 If no prompt is provided, stop and tell the user to provide a prompt.
 
@@ -79,6 +80,8 @@ result = generate_cloud_image(
     size='$SIZE',
     quality='$QUALITY',
     background='$BACKGROUND',
+    model='$MODEL',
+    resolution='$RESOLUTION',
 )
 print(json.dumps(result, indent=2))
 "
@@ -96,18 +99,16 @@ If the generation fails, show the error message. For `ProviderNotConfiguredError
 
 ## Cost Reference
 
-| Provider | Model | Quality | Size | Cost |
-|----------|-------|---------|------|------|
-| OpenAI | gpt-image-1.5 | low | 1024x1024 | $0.009 |
-| OpenAI | gpt-image-1.5 | medium | 1536x1024 | $0.051 |
-| OpenAI | gpt-image-1.5 | high | 1536x1024 | $0.200 |
-| Google | imagen-4-fast | - | any | $0.020 |
-| Google | imagen-4-standard | - | any | $0.040 |
-| FAL.ai | flux-2-pro | - | 1024x1024 | $0.030 |
+| Provider | Model | Quality | Size | Resolution tier | Cost |
+|----------|-------|---------|------|-----------------|------|
+| OpenAI | gpt-image-1.5 | low | 1024x1024 | 1K | $0.009 |
+| OpenAI | gpt-image-1.5 | medium | 1024x1024 | 1K | $0.034 |
+| OpenAI | gpt-image-1.5 | medium | 1536x1024 | 1K | $0.051 |
+| OpenAI | gpt-image-1.5 | high | 1024x1024 | 1K | $0.133 |
+| OpenAI | gpt-image-1.5 | high | 1536x1024 | 1K | $0.200 |
+
+OpenAI does not support 2K or 4K resolution tiers; route to Google Nano Banana for those.
 
 ## Provider Status
 
-Configured providers are detected at runtime via `src/provider_discovery.py`. Currently:
-- **OpenAI**: Available (gpt-image-1.5)
-- **Google Vertex AI**: Not configured (stub)
-- **FAL.ai**: Not configured (stub)
+Configured providers are detected at runtime via `src/provider_discovery.py`. Run `/jack-tar-cloud:verify` for the current state of all configured providers.
