@@ -243,6 +243,15 @@ _IMAGEN_DEVELOPER_COSTS = {
     ('imagen-4.0-ultra-generate-001', '2K'): 0.101,  # treat as token-based too
 }
 
+# Issue #74 — Imagen models that render at a fixed native resolution and
+# reject the image_size / sampleImageSize parameter (400 INVALID_ARGUMENT).
+# These models render at 1K only; the parameter is meaningless and must be
+# omitted from the request body.
+_IMAGEN_FIXED_RESOLUTION_MODELS = frozenset({
+    'imagen-4.0-fast-generate-001',
+})
+
+
 # Models that use generate_content API (Nano Banana) vs generate_images API (Imagen 4)
 _NANO_BANANA_MODELS = {
     'gemini-3.1-flash-image-preview',
@@ -682,15 +691,24 @@ def _generate_via_nano_banana(client, model, prompt, resolution='1K'):
 def _generate_via_imagen(client, model, prompt, aspect_ratio, resolution):
     """Generate image via Imagen 4 (generate_images API) at the given resolution.
 
+    Issue #74 — Imagen Fast (``imagen-4.0-fast-generate-001``) renders at
+    its native 1K only and REJECTS the ``image_size`` / ``sampleImageSize``
+    parameter with HTTP 400 ``INVALID_ARGUMENT: 'sampleImageSize is not
+    adjustable'``. Imagen Standard and Ultra accept ``image_size`` and
+    use it. Skip the parameter entirely for Fast so the request body
+    omits the field the Fast endpoint rejects.
+
     Returns:
         bytes: Raw image bytes from the response.
     """
-    config = GenerateImagesConfig(
-        number_of_images=1,
-        aspect_ratio=aspect_ratio,
-        output_mime_type='image/png',
-        image_size=resolution,
-    )
+    config_kwargs = {
+        'number_of_images': 1,
+        'aspect_ratio': aspect_ratio,
+        'output_mime_type': 'image/png',
+    }
+    if model not in _IMAGEN_FIXED_RESOLUTION_MODELS:
+        config_kwargs['image_size'] = resolution
+    config = GenerateImagesConfig(**config_kwargs)
     response = client.models.generate_images(
         model=model,
         prompt=prompt,

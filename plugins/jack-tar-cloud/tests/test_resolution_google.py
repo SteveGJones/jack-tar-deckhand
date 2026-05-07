@@ -89,6 +89,46 @@ class TestImagenResolution:
             )
         assert excinfo.value.supported == ["1K"]
 
+    def test_imagen_fast_does_not_pass_image_size_to_api(self, mock_google_client, tmp_path):
+        """Issue #74 — Imagen Fast rejects the image_size / sampleImageSize
+        parameter at all (400 INVALID_ARGUMENT: 'sampleImageSize is not
+        adjustable'). The cloud module's Imagen path passed image_size
+        unconditionally; for Fast we must omit it entirely so the API
+        renders at its native 1K without complaint.
+
+        Surfaced 2026-05-07 during the blog-post asset run when calling
+        generate_google(model='imagen-4.0-fast-generate-001', resolution='1K')
+        hit the 400 in production."""
+        out = tmp_path / "out.png"
+        generate_google(
+            prompt="test", output_path=str(out),
+            model="imagen-4.0-fast-generate-001",
+            resolution="1K",
+        )
+        call_kwargs = mock_google_client.models.generate_images.call_args.kwargs
+        config = call_kwargs["config"]
+        # The fix: image_size MUST NOT be set on the config for Imagen Fast.
+        # google-genai's GenerateImagesConfig leaves the attribute None
+        # (or absent) when not supplied; the request body therefore omits
+        # the sampleImageSize field that Imagen Fast rejects.
+        assert getattr(config, "image_size", None) in (None, ""), (
+            f"Imagen Fast must not receive image_size; got "
+            f"image_size={getattr(config, 'image_size', None)!r}"
+        )
+
+    def test_imagen_standard_still_passes_image_size(self, mock_google_client, tmp_path):
+        """Issue #74 (regression guard) — Imagen Standard accepts and uses
+        image_size. The Fast guard must NOT accidentally apply to
+        resolution-aware models."""
+        out = tmp_path / "out.png"
+        generate_google(
+            prompt="test", output_path=str(out),
+            model="imagen-4.0-generate-001",
+            resolution="2K",
+        )
+        config = mock_google_client.models.generate_images.call_args.kwargs["config"]
+        assert config.image_size == "2K"
+
 
 class TestImagenCostDualPricing:
     def test_vertex_flat_pricing_when_adc_set(self, monkeypatch):
