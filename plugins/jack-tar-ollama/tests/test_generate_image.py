@@ -37,6 +37,9 @@ def make_args(**overrides):
         "steps": 8,
         "seed": None,
         "timeout": None,
+        # Issue #75 — single-flight lock kwargs.
+        "lock_wait_timeout": generate_image.DEFAULT_LOCK_WAIT_TIMEOUT,
+        "no_lock": True,  # default to no-lock for fast unit tests
     }
     defaults.update(overrides)
     import argparse
@@ -204,3 +207,236 @@ class TestArgumentParsing:
 
         body = mock_post.call_args.kwargs["json"]
         assert body["model"] == "x/flux2-klein"
+
+
+class TestSingleFlightLock:
+    """Issue #75 — Ollama image gen serialises on a single GPU context.
+    Concurrent invocations queue inside Ollama and timeout. The
+    single-flight lock makes parallel callers serialise politely on the
+    process side so each call gets its full GPU-time budget once it
+    acquires the lock."""
+
+    def test_no_lock_flag_skips_lock_machinery(self, tmp_path):
+        """--no-lock bypasses _single_flight_lock entirely. Used by test
+        fixtures and operator-driven debug sessions."""
+        output = tmp_path / "test.png"
+        args = make_args(output=str(output), no_lock=True)
+
+        with patch("generate_image._single_flight_lock") as mock_lock, \
+             patch("generate_image.requests.post", return_value=mock_response(
+                 json_data={"done": True, "image": FAKE_IMAGE_B64}
+             )):
+            generate_image.generate(args)
+
+        mock_lock.assert_not_called()
+        assert output.exists()
+
+    def test_default_invocation_acquires_and_releases_lock(self, tmp_path):
+        """When --no-lock is NOT set, the API call is wrapped in the
+        single-flight context manager."""
+        output = tmp_path / "test.png"
+        args = make_args(output=str(output), no_lock=False)
+
+        # Patch the context manager to record entry/exit but otherwise
+        # behave as a no-op so the inner _do_api_call still runs.
+        from contextlib import contextmanager
+        events = []
+
+        @contextmanager
+        def fake_lock(timeout_seconds):
+            events.append(("acquire", timeout_seconds))
+            try:
+                yield 0
+            finally:
+                events.append(("release", None))
+
+        with patch("generate_image._single_flight_lock", fake_lock), \
+             patch("generate_image.requests.post", return_value=mock_response(
+                 json_data={"done": True, "image": FAKE_IMAGE_B64}
+             )):
+            generate_image.generate(args)
+
+        kinds = [e[0] for e in events]
+        assert kinds == ["acquire", "release"]
+        # Default timeout was passed through.
+        assert events[0][1] == generate_image.DEFAULT_LOCK_WAIT_TIMEOUT
+
+    def test_lock_wait_timeout_propagates(self, tmp_path):
+        """A custom --lock-wait-timeout is honoured by the lock context."""
+        output = tmp_path / "test.png"
+        args = make_args(output=str(output), no_lock=False, lock_wait_timeout=42)
+
+        from contextlib import contextmanager
+        captured = []
+
+        @contextmanager
+        def fake_lock(timeout_seconds):
+            captured.append(timeout_seconds)
+            yield 0
+
+        with patch("generate_image._single_flight_lock", fake_lock), \
+             patch("generate_image.requests.post", return_value=mock_response(
+                 json_data={"done": True, "image": FAKE_IMAGE_B64}
+             )):
+            generate_image.generate(args)
+
+        assert captured == [42]
+
+    def test_lock_acquisition_timeout_exits_with_clear_message(self, tmp_path, capsys):
+        """If the lock cannot be acquired within the timeout, exit code 1
+        and a clear stderr message — not a silent hang."""
+        output = tmp_path / "test.png"
+        args = make_args(output=str(output), no_lock=False, lock_wait_timeout=1)
+
+        from contextlib import contextmanager
+
+        @contextmanager
+        def fake_lock(timeout_seconds):
+            raise TimeoutError(
+                f"Could not acquire Ollama single-flight lock at /tmp/x.lock "
+                f"within {timeout_seconds}s. Another image generation is "
+                f"in progress; serialise your callers or use cloud "
+                f"generation for parallelism."
+            )
+            yield  # noqa: unreachable, satisfies decorator shape
+
+        with patch("generate_image._single_flight_lock", fake_lock):
+            with pytest.raises(SystemExit) as exc_info:
+                generate_image.generate(args)
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "single-flight lock" in captured.err
+        assert "Another image generation is in progress" in captured.err
+
+
+class TestLockMechanism:
+    """Lower-level tests of _single_flight_lock itself."""
+
+    def test_lock_acquired_when_uncontended(self, tmp_path, monkeypatch):
+        """A single caller acquires the lock immediately and the context
+        body executes. The lock file gets created."""
+        lock_path = tmp_path / "test.lock"
+        monkeypatch.setattr(generate_image, "LOCK_PATH", lock_path)
+
+        ran = []
+        with generate_image._single_flight_lock(timeout_seconds=5):
+            ran.append("body")
+            assert lock_path.exists()
+        assert ran == ["body"]
+
+    def test_lock_released_on_exception(self, tmp_path, monkeypatch):
+        """If the body raises, the lock is still released so subsequent
+        callers don't deadlock."""
+        lock_path = tmp_path / "test.lock"
+        monkeypatch.setattr(generate_image, "LOCK_PATH", lock_path)
+
+        with pytest.raises(RuntimeError, match="boom"):
+            with generate_image._single_flight_lock(timeout_seconds=5):
+                raise RuntimeError("boom")
+
+        # Verify subsequent acquisition succeeds (lock is released).
+        with generate_image._single_flight_lock(timeout_seconds=5):
+            pass
+
+    def test_lock_blocked_then_acquired(self, tmp_path, monkeypatch):
+        """When the lock file is held by another process (simulated via a
+        second fd holding the flock), the first caller's acquisition
+        attempts block. Once the holding fd releases, the next attempt
+        succeeds. We only check that the lock-recovery path runs and
+        eventually exits successfully — timing details are out of scope.
+        """
+        import fcntl
+        lock_path = tmp_path / "test.lock"
+        monkeypatch.setattr(generate_image, "LOCK_PATH", lock_path)
+
+        # Acquire and hold the lock externally.
+        held_fd = open(str(lock_path), "w")
+        fcntl.flock(held_fd, fcntl.LOCK_EX)
+
+        sleeps = []
+
+        def fake_sleep(s):
+            sleeps.append(s)
+            # On second sleep, release the holder so acquisition succeeds.
+            if len(sleeps) == 2:
+                fcntl.flock(held_fd, fcntl.LOCK_UN)
+                held_fd.close()
+
+        monkeypatch.setattr(generate_image.time, "sleep", fake_sleep)
+
+        ran = []
+        with generate_image._single_flight_lock(timeout_seconds=10):
+            ran.append("body")
+        assert ran == ["body"]
+        # We slept at least once while waiting.
+        assert len(sleeps) >= 1
+
+    def test_lock_timeout_raises(self, tmp_path, monkeypatch):
+        """Timeout propagates as TimeoutError when the lock can't be
+        acquired in time."""
+        import fcntl
+        lock_path = tmp_path / "test.lock"
+        monkeypatch.setattr(generate_image, "LOCK_PATH", lock_path)
+
+        # Hold the lock for the duration of the test.
+        held_fd = open(str(lock_path), "w")
+        fcntl.flock(held_fd, fcntl.LOCK_EX)
+
+        # Fast-forward time so the timeout deadline is exceeded
+        # immediately on the first poll.
+        clock = [0.0]
+
+        def fake_monotonic():
+            t = clock[0]
+            clock[0] += 5.0
+            return t
+
+        monkeypatch.setattr(generate_image.time, "monotonic", fake_monotonic)
+        monkeypatch.setattr(generate_image.time, "sleep", lambda s: None)
+
+        with pytest.raises(TimeoutError, match="single-flight lock"):
+            with generate_image._single_flight_lock(timeout_seconds=2):
+                pass
+
+        fcntl.flock(held_fd, fcntl.LOCK_UN)
+        held_fd.close()
+
+    def test_stale_lock_is_reclaimed(self, tmp_path, monkeypatch):
+        """A lock file with mtime older than STALE_LOCK_AGE_SECONDS is
+        reclaimed: the file is unlinked so the next acquisition can
+        proceed. Defensive recovery for crashed-without-cleanup processes
+        (suspended, killed -9 with the file still mapped, etc.)."""
+        import fcntl
+        lock_path = tmp_path / "test.lock"
+        monkeypatch.setattr(generate_image, "LOCK_PATH", lock_path)
+
+        # Create a "stale" lock file: held externally, but with old mtime.
+        held_fd = open(str(lock_path), "w")
+        fcntl.flock(held_fd, fcntl.LOCK_EX)
+        # Backdate mtime past the stale threshold.
+        old_time = generate_image.time.time() - generate_image.STALE_LOCK_AGE_SECONDS - 60
+        os_module = generate_image.os
+        os_module.utime(str(lock_path), (old_time, old_time))
+
+        sleeps_taken = []
+        def fake_sleep(s):
+            sleeps_taken.append(s)
+            # After the first sleep, simulate the holder releasing too.
+            # Actual reclaim path: our code unlinks the file, then on the
+            # next iteration creates a fresh fd and acquires.
+            if len(sleeps_taken) == 1:
+                # The holder still has the kernel-level flock, but our
+                # code already unlinked the file. Release the flock now
+                # so the next acquisition can complete.
+                try:
+                    fcntl.flock(held_fd, fcntl.LOCK_UN)
+                    held_fd.close()
+                except OSError:
+                    pass
+
+        monkeypatch.setattr(generate_image.time, "sleep", fake_sleep)
+
+        ran = []
+        with generate_image._single_flight_lock(timeout_seconds=30):
+            ran.append("body")
+        assert ran == ["body"]
