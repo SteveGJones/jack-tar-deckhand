@@ -800,7 +800,7 @@ _RECRAFT_TIER_TO_SIZE = {
 
 def generate_recraft_direct(prompt, output_path, *, tier='pro',
                             resolution='2K', colors=None,
-                            style='realistic_image', **kwargs):
+                            style=None, **kwargs):
     """Generate a raster image using the Recraft V4 direct API.
 
     Uses OpenAI-compatible endpoint at external.api.recraft.ai/v1. For 4K
@@ -814,7 +814,10 @@ def generate_recraft_direct(prompt, output_path, *, tier='pro',
         resolution: '1K' (standard) | '2K' (pro) | '4K' (pro + upscale chain).
         colors: Optional list of RGB dicts for brand palette,
                 e.g. [{'rgb': [0, 51, 102]}, {'rgb': [255, 204, 0]}].
-        style: Recraft style preset (default 'realistic_image').
+        style: Recraft style preset. ``None`` (default) sends no style
+            argument and lets V4 pick its own — V4 rejects the legacy
+            ``'realistic_image'`` preset that V3 accepted, so the default
+            must NOT name a style. Issue #73.
 
     Returns:
         dict: {file_path, provider, tier, resolution, model_used, cost_usd,
@@ -871,13 +874,18 @@ def generate_recraft_direct(prompt, output_path, *, tier='pro',
 
     size = _RECRAFT_TIER_TO_SIZE[tier]
 
-    response = client.images.generate(
-        prompt=prompt,
-        model='recraftv4',
-        style=style,
-        size=size,
-        extra_body=extra_body,
-    )
+    # Issue #73 — only pass `style` when the caller supplied a non-None
+    # value. V4 rejects the legacy 'realistic_image' default with 400.
+    generate_kwargs = {
+        'prompt': prompt,
+        'model': 'recraftv4',
+        'size': size,
+        'extra_body': extra_body,
+    }
+    if style is not None:
+        generate_kwargs['style'] = style
+
+    response = client.images.generate(**generate_kwargs)
 
     image_url = response.data[0].url
     r = requests.get(image_url, timeout=30)
@@ -905,7 +913,7 @@ def generate_recraft_direct(prompt, output_path, *, tier='pro',
 
 def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
                                           colors=None,
-                                          style='realistic_image'):
+                                          style=None):
     """Chain helper: generate at 2K Pro, then Creative Upscale to 4K.
 
     Two-step Recraft direct API chain:
@@ -920,7 +928,9 @@ def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
         output_path: Final 4K PNG destination.
         api_key: Recraft API key (already validated by the caller).
         colors: Optional list of RGB dicts for brand palette.
-        style: Recraft style preset (default 'realistic_image').
+        style: Recraft style preset (default ``None``). Issue #73 — V4
+            rejects the legacy 'realistic_image' default; ``None`` means
+            no style argument is sent and V4 picks its own.
 
     Returns:
         dict: Same shape as `generate_recraft_direct`, with resolution='4K'
@@ -935,14 +945,17 @@ def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
     if colors:
         extra_body['controls'] = {'colors': colors}
 
-    # Step 1: generate at 2K Pro.
-    response = client.images.generate(
-        prompt=prompt,
-        model='recraftv4',
-        style=style,
-        size=_RECRAFT_TIER_TO_SIZE['pro'],
-        extra_body=extra_body,
-    )
+    # Step 1: generate at 2K Pro. Only pass `style` when caller supplied
+    # a non-None value (issue #73).
+    generate_kwargs = {
+        'prompt': prompt,
+        'model': 'recraftv4',
+        'size': _RECRAFT_TIER_TO_SIZE['pro'],
+        'extra_body': extra_body,
+    }
+    if style is not None:
+        generate_kwargs['style'] = style
+    response = client.images.generate(**generate_kwargs)
     twok_url = response.data[0].url
     twok_response = requests.get(twok_url, timeout=30)
     twok_response.raise_for_status()
@@ -1112,6 +1125,28 @@ def _generate_recraft_fal_with_upscale(prompt, output_path, *, colors=None):
 # --- Dispatch ---
 
 
+def _is_recraft_v4_style_error(exc):
+    """Issue #73 — detect the V4-rejects-style error class.
+
+    Recraft V4 rejects style presets with HTTP 400 and ``code:
+    invalid_image_type`` in the body. The legacy default
+    ``style='realistic_image'`` (a V3 preset) and explicit V3-style
+    presets all hit this. The fall-through to FAL only fires for THIS
+    error class — other 400s (rate-limit, content-policy, malformed
+    prompt) must still propagate so the operator sees the real cause.
+    """
+    try:
+        import openai
+    except ImportError:
+        return False
+    if not isinstance(exc, openai.BadRequestError):
+        return False
+    body = getattr(exc, 'body', None) or {}
+    code = body.get('code') if isinstance(body, dict) else None
+    message = str(getattr(exc, 'message', '')) or str(exc)
+    return code == 'invalid_image_type' or "doesn't support style" in message
+
+
 def _dispatch_recraft(prompt, output_path, **kwargs):
     """Dispatch Recraft to direct API or FAL based on which key is set.
 
@@ -1123,6 +1158,13 @@ def _dispatch_recraft(prompt, output_path, **kwargs):
 
     Mirrors the icon path's dual-route logic: RECRAFT_API_KEY → direct,
     FAL_KEY → fal. Direct API is preferred when both are set.
+
+    Issue #73 — defensive fall-through: if the direct API rejects a style
+    preset (e.g. V4 vs V3 mismatch, or future V5 changes the matrix again)
+    AND FAL_KEY is configured, fall through to FAL automatically with a
+    logged warning. FAL accepts no style parameter so it cannot fail the
+    same way. Other 400 errors (content policy, rate limit, malformed
+    request) propagate unchanged.
     """
     if 'tier' not in kwargs and 'resolution' in kwargs:
         # Auto-pick tier from resolution
@@ -1134,8 +1176,26 @@ def _dispatch_recraft(prompt, output_path, **kwargs):
         # else: leave tier unset and let validation in the underlying function
         # surface ProviderResolutionUnsupportedError
 
-    if os.environ.get('RECRAFT_API_KEY') or os.environ.get('RECRAFT_API'):
-        return generate_recraft_direct(prompt, output_path, **kwargs)
+    direct_available = bool(
+        os.environ.get('RECRAFT_API_KEY') or os.environ.get('RECRAFT_API')
+    )
+    fal_available = bool(os.environ.get('FAL_KEY'))
+
+    if direct_available:
+        try:
+            return generate_recraft_direct(prompt, output_path, **kwargs)
+        except Exception as exc:
+            if _is_recraft_v4_style_error(exc) and fal_available:
+                logger.warning(
+                    "Recraft direct API rejected style preset (%s); falling "
+                    "back to FAL route which accepts no style parameter. "
+                    "Issue #73 fall-through.", exc,
+                )
+                # FAL route doesn't support an explicit style kwarg —
+                # strip it before retry.
+                fal_kwargs = {k: v for k, v in kwargs.items() if k != 'style'}
+                return generate_recraft_fal(prompt, output_path, **fal_kwargs)
+            raise
     return generate_recraft_fal(prompt, output_path, **kwargs)
 
 
