@@ -343,6 +343,97 @@ def _read_carrier(carrier_pptx: Path) -> CarrierContents:
     )
 
 
+_MEDIA_FILENAME_RE = re.compile(r"image(\d+)\.(\w+)$")
+
+
+def _scan_host_max_image_number(contents: dict[str, bytes]) -> int:
+    """Return the highest existing imageN suffix in the host's ppt/media/.
+
+    Run 9 Finding #29: when the host already contains slide-level images
+    (added by python-pptx during the bridge's Phase 2 IMAGE/BG ops), naive
+    carrier-media injection at ``image1.png``…``image6.png`` overwrites
+    them — silently corrupting slide-level rels that point at those names.
+    The fix is to allocate carrier media filenames starting AFTER the
+    host's highest existing image number; this helper finds that ceiling.
+
+    Returns 0 if the host has no media yet.
+    """
+    max_n = 0
+    for name in contents:
+        if not name.startswith("ppt/media/"):
+            continue
+        leaf = name.rsplit("/", 1)[-1]
+        m = _MEDIA_FILENAME_RE.match(leaf)
+        if m is None:
+            continue
+        n = int(m.group(1))
+        if n > max_n:
+            max_n = n
+    return max_n
+
+
+def _renumber_carrier_media(
+    carrier_media: dict[str, bytes],
+    carrier_data_rels: bytes | None,
+    start_at: int,
+) -> tuple[dict[str, bytes], bytes | None, dict[str, str]]:
+    """Renumber carrier media filenames to start at ``start_at`` (Finding #29).
+
+    Returns ``(renumbered_media, renumbered_data_rels, rename_map)`` where:
+    - ``renumbered_media`` is the new ``{ppt/media/imageN.ext: bytes}`` dict
+      with N values shifted to start at ``start_at``
+    - ``renumbered_data_rels`` is the carrier's data1.xml.rels with all
+      image Targets rewritten to point at the renumbered filenames
+    - ``rename_map`` is ``{old_name: new_name}`` for diagnostics
+
+    Carrier media that doesn't match the ``imageN.ext`` pattern is passed
+    through unchanged (defensive: catches non-standard layouts that may
+    appear in future SmartArt categories).
+    """
+    rename_map: dict[str, str] = {}
+    renumbered_media: dict[str, bytes] = {}
+    n_offset = start_at - 1  # carrier image1 → start_at, image2 → start_at+1, ...
+    # Sort carrier media by their numeric index so the renumbering is
+    # deterministic regardless of dict iteration order.
+    sorted_names = sorted(
+        carrier_media.keys(),
+        key=lambda n: (
+            int(_MEDIA_FILENAME_RE.match(n.rsplit("/", 1)[-1]).group(1))
+            if _MEDIA_FILENAME_RE.match(n.rsplit("/", 1)[-1])
+            else 99999
+        ),
+    )
+    for old_name in sorted_names:
+        leaf = old_name.rsplit("/", 1)[-1]
+        m = _MEDIA_FILENAME_RE.match(leaf)
+        if m is None:
+            renumbered_media[old_name] = carrier_media[old_name]
+            continue
+        old_n = int(m.group(1))
+        ext = m.group(2)
+        new_n = old_n + n_offset
+        new_leaf = f"image{new_n}.{ext}"
+        new_name = f"ppt/media/{new_leaf}"
+        rename_map[old_name] = new_name
+        renumbered_media[new_name] = carrier_media[old_name]
+
+    # Rewrite the data rels Targets if any media was renumbered. Targets
+    # are written as ``../media/imageN.ext`` (relative path from the
+    # ``ppt/diagrams/_rels/`` directory the rels file lives in).
+    renumbered_data_rels = carrier_data_rels
+    if carrier_data_rels and rename_map:
+        rels_text = carrier_data_rels.decode("utf-8")
+        for old_full, new_full in rename_map.items():
+            old_leaf = old_full.rsplit("/", 1)[-1]
+            new_leaf = new_full.rsplit("/", 1)[-1]
+            old_target = f"../media/{old_leaf}"
+            new_target = f"../media/{new_leaf}"
+            rels_text = rels_text.replace(old_target, new_target)
+        renumbered_data_rels = rels_text.encode("utf-8")
+
+    return renumbered_media, renumbered_data_rels, rename_map
+
+
 def inject(
     host_pptx: Path,
     requests: list[InjectionRequest],
@@ -381,6 +472,13 @@ def inject(
         }
 
     names = set(contents.keys())
+
+    # Run 9 Finding #29 — collision-safe carrier-media filename allocation.
+    # Track the highest imageN.ext suffix already in the host so each
+    # carrier's media gets renumbered to start AFTER it. Updated as media
+    # is added across multiple injection requests so a second carrier in
+    # the same batch starts after the first carrier's media.
+    next_media_index = _scan_host_max_image_number(contents) + 1
 
     for req in requests:
         slide_xml_name = f"ppt/slides/slide{req.slide_number}.xml"
@@ -456,16 +554,27 @@ def inject(
             names.add(filename)
 
         # Copy media files from carrier (for Picture SmartArt with images)
+        # Run 9 Finding #29 — renumber carrier media to start after the
+        # host's existing media files so we don't overwrite slide-level
+        # IMAGE/BG marker media that python-pptx allocated in Phase 2.
+        renumbered_data_rels = carrier.data_rels
         if carrier.media_files:
-            for media_name, media_bytes in carrier.media_files.items():
-                # media_name is e.g. "ppt/media/image1.png" — keep as-is
-                # since each carrier has its own image numbering and the
-                # data rels reference them by relative path from diagrams/
+            renumbered_media, renumbered_data_rels, _rename_map = (
+                _renumber_carrier_media(
+                    carrier.media_files,
+                    carrier.data_rels,
+                    start_at=next_media_index,
+                )
+            )
+            for media_name, media_bytes in renumbered_media.items():
                 contents[media_name] = media_bytes
                 names.add(media_name)
+            # Advance the high-water mark so the next carrier in this
+            # batch (if any) starts after the media we just added.
+            next_media_index += len(renumbered_media)
 
             # Add image content type defaults if not present
-            for media_name in carrier.media_files:
+            for media_name in renumbered_media:
                 ext = media_name.rsplit(".", 1)[-1].lower()
                 mime = {"png": "image/png", "jpg": "image/jpeg",
                         "jpeg": "image/jpeg", "gif": "image/gif"}.get(ext)
@@ -478,9 +587,9 @@ def inject(
                         )
 
         # Copy diagram data rels (image relationships for Picture SmartArt)
-        if carrier.data_rels:
+        if renumbered_data_rels:
             data_rels_name = f"ppt/diagrams/_rels/{part_to_filename('data', diagram_number)}.rels"
-            contents[data_rels_name] = carrier.data_rels
+            contents[data_rels_name] = renumbered_data_rels
             names.add(data_rels_name)
 
         # Re-write content types after media additions

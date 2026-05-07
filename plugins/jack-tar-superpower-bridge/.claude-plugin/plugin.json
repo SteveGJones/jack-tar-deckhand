@@ -1,0 +1,11 @@
+{
+  "name": "jack-tar-superpower-bridge",
+  "description": "Wraps document-skills:pptx with a narrative pre-brief skill and a post-hoc visual enrichment skill — combine /pptx structural strength with jack-tar visual capabilities (AI backgrounds, element images, editable SmartArt)",
+  "version": "0.2.0",
+  "author": {
+    "name": "Steve Jones"
+  },
+  "repository": "https://github.com/SteveGJones/jack-tar-deckhand",
+  "license": "MIT",
+  "keywords": ["presentations", "powerpoint", "pptx", "enrichment", "smartart", "superpower"]
+}

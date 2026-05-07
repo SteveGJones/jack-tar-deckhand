@@ -1,0 +1,81 @@
+{
+  "case_name": "control",
+  "pptx_slide_count": 3,
+  "js_slide_count": null,
+  "js_error": null,
+  "pptx_marker_total": 1,
+  "js_marker_total": null,
+  "slide_comparisons": [
+    {
+      "slide_index": 1,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": null,
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "default",
+          "js_value": null,
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 29,
+          "js_value": null,
+          "agree": false
+        }
+      ]
+    },
+    {
+      "slide_index": 2,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [],
+          "js_value": null,
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "default",
+          "js_value": null,
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 53,
+          "js_value": null,
+          "agree": false
+        }
+      ]
+    },
+    {
+      "slide_index": 3,
+      "fields": [
+        {
+          "field": "markers",
+          "pptx_value": [
+            "IMAGE:vision-diagram"
+          ],
+          "js_value": null,
+          "agree": false
+        },
+        {
+          "field": "background_kind",
+          "pptx_value": "default",
+          "js_value": null,
+          "agree": false
+        },
+        {
+          "field": "text_content_len",
+          "pptx_value": 0,
+          "js_value": null,
+          "agree": false
+        }
+      ]
+    }
+  ]
+}

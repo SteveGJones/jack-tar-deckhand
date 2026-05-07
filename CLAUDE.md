@@ -39,7 +39,7 @@ This repository is now a **5-plugin Claude Code marketplace**. The presentation 
 
 **Plugin files:** `plugins/<name>/` — each plugin has `.claude-plugin/plugin.json`, `skills/`, `agents/`, `src/`, `tests/`
 
-**Marketplace manifest:** `.claude-plugin/marketplace.json`
+**Marketplace manifest:** `.claude-plugin/marketplace.json` — **v1.1.0** (all plugins)
 
 **Quick start:** `/jack-tar-deckhand:verify` → reports which engine plugins are ready
 
@@ -49,30 +49,61 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-05-03)
+### Current Status (2026-05-07)
 
-- **Cloud Resolution Control (Issue #59 — landed):** `jack-tar-cloud` v1.2.0 adds a unified `resolution=` kwarg routing 1K / 2K / 4K to each provider's native API field. New `ProviderResolutionUnsupportedError` carries supported-tier metadata for retry. Per-model capability surfaced via `provider_discovery.discover_providers()`. Imagen dual-pricing detection (Vertex flat vs Gemini Developer API token-based) wired into `estimate_google_cost`.
+- **Superpower Bridge v0.2.0 + EPIC #58 closed — main is now at:** cloud `1.3.0`, deckhand `1.3.0`, msft-smartart `1.2.2`, bridge `0.2.0`, ollama/custom-smartart `1.1.0`.
+- **EPIC #58 (cloud image resolution control) CLOSED 2026-05-06** — 4/4 children landed: #62 (PR #63), #59 (PR #65), #60 (PRs #68 + #69), #61 (PR #70). 1K/2K/4K resolution + brand-fidelity (Recraft V4 raster) wired through render funnel + image router + imagegen-bridge Step 9A.
+- **Superpower Bridge merged 2026-05-07** — 76 committed bridge commits + v0.2 polish (Findings #17/#18/#19/#20/#21/#22/#23/#24/#25/#26/#27/#28/#29) staged into 4 finding-labeled commits. Run 10 (2026-05-01) declared GO. Bridge ships with `/bridge-brief`, `/enrich-deck`, `/verify`. Known limitation: bridge runs its own enrichment cycle separate from imagegen-bridge Step 9A — does not yet consume EPIC #58 resolution/brand-fidelity surfaces; v0.3 candidate.
+
+### Current Status (2026-04-27)
+
+- **Superpower Bridge (issue #53) — six dogfood runs complete, all cycle paths exercised.** On branch `feat/superpower-bridge`. **225 tests passing** across the bridge suite. Plugin `jack-tar-superpower-bridge` v0.1.0 ships with `/bridge-brief`, `/enrich-deck`, `/verify`. Two new AI personas (Narrative Brief Architect; Enrichment Cohesion Reviewer) + contract extensions to Image Reviewer + Prompt Engineer. **Contracts 1+2 implemented and dogfood-validated across 6 visual personalities (Dark Industrial / Engineering Ink / Blueprint Retrospective / Redline / Boardroom Stone / Velvet Ledger).** Run 6 (2026-04-29) **fired all three uncovered cycle paths in one run** — Phase A → Phase B Flash → Phase C Pro escalation, plus the `terminate_pending_confirmation` privacy gate handshake (first time across all runs). Task 35 GO held until v0.1.x patch backlog ships.
+  - **Dogfood logs (read in order, latest first):** [Run 6](docs/superpowers/dogfooding/2026-04-29-bridge-dogfood-run-6.md) (**Velvet Ledger / cloud escalation thesis fully validated** / Findings #19, #20, #21 surfaced) · [Run 5](docs/superpowers/dogfooding/2026-04-27-bridge-dogfood-run-5.md) (Boardroom Stone / sub-page SmartArt + chart routing + BG-at-marker entrenched) · [Run 4](docs/superpowers/dogfooding/2026-04-26-bridge-dogfood-run-4.md) (Redline / sub-page IMAGE proven) · [Run 3](docs/superpowers/dogfooding/2026-04-26-bridge-dogfood-run-3.md) (Contracts 1+2 validated) · [Run 2](docs/superpowers/dogfooding/2026-04-25-bridge-dogfood-run-2.md) · [Run 1](docs/superpowers/dogfooding/2026-04-23-bridge-dogfood-run-1.md)
+  - **Findings tracker (21 items, see `project_superpower_bridge.md` memory)** — #11 fixed in flight; #16 resolved by Run 5 thesis; #19/#20/#21 surfaced by Run 6 (image-reviewer text-fidelity contract gap, fix patterns codified in agent + SKILL.md updates 2026-04-30); #12-#14, #17, #18 cosmetic/heuristic v0.1.x patches; **#15 release-shaping** (Section C language workaround validated in Run 5; v0.2 CHART marker kind formalises it).
+  - **Implementation tasks 1–34 done.** Task 35 GO verdict pending v0.1.x patch backlog. All cycle paths validated in Run 6.
+  - **Plan:** [docs/superpowers/plans/2026-04-23-superpower-bridge.md](docs/superpowers/plans/2026-04-23-superpower-bridge.md) — 35 tasks across 16 phases; v1.1 panel-revised.
+  - **Spec:** [docs/superpowers/specs/2026-04-22-superpower-bridge-design.md](docs/superpowers/specs/2026-04-22-superpower-bridge-design.md) — final critical review verdict SHIP WITH CAVEATS; all 7 caveats addressed in the implementation.
+  - **Personas:** [docs/architecture/ai-personas/superpower-bridge-personas.md](docs/architecture/ai-personas/superpower-bridge-personas.md) — promoted to v1.0 with consolidated tripartite (Steve Jones × 3 for v1; documented split trigger), full 5-tier measurement blueprint, scorecard Items 3 + 6 green, Item 5 amber pending dogfood.
+  - **Canonical model:** `.bsa/models/jack-tar-deckhand.json` v1.5.0 — Bridge Services L1 + 4 services + 10 INT-BRIDGE interactions + Cross-Domain SOP register entry (with CAC + changeTrigger) + 5 dependency-register entries. Schema extended for the new top-level keys.
+  - **Marketplace:** bridge registered v0.1.0; jack-tar-deckhand and jack-tar-msft-smartart bumped 1.1.0 → 1.2.0 (cache-key invalidation for downstream workspaces).
+  - **Team review synthesis:** [docs/superpowers/specs/2026-04-23-superpower-bridge-team-review.md](docs/superpowers/specs/2026-04-23-superpower-bridge-team-review.md)
+  - **Spike 1** ([docs/spikes/2026-04-23-pptx-marker-adherence/](docs/spikes/2026-04-23-pptx-marker-adherence/README.md)) — marker adherence. PptxGenJS 4.0.1 silently drops `name` property; `objectName` is correct. Variant A (correct) = 100% adherence; B and C (wrong key) = 0%.
+  - **Spike 2** ([docs/spikes/2026-04-23-python-pptx-enrichment/](docs/spikes/2026-04-23-python-pptx-enrichment/README.md)) — python-pptx edits of /pptx output. Three prototype ops (background / image replace / SmartArt inject) pass tests, PowerPoint Mac gate, visual review, OOXML inspection.
+  - **Spike 3** ([docs/spikes/2026-04-23-analyser-source-comparison/](docs/spikes/2026-04-23-analyser-source-comparison/README.md)) — analyser source comparison. HYBRID decision: OOXML primary (stable, always available), JS build-script fallback via esprima AST-only for marker extraction when OOXML finds zero markers AND build.js exists.
+  - **Key design decisions baked into the implementation:** OOXML primary analyser; SMARTART overlap detection is analyser-side (verifiable); transactional all-or-nothing enrichment with explicit `try/finally` cleanup + `os.replace` atomic rename; `budget_cap_usd` default $1.00 covering BOTH generation AND review (caveat #6); brief `confidentiality` tier (public/internal/restricted); image-path allowlist mandatory with parent-symlink-escape protection; JS parsed AST-only with parse-never-execute hard contract test; cycle_state primitives for SKILL.md-driven loop (NOT a Python cycle that overrides callables — caveat #1 fix).
+  - **Real-world bugs caught and fixed during execution** (not in original plan): JS parser had a dead lowercase ternary silently skipping valid markers; Phase B budget review charge was conditional (would let Pro escalate on an unpaid review); SmartArt parser couldn't handle Spike 1's inline label format (`SMARTART: x — A | B | C`); cross-plugin sys.modules contamination after msft-smartart loader. All caught by the review/integration cycle, all fixed in the underlying module.
+  - **28 spike tests passing** — 10 for Spike 1, 6 for Spike 2, 12 for Spike 3.
+  - **Run 4+5 dogfood insights embedded into user-facing artefacts 2026-04-27**: `narrative-brief-architect.md` agent codified sub-page SmartArt typology with explicit coordinates, native chart routing language, BG-on-pivot guidance, will/won't colour reservation, required Section B palette table template. `bridge-brief/SKILL.md` updated to require those patterns in Section C. Plugin CLAUDE.md points users at Run 4 + Run 5 briefs as canonical examples.
+  - **Run 6 dogfood insights embedded into user-facing artefacts 2026-04-30**: image-reviewer agent (`plugins/jack-tar-deckhand/agents/image-reviewer.md`) now requires `expected_text_content` for text-bearing markers (Finding #19/#20 fix) + verdict-coherence self-check (Finding #21 fix). `enrich-deck/SKILL.md` extracts expected text from the brief's Section C and passes it on reviewer dispatch + adds SMARTART-FROM-LIST bullet-length pre-flight (Finding #13). `narrative-brief-architect.md` Section C requires "EXACT spelled labels REQUIRED" lists for text-bearing IMAGE markers + ≤24 char SmartArt bullet guidance. `bridge-brief/SKILL.md` codifies these as required Section C content. Plugin `CLAUDE.md` adds Run 6 (Velvet Ledger / institutional+M&A) as canonical example, plus a "Patterns repeatable for new operators" 10-pattern quick reference. **NOTE — restart Claude Code before any new dogfood run** so the updated agent definitions load.
+  - **Next action — v0.1.x patch backlog**: Findings #3/#7 (codify split-dispatch in SKILL.md), #8 (Phase 1 cost ledger), #12 (palette heuristic), #13 (smartart label caps auto-truncate or layout-route by length), #14 (report counter), #16 (cloud connection retry decorator), #17 (BG addText cleanup), #18 (cohesion cost kind), #19/#20 (image-reviewer expected_text_content runtime fix — orchestrator extraction logic + agent contract enforcement), #21 (verdict-coherence guard at orchestrator level). Bump bridge plugin to v0.1.1 with this batch. After v0.1.x ships, Task 35 GO and v0.1.0 release.
+
+- **BSA Architecture:** v1.5.0 (bumped 2026-04-24 by superpower bridge work) — adds Bridge Services L1 with Narrative Brief Architect + Enrichment Cohesion Reviewer personas. Earlier scope: keynote pipeline, rendering strategy expansion, image reviewer, SmartArt intelligent graphics.
+  - Canonical model: `.bsa/models/jack-tar-deckhand.json` v1.5.0 (38 services, 8 AI personas, 70 interactions, plus crossDomainSopRegister + dependencyRegister top-level keys)
+  - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams; superpower-bridge-personas.md at v1.0)
+
+### Earlier Status (2026-05-03 — EPIC #58 mid-flight, pre-bridge merge)
+
+- **Cloud Resolution Control (Issue #59 — landed):** `jack-tar-cloud` v1.2.0 added a unified `resolution=` kwarg routing 1K / 2K / 4K to each provider's native API field. New `ProviderResolutionUnsupportedError` carries supported-tier metadata for retry. Per-model capability surfaced via `provider_discovery.discover_providers()`. Imagen dual-pricing detection (Vertex flat vs Gemini Developer API token-based) wired into `estimate_google_cost`.
   - **What's wired:** Nano Banana Pro (1K/2K/4K), Nano Banana Flash (0.5K/1K/2K/4K), Imagen Standard/Ultra (1K/2K), Imagen Fast (1K only), FLUX 2 Pro (1K/2K). 4K ladder validated end-to-end on real API ($0.659 smoke-test spend).
-  - **What's deferred:** SKILL.md surface, render funnel `cloud_2k`/`cloud_4k` stages, image-router upgrade tiers, cross-tier refinement loop integration → Issue #60. Recraft V4 raster as first-class provider → Issue #61.
-  - **EPIC:** [#58](https://github.com/SteveGJones/jack-tar-deckhand/issues/58) (1 of 4 child issues complete; #62 docs already merged via PR #63)
+  - **EPIC:** [#58](https://github.com/SteveGJones/jack-tar-deckhand/issues/58) closed 2026-05-06 (4/4 children complete: #62/#59/#60/#61).
   - **Spec:** `docs/superpowers/specs/2026-05-02-cloud-resolution-control-design.md`
   - **Plan:** `docs/superpowers/plans/2026-05-02-cloud-resolution-control.md` (10 phases, all complete)
   - **Spike:** `docs/spikes/2026-05-02-google-genai-image-config-spike.md` (PATH-B: typed `ImageConfig` from `google.genai.types`)
-  - **Smoke test:** `docs/superpowers/dogfooding/2026-05-03-resolution-smoke-test.md` — Jack Tar wallchart through Ollama → Flash 1K → Flash 4K → Pro 1K → Pro 4K. Pro 4K hero render at 4096×4096 in `output/smoke-test-jack-tar-on-a-page/pro-4k/render.png`. Real bug caught: legacy `src/` at worktree root collides with plugin `src/` on direct Python invocation (does not affect skill-based invocation; documented in dogfood report).
-  - **Tests:** 50 unit tests in `plugins/jack-tar-cloud/tests/` (was 4 before this work).
+  - **Smoke test:** `docs/superpowers/dogfooding/2026-05-03-resolution-smoke-test.md` — Jack Tar wallchart through Ollama → Flash 1K → Flash 4K → Pro 1K → Pro 4K.
 
-### Current Status (2026-04-16)
+### Earlier Status (2026-04-16 — BSA pre-bridge)
 
-- **BSA Architecture:** v1.4.1, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics + cloud resolution control (1K/2K/4K)
+- **BSA Architecture (pre-bridge):** v1.4.1, includes keynote pipeline + rendering strategy expansion + image reviewer + SmartArt intelligent graphics + cloud resolution control (1K/2K/4K)
   - Canonical model: `.bsa/models/jack-tar-deckhand.json` (33 services, 6 AI personas, 60 interactions)
   - Documentation: `docs/architecture/` (10 docs + 7 SVG diagrams)
+  - Note: superseded by v1.5.0 BSA after the bridge merge above.
 
 - **Research Library:** Complete — 20 papers, ~110K words in `research/`
   - Start with `research/RESEARCH-INDEX.md` for fast lookup
   - Create `research/synthesis-[skill-name].md` before implementing any skill
   - `research/report-1-landscape-and-spec.md` and `report-2-implementation-and-validation.md` are the pptx_native SmartArt research Phase 1/2
 
-- **Test suite: 1010 monorepo + 33 cross-plugin integration tests**
+- **Test suite: 1070 monorepo + 33 cross-plugin integration tests**
   - Phases 1-6: Foundation through Orchestration (518 tests)
   - SmartArt Intelligent Graphics (PR #21, merged 2026-04-07): 132 tests
   - pptx_native SmartArt engine (PR #39, merged 2026-04-10): ~300 tests across 17 test files — 28 layouts, picture embedding, multi-slide integration
@@ -192,6 +223,30 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - Presentation-reviewer returns per-slide verdicts (pass/escalate_tier/escalate_provider/flag_for_speaker)
   - "Try cheap first" principle: start at cheaper tier, reviewer evaluates, escalate if needed
   - **Spec:** `docs/superpowers/specs/2026-03-31-production-rendering-engine-strategy.md`
+  - **Google has TWO image tiers (different APIs):**
+    - **Nanobanana** = Gemini image models (`gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`). Uses `generate_content` API. Premium tier, best text rendering. Flash $0.067, Pro $0.134.
+    - **Imagen** = `imagen-4.0-*` models. Uses `generate_images` API. Cheap tier like FLUX. Fast $0.020, Standard $0.040.
+  - **Cross-Tier Prompt Refinement Loop (PR #50, merged 2026-04-19):** Flash proves the prompt works before Pro spends money
+    - Image-reviewer extended output: `strengths[]`, `composition_notes{subject_placement, scale_hierarchy, text_rendering}` alongside existing `verdict`/`issues`/`summary`
+    - Prompt-engineer refinement mode: takes existing prompt + reviewer feedback, returns refined prompt with COMPOSITION/SCALE sections baked in
+    - Imagegen-bridge Step 9A: up to 3 cheap Flash iterations ($0.067 each), prompt-engineer refines between iterations, Pro gets ONE shot with the proven prompt, escalate to speaker on failure
+    - **Design spec:** `docs/superpowers/specs/2026-04-19-cross-tier-prompt-refinement-design.md`
+    - **Implementation plan:** `docs/superpowers/plans/2026-04-19-cross-tier-prompt-refinement.md`
+  - **Two-Tier Google Provider Support (PR #50, merged 2026-04-19):** Wires up all four Google image models through the pipeline
+    - `provider_discovery.py`: `tiers` dict on Google result (nanobanana_flash, nanobanana_pro, imagen_fast, imagen_standard with model IDs and costs)
+    - `image_router.py`: `tier` field on RoutingTarget/RoutingDecision (defaults to None), `recommended_tier` on UpgradeDecision, real Google API model IDs replace abstract placeholders in routing matrices
+    - `render_funnel.py`: `_generate_cloud()` now passes `model` through to `generate_cloud_image()` — previously dropped it, so Google always defaulted to Flash
+    - google-image skill: fixed `provider='google_vertex'` → `'google'`, added `--model`/`--tier` params
+    - image smart router: content-aware routing (text→Nanobanana, photo→FLUX, budget→Imagen)
+    - verify skill: reports Google tiers separately (nanobanana + imagen)
+    - **Design spec:** `docs/superpowers/specs/2026-04-19-two-tier-google-provider-design.md`
+    - **Implementation plan:** `docs/superpowers/plans/2026-04-19-two-tier-google-provider.md`
+
+- **Dogfood Deck (2026-04-19):** First full pipeline dogfood — 21-slide explainer deck about jack-tar-deckhand
+  - Output: `output/jack-tar-deckhand-explainer-v1.pptx` (18.5 MB, $0.20 total)
+  - Exercised: 9 SmartArt layouts, 2 charts, 9 Ollama images, 1 Nanobanana Pro image, full assembly + injection + QA
+  - 4 pipeline bugs found and fixed: strategy map smartart classification, picture builder text/fill, flat_list dict items
+  - Discovered cross-tier prompt refinement pattern (Flash draft → review → refine prompt → verify → Pro)
 
 - **Resolution selection guide (issue #60, 2026-05-06):** Per-slide resolution opt-in via the StrategyMap `resolution` field. Default `1K` covers most slides. Speaker can mark hero/closer slides for `2K` or `4K` rendering through Google Nano Banana Pro/Flash.
   - Choose `2K` when: large display (>120"), mid-detail diagrams, photographic backgrounds with subtle gradients.
@@ -254,14 +309,14 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | DeckContext management | `src/deckcontext.py` | 10 | Done |
 | JSON Schemas (8 contracts) | `src/schemas/` | 27 | Done |
 | Image processing | `src/process_image.py` | 19 | Done |
-| Provider discovery | `src/provider_discovery.py` | 24 | Done |
+| Provider discovery | `src/provider_discovery.py` | 27 | Done |
 | Budget tracker | `src/budget_tracker.py` | 17 | Done |
 | Chart renderer | `src/render_chart.py` | 15 | Done |
 | Cache manager | `src/cache_manager.py` | 15 | Done |
 | Prompt translator | `src/prompt_translator.py` | 20 | Done |
 | Cloud image gen | `src/generate_cloud_image.py` | 49 | Done |
 | Cloud icon gen | `src/generate_cloud_icon.py` | 28 | Done |
-| Image router | `src/image_router.py` | 35 | Done |
+| Image router | `src/image_router.py` | 65 | Done |
 | Integration test | `tests/test_integration.py` | 1 | Done |
 | Deck assembler | `src/assembler/` | 5 | Done |
 | QA checks (30 APs) | `src/qa/` | 65 | Done |
@@ -279,7 +334,7 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 | Prompt engineer agent | `.claude/agents/prompt-engineer.md` | -- | Done |
 | Image reviewer agent | `.claude/agents/image-reviewer.md` | -- | Done |
 | RenderLog schema | `src/schemas/render_log.schema.json` | 3 | Done |
-| Render funnel | `src/render_funnel.py` | 8 | Done |
+| Render funnel | `src/render_funnel.py` | 10 | Done |
 | Assembler keynote paths | `src/assembler/build_deck.js` | 6 | Done |
 | Keynote QA checks | `src/qa/checks/keynote_checks.py` | 5 | Done |
 | Strategy-aware QA | `src/qa/run_qa.py` | 65 | Done |

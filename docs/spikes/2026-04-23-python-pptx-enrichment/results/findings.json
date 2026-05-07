@@ -1,0 +1,51 @@
+{
+  "spike": "python-pptx-enrichment",
+  "date": "2026-04-23",
+  "seed_source": "spike-1-variant-a",
+  "seed_file": "docs/spikes/2026-04-23-python-pptx-enrichment/seed/seed.pptx",
+  "python_pptx_version": "1.0.2",
+  "plugin_under_test": "jack-tar-msft-smartart (pptx_native engine + assembler_patch)",
+  "operations": [
+    {
+      "id": "op1_background",
+      "target": "slide 1, BG:title-hero-dark-grid",
+      "tests_pass": true,
+      "powerpoint_open": true,
+      "powerpoint_pdf_export": true,
+      "visual_pass": true,
+      "notes": "XML surgery to insert <p:bg><p:bgPr><a:blipFill> — python-pptx _Background facade exposes no picture-fill setter. Image part via Image.from_file + ImagePart.new."
+    },
+    {
+      "id": "op2_replace_image",
+      "target": "slide 2, IMAGE:demo-vs-prod-split",
+      "tests_pass": true,
+      "powerpoint_open": true,
+      "powerpoint_pdf_export": true,
+      "visual_pass": true,
+      "notes": "Clean replacement at exact captured geometry via slide.shapes.add_picture(). Picture shape present after round-trip."
+    },
+    {
+      "id": "op3_inject_smartart",
+      "target": "slide 4, SMARTART:three-pillars-relationship",
+      "tests_pass": true,
+      "powerpoint_open": true,
+      "powerpoint_pdf_export": true,
+      "visual_pass": true,
+      "notes": "assembler_patch.inject() works as-is on PptxGenJS-produced OOXML. InjectionRequest.placeholder_name accepts the full marker string directly — no shape-renaming needed. Minor cosmetic: neighbouring body text remains visible behind injected SmartArt."
+    }
+  ],
+  "sequenced_apply": {
+    "tests_pass": true,
+    "powerpoint_open": true,
+    "powerpoint_pdf_export": true,
+    "visual_pass": true,
+    "oooxml_valid": true,
+    "notes": "All three ops applied to same file in sequence. Zero interference. PowerPoint Mac opens, saves (forces SmartArt cache regen), exports to PDF without issue."
+  },
+  "api_corrections_vs_plan": [
+    "ImagePart.new signature in plan was (package, blob, ct, ext); real API is (package, Image) — use Image.from_file().",
+    "Plan assumed op3 required renaming the SMARTART marker to pptx_native_placeholder_<N>. Real InjectionRequest accepts placeholder_name directly — renaming unnecessary.",
+    "Flat-list builder expects data.items as list of strings, not list of dicts. Plan's {'items': [{'text': 'X'}]} failed with FlatListBuildError."
+  ],
+  "decision": "go"
+}

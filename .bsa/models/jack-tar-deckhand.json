@@ -4,10 +4,10 @@
     "id": "jack-tar-deckhand",
     "name": "Jack-Tar Deckhand — Presentation Engineering",
     "description": "AI-First Business Service Architecture for a Claude Code skill suite that generates conference-quality PowerPoint presentations. Services are designed as independent, reusable domains orchestrated by a Deck Conductor agent.",
-    "version": "1.4.1",
+    "version": "1.5.0",
     "organisation": "Jack-Tar",
     "createdDate": "2026-03-29",
-    "lastModifiedDate": "2026-05-03",
+    "lastModifiedDate": "2026-05-07",
     "authors": ["Steve Jones", "Claude"],
     "status": "draft"
   },
@@ -381,6 +381,74 @@
       "owner": "Steve Jones",
       "isAIPersona": true,
       "tags": ["l1", "agent", "ai-persona", "orchestration"]
+    },
+
+    {
+      "id": "bridge-services",
+      "name": "Superpower Bridge Services",
+      "level": 1,
+      "parentId": "presentation-engineering",
+      "parentService": "presentation-engineering",
+      "serviceType": "core",
+      "mission": "Wraps document-skills:pptx with narrative pre-brief and post-hoc visual enrichment. Composes existing image and SmartArt services without modifying /pptx.",
+      "description": "Wraps document-skills:pptx with narrative pre-brief and post-hoc visual enrichment. Composes existing image and SmartArt services without modifying /pptx.",
+      "owner": "jack-tar",
+      "isAIPersona": false,
+      "tags": ["l1", "bridge", "superpower", "enrichment"]
+    },
+    {
+      "id": "bridge-narrative-brief-architect-ai",
+      "name": "Narrative Brief Architect (AI)",
+      "level": 2,
+      "parentId": "bridge-services",
+      "parentService": "bridge-services",
+      "serviceType": "core",
+      "mission": "AI Persona — transforms topic + audience + duration into a structured creative brief that guides /pptx.",
+      "description": "AI Persona — transforms topic + audience + duration into a structured creative brief that guides /pptx.",
+      "owner": "jack-tar",
+      "personaId": "ap-narrative-brief-architect",
+      "isAIPersona": true,
+      "tags": ["l2", "agent", "ai-persona", "bridge", "narrative"]
+    },
+    {
+      "id": "bridge-enrichment-cohesion-reviewer-ai",
+      "name": "Enrichment Cohesion Reviewer (AI)",
+      "level": 2,
+      "parentId": "bridge-services",
+      "parentService": "bridge-services",
+      "serviceType": "core",
+      "mission": "AI Persona — reviews assembled enriched deck for cross-slide visual cohesion. Advisory verdicts only.",
+      "description": "AI Persona — reviews assembled enriched deck for cross-slide visual cohesion. Advisory verdicts only.",
+      "owner": "jack-tar",
+      "personaId": "ap-enrichment-cohesion-reviewer",
+      "isAIPersona": true,
+      "tags": ["l2", "agent", "ai-persona", "bridge", "review"]
+    },
+    {
+      "id": "bridge-narrative-prebrief",
+      "name": "Narrative Pre-Brief Skill",
+      "level": 2,
+      "parentId": "bridge-services",
+      "parentService": "bridge-services",
+      "serviceType": "core",
+      "mission": "Hosts /bridge-brief — Phase 1 of the bridge.",
+      "description": "Hosts /bridge-brief — Phase 1 of the bridge.",
+      "owner": "jack-tar",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "bridge", "narrative"]
+    },
+    {
+      "id": "bridge-deck-enrichment",
+      "name": "Deck Enrichment Skill",
+      "level": 2,
+      "parentId": "bridge-services",
+      "parentService": "bridge-services",
+      "serviceType": "core",
+      "mission": "Hosts /enrich-deck — Phase 3 of the bridge. Orchestration code, not a persona.",
+      "description": "Hosts /enrich-deck — Phase 3 of the bridge. Orchestration code, not a persona.",
+      "owner": "jack-tar",
+      "isAIPersona": false,
+      "tags": ["l2", "skill", "bridge", "enrichment"]
     }
   ],
 
@@ -1388,7 +1456,18 @@
       "targetId": "sys-vega-cli",
       "type": "invocation",
       "description": "SmartArt renderer invokes Vega-Lite CLI (vl2svg) for data visualisation rendering"
-    }
+    },
+
+    {"id": "INT-BRIDGE-01", "source": "speaker", "target": "bridge-narrative-brief-architect-ai", "kind": "request", "payload": "TalkBrief-lite (topic, audience, duration)"},
+    {"id": "INT-BRIDGE-02", "source": "bridge-narrative-brief-architect-ai", "target": "speaker", "kind": "deliver", "payload": "CreativeBrief markdown"},
+    {"id": "INT-BRIDGE-03", "source": "speaker", "target": "bridge-deck-enrichment", "kind": "request", "payload": ".pptx path + budget_cap_usd + confidentiality"},
+    {"id": "INT-BRIDGE-04", "source": "bridge-deck-enrichment", "target": "imagegen-bridge", "kind": "invoke", "payload": "image generation requests via image-bridge wrapper"},
+    {"id": "INT-BRIDGE-05", "source": "bridge-deck-enrichment", "target": "image-image-reviewer", "kind": "invoke", "payload": "per-image verdict (source: enrichment-bridge)"},
+    {"id": "INT-BRIDGE-06", "source": "bridge-deck-enrichment", "target": "image-prompt-engineer", "kind": "invoke", "payload": "prompt + refine-mode dispatches"},
+    {"id": "INT-BRIDGE-07", "source": "bridge-deck-enrichment", "target": "msft-smartart-engine", "kind": "import", "payload": "engine.render(spec, output_dir)"},
+    {"id": "INT-BRIDGE-08", "source": "bridge-deck-enrichment", "target": "msft-smartart-assembler-patch", "kind": "import", "payload": "assembler_patch.inject(host_pptx, requests)"},
+    {"id": "INT-BRIDGE-09", "source": "bridge-deck-enrichment", "target": "bridge-enrichment-cohesion-reviewer-ai", "kind": "invoke", "payload": "rendered slide PNGs + manifest"},
+    {"id": "INT-BRIDGE-10", "source": "bridge-deck-enrichment", "target": "speaker", "kind": "deliver", "payload": "presentation-enriched.pptx + enrichment-report.md"}
   ],
 
   "dataContracts": [
@@ -1471,5 +1550,64 @@
     "raciAssignments": [],
     "complianceTags": []
   },
-  "measurements": []
+  "measurements": [],
+
+  "crossDomainSopRegister": [
+    {
+      "sopId": "smartart-injection",
+      "owner": "jack-tar-msft-smartart",
+      "consumers": ["jack-tar-superpower-bridge"],
+      "archetype": "Collaborator",
+      "rationale": "Bridge consumes msft-smartart's engine.render + assembler_patch.inject named surface; msft-smartart owns the contract.",
+      "cac": {
+        "consumer_rep": "Steve Jones (jack-tar-superpower-bridge maintainer)",
+        "provider_rep": "Steve Jones (jack-tar-msft-smartart maintainer)",
+        "ai_rm": "Steve Jones (consolidated tripartite — to split as team grows)"
+      },
+      "changeTrigger": "Any breaking change to engine.render(spec, output_dir) signature/return shape OR assembler_patch.inject(host_pptx, requests) signature OR InjectionRequest field set requires CAC review before merge in jack-tar-msft-smartart. The bridge's DEP-BRIDGE-SMARTART-01 dependency-register entry pins the surface; surface change → version bump → CAC review."
+    }
+  ],
+
+  "dependencyRegister": [
+    {
+      "id": "DEP-BRIDGE-SMARTART-01",
+      "consumer": "jack-tar-superpower-bridge",
+      "provider": "jack-tar-msft-smartart",
+      "surface": "engine.render(spec, output_dir), assembler_patch.InjectionRequest, assembler_patch.inject(host_pptx, requests)",
+      "kind": "python_import",
+      "version_pin": ">=1.1.0"
+    },
+    {
+      "id": "DEP-BRIDGE-OLLAMA-01",
+      "consumer": "jack-tar-superpower-bridge",
+      "provider": "jack-tar-ollama",
+      "surface": "/jack-tar-ollama:image",
+      "kind": "skill_invocation",
+      "version_pin": ">=1.1.0"
+    },
+    {
+      "id": "DEP-BRIDGE-CLOUD-01",
+      "consumer": "jack-tar-superpower-bridge",
+      "provider": "jack-tar-cloud",
+      "surface": "/jack-tar-cloud:image",
+      "kind": "skill_invocation",
+      "version_pin": ">=1.1.0"
+    },
+    {
+      "id": "DEP-BRIDGE-PPTXGENJS-01",
+      "consumer": "jack-tar-superpower-bridge",
+      "provider": "document-skills:pptx",
+      "surface": "build.js + .pptx output (parseable contract — fallback only)",
+      "kind": "external_artifact_consumption",
+      "version_pin": "PptxGenJS>=4.0.1"
+    },
+    {
+      "id": "DEP-BRIDGE-PYTHON-PPTX-01",
+      "consumer": "jack-tar-superpower-bridge",
+      "provider": "python-pptx",
+      "surface": "Presentation, ImagePart, slide.shapes.add_picture, slide.element XML access",
+      "kind": "python_library",
+      "version_pin": ">=1.0.2"
+    }
+  ]
 }

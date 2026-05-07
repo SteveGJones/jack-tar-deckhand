@@ -933,8 +933,8 @@
       "visual_character": "A vertical list where each item features a prominent accent shape (colored circle, number badge, or icon placeholder) on the left, with item text to its right. The accent shapes create a strong visual rhythm down the left edge.",
       "min_nodes": 2,
       "max_nodes": 8,
-      "max_label_chars": 30,
-      "max_label_chars_rationale": "First-pass default per category norms. Refine after manual gate validation.",
+      "max_label_chars": 60,
+      "max_label_chars_rationale": "Refined 2026-05-01 (Run 7 Finding #22 spike validation). vList2 layout XML uses INF height + auto-shrink font (min 2pt); empirically renders prose-length bullets up to 60 chars at sub-page (3.5x3.5) and banner (10x2) scales without visible quality degradation. Bridge LAYOUT_BULLET_CAPS[\"vList2\"]=60 now matches.",
       "when_to_use": [
         "Numbered lists or ranked items where the accent shape holds a numeral",
         "When you want a more visually engaging vertical list than plain stacked bars",

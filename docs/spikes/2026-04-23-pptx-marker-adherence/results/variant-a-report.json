@@ -1,0 +1,118 @@
+{
+  "variant": "A",
+  "brief": "brief-a-minimal.md",
+  "analysis": {
+    "source": "docs/spikes/2026-04-23-pptx-marker-adherence/outputs/variant-a/presentation.pptx",
+    "markers": [
+      {
+        "slide_index": 1,
+        "shape_name": "BG:title-hero-dark-grid",
+        "kind": "BG",
+        "identifier": "title-hero-dark-grid",
+        "left_emu": 0,
+        "top_emu": 0,
+        "width_emu": 9144000,
+        "height_emu": 5143500
+      },
+      {
+        "slide_index": 2,
+        "shape_name": "IMAGE:demo-vs-prod-split",
+        "kind": "IMAGE",
+        "identifier": "demo-vs-prod-split",
+        "left_emu": 5486400,
+        "top_emu": 1143000,
+        "width_emu": 3200400,
+        "height_emu": 3200400
+      },
+      {
+        "slide_index": 4,
+        "shape_name": "SMARTART:three-pillars-relationship",
+        "kind": "SMARTART",
+        "identifier": "three-pillars-relationship",
+        "left_emu": 685800,
+        "top_emu": 1463040,
+        "width_emu": 7772400,
+        "height_emu": 3017520
+      },
+      {
+        "slide_index": 5,
+        "shape_name": "SMARTART:planning-replan-loop",
+        "kind": "SMARTART",
+        "identifier": "planning-replan-loop",
+        "left_emu": 5669280,
+        "top_emu": 1143000,
+        "width_emu": 3108960,
+        "height_emu": 3200400
+      },
+      {
+        "slide_index": 6,
+        "shape_name": "IMAGE:memory-layers-illustration",
+        "kind": "IMAGE",
+        "identifier": "memory-layers-illustration",
+        "left_emu": 5669280,
+        "top_emu": 1143000,
+        "width_emu": 3108960,
+        "height_emu": 3200400
+      },
+      {
+        "slide_index": 7,
+        "shape_name": "SMARTART:tool-call-sequence",
+        "kind": "SMARTART",
+        "identifier": "tool-call-sequence",
+        "left_emu": 5669280,
+        "top_emu": 1143000,
+        "width_emu": 3108960,
+        "height_emu": 3200400
+      },
+      {
+        "slide_index": 8,
+        "shape_name": "BG:case-study-server-room",
+        "kind": "BG",
+        "identifier": "case-study-server-room",
+        "left_emu": 0,
+        "top_emu": 0,
+        "width_emu": 9144000,
+        "height_emu": 5143500
+      },
+      {
+        "slide_index": 9,
+        "shape_name": "IMAGE:case-study-dashboard",
+        "kind": "IMAGE",
+        "identifier": "case-study-dashboard",
+        "left_emu": 457200,
+        "top_emu": 4023360,
+        "width_emu": 8229600,
+        "height_emu": 502920
+      }
+    ],
+    "totals": {
+      "markers": 8,
+      "slides": 10,
+      "by_kind": {
+        "BG": 2,
+        "IMAGE": 3,
+        "SMARTART": 3
+      }
+    }
+  },
+  "adherence": {
+    "requested": {
+      "IMAGE": 2,
+      "SMARTART": 1,
+      "BG": 1
+    },
+    "emitted": {
+      "BG": 2,
+      "IMAGE": 3,
+      "SMARTART": 3
+    },
+    "overall_rate": 1.0,
+    "verdict": "full",
+    "missing": {},
+    "extra": {
+      "IMAGE": 1,
+      "SMARTART": 2,
+      "BG": 1
+    }
+  }
+}

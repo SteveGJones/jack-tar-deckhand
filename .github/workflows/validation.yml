@@ -64,6 +64,7 @@ jobs:
           - jack-tar-msft-smartart
           - jack-tar-custom-smartart
           - jack-tar-ollama
+          - jack-tar-superpower-bridge
     steps:
       - uses: actions/checkout@v6
 
@@ -78,6 +79,11 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           # Cloud-provider SDKs needed by jack-tar-cloud and downstream plugin tests
           pip install google-genai openai fal-client
+          # Install the target plugin's own requirements (esprima for bridge,
+          # plugin-specific deps for others)
+          if [ -f plugins/${{ matrix.plugin }}/requirements.txt ]; then
+            pip install -r plugins/${{ matrix.plugin }}/requirements.txt
+          fi
 
       - name: Skip if no tests directory
         id: check
@@ -115,6 +121,11 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install google-genai openai fal-client
+          # Cross-plugin tests import from every plugin — install all per-plugin
+          # requirements (esprima for bridge analyser, etc.)
+          for req in plugins/*/requirements.txt; do
+            if [ -f "$req" ]; then pip install -r "$req"; fi
+          done
 
       - name: Skip if no integration_tests/
         id: check
