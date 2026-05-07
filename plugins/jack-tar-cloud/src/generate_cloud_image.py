@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 import fal_client
+import httpx
 import requests
 from google import genai
 from google.genai.types import GenerateContentConfig, GenerateImagesConfig, ImageConfig
@@ -37,15 +38,28 @@ logger = logging.getLogger(__name__)
 # enough to ride out single-packet drops or brief upstream blips.
 #
 # The decorator catches ``ConnectionResetError``, ``ConnectionError`` (the
-# Python builtin), and ``requests.exceptions.ConnectionError`` (the
-# library-specific subclass FAL.ai surfaces). It does NOT catch HTTP errors
-# (4xx/5xx), authentication errors, ValueError, or RuntimeError — those are
+# Python builtin), ``requests.exceptions.ConnectionError`` (the
+# library-specific subclass FAL.ai surfaces), and three httpx
+# transport-layer failures (``RemoteProtocolError``, ``ConnectError``,
+# ``ReadError``) that the google-genai SDK raises when its underlying
+# httpx client hits a transient connection drop. It does NOT catch HTTP
+# errors (4xx/5xx — see ``httpx.HTTPStatusError`` in the negative test),
+# authentication errors, ValueError, or RuntimeError — those are
 # deterministic failures that retrying cannot fix.
+#
+# Issue #72: surfaced 2026-05-07 during the blog-post asset run dogfood
+# when a Nano Banana Pro 4K call raised httpx.RemoteProtocolError; the
+# original decorator did not include httpx exceptions and the operator
+# had to wrap the call in a manual retry loop. See
+# docs/superpowers/dogfooding/2026-05-07-blog-post-asset-run.md bug #1.
 
 _RETRYABLE = (
     ConnectionResetError,
     ConnectionError,
     requests.exceptions.ConnectionError,
+    httpx.RemoteProtocolError,
+    httpx.ConnectError,
+    httpx.ReadError,
 )
 
 
