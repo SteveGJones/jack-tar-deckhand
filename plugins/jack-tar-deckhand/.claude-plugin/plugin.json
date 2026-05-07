@@ -1,11 +1,24 @@
 {
   "name": "jack-tar-deckhand",
   "description": "Full presentation pipeline — brand, style, narrative, images, SmartArt, assembly, QA",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "author": {
     "name": "Steve Jones"
   },
   "repository": "https://github.com/SteveGJones/jack-tar-deckhand",
   "license": "MIT",
-  "keywords": ["presentations", "powerpoint", "pptx", "conference", "pipeline", "orchestration"]
+  "keywords": ["presentations", "powerpoint", "pptx", "conference", "pipeline", "orchestration"],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/block-png-read.sh"
+          }
+        ]
+      }
+    ]
+  }
 }

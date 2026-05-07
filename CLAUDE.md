@@ -25,6 +25,21 @@ This rule exists because visual review was skipped THREE TIMES across multiple c
 
 **Vision capability note**: The `image-reviewer` agent uses Haiku, which has visual perception limitations (e.g., misjudging proportional widths in tapered shapes). For high-accuracy visual review, the `general-purpose` agent (Sonnet/Opus) is more reliable. Use both in parallel for cross-validation when possible.
 
+## MANDATORY: Image-review discipline (issue #76 — enforced)
+
+The `jack-tar-deckhand` plugin installs a `PreToolUse` hook that BLOCKS `Read` on image files (PNG, JPG, GIF, WEBP, BMP, TIFF). PNGs in orchestration context burn tokens that compound across every subsequent turn — review must happen out-of-context via subagent dispatch.
+
+For every image generated:
+- Dispatch `jack-tar-deckhand:image-reviewer` (Haiku, returns compact JSON)
+- Or `general-purpose` (Sonnet/Opus, higher visual accuracy)
+- Capture the verdict; never `Read` the PNG yourself.
+
+**Bypass**: set `ALLOW_PNG_READ=1` only when the image IS the user-facing answer (the user explicitly said "show me X"). The bypass is a deliberate signal, not a workaround.
+
+The hook is auto-installed when the plugin is enabled — no separate setup. Verify via `/jack-tar-deckhand:verify` (reports the "DISCIPLINE HOOK" section).
+
+This rule was reaffirmed 2026-05-07 during the blog-post asset run when 9 PNGs were Read directly into context before the operator caught it. Memory alone does not bind; the harness has to.
+
 ## Plugin Architecture (EPIC #40)
 
 This repository is now a **5-plugin Claude Code marketplace**. The presentation pipeline has been refactored into independently installable plugins:
