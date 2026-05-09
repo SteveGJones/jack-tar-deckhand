@@ -20,6 +20,7 @@ from pathlib import Path
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PLUGIN_ROOT))
 
+import httpx
 import pytest
 import requests
 
@@ -127,6 +128,89 @@ def test_retry_handles_requests_connection_error(monkeypatch):
 
     assert flaky_requests() == "ok"
     assert attempts["n"] == 2
+
+
+def test_retry_handles_httpx_remote_protocol_error(monkeypatch):
+    """Issue #72 — google-genai SDK uses httpx, which raises
+    httpx.RemoteProtocolError when the server disconnects mid-response.
+    The blog-post asset run (2026-05-07) hit this on a Nano Banana Pro
+    4K call and the original decorator did not retry."""
+    sleeps: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+    attempts = {"n": 0}
+
+    @retry_on_connection_reset()
+    def flaky_httpx():
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise httpx.RemoteProtocolError(
+                "Server disconnected without sending a response."
+            )
+        return "ok"
+
+    assert flaky_httpx() == "ok"
+    assert attempts["n"] == 2
+
+
+def test_retry_handles_httpx_connect_error(monkeypatch):
+    """Issue #72 — httpx.ConnectError fires on connection refused / DNS
+    failure / TLS handshake failure. Treated as transient: TCP-layer
+    failures recover on retry the same way ConnectionResetError does."""
+    sleeps: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+    attempts = {"n": 0}
+
+    @retry_on_connection_reset()
+    def flaky_connect():
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise httpx.ConnectError("connection refused")
+        return "ok"
+
+    assert flaky_connect() == "ok"
+    assert attempts["n"] == 2
+
+
+def test_retry_handles_httpx_read_error(monkeypatch):
+    """Issue #72 — httpx.ReadError fires when an established connection
+    drops mid-read. Same retry semantics as ConnectionResetError."""
+    sleeps: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+    attempts = {"n": 0}
+
+    @retry_on_connection_reset()
+    def flaky_read():
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise httpx.ReadError("read aborted mid-response")
+        return "ok"
+
+    assert flaky_read() == "ok"
+    assert attempts["n"] == 2
+
+
+def test_retry_does_not_handle_httpx_http_status_error(monkeypatch):
+    """Issue #72 — explicit negative case. httpx.HTTPStatusError represents
+    an HTTP 4xx/5xx response, which is a deterministic API failure that
+    won't recover by retrying. Must NOT be in the retryable set."""
+    sleeps: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+    attempts = {"n": 0}
+
+    request = httpx.Request("POST", "https://example.test/v1/x")
+    response = httpx.Response(401, request=request)
+
+    @retry_on_connection_reset()
+    def auth_rejected():
+        attempts["n"] += 1
+        raise httpx.HTTPStatusError(
+            "401 Unauthorized", request=request, response=response
+        )
+
+    with pytest.raises(httpx.HTTPStatusError):
+        auth_rejected()
+    assert attempts["n"] == 1
+    assert sleeps == []
 
 
 def test_retry_preserves_arguments_and_kwargs(monkeypatch):
