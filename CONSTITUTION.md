@@ -92,6 +92,7 @@ Check your level: `python tools/automation/sdlc-level.py check`
   - Compare each visual against the original intent (visual_direction, enrichment_tier, strategy).
   - Never declare a visual pipeline "done" without having viewed every output.
   - "It compiled" or "file exists" is NOT a review.
+  - **How it is enforced (issue #76):** The `jack-tar-deckhand` plugin installs a `PreToolUse` hook that structurally blocks `Read` on image files. Review must happen via subagent dispatch — `jack-tar-deckhand:image-reviewer` (Haiku, compact JSON verdict) or `general-purpose` (Sonnet/Opus, higher visual accuracy). Both agents read the image into their own context and return text, keeping the orchestration context lean. Bypass: `ALLOW_PNG_READ=1` when the image IS the user-facing answer. This enforcement was introduced after the 2026-05-07 dogfood run where the in-memory rule was broken nine times before the operator intervened.
 
 ## Article 10: Progressive Levels
 

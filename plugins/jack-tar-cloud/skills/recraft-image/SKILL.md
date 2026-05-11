@@ -1,7 +1,7 @@
 ---
 name: recraft-image
 description: Generate raster images using Recraft V4 (1K standard, 2K Pro, 4K via Creative Upscale). Brand-color-fidelity provider — best for slides where exact hex compliance matters more than photorealistic detail. Requires RECRAFT_API_KEY (direct) or FAL_KEY (via FAL).
-argument-hint: "image description" [--output PATH] [--tier standard|pro] [--resolution 1K|2K|4K] [--colors HEX,HEX,...] [--style realistic_image|digital_illustration|vector_illustration]
+argument-hint: "image description" [--output PATH] [--tier standard|pro] [--resolution 1K|2K|4K] [--colors HEX,HEX,...] [--style digital_illustration|vector_illustration|...]
 allowed-tools: Bash(python *), Read, Glob
 ---
 
@@ -48,7 +48,7 @@ fi
 
   Unsupported combinations raise `ProviderResolutionUnsupportedError` with the supported tier list.
 - **--colors COLORS**: Comma-separated hex (e.g. `003366,FFCC00,F5F5F5`). Forwarded as RGB control dicts to Recraft's brand-color preservation.
-- **--style STYLE**: Recraft style — `realistic_image` (default), `digital_illustration`, `vector_illustration`. Direct API only; FAL ignores style.
+- **--style STYLE**: Recraft V4-compatible style preset (e.g. `digital_illustration`, `vector_illustration`). Default `None` — omits the style key from the request body, letting Recraft V4 choose server-side. The old V3 default `realistic_image` is **not** valid for V4 and will be rejected with a 400 error. Direct API only; FAL ignores style. If the direct API returns `400 invalid_image_type` AND `FAL_KEY` is set, the call automatically falls through to the FAL route (issue #73).
 
 ## Check Provider Availability
 
