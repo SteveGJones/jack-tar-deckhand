@@ -9,7 +9,7 @@
       "name": "jack-tar-ollama",
       "description": "Local AI image generation via Ollama — images, icons, patterns, diagrams, and quick presentations",
       "source": "./plugins/jack-tar-ollama",
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
       "name": "jack-tar-cloud",
