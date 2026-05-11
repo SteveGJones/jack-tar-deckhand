@@ -335,3 +335,187 @@ def test_provider_discovery_recraft_available_when_recraft_api_set(monkeypatch):
     from src.provider_discovery import discover_providers
     providers = discover_providers()
     assert providers['recraft']['available'] is True
+
+
+# Issue #73 — V4 default style ----------------------------------------
+
+def test_generate_recraft_direct_omits_style_by_default(monkeypatch, tmp_path):
+    """Issue #73: the V4 API rejects the legacy default ``style='realistic_image'``
+    with 400 invalid_image_type. With the default left to None, the call must
+    not pass a ``style`` argument at all — Recraft V4 will pick a default
+    server-side."""
+    monkeypatch.setenv('RECRAFT_API_KEY', 'test-key')
+
+    fake_response = mock.Mock()
+    fake_response.data = [mock.Mock(url='https://example.com/img.png')]
+    fake_get = mock.Mock(return_value=mock.Mock(content=b'PNG'))
+    fake_openai = mock.Mock()
+    fake_openai.return_value.images.generate.return_value = fake_response
+
+    with mock.patch('src.generate_cloud_image.OpenAI', fake_openai), \
+         mock.patch('src.generate_cloud_image.requests.get', fake_get):
+        from src.generate_cloud_image import generate_recraft_direct
+        generate_recraft_direct(
+            prompt='a brand badge',
+            output_path=str(tmp_path / 'out.png'),
+            tier='standard',
+            resolution='1K',
+        )
+
+    call_kwargs = fake_openai.return_value.images.generate.call_args.kwargs
+    assert 'style' not in call_kwargs, (
+        f"V4 default invocation must not pass 'style'. Got kwargs: {call_kwargs!r}"
+    )
+
+
+def test_generate_recraft_direct_passes_explicit_style_when_supplied(monkeypatch, tmp_path):
+    """Issue #73 (positive case): when the caller explicitly supplies a style
+    that V4 accepts (e.g. ``digital_illustration_pixel_art``), it must be
+    forwarded to the API call."""
+    monkeypatch.setenv('RECRAFT_API_KEY', 'test-key')
+
+    fake_response = mock.Mock()
+    fake_response.data = [mock.Mock(url='https://example.com/img.png')]
+    fake_get = mock.Mock(return_value=mock.Mock(content=b'PNG'))
+    fake_openai = mock.Mock()
+    fake_openai.return_value.images.generate.return_value = fake_response
+
+    with mock.patch('src.generate_cloud_image.OpenAI', fake_openai), \
+         mock.patch('src.generate_cloud_image.requests.get', fake_get):
+        from src.generate_cloud_image import generate_recraft_direct
+        generate_recraft_direct(
+            prompt='a pixel-art badge',
+            output_path=str(tmp_path / 'out.png'),
+            tier='standard',
+            resolution='1K',
+            style='digital_illustration_pixel_art',
+        )
+
+    call_kwargs = fake_openai.return_value.images.generate.call_args.kwargs
+    assert call_kwargs.get('style') == 'digital_illustration_pixel_art'
+
+
+def test_dispatch_recraft_falls_back_to_fal_on_v4_style_error(monkeypatch, tmp_path):
+    """Issue #73 (defensive fall-through): if the direct API still rejects a
+    style preset (e.g. the API changes its accepted styles in the future),
+    and FAL_KEY is also configured, fall through to the FAL route which
+    accepts no style parameter. The user is unblocked."""
+    import openai
+
+    monkeypatch.setenv('RECRAFT_API_KEY', 'test-key')
+    monkeypatch.setenv('FAL_KEY', 'fal-key')
+
+    request = mock.Mock()
+    body = {'code': 'invalid_image_type',
+            'message': "Recraft V4 doesn't support style 'whatever'"}
+    bad_request = openai.BadRequestError(
+        message="Recraft V4 doesn't support style 'whatever'",
+        response=mock.Mock(status_code=400, request=request),
+        body=body,
+    )
+
+    direct_called = []
+    fal_called = []
+
+    def fake_direct(prompt, output_path, **kwargs):
+        direct_called.append((prompt, kwargs))
+        raise bad_request
+
+    def fake_fal(prompt, output_path, **kwargs):
+        fal_called.append((prompt, kwargs))
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(output_path).write_bytes(b'PNG_FROM_FAL')
+        return {
+            'file_path': str(output_path),
+            'provider': 'fal-recraft',
+            'tier': kwargs.get('tier', 'standard'),
+            'resolution': kwargs.get('resolution', '1K'),
+            'model_used': f"recraft-v4-{kwargs.get('tier', 'standard')}",
+            'cost_usd': 0.04,
+            'status': 'generated',
+        }
+
+    out = tmp_path / 'out.png'
+    with mock.patch('src.generate_cloud_image.generate_recraft_direct', side_effect=fake_direct), \
+         mock.patch('src.generate_cloud_image.generate_recraft_fal', side_effect=fake_fal):
+        from src.generate_cloud_image import _dispatch_recraft
+        result = _dispatch_recraft(
+            prompt='a brand badge',
+            output_path=str(out),
+            resolution='1K',
+            style='whatever-the-api-now-rejects',
+        )
+
+    assert direct_called, "direct path should have been attempted"
+    assert fal_called, "FAL fall-through must fire on V4-style 400"
+    assert result['provider'] == 'fal-recraft'
+    assert out.read_bytes() == b'PNG_FROM_FAL'
+
+
+def test_dispatch_recraft_does_not_fall_back_on_unrelated_400(monkeypatch, tmp_path):
+    """Issue #73: only V4-style errors trigger the fall-through. Other 400s
+    (rate-limit, content-policy, malformed request) must propagate so the
+    operator sees the real cause."""
+    import openai
+
+    monkeypatch.setenv('RECRAFT_API_KEY', 'test-key')
+    monkeypatch.setenv('FAL_KEY', 'fal-key')
+
+    request = mock.Mock()
+    body = {'code': 'content_policy_violation',
+            'message': 'Prompt rejected by content policy'}
+    bad_request = openai.BadRequestError(
+        message='Prompt rejected by content policy',
+        response=mock.Mock(status_code=400, request=request),
+        body=body,
+    )
+
+    fal_called = []
+
+    def fake_direct(prompt, output_path, **kwargs):
+        raise bad_request
+
+    def fake_fal(prompt, output_path, **kwargs):
+        fal_called.append((prompt, kwargs))
+
+    with mock.patch('src.generate_cloud_image.generate_recraft_direct', side_effect=fake_direct), \
+         mock.patch('src.generate_cloud_image.generate_recraft_fal', side_effect=fake_fal):
+        from src.generate_cloud_image import _dispatch_recraft
+        with pytest.raises(openai.BadRequestError):
+            _dispatch_recraft(
+                prompt='a brand badge',
+                output_path=str(tmp_path / 'out.png'),
+                resolution='1K',
+            )
+
+    assert not fal_called, "FAL fall-through must NOT fire on non-style 400s"
+
+
+def test_dispatch_recraft_does_not_fall_back_when_fal_unconfigured(monkeypatch, tmp_path):
+    """Issue #73: if FAL_KEY is not set, even a V4-style 400 must propagate —
+    we cannot silently succeed when the only working route is unavailable."""
+    import openai
+
+    monkeypatch.setenv('RECRAFT_API_KEY', 'test-key')
+    monkeypatch.delenv('FAL_KEY', raising=False)
+
+    request = mock.Mock()
+    body = {'code': 'invalid_image_type',
+            'message': "Recraft V4 doesn't support style 'realistic_image'"}
+    bad_request = openai.BadRequestError(
+        message="Recraft V4 doesn't support style 'realistic_image'",
+        response=mock.Mock(status_code=400, request=request),
+        body=body,
+    )
+
+    def fake_direct(prompt, output_path, **kwargs):
+        raise bad_request
+
+    with mock.patch('src.generate_cloud_image.generate_recraft_direct', side_effect=fake_direct):
+        from src.generate_cloud_image import _dispatch_recraft
+        with pytest.raises(openai.BadRequestError):
+            _dispatch_recraft(
+                prompt='a brand badge',
+                output_path=str(tmp_path / 'out.png'),
+                resolution='1K',
+            )
