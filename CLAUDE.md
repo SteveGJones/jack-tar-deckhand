@@ -64,6 +64,18 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
+### Current Status (2026-05-08)
+
+- **Bug-batch + discipline hook shipped — main is now at:** cloud `1.3.2`, deckhand `1.3.1`, ollama `1.1.1`, msft-smartart `1.2.2`, bridge `0.2.0`, custom-smartart `1.1.0`.
+- **PRs #77 / #78 / #79 merged**, closing issues #72–#76 (surfaced during the 2026-05-07 blog-post asset run):
+  - **#72** — cloud retry decorator extended to cover `httpx.RemoteProtocolError`, `httpx.ConnectError`, `httpx.ReadError` (google-genai's underlying transport layer).
+  - **#73** — Recraft V4 default style changed from `realistic_image` (V3-only, causes 400) to `None`; fall-through to FAL on style-rejection errors when `FAL_KEY` is configured.
+  - **#74** — Imagen Fast resolution guard: `image_size` kwarg omitted for `imagen-4.0-fast-generate-001` (fixed resolution only — rejects the parameter with `400 INVALID_ARGUMENT`).
+  - **#75** — Ollama single-flight lock: `fcntl.flock` at `/tmp/jack-tar-ollama-image.lock` serialises concurrent callers; new `--lock-wait-timeout` (default 600 s) and `--no-lock` flags.
+  - **#76** — Discipline hook auto-installed by `jack-tar-deckhand`: `PreToolUse` hook blocks `Read` on image files; image review must go through `image-reviewer` or `general-purpose` subagent. `ALLOW_PNG_READ=1` bypass for legitimate cases.
+- **Dogfood retrospective:** `docs/superpowers/dogfooding/2026-05-07-blog-post-asset-run.md` — 6-artefact blog-post asset run, $2.99 total, 7 discipline failures and bugs documented.
+- **Plans:** `docs/superpowers/plans/2026-05-08-blog-post-bug-batch.md` · `docs/superpowers/plans/2026-05-08-discipline-hook.md`
+
 ### Current Status (2026-05-07)
 
 - **Superpower Bridge v0.2.0 + EPIC #58 closed — main is now at:** cloud `1.3.0`, deckhand `1.3.0`, msft-smartart `1.2.2`, bridge `0.2.0`, ollama/custom-smartart `1.1.0`.

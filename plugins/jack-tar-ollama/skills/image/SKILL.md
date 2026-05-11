@@ -1,7 +1,7 @@
 ---
 name: ollama-image
 description: Generate images using local Ollama models with optional iterative refinement. Accepts a text prompt or prompt file, generates via Ollama, optionally reviews and refines using vision, saves to a specified path, and returns the file path.
-argument-hint: "a description of the image" [--model MODEL] [--output PATH] [--prompt-file FILE] [--iterations N] [--width INT] [--height INT] [--steps INT] [--seed INT]
+argument-hint: "a description of the image" [--model MODEL] [--output PATH] [--prompt-file FILE] [--iterations N] [--width INT] [--height INT] [--steps INT] [--seed INT] [--lock-wait-timeout SECONDS] [--no-lock]
 allowed-tools: Bash(python *), Bash(curl *), Bash(ollama *), Read, Glob
 ---
 
@@ -22,6 +22,8 @@ Parse `$ARGUMENTS` for:
 - **--height INT**: Image height (default: 1024)
 - **--steps INT**: Inference steps (default: 8 for z-image-turbo, 20 for flux models)
 - **--seed INT**: Seed for reproducibility (optional)
+- **--lock-wait-timeout SECONDS**: How long to wait for the single-flight lock before giving up (default: 600). Ollama serialises on a single GPU context; this flag controls the maximum queue wait for a concurrent caller. Increase for flux models with long queue depths.
+- **--no-lock**: Skip the single-flight lock. For test fixtures or debug scenarios where you control parallelism yourself. Do not use in production pipelines with concurrent image generation (see issue #75).
 
 If `--prompt-file` is specified, read the file contents as the prompt using the Read tool.
 
@@ -93,7 +95,7 @@ If iterations is 1 (the default), run a single generation with no review:
 
 1. Run the helper script:
    ```bash
-   python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "THE PROMPT" --model "THE MODEL" --output "THE PATH" --width WIDTH --height HEIGHT --steps STEPS [--seed SEED]
+   python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "THE PROMPT" --model "THE MODEL" --output "THE PATH" --width WIDTH --height HEIGHT --steps STEPS [--seed SEED] [--lock-wait-timeout SECONDS] [--no-lock]
    ```
 2. If exit code is 0: read the output path from stdout.
 3. If exit code is non-zero: read stderr and report the error.
@@ -114,7 +116,7 @@ Determine the output path for this iteration. If `--output` was specified, use i
 
 Run the helper script with the current prompt:
 ```bash
-python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "CURRENT PROMPT" --model "MODEL" --output "ITER PATH" --width WIDTH --height HEIGHT --steps STEPS
+python3 "$PLUGIN_ROOT/src/generate_image.py" --prompt "CURRENT PROMPT" --model "MODEL" --output "ITER PATH" --width WIDTH --height HEIGHT --steps STEPS [--lock-wait-timeout SECONDS] [--no-lock]
 ```
 
 If the helper fails, report the error and stop.
