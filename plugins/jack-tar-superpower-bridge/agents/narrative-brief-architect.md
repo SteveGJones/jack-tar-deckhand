@@ -149,6 +149,25 @@ When the deck's narrative has a strategic dichotomy (will / won't, ship / defer,
 
 When the brief's Section B includes a palette table with role keywords (structural / surface / body text / accent), the bridge automatically maps those tokens to SmartArt's colour slots and renders every SmartArt graphic in brand colours. No additional /pptx authoring is needed — Section B's palette IS the SmartArt palette. The "Structural / Primary fill" row pins the load-bearing dark token (Run 4 Finding #12 fix); the "Surface" row pins the text-on-primary contrast colour. If a deck contains SmartArt slides and Section B omits a palette table, SmartArt falls back to Microsoft default colours; flag this as a degraded outcome the speaker should fix.
 
+### SMARTART-FROM-LIST — bullet-line format only (Issue #56 — Finding #4, Run 1)
+
+When Section C describes bullet content for a SMARTART-FROM-LIST marker, **use separate bullet-line items — never inline `·`-separated, ` • `-separated, or ` | `-separated lists on a single line.** The bridge's extractor reads each paragraph of the marker shape as one item. A single paragraph containing `"Edge inference · Operator playbook · Customer overlap · GPU procurement · Registry seam"` produces 1-bullet SmartArt, not 5-bullet SmartArt.
+
+Correct form (separate bullet paragraphs authored by /pptx into the marker text-box):
+
+```
+Edge inference
+Operator playbook
+Customer overlap
+GPU procurement
+Registry seam
+```
+
+The bridge has a downstream split that recovers from inline lists with ≥3 separators, but Section C must coach /pptx toward bullet-line format to avoid the fallback entirely.
+
+- Do NOT include example bullet content in Section C with inline `·` / ` • ` / ` | ` separators — /pptx may transcribe the inline form verbatim.
+- When giving bullet examples in Section C, always write them as separate lines or a markdown list: `- "Edge inference capacity" (23)`.
+
 ### SMARTART-FROM-LIST bullet length (Finding #13 — repeated across Runs 4, 5, 6)
 
 When Section A names a slide whose content is a bullet list that should become SmartArt (3–5 items, parallel form, the "synergy pillars" / "key initiatives" / "pruning principles" pattern), constrain individual bullet length:

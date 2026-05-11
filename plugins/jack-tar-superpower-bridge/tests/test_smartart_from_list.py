@@ -30,6 +30,7 @@ from src.enrichment_ops.smartart_from_list import (
     BulletsTooLongError,
     LAYOUT_BULLET_CAPS,
     SmartArtFromListExtractError,
+    _split_inline_separators,
     extract_list_items_from_marker_shape,
     select_layout_for_bullets,
 )
@@ -495,3 +496,172 @@ def test_apply_enrichment_smartart_from_list_routes_to_list1_for_longer_bullets(
         layout_xml = z.read(layout_parts[0]).decode("utf-8")
     # The list1 layout URI must appear in the injected layout part
     assert "list1" in layout_xml or "List1" in layout_xml
+
+
+# ---------------------------------------------------------------------------
+# Issue #56 — Inline-separator splitting (Finding #4, Run 1 dogfood)
+# ---------------------------------------------------------------------------
+#
+# The narrative-brief-architect persona may emit a single paragraph like
+# "A · B · C · D · E" instead of five separate bullet paragraphs. These
+# tests validate the downstream defence (_split_inline_separators) and its
+# integration into extract_list_items_from_marker_shape.
+
+
+# --- Unit tests for _split_inline_separators --------------------------------
+
+def test_split_middle_dot_five_items():
+    """Round-trip: inline list with middle-dot separator splits into 5 items."""
+    text = "Edge inference · Operator playbook · Customer overlap · GPU procurement · Registry seam"
+    result = _split_inline_separators(text)
+    assert result == [
+        "Edge inference",
+        "Operator playbook",
+        "Customer overlap",
+        "GPU procurement",
+        "Registry seam",
+    ]
+
+
+def test_split_bullet_with_spaces_three_items():
+    """Spaced bullet (U+2022) separator with 3 occurrences splits correctly."""
+    text = "Alpha • Beta • Gamma • Delta"
+    result = _split_inline_separators(text)
+    assert result == ["Alpha", "Beta", "Gamma", "Delta"]
+
+
+def test_split_pipe_with_spaces_three_items():
+    """Spaced pipe separator with 3 occurrences splits correctly."""
+    text = "North | South | East | West"
+    result = _split_inline_separators(text)
+    assert result == ["North", "South", "East", "West"]
+
+
+def test_split_does_not_fire_on_single_middle_dot():
+    """A single decorative · in prose must NOT trigger splitting.
+    Threshold is ≥3 occurrences."""
+    text = "A beautifully crafted · experience for engineers"
+    assert _split_inline_separators(text) is None
+
+
+def test_split_does_not_fire_on_two_middle_dots():
+    """Two occurrences are below the 3+ threshold — leave as prose."""
+    text = "Phase A · Phase B · end"
+    assert _split_inline_separators(text) is None
+
+
+def test_split_drops_empty_items():
+    """Empty fragments after splitting are dropped (e.g. trailing separator)."""
+    text = "A · B ·  · C"  # third separator produces an empty fragment
+    result = _split_inline_separators(text)
+    assert result == ["A", "B", "C"]
+
+
+def test_split_prefers_middle_dot_over_pipe_when_both_present():
+    """When both · and | appear with ≥3 counts, · wins (higher priority)."""
+    text = "A · B · C · D | E | F | G"
+    result = _split_inline_separators(text)
+    # · has 3+ occurrences and is first in the preference list
+    assert result is not None
+    # The split must be on · — result contains items from the · split
+    assert "A" in result
+    assert "B" in result
+    assert "C" in result
+
+
+def test_split_returns_none_when_no_dominant_separator():
+    """Plain prose without inline separators returns None."""
+    text = "This is a normal sentence with no list separators at all."
+    assert _split_inline_separators(text) is None
+
+
+def test_split_trims_whitespace_from_items():
+    """Each split item must have leading/trailing whitespace stripped."""
+    text = "  Alpha  ·  Beta  ·  Gamma  ·  Delta  "
+    result = _split_inline_separators(text)
+    assert result is not None
+    for item in result:
+        assert item == item.strip()
+
+
+# --- Integration: extract_list_items_from_marker_shape with inline lists ----
+
+def _build_pptx_with_inline_separator_paragraph(
+    out_path: Path,
+    inline_text: str,
+    marker_name: str = "SMARTART-FROM-LIST:inline-list",
+) -> Path:
+    """Build a 1-slide .pptx whose marker shape contains a SINGLE PARAGRAPH
+    with an inline-separator list (not separate bullet paragraphs)."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(0.5), Inches(1.5), Inches(9), Inches(4))
+    tf = box.text_frame
+    tf.text = inline_text  # single paragraph with inline separators
+    box.name = marker_name
+    prs.save(str(out_path))
+    return out_path
+
+
+def test_extract_splits_inline_middle_dot_paragraph(tmp_path):
+    """Round-trip: a marker shape with a single inline-· paragraph yields 5
+    items, not 1. Issue #56 reproduction test."""
+    inline = "Edge inference · Operator playbook · Customer overlap · GPU procurement · Registry seam"
+    pptx = _build_pptx_with_inline_separator_paragraph(tmp_path / "inline.pptx", inline)
+    prs = Presentation(str(pptx))
+    items = extract_list_items_from_marker_shape(
+        prs=prs, slide_index_1based=1,
+        marker_name="SMARTART-FROM-LIST:inline-list",
+    )
+    assert len(items) == 5
+    assert items[0] == "Edge inference"
+    assert items[4] == "Registry seam"
+
+
+def test_extract_does_not_split_prose_with_one_middle_dot(tmp_path):
+    """Negative: prose with a single · is NOT split into multiple items."""
+    prose = "The system uses a proprietary · encoding for all payloads"
+    pptx = _build_pptx_with_inline_separator_paragraph(tmp_path / "prose.pptx", prose)
+    prs = Presentation(str(pptx))
+    items = extract_list_items_from_marker_shape(
+        prs=prs, slide_index_1based=1,
+        marker_name="SMARTART-FROM-LIST:inline-list",
+    )
+    assert len(items) == 1
+    assert items[0] == prose
+
+
+def test_extract_does_not_split_prose_with_two_middle_dots(tmp_path):
+    """Negative: two · occurrences are below the threshold — still 1 item."""
+    prose = "A · B · C"  # only 2 occurrences — below the 3+ threshold
+    pptx = _build_pptx_with_inline_separator_paragraph(tmp_path / "prose2.pptx", prose)
+    prs = Presentation(str(pptx))
+    items = extract_list_items_from_marker_shape(
+        prs=prs, slide_index_1based=1,
+        marker_name="SMARTART-FROM-LIST:inline-list",
+    )
+    assert len(items) == 1
+
+
+def test_extract_mixes_normal_bullets_and_inline_paragraph(tmp_path):
+    """A shape with 2 normal bullet paragraphs + 1 inline paragraph expands
+    correctly: normal bullets stay as-is, inline paragraph splits."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(0.5), Inches(1.5), Inches(9), Inches(4))
+    tf = box.text_frame
+    tf.text = "Normal bullet one"                          # paragraph 1 — normal
+    tf.add_paragraph().text = "Normal bullet two"         # paragraph 2 — normal
+    # paragraph 3 — inline list with 4 · separators
+    tf.add_paragraph().text = "A · B · C · D · E"
+    box.name = "SMARTART-FROM-LIST:mixed"
+    pptx_path = tmp_path / "mixed.pptx"
+    prs.save(str(pptx_path))
+
+    prs = Presentation(str(pptx_path))
+    items = extract_list_items_from_marker_shape(
+        prs=prs, slide_index_1based=1, marker_name="SMARTART-FROM-LIST:mixed",
+    )
+    # 2 normal + 5 from inline = 7 total
+    assert items[:2] == ["Normal bullet one", "Normal bullet two"]
+    assert items[2:] == ["A", "B", "C", "D", "E"]

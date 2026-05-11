@@ -317,6 +317,36 @@ def extract_expected_text_for_marker(brief_text: str, marker_id: str) -> list[st
 # "no specific text", "no text content", "no text"} appearing in the
 # marker's block in Section C. The persona's R3b output already uses
 # this language for atmospheric markers; the lint just reads it back.
+#
+# Issue #56 extension (Finding #4, Run 1 dogfood):
+# SMARTART-FROM-LIST marker body text that contains an inline-separated
+# list (3+ occurrences of · / • / |) is flagged as a soft warning. The
+# bridge can recover via downstream splitting, but bullet-line format is
+# the preferred contract. The check is a soft warning only — the lint
+# still returns a list (not an exception), and SKILL.md decides whether
+# to surface it as a halt or a note. This matches the non-throwing
+# pattern of the rest of the lint surface.
+#
+# Inline-separator detection mirrors the threshold in
+# ``enrichment_ops.smartart_from_list._split_inline_separators``:
+# 3+ occurrences of the same separator in a single line of Section C.
+_INLINE_SEP_CANDIDATES: list[str] = ["·", " • ", " | "]
+_INLINE_SEP_THRESHOLD = 3
+
+
+def _detect_inline_separator_in_line(line: str) -> str | None:
+    """Return the first inline separator found ≥3 times in ``line``,
+    or ``None`` if no dominant separator is present.
+
+    Mirrors the threshold in
+    ``enrichment_ops.smartart_from_list._split_inline_separators`` so
+    the lint and the extractor agree on what constitutes an inline list.
+    Issue #56 (Finding #4, Run 1 dogfood).
+    """
+    for sep in _INLINE_SEP_CANDIDATES:
+        if line.count(sep) >= _INLINE_SEP_THRESHOLD:
+            return sep
+    return None
 
 
 class BriefLintError(ValueError):
@@ -423,5 +453,47 @@ def lint_brief_for_extract_compatibility(brief_text: str) -> list[str]:
             f"in the subject brief (use words like \"atmospheric\", "
             f"\"vignette\", or \"no text\") to opt out of the lint."
         )
+
+    # Issue #56 (Finding #4, Run 1 dogfood) — soft-warn on inline-separator
+    # lists in SMARTART-FROM-LIST marker body text. The bridge can recover
+    # via downstream splitting, but bullet-line format is preferred.
+    # We scan every line of Section C that doesn't look like a heading,
+    # codeblock, or marker-name line for inline-list patterns (3+ separators).
+    smartart_list_marker_re = re.compile(r"\bSMARTART-FROM-LIST:[a-z0-9_-]+")
+    current_smartart_marker: str | None = None
+    in_code_block = False
+    for line in section_c.splitlines():
+        # Track fenced code blocks — don't lint inside them
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+        # Detect entering a new SMARTART-FROM-LIST marker reference
+        sm_match = smartart_list_marker_re.search(line)
+        if sm_match:
+            current_smartart_marker = sm_match.group(0)
+            continue
+        # Detect entering any other marker kind — stop attributing to last
+        # SMARTART-FROM-LIST marker
+        if _MARKER_REF_RE.search(line) and current_smartart_marker:
+            if not smartart_list_marker_re.search(line):
+                current_smartart_marker = None
+            continue
+        # Only warn while we're inside a SMARTART-FROM-LIST block
+        if current_smartart_marker is None:
+            continue
+        sep = _detect_inline_separator_in_line(line)
+        if sep is not None:
+            errors.append(
+                f"{current_smartart_marker}: Section C contains an inline "
+                f"separator-separated list (separator: {sep!r}, "
+                f"≥{_INLINE_SEP_THRESHOLD} occurrences). "
+                f"SMARTART-FROM-LIST content should use bullet-line format "
+                f"(one item per line) rather than inline-separated lists. "
+                f"The bridge will attempt to split at render time, but "
+                f"bullet-line format is more reliable."
+            )
+            current_smartart_marker = None  # warn once per marker block
 
     return errors

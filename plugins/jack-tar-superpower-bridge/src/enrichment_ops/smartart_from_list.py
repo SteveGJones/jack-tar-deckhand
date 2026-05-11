@@ -28,8 +28,80 @@ than silent truncation. Run 7 evidence: silent ellipsis-truncation
 mangles operator content (mid-word "ent..."). Better to fail loudly so
 the operator can either rewrite within 60 chars or pick a different
 layout.
+
+Inline-separator splitting (Issue #56, Finding #4 from Run 1 dogfood):
+The narrative-brief-architect persona occasionally produces inline lists
+separated by ``·`` (U+00B7 middle dot), `` • `` (U+2022 with surrounding
+spaces), or `` | `` (pipe with surrounding spaces) instead of bullet-line
+lists. When /pptx faithfully transcribes these, the extractor reads the
+WHOLE paragraph as one bullet. ``_split_inline_separators`` detects this
+pattern and splits the paragraph into sibling items. The 3+ threshold
+avoids splitting prose that incidentally contains a single decorative
+separator character.
 """
 from __future__ import annotations
+
+import logging
+
+_log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Inline-separator splitting (Issue #56 — Finding #4, Run 1 dogfood)
+# ---------------------------------------------------------------------------
+#
+# Three separators the narrative-brief-architect is known to emit inside a
+# single paragraph instead of using bullet-line format. Listed in preference
+# order: if a paragraph contains ≥3 occurrences of the first separator that
+# matches, we split on that one and ignore the rest. The preference order is:
+#
+#   1. · (U+00B7 middle dot, no surrounding spaces required)
+#   2.   •   (U+2022 with surrounding spaces — distinguished from bullet-list
+#             form by the space requirement)
+#   3.  |   (pipe with surrounding spaces — low-priority: pipe appears in
+#             prose and tables, so require surrounding spaces to be safe)
+#
+# The 3+ threshold is defensive: prose can contain one or two decorative ·
+# characters (e.g., mathematical or typographical), but three is strong
+# evidence of an inline list. A single separator → leave the paragraph alone.
+
+_INLINE_SEPARATORS: list[str] = [
+    "·",   # · middle dot (no spaces required)
+    " • ", # • bullet with surrounding spaces
+    " | ",      # pipe with surrounding spaces
+]
+
+_INLINE_SPLIT_THRESHOLD = 3  # minimum separator count to trigger splitting
+
+
+def _split_inline_separators(text: str) -> list[str] | None:
+    """Detect and split an inline-separated list within a single paragraph.
+
+    Scans ``text`` for the dominant inline separator (preferred order:
+    ``·``, `` • ``, `` | ``). If any separator occurs ≥3 times in the
+    string, splits on that separator and returns the resulting items
+    (whitespace-trimmed, empty items dropped).
+
+    Returns ``None`` when no dominant separator is detected — the caller
+    should treat the text as a plain bullet.
+
+    Issue #56 — this is the load-bearing downstream defence. The upstream
+    prevention lives in the persona doc (Section C SMARTART-FROM-LIST
+    guidance) and the brief-save lint (``lint_brief_for_extract_compatibility``
+    in ``creative_brief.py``).
+    """
+    for sep in _INLINE_SEPARATORS:
+        if text.count(sep) >= _INLINE_SPLIT_THRESHOLD:
+            parts = [part.strip() for part in text.split(sep)]
+            parts = [p for p in parts if p]  # drop empty items
+            _log.debug(
+                "inline-separator split: separator=%r count=%d → %d items",
+                sep,
+                text.count(sep),
+                len(parts),
+            )
+            return parts
+    return None
 
 
 class SmartArtFromListExtractError(LookupError):
@@ -187,7 +259,17 @@ def extract_list_items_from_marker_shape(
     for paragraph in target_shape.text_frame.paragraphs:
         # Concatenate runs in the paragraph; strip whitespace
         text = "".join(run.text for run in paragraph.runs).strip()
-        if text:
+        if not text:
+            continue
+        # Issue #56 — detect inline-separator lists (Finding #4, Run 1
+        # dogfood). The narrative-brief-architect may emit a single paragraph
+        # like "A · B · C · D · E" instead of five separate bullet paragraphs.
+        # When ≥3 separators are detected, split and surface each fragment as
+        # a sibling bullet. When <3 separators, treat as ordinary prose bullet.
+        split = _split_inline_separators(text)
+        if split is not None:
+            items.extend(split)
+        else:
             items.append(text)
 
     if not items:
