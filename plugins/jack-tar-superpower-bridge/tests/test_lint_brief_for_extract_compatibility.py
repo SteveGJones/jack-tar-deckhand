@@ -239,3 +239,93 @@ def test_brief_lint_error_class_exists() -> None:
     """SKILL.md may want to raise BriefLintError when surfacing the lint
     failure to the operator. The class exists in the public surface."""
     assert issubclass(BriefLintError, ValueError)
+
+
+# ---------------------------------------------------------------------------
+# Issue #56 — soft-warn on inline separators in SMARTART-FROM-LIST blocks
+# ---------------------------------------------------------------------------
+
+
+def test_inline_middle_dot_list_in_smartart_from_list_block_warns() -> None:
+    """Issue #56: inline · list inside a SMARTART-FROM-LIST block generates
+    a soft warning. The bridge can recover at render time, but bullet-line
+    format is preferred."""
+    brief = """## Section C — Placeholder Instructions
+
+`SMARTART-FROM-LIST:capability-themes` — process flow, 3–5 items.
+Edge inference · Operator playbook · Customer overlap · GPU procurement · Registry seam
+"""
+    errors = lint_brief_for_extract_compatibility(brief)
+    assert len(errors) == 1
+    assert "SMARTART-FROM-LIST:capability-themes" in errors[0]
+    assert "inline" in errors[0].lower() or "separator" in errors[0].lower()
+
+
+def test_inline_pipe_list_in_smartart_from_list_block_warns() -> None:
+    """Issue #56: inline | list also triggers the soft warning."""
+    brief = """## Section C — Placeholder Instructions
+
+`SMARTART-FROM-LIST:phase-steps` — 4-phase pipeline.
+Discovery | Design | Build | Test | Ship
+"""
+    errors = lint_brief_for_extract_compatibility(brief)
+    assert len(errors) == 1
+    assert "SMARTART-FROM-LIST:phase-steps" in errors[0]
+
+
+def test_inline_separator_in_image_marker_block_not_linted() -> None:
+    """Issue #56: only SMARTART-FROM-LIST blocks are scanned for inline
+    separators. An inline · in an IMAGE marker block does NOT trigger the
+    warning (that pattern is fine for prose descriptions)."""
+    brief = """## Section C — Placeholder Instructions
+
+`IMAGE:schematic-trio` — three boxes: Alpha · Beta · Gamma · Delta
+
+> EXACT spelled labels REQUIRED:
+> - left: "Alpha"
+> - middle: "Beta"
+> - right: "Gamma"
+"""
+    errors = lint_brief_for_extract_compatibility(brief)
+    assert errors == []
+
+
+def test_inline_separator_below_threshold_not_warned() -> None:
+    """Issue #56: two · characters in a SMARTART-FROM-LIST block is below
+    the 3+ threshold and does NOT trigger the warning."""
+    brief = """## Section C — Placeholder Instructions
+
+`SMARTART-FROM-LIST:two-items` — just two items.
+Phase A · Phase B (complete)
+"""
+    errors = lint_brief_for_extract_compatibility(brief)
+    assert errors == []
+
+
+def test_bullet_line_format_in_smartart_block_passes_lint() -> None:
+    """Issue #56: the preferred bullet-line format has no inline separators
+    and passes lint cleanly."""
+    brief = """## Section C — Placeholder Instructions
+
+`SMARTART-FROM-LIST:capability-themes` — process flow, ≤24 chars each:
+- Edge inference
+- Operator playbook
+- Customer overlap
+- GPU procurement
+- Registry seam
+"""
+    errors = lint_brief_for_extract_compatibility(brief)
+    assert errors == []
+
+
+def test_inline_separator_lint_is_soft_warning_not_exception() -> None:
+    """Issue #56: inline-separator detection must not raise — lint always
+    returns a list so SKILL.md controls severity."""
+    brief = """## Section C — Placeholder Instructions
+
+`SMARTART-FROM-LIST:phases` — all phases.
+Alpha · Beta · Gamma · Delta · Epsilon
+"""
+    errors = lint_brief_for_extract_compatibility(brief)
+    assert isinstance(errors, list)
+    assert all(isinstance(e, str) for e in errors)
