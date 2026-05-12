@@ -203,6 +203,137 @@ class TestExtractFunction:
         assert result['engine'] == 'custom_svg'
         assert len(result['data']['quadrants']) == 4
 
+    def test_extract_vega_lite_prefers_inline_data_over_body_points(self):
+        """Issue #20 — when slide.data.inline_data is present, the dispatcher
+        must use it and IGNORE body_points for vega_lite. This guards the
+        refactor at smartart_extractor.py:843 against future regressions."""
+        from src.smartart_extractor import extract
+        # body_points would parse to 3 categories via extract_series_data
+        body_points = ['Phase 1: 100', 'Phase 2: 200', 'Phase 3: 300']
+        # inline_data has DIFFERENT data — 5 categories with different values
+        inline_data = {
+            'series': [
+                {'label': 'Q1', 'value': 50},
+                {'label': 'Q2', 'value': 75},
+                {'label': 'Q3', 'value': 110},
+                {'label': 'Q4', 'value': 160},
+                {'label': 'Q5', 'value': 220},
+            ]
+        }
+        slide = {
+            'slide_number': 7,
+            'headline': 'Revenue by Quarter',
+            'body_points': body_points,
+            'data': {'inline_data': inline_data},
+        }
+        selection = {
+            'slide_number': 7,
+            'graphic_type': 'bar_chart',
+            'enrichment_tier': 'pure_programmatic',
+            'engine': 'vega_lite',
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'text_primary': '1a1a1a', 'chart_series': []},
+            'typography': {'body_font': 'Inter', 'heading_font': 'Inter'},
+        }
+        result = extract(slide, selection, style_guide)
+        assert result['engine'] == 'vega_lite'
+        assert result['validation_status'] == 'valid'
+        # inline_data won — result reflects Q1-Q5, not Phase 1-3
+        vega_values = result['data']['spec']['data']['values']
+        labels_in_result = [v['label'] for v in vega_values]
+        assert 'Q1' in labels_in_result
+        assert 'Phase 1' not in labels_in_result
+        assert len(vega_values) == 5  # not 3 from body_points
+
+    def test_extract_matplotlib_prefers_inline_data_over_body_points(self):
+        """Issue #20 — when slide.data.inline_data is present, the dispatcher
+        must use it and IGNORE body_points for matplotlib. This guards the
+        refactor at smartart_extractor.py:846 against future regressions."""
+        from src.smartart_extractor import extract
+        # body_points would parse to 2 labels/values via extract_series_data
+        body_points = ['Alpha: 10', 'Beta: 20']
+        # inline_data has DIFFERENT data — 4 entries with different labels
+        inline_data = {
+            'series': [
+                {'label': 'Jan', 'value': 500},
+                {'label': 'Feb', 'value': 600},
+                {'label': 'Mar', 'value': 700},
+                {'label': 'Apr', 'value': 800},
+            ]
+        }
+        slide = {
+            'slide_number': 8,
+            'headline': 'Monthly Spend',
+            'body_points': body_points,
+            'data': {'inline_data': inline_data},
+        }
+        selection = {
+            'slide_number': 8,
+            'graphic_type': 'bar_chart',
+            'enrichment_tier': 'pure_programmatic',
+            'engine': 'matplotlib',
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'text_primary': '1a1a1a', 'chart_series': []},
+            'typography': {'body_font': 'Inter', 'heading_font': 'Inter'},
+        }
+        result = extract(slide, selection, style_guide)
+        assert result['engine'] == 'matplotlib'
+        assert result['validation_status'] == 'valid'
+        # inline_data won — result reflects Jan-Apr, not Alpha/Beta
+        labels = result['data']['data']['labels']
+        assert 'Jan' in labels
+        assert 'Alpha' not in labels
+        assert len(labels) == 4  # not 2 from body_points
+
+    def test_extract_custom_svg_prefers_inline_data_over_body_points(self):
+        """Issue #20 — when slide.data.inline_data is present, the dispatcher
+        must use it and IGNORE body_points for custom_svg. This guards the
+        refactor at smartart_extractor.py:841 against future regressions."""
+        from src.smartart_extractor import extract
+        # body_points would parse to a SWOT with the standard four quadrant labels
+        body_points = [
+            'Strengths: Brand, Team',
+            'Weaknesses: Scale',
+            'Opportunities: AI growth',
+            'Threats: Regulation',
+        ]
+        # inline_data has DIFFERENT quadrant labels — custom labels, not SWOT defaults
+        inline_data = {
+            'quadrants': [
+                {'label': 'Pillar A', 'items': ['Item1', 'Item2']},
+                {'label': 'Pillar B', 'items': ['Item3']},
+                {'label': 'Pillar C', 'items': ['Item4']},
+                {'label': 'Pillar D', 'items': ['Item5', 'Item6']},
+            ]
+        }
+        slide = {
+            'slide_number': 9,
+            'headline': 'Strategic Pillars',
+            'body_points': body_points,
+            'data': {'inline_data': inline_data},
+        }
+        selection = {
+            'slide_number': 9,
+            'graphic_type': 'swot',
+            'enrichment_tier': 'pure_programmatic',
+            'engine': 'custom_svg',
+        }
+        style_guide = {
+            'palette': {'primary': '1a73e8', 'text_primary': '1a1a1a',
+                        'chart_series': ['2B6CB0', 'ED8936', '38A169', 'E53E3E']},
+            'typography': {'body_font': 'Inter', 'heading_font': 'Inter'},
+        }
+        result = extract(slide, selection, style_guide)
+        assert result['engine'] == 'custom_svg'
+        assert result['validation_status'] == 'valid'
+        # inline_data won — quadrant labels are Pillar A-D, not Strengths/Weaknesses etc.
+        quadrant_labels = [q['label'] for q in result['data']['quadrants']]
+        assert 'Pillar A' in quadrant_labels
+        assert 'Strengths' not in quadrant_labels
+        assert len(quadrant_labels) == 4
+
 
 class TestValidateSpec:
     def test_valid_mermaid_spec(self):
