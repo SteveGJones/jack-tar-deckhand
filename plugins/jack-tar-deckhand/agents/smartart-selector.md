@@ -53,8 +53,19 @@ Match content patterns to graphic types:
 | Overlapping sets, shared properties | `venn` | custom_svg |
 | Chronological events, milestones | `timeline` | custom_svg |
 | Funnel stages, pipeline metrics | `pipeline_funnel` | custom_svg |
-| Project schedule with dates | `gantt` | mermaid |
+| Project schedule with explicit dates or durations | `gantt` | custom_svg |
 | No structured data, prose-only | `none` | — |
+
+### Gantt criteria (issue #34 sub-issue 4)
+
+Recommend `gantt` **only when** the content carries one or both of:
+
+- Explicit calendar dates (start date, end date, or both per item)
+- Explicit time durations (e.g. "6 weeks", "Q2 2026 → Q3 2026", "30 days")
+
+Do **NOT** recommend `gantt` for logical sequences without time semantics. A list of "five phases of customer onboarding" or "four stages of platform maturity" is a `flowchart` (sequential steps) or `pipeline_funnel` (if there's progression/attrition), **not** a Gantt chart. The Gantt visual is misleading when there are no dates — it implies a schedule the data doesn't actually contain.
+
+Quick mental check before recommending `gantt`: if you cannot draw a meaningful time axis on the slide, pick a different graphic type.
 
 ### Comparator Pairs (draft phase)
 

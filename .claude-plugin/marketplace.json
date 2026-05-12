@@ -7,37 +7,37 @@
   "plugins": [
     {
       "name": "jack-tar-ollama",
-      "description": "Local AI image generation via Ollama — images, icons, patterns, diagrams, and quick presentations",
+      "description": "Local AI image generation via Ollama \u2014 images, icons, patterns, diagrams, and quick presentations",
       "source": "./plugins/jack-tar-ollama",
       "version": "1.1.1"
     },
     {
       "name": "jack-tar-cloud",
-      "description": "Cloud AI image generation — OpenAI, Google, FAL.ai, Recraft with smart provider routing",
+      "description": "Cloud AI image generation \u2014 OpenAI, Google, FAL.ai, Recraft with smart provider routing",
       "source": "./plugins/jack-tar-cloud",
       "version": "1.3.2"
     },
     {
       "name": "jack-tar-msft-smartart",
-      "description": "Editable PowerPoint SmartArt graphics — 29 layouts, speakers can modify after delivery",
+      "description": "Editable PowerPoint SmartArt graphics \u2014 29 layouts, speakers can modify after delivery",
       "source": "./plugins/jack-tar-msft-smartart",
       "version": "1.2.2"
     },
     {
       "name": "jack-tar-custom-smartart",
-      "description": "Data visualisation and custom graphics — SVG, Mermaid, Vega-Lite, matplotlib charts",
+      "description": "Data visualisation and custom graphics \u2014 SVG, Mermaid, Vega-Lite, matplotlib charts",
       "source": "./plugins/jack-tar-custom-smartart",
       "version": "1.1.0"
     },
     {
       "name": "jack-tar-deckhand",
-      "description": "Full presentation pipeline — brand, style, narrative, images, SmartArt, assembly, QA",
+      "description": "Full presentation pipeline \u2014 brand, style, narrative, images, SmartArt, assembly, QA",
       "source": "./plugins/jack-tar-deckhand",
-      "version": "1.3.1"
+      "version": "1.3.2"
     },
     {
       "name": "jack-tar-superpower-bridge",
-      "description": "Wraps document-skills:pptx with narrative pre-brief (/bridge-brief) and post-hoc visual enrichment (/enrich-deck) — combine /pptx structural strength with jack-tar visual capabilities (AI backgrounds, element images, editable SmartArt, native charts)",
+      "description": "Wraps document-skills:pptx with narrative pre-brief (/bridge-brief) and post-hoc visual enrichment (/enrich-deck) \u2014 combine /pptx structural strength with jack-tar visual capabilities (AI backgrounds, element images, editable SmartArt, native charts)",
       "source": "./plugins/jack-tar-superpower-bridge",
       "version": "0.2.2"
     }

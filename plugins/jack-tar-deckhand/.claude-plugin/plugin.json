@@ -1,7 +1,7 @@
 {
   "name": "jack-tar-deckhand",
   "description": "Full presentation pipeline — brand, style, narrative, images, SmartArt, assembly, QA",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "author": {
     "name": "Steve Jones"
   },
