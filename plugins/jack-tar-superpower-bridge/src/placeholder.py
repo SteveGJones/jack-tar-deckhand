@@ -1,8 +1,9 @@
 """Marker grammar, parsing, and uniqueness checks.
 
-Grammar: ^(IMAGE|SMARTART-FROM-LIST|SMARTART|BG):[a-z0-9_-]+$  (lowercase
-identifier after the colon). Kind names are uppercase / hyphenated; the
-identifier accepts lowercase letters, digits, hyphens, and underscores.
+Grammar: ^(IMAGE|SMARTART-FROM-LIST|SMARTART|CHART|BG):[a-z0-9_-]+$
+(lowercase identifier after the colon). Kind names are uppercase /
+hyphenated; the identifier accepts lowercase letters, digits, hyphens, and
+underscores.
 
 Marker kinds:
 
@@ -19,6 +20,14 @@ Marker kinds:
   list shape with the SmartArt graphic at the same position. Title and
   supporting prose on the slide are untouched. Graceful degradation: if
   enrichment is skipped, the bullet list remains on the slide.
+- ``CHART``  *(issue #55)* — a placeholder rectangle is replaced by a native
+  python-pptx chart at the same coordinates. Chart type, categories, series
+  data, and optional formatting come from a ``chart_spec`` dict supplied on
+  the ``EnrichmentItem`` at /enrich-deck time. Brand palette is derived via
+  ``derive_chart_palette()`` from the brief's ``BrandPalette``. Canonical
+  for chart-shaped subjects (X-vs-Y, time series, projection, comparison
+  bars); the Section C ``addChart()`` language workaround remains valid as a
+  fallback when chart data is not yet available at brief-authoring time.
 
 Per spec Section 3.1 — duplicate marker identifiers are a brief-authoring
 error and must be surfaced to the user before enrichment proceeds.
@@ -32,7 +41,7 @@ from src.slide_facts import Marker, SlideFacts
 
 # SMARTART-FROM-LIST appears before SMARTART so the regex engine matches the
 # more-specific (longer) kind first when both could prefix-match.
-MARKER_RE = re.compile(r"^(IMAGE|SMARTART-FROM-LIST|SMARTART|BG):([a-z0-9_-]+)$")
+MARKER_RE = re.compile(r"^(IMAGE|SMARTART-FROM-LIST|SMARTART|CHART|BG):([a-z0-9_-]+)$")
 
 
 def parse_marker(name: str) -> tuple[str, str] | None:

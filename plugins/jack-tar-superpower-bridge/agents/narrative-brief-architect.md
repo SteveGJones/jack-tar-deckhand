@@ -123,15 +123,21 @@ Format every text-bearing IMAGE subject brief like this:
 
 Note the explicit "EXACT spelled labels REQUIRED" header and the per-element labelling. When a marker has no fixed text content (atmospheric backgrounds, abstract textures, illustrative scenes without overlay), omit this section — its absence signals to the bridge that text-content fidelity is not load-bearing.
 
-### Native charts — chart-shaped subjects go here, NOT into IMAGE markers
+### CHART markers — canonical for chart-shaped subjects (issue #55)
 
-For any slide whose subject is a data series with axes and category labels — market sizing, capacity allocation, revenue projection, ROI, MTTR-by-class, time-series trends — **use a native PptxGenJS chart directly on the slide via `addChart()`. Do NOT place an IMAGE marker on a chart-shaped subject.** Generative AI cannot render faithful axis tick values, category labels, or data-series annotations at slide scale; the result will be visually styled but numerically corrupted (Run 4 Finding #15 — three of four IMAGE markers in that run produced garbled axis labels).
+For any slide whose subject is a data series with axes and category labels — market sizing, capacity allocation, revenue projection, ROI, MTTR-by-class, time-series trends — **use a `CHART:slug` placeholder marker. Do NOT place an IMAGE marker on a chart-shaped subject.** Generative AI cannot render faithful axis tick values, category labels, or data-series annotations at slide scale; the result will be visually styled but numerically corrupted (Run 4 Finding #15 — three of four IMAGE markers in that run produced garbled axis labels).
 
-Section C must include explicit redirect language. Run 5's wording is the canonical example:
+The bridge reads the `CHART:slug` objectName from the placeholder rect, replaces the rect with a native PowerPoint chart (bar, column, line, area, pie, doughnut, or scatter) at the same coordinates, and colours the series from the brief's brand palette. The operator supplies the chart data at `/enrich-deck` time via `chart_spec`.
 
-> For any slide whose subject is a data series with axes and category labels, use a native PptxGenJS chart directly on the slide. Do not place an IMAGE marker on a chart-shaped subject.
+Section C must identify chart-shaped subjects by name so the operator knows which `CHART:slug` to supply data for. Run 5's wording is the canonical example for the language redirect (updated for the CHART marker pattern):
 
-Then list 2–3 example chart subjects relevant to the deck's narrative (e.g., for a strategy deck: "capacity allocation over time, market sizing across the portfolio, ROI projection per bet"). The example list anchors /pptx to the right tool.
+> For chart-shaped subjects — capacity allocation over time, market sizing across the portfolio, ROI projection per bet — author a `CHART:slug` placeholder rect (not an IMAGE marker). The bridge will replace it with a native chart. Operator supplies chart type, categories, and series data at /enrich-deck time.
+
+Supported `chart_spec.type` values: `bar`, `column`, `line`, `area`, `pie`, `doughnut`, `scatter`.
+
+**Fallback — Section C language workaround (still valid):** when operators don't yet have the chart data at brief-authoring time, the existing Section C `addChart()` language workaround from Runs 5–10 remains valid. Use it to redirect `/pptx` away from IMAGE markers until the data is ready; the CHART marker is the preferred path once data is available.
+
+Then list 2–3 example chart subjects relevant to the deck's narrative (e.g., for a strategy deck: "capacity allocation over time, market sizing across the portfolio, ROI projection per bet"). The example list anchors `/pptx` to the right tool.
 
 ### BG marker — single structural pivot only
 
@@ -219,13 +225,16 @@ If the user has not stated confidentiality, ask explicitly. Do not default silen
 | Marker prefix | Purpose | Use when |
 |--------------|---------|----------|
 | **`SMARTART-FROM-LIST:`** *(preferred SmartArt pattern, sub-page default)* | The marker IS a bullet-list shape; bridge replaces it with a brand-coloured SmartArt at the same coordinates, preserving title + surrounding prose. Authored at sub-page coordinates per the scale typology in the Section C output. | The slide has a process / hierarchy / cycle / list as part of its content, alongside a title and possibly other supporting prose. |
-| `IMAGE:` *(sub-page default)* | AI-generated schematic illustration in a reserved rectangle. Sub-page placement (side accent / inline / banner) — NOT full-bleed hero. | The slide benefits from a schematic, institutional-register illustration alongside body prose. NOT for chart-shaped subjects (those are native charts, not IMAGE markers). |
+| `IMAGE:` *(sub-page default)* | AI-generated schematic illustration in a reserved rectangle. Sub-page placement (side accent / inline / banner) — NOT full-bleed hero. | The slide benefits from a schematic, institutional-register illustration alongside body prose. NOT for chart-shaped subjects (those are CHART markers, not IMAGE markers). |
+| `CHART:` *(canonical for chart-shaped subjects — issue #55)* | Placeholder rectangle replaced by a native PowerPoint chart (bar, column, line, area, pie, doughnut, scatter) at the marker's coordinates. Bridge renders the chart with brand palette colours; operator supplies the chart data at /enrich-deck time via `chart_spec`. | The slide subject is a data series with axes and category labels — X-vs-Y comparisons, time-series trends, market sizing, revenue projections, ROI curves, MTTR-by-class. Generative AI cannot render faithful axis values; use this marker, not `IMAGE:`. |
 | `BG:` *(single-pivot only)* | AI atmospheric background covering the whole slide | The deck has ONE structural register-shift pivot (diagnosis→intervention, tension→release, accumulation→reveal). Most decks have 0–1 BG markers. The deck's surface colour IS the atmosphere on every other slide. |
 | `SMARTART:` *(graphic-only-slide fallback)* | Placeholder rectangle replaced by a SmartArt rendered from a separate spec | The slide is a graphic-only divider where the SmartArt owns the entire content zone (no surrounding prose). Most decks won't need this. |
 
 **Authoring guidance for /pptx:** when Section A names a slide that contains an enumerable structure (3-step process, 4-quadrant matrix, hierarchy, cycle, etc.) AS PART of a slide that ALSO has a title and possibly supporting prose, write the bullet list naturally at sub-page coordinates and mark the list shape with `SMARTART-FROM-LIST:slug`. Only reach for `SMARTART:slug` when the entire content zone is a graphic with no surrounding prose. The bridge's Phase 3 analyser detects both kinds and routes accordingly.
 
-**Authoring guidance for chart subjects:** when Section A names a slide whose subject is a data series with axes and category labels (X-vs-Y, time-series, comparison, projection), author it as a native PptxGenJS `addChart()` call with real labels and real series data. Do NOT place an IMAGE marker on a chart-shaped subject. Reserve IMAGE markers for schematic, illustrative content with no axis values to corrupt.
+**Authoring guidance for chart subjects (issue #55):** when Section A names a slide whose subject is a data series with axes and category labels (X-vs-Y, time-series, comparison, projection), author a `CHART:slug` placeholder rect. The bridge renders a native PowerPoint chart at the marker's coordinates using the brief's brand palette; the operator supplies the chart data at `/enrich-deck` time. The `/pptx` superpower should author the placeholder rect with `objectName: "CHART:slug"` and an optional `addText` label — both are removed after enrichment. Run 4 evidence: three of four IMAGE markers on chart-shaped subjects produced garbled axis labels (Finding #15); `CHART:` is the structural fix.
+
+The Section C `addChart()` language workaround from Runs 5–10 remains valid as a fallback when chart data is not yet available at brief-authoring time — use it if you need to redirect `/pptx` away from IMAGE markers before the operator has the chart data ready. `CHART:` markers are the preferred path when the operator has the data at `/enrich-deck` time.
 
 ## Identifier grammar
 
@@ -234,6 +243,7 @@ After the colon: lowercase letters, digits, hyphens, underscores only. `IMAGE:ag
 The identifier semantics:
 - For `IMAGE:` and `BG:` — descriptive slug (`IMAGE:agent-architecture`, `BG:dramatic-opening`).
 - For `SMARTART-FROM-LIST:` and `SMARTART:` — hint at the *subject*, not the catalog layout id (`SMARTART-FROM-LIST:three-pillars`, NOT `SMARTART-FROM-LIST:process1`). Layout selection is a separate step the bridge does in Phase 3 from the bullet content + item count.
+- For `CHART:` — descriptive slug naming the chart subject (`CHART:revenue-vs-costs`, `CHART:capacity-over-time`, `CHART:mttr-by-class`). NOT the chart type — the type is declared in the operator-supplied `chart_spec` at /enrich-deck time.
 
 Marker identifiers must be unique deck-wide. The Phase 3 analyser flags duplicates; if you are tempted to repeat one, use a more specific slug.
 
@@ -244,7 +254,7 @@ Marker identifiers must be unique deck-wide. The Phase 3 analyser flags duplicat
 - Do NOT specify `name:` as the PptxGenJS shape-name property in exemplar code — MUST use `objectName:` (Spike 1 finding; the entire downstream pipeline depends on it).
 - Do NOT lead Section C with `SMARTART:` (full content zone) when describing bullet-list-content slides — `SMARTART-FROM-LIST:` is the preferred pattern because it preserves the slide's title and surrounding prose. Reserve `SMARTART:` for graphic-only divider slides.
 - Do NOT default SMARTART-FROM-LIST or IMAGE markers to full-content-zone width. Section C MUST include sub-page scale typology with explicit inch coordinates (Run 5 evidence — `/pptx` defaults to content-zone width when the brief doesn't specify scale).
-- Do NOT propose IMAGE markers for chart-shaped subjects (X-vs-Y data with axes / category labels). Section C MUST include native-chart-routing language redirecting these subjects to `addChart()`. Generative AI corrupts axis text at slide scale (Run 4 Finding #15 evidence).
+- Do NOT propose IMAGE markers for chart-shaped subjects (X-vs-Y data with axes / category labels). Section C MUST use `CHART:slug` markers for chart-shaped subjects (issue #55 canonical fix), or the `addChart()` language workaround as a fallback when chart data is not yet available. Generative AI corrupts axis text at slide scale (Run 4 Finding #15 evidence).
 - Do NOT omit `EXACT spelled labels REQUIRED` per-element listings from any text-bearing IMAGE marker's Section C subject brief. Without an explicit expected-text list, the image-reviewer (Haiku) confabulates spelling correctness and ships misspellings (Run 6 Finding #19 evidence: "INFORENCE" passed Phase A review).
 - Do NOT omit the palette table from Section B if the deck contains SmartArt slides. The "Structural / Primary fill" row pins the bridge's brand-palette injection (Contract 1).
 - Do NOT propose SMARTART-FROM-LIST bullets exceeding 24 chars without flagging — the bridge's default `process1` layout caps at 24 chars and longer items either get truncated or fail at apply time (Run 4/5/6 Finding #13 reaffirmed).
