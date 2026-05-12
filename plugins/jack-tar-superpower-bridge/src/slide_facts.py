@@ -12,9 +12,10 @@ from typing import Any
 # Marker kinds use the OOXML/brief-grammar form (uppercase, hyphenated).
 # SMARTART-FROM-LIST is Contract 2 / Finding #9 — the marker IS a text shape
 # with bullet content rather than a placeholder rectangle.
-VALID_MARKER_KINDS = {"IMAGE", "SMARTART", "SMARTART-FROM-LIST", "BG"}
+# CHART is issue #55 — placeholder rect replaced by a native python-pptx chart.
+VALID_MARKER_KINDS = {"IMAGE", "SMARTART", "SMARTART-FROM-LIST", "BG", "CHART"}
 # Enrichment kinds use the snake_case form internally.
-VALID_ENRICHMENT_KINDS = {"background", "image", "smartart", "smartart_from_list"}
+VALID_ENRICHMENT_KINDS = {"background", "image", "smartart", "smartart_from_list", "chart"}
 VALID_ENRICHMENT_ACTIONS = {"apply", "apply_clear_overlap", "skip"}
 
 

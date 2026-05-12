@@ -37,9 +37,9 @@
     },
     {
       "name": "jack-tar-superpower-bridge",
-      "description": "Wraps document-skills:pptx with narrative pre-brief (/bridge-brief) and post-hoc visual enrichment (/enrich-deck) — combine /pptx structural strength with jack-tar visual capabilities (AI backgrounds, element images, editable SmartArt)",
+      "description": "Wraps document-skills:pptx with narrative pre-brief (/bridge-brief) and post-hoc visual enrichment (/enrich-deck) — combine /pptx structural strength with jack-tar visual capabilities (AI backgrounds, element images, editable SmartArt, native charts)",
       "source": "./plugins/jack-tar-superpower-bridge",
-      "version": "0.2.1"
+      "version": "0.2.2"
     }
   ]
 }

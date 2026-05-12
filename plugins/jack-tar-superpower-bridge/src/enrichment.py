@@ -30,6 +30,7 @@ from pptx.oxml.ns import qn
 
 from src.colors_xml_builder import BrandPalette, patch_carrier_palette
 from src.enrichment_ops.background import apply_background_in_memory
+from src.enrichment_ops.chart import apply_chart_enrichment
 from src.enrichment_ops.element_image import replace_image_marker_in_memory
 from src.enrichment_ops.smartart import inject_smartart_into_file
 from src.enrichment_ops.smartart_from_list import (
@@ -40,7 +41,7 @@ from src.security import resolve_within_allowlist
 from src.smartart_bridge import render_carrier, select_layout_for_slide
 
 
-VALID_KINDS = {"background", "image", "smartart", "smartart_from_list"}
+VALID_KINDS = {"background", "image", "smartart", "smartart_from_list", "chart"}
 VALID_ACTIONS = {"apply", "apply_clear_overlap", "skip"}
 
 
@@ -51,11 +52,12 @@ class EnrichmentApplyError(RuntimeError):
 @dataclass
 class EnrichmentItem:
     slide_index: int
-    kind: str                    # background | image | smartart | smartart_from_list
-    marker_name: str             # full marker string (e.g. "IMAGE:foo")
-    asset_path: Path | None      # image path for background/image; None for smartart
+    kind: str                    # background | image | smartart | smartart_from_list | chart
+    marker_name: str             # full marker string (e.g. "IMAGE:foo", "CHART:bar")
+    asset_path: Path | None      # image path for background/image; None for smartart/chart
     action: str = "apply"        # apply | apply_clear_overlap | skip
     smartart_spec: dict[str, Any] | None = None  # required when kind="smartart" and action!="skip"
+    chart_spec: dict[str, Any] | None = None  # required when kind="chart" and action!="skip"
     overlap_shape_names: list[str] = field(default_factory=list)
     # Run 8 Finding #26 — picture-SmartArt image binding. When kind ==
     # "smartart_from_list" AND this list is non-empty, the bridge routes the
@@ -319,6 +321,24 @@ def apply_enrichment(
                 # label survives enrichment as a stranded floater.
                 _drop_residual_marker_label_shapes(
                     prs, item.slide_index, item.marker_name,
+                )
+            elif item.kind == "chart":
+                # Issue #55 — CHART:slug marker kind.
+                # chart_spec is operator-supplied on EnrichmentItem at
+                # /enrich-deck time (pattern (a) from the plan). The marker
+                # rect + any sibling addText label are removed inside
+                # apply_chart_enrichment via the same cleanup logic as BG /
+                # SMARTART / SMARTART-FROM-LIST (v0.2 #23 pattern).
+                if item.chart_spec is None:
+                    raise EnrichmentApplyError(
+                        f"chart item missing chart_spec: {item}"
+                    )
+                apply_chart_enrichment(
+                    prs=prs,
+                    slide_index_1based=item.slide_index,
+                    marker_name=item.marker_name,
+                    chart_spec=item.chart_spec,
+                    brand_palette=brand_palette,
                 )
             else:
                 raise EnrichmentApplyError(f"unknown enrichment kind {item.kind!r}")
