@@ -11,6 +11,13 @@ which becomes a tall narrow strip when there are many cascading questions.
 from src.smartart_svg.primitives import svg_rect, svg_text, svg_group
 
 
+def _truncate(text, max_chars):
+    """Truncate text to max_chars with ellipsis if it exceeds the limit."""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars - 1] + '…'
+
+
 def render_decision_tree(data, container, tokens):
     """Render a decision tree as an SVG fragment.
 
@@ -51,6 +58,8 @@ def render_decision_tree(data, container, tokens):
     # Font sizing — scale with row height
     q_font = max(13, min(18, int(row_h / 3)))
     o_font = max(13, min(18, int(row_h / 3)))
+    # Max outcome chars before SVG viewBox right boundary is exceeded
+    max_o_chars = int(o_w / (o_font * 0.6))
 
     elements = []
 
@@ -107,7 +116,7 @@ def render_decision_tree(data, container, tokens):
         ))
         elements.append(svg_text(
             o_x + o_w / 2, cy + o_font / 3,
-            outcome,
+            _truncate(outcome, max_o_chars),
             font_family=font,
             font_size=o_font,
             fill=text_col_white,

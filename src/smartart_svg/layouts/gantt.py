@@ -127,11 +127,11 @@ def _render_gantt_timeline(data, container, tokens):
             elements.append(svg_rect(chart_x, chart_y + i * row_h, chart_w, 1, fill=text_col))
 
     # Date axis — choose tick interval that avoids label overlap.
-    # Each "Mon yy" label is ~6 chars wide; at font 12 with char width ~7.2,
-    # one label needs ~50pt of horizontal space. Compute ticks per chart width
+    # Each "Mon YYYY" label is ~8 chars wide; at font 12 with char width ~7.2,
+    # one label needs ~65pt of horizontal space. Compute ticks per chart width
     # and pick a month-stride that yields non-overlapping labels.
     axis_y = chart_y + chart_h + 4
-    label_width_pt = 50
+    label_width_pt = 65
     total_months = (date_max.year - date_min.year) * 12 + (date_max.month - date_min.month) + 1
     max_visible_ticks = max(2, int(chart_w / label_width_pt))
     month_stride = max(1, -(-total_months // max_visible_ticks))  # ceil division
@@ -144,7 +144,7 @@ def _render_gantt_timeline(data, container, tokens):
             tick_x = chart_x + chart_w * day_offset
             if chart_x <= tick_x <= chart_x + chart_w:
                 elements.append(svg_rect(tick_x, chart_y, 1, chart_h, fill=text_col))
-                month_label = current.strftime('%b %y')
+                month_label = current.strftime('%b %Y')
                 elements.append(svg_text(
                     tick_x + 2, axis_y + 12, month_label,
                     font_family=font, font_size=12, fill=text_col, anchor='start'

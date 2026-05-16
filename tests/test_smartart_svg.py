@@ -629,3 +629,173 @@ class TestTimelineOverflow:
         assert 'Short' in svg
         # Long label should be present (possibly truncated with ellipsis)
         assert '\u2026' in svg or 'A Very Long' in svg
+
+    def test_renders_date_field_when_present(self):
+        """Issue #49 Defect 3: timeline must render a 'date' key as a badge above node."""
+        from src.smartart_svg.layouts.timeline import render_timeline
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "stages": [
+                {"date": "Q1 2026", "label": "Kickoff", "description": "Project starts"},
+                {"date": "Q2 2026", "label": "Design", "description": "Architecture phase"},
+                {"label": "Launch", "description": "No date on this one"},
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a', 'chart_series': ['2B6CB0']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 1920, 1080, padding=40)
+        svg = render_timeline(data, c, tokens)
+        # Date badges must appear in the rendered SVG
+        assert 'Q1 2026' in svg
+        assert 'Q2 2026' in svg
+        # Stage without a date should still render its label fine
+        assert 'Launch' in svg
+
+
+class TestFlowchartIssue49:
+    """Issue #49 Defect 1: wrap-row arrow must be orthogonal (two segments), not diagonal."""
+
+    def _make_tokens(self):
+        from src.smartart_svg.tokens import extract_style_tokens
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a'},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        return extract_style_tokens(style)
+
+    def test_2x2_wrap_arrow_is_two_segments(self):
+        """4-node 2\u00d72 flowchart must use TWO line elements for the wrap-row arrow."""
+        from src.smartart_svg.layouts.flowchart import render_flowchart
+        from src.smartart_svg.engine import Container
+        data = {'nodes': ['Phase 1: A, B', 'Phase 2: C, D', 'Phase 3: E, F', 'Phase 4: G, H']}
+        c = Container(0, 0, 1920, 1080, padding=40)
+        tokens = self._make_tokens()
+        svg = render_flowchart(data, c, tokens)
+
+        # Count all <line> elements (excluding the defs marker polygon)
+        import re
+        lines = re.findall(r'<line\b', svg)
+        # 3 arrows needed: row1_cell1\u2192cell2 (1 line), wrap (2 lines), row2_cell1\u2192cell2 (1 line) = 4 total
+        assert len(lines) == 4, f"Expected 4 <line> elements (3 arrows, wrap=2), got {len(lines)}"
+
+    def test_2x2_wrap_arrow_no_diagonal(self):
+        """The wrap-row arrow must not have x1 != x2 AND y1 != y2 (that would be diagonal)."""
+        from src.smartart_svg.layouts.flowchart import render_flowchart
+        from src.smartart_svg.engine import Container
+        import re
+        data = {'nodes': ['A', 'B', 'C', 'D']}
+        c = Container(0, 0, 1920, 1080, padding=40)
+        tokens = self._make_tokens()
+        svg = render_flowchart(data, c, tokens)
+
+        # Extract all line coordinates
+        line_re = re.compile(
+            r'<line\s+x1="([^"]+)"\s+y1="([^"]+)"\s+x2="([^"]+)"\s+y2="([^"]+)"'
+        )
+        found_diagonal = False
+        for m in line_re.finditer(svg):
+            x1, y1, x2, y2 = float(m.group(1)), float(m.group(2)), float(m.group(3)), float(m.group(4))
+            if x1 != x2 and y1 != y2:
+                found_diagonal = True
+                break
+        assert not found_diagonal, "Found a diagonal <line> \u2014 wrap-row arrow is not orthogonal"
+
+
+class TestDecisionTreeIssue49:
+    """Issue #49 Defect 2: long outcome strings must be truncated, not clipped at viewBox edge."""
+
+    def _make_tokens(self):
+        from src.smartart_svg.tokens import extract_style_tokens
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a'},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        return extract_style_tokens(style)
+
+    def test_truncates_long_outcome_strings(self):
+        """A 60-char outcome string must produce a truncated SVG text node."""
+        from src.smartart_svg.layouts.decision_tree import render_decision_tree, _truncate
+        from src.smartart_svg.engine import Container
+        long_outcome = 'This is a very long outcome description that should now truncate at edge'
+        data = {'rules': [
+            {'question': 'Is this a test?', 'outcome': long_outcome},
+        ]}
+        c = Container(0, 0, 612, 324, padding=16)
+        tokens = self._make_tokens()
+        svg = render_decision_tree(data, c, tokens)
+        # The full 70-char string must NOT appear verbatim in the SVG
+        assert long_outcome not in svg, "Full long outcome string found \u2014 truncation was not applied"
+        # The SVG should contain the ellipsis character
+        assert '\u2026' in svg, "Truncation ellipsis not found in SVG output"
+
+    def test_truncate_helper(self):
+        from src.smartart_svg.layouts.decision_tree import _truncate
+        assert _truncate('short', 20) == 'short'
+        result = _truncate('a' * 30, 20)
+        assert result.endswith('\u2026')
+        assert len(result) == 20
+
+
+class TestGanttIssue49:
+    """Issue #49 Defect 4: Gantt month ticks must show 4-digit year."""
+
+    def test_uses_four_digit_year(self):
+        from src.smartart_svg.layouts.gantt import render_gantt
+        from src.smartart_svg.engine import Container
+        from src.smartart_svg.tokens import extract_style_tokens
+        data = {
+            "tasks": [
+                {"label": "Alpha", "start": "2026-01-01", "end": "2026-06-01"},
+                {"label": "Beta",  "start": "2026-04-01", "end": "2026-12-01"},
+            ]
+        }
+        style = {
+            'palette': {'primary': '1a73e8', 'accent': 'e8710a', 'background': 'ffffff',
+                        'text_primary': '1a1a1a', 'chart_series': ['2B6CB0', 'ED8936']},
+            'typography': {'heading_font': 'Inter', 'body_font': 'Inter'}
+        }
+        tokens = extract_style_tokens(style)
+        c = Container(0, 0, 1920, 1080, padding=40)
+        svg = render_gantt(data, c, tokens)
+        # Must contain the 4-digit year '2026' in a tick label
+        assert '2026' in svg, "4-digit year '2026' not found in Gantt SVG output"
+        # Must NOT contain the 2-digit-year form 'Jan 26' (strftime %b %y)
+        import re
+        two_digit_year = re.search(r'\b[A-Z][a-z]{2} \d{2}\b', svg)
+        assert two_digit_year is None, f"Found 2-digit year label: {two_digit_year.group()}"
+
+
+class TestSwotIssue49:
+    """Issue #49 Defect 5: SWOT must not hang on empty chart_series."""
+
+    def test_does_not_hang_on_empty_chart_series(self):
+        from src.smartart_svg.layouts.swot import render_swot
+        from src.smartart_svg.engine import Container
+        data = {
+            'quadrants': [
+                {'label': 'Strengths', 'position': 'top_left', 'items': ['Brand']},
+                {'label': 'Weaknesses', 'position': 'top_right', 'items': ['Scale']},
+                {'label': 'Opportunities', 'position': 'bottom_left', 'items': ['AI']},
+                {'label': 'Threats', 'position': 'bottom_right', 'items': ['Risk']},
+            ]
+        }
+        tokens = {
+            'primary_color': '#1a73e8',
+            'accent_color': '#e8710a',
+            'text_color': '#1a1a1a',
+            'heading_font': 'Inter',
+            'font_family': 'Inter',
+            'border_radius': 8,
+            'chart_series': [],   # empty \u2014 was infinite loop
+        }
+        c = Container(0, 0, 1920, 1080, padding=40)
+        svg = render_swot(data, c, tokens)
+        assert 'Strengths' in svg
+        assert 'SWOT' in svg
