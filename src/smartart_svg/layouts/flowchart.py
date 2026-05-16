@@ -145,17 +145,28 @@ def render_flowchart(data, container, tokens):
             y1 = cur[1]
             x2 = nxt[2] - 2
             y2 = nxt[1]
+            elements.append(
+                f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
+                f'stroke="{accent}" stroke-width="3" marker-end="url(#fc-arrow)"/>'
+            )
         else:
-            # Wrap to next row → curved/elbow not supported; draw vertical arrow from
-            # bottom of last cell in current row to top of first cell in new row.
-            # For simplicity, use a diagonal arrow from cur centre-bottom to nxt centre-top.
-            x1 = cur[0]
-            y1 = cur[3] + cur[5] + 2
-            x2 = nxt[0]
-            y2 = nxt[3] - 2
-        elements.append(
-            f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
-            f'stroke="{accent}" stroke-width="3" marker-end="url(#fc-arrow)"/>'
-        )
+            # Wrap to next row — two-segment orthogonal path:
+            # 1) vertical down from bottom-center of last cell in the current row
+            # 2) horizontal across to the top-center of the first cell in the new row
+            # This avoids the visually-confusing diagonal that appears to go backward.
+            seg_x = cur[0]                    # x stays at current cell center-x
+            seg_y1 = cur[3] + cur[5] + 2     # bottom edge of current cell
+            seg_y2 = nxt[3] - 2              # just above top edge of next cell
+            seg_x2 = nxt[0]                  # center-x of next cell
+            # Vertical leg (no arrowhead)
+            elements.append(
+                f'<line x1="{seg_x}" y1="{seg_y1}" x2="{seg_x}" y2="{seg_y2}" '
+                f'stroke="{accent}" stroke-width="3"/>'
+            )
+            # Horizontal leg (arrowhead at destination)
+            elements.append(
+                f'<line x1="{seg_x}" y1="{seg_y2}" x2="{seg_x2}" y2="{seg_y2}" '
+                f'stroke="{accent}" stroke-width="3" marker-end="url(#fc-arrow)"/>'
+            )
 
     return svg_group(elements, role='img', aria_label='Flowchart diagram')

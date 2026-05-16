@@ -48,6 +48,9 @@ def render_swot(data, container, tokens):
         quadrant_by_position[idx] = q
 
     series = tokens.get('chart_series', ['#2B6CB0', '#ED8936', '#38A169', '#E53E3E'])
+    # Guard against empty list before the doubling loop — [] + [] is still []
+    if not series:
+        series = ['#2B6CB0', '#ED8936', '#38A169', '#E53E3E']
     # Pad series to at least 4 colours
     while len(series) < 4:
         series = series + series

@@ -381,3 +381,38 @@ class TestOverflow:
         result = extract_spatial_data(body_points, "swot")
         strengths = result['data']['quadrants'][0]
         assert len(strengths['items']) <= 5
+
+
+class TestTimelineExtractorIssue49:
+    """Issue #49 Defect 3: _extract_timeline must preserve the 'date' key from dict inputs."""
+
+    def test_preserves_date_key_from_dict_input(self):
+        """When body_points contains dicts with a 'date' key, the key must reach the stage."""
+        from src.smartart_extractor import _extract_timeline  # type: ignore[attr-defined]
+        body_points = [
+            {'date': 'Q1 2026', 'label': 'Kickoff', 'description': 'Project starts'},
+            {'date': 'Q2 2026', 'label': 'Design', 'description': 'Architecture'},
+            {'label': 'Launch', 'description': 'No date'},
+        ]
+        result = _extract_timeline(body_points)
+        stages = result['stages']
+        assert stages[0]['date'] == 'Q1 2026'
+        assert stages[1]['date'] == 'Q2 2026'
+        # Stage without 'date' key must not have a 'date' key injected
+        assert 'date' not in stages[2]
+
+    def test_string_input_still_works(self):
+        """Colon-split string format must still produce valid stages (no regression)."""
+        from src.smartart_extractor import _extract_timeline  # type: ignore[attr-defined]
+        body_points = [
+            'Q1 2026: Research phase',
+            'Q2 2026: Design phase',
+        ]
+        result = _extract_timeline(body_points)
+        stages = result['stages']
+        assert stages[0]['label'] == 'Q1 2026'
+        assert stages[0]['description'] == 'Research phase'
+        assert stages[1]['label'] == 'Q2 2026'
+        assert stages[1]['description'] == 'Design phase'
+        # No 'date' key in string-input output (date is folded into label)
+        assert 'date' not in stages[0]

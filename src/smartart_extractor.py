@@ -577,14 +577,29 @@ def _extract_swot(body_points):
 
 
 def _extract_timeline(body_points):
-    """Parse 'Label: Description' into timeline stages."""
+    """Parse timeline stages from body_points.
+
+    Accepts two input shapes:
+    - dict with 'label' (and optional 'date', 'description') — passed through unchanged
+    - string 'Label: Description' — colon-split into label + description
+    """
     stages = []
     for point in body_points:
-        label, description = _split_colon(point)
-        if label is None:
-            label = point
-            description = ''
-        stages.append({'label': label, 'description': description})
+        if isinstance(point, dict):
+            # Dict input: preserve all keys (including 'date' if present)
+            stage = {
+                'label': point.get('label', ''),
+                'description': point.get('description', ''),
+            }
+            if 'date' in point:
+                stage['date'] = point['date']
+            stages.append(stage)
+        else:
+            label, description = _split_colon(point)
+            if label is None:
+                label = point
+                description = ''
+            stages.append({'label': label, 'description': description})
     return {'stages': stages}
 
 

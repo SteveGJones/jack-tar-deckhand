@@ -1,7 +1,7 @@
 {
   "name": "jack-tar-custom-smartart",
   "description": "Data visualisation and custom graphics — SVG, Mermaid, Vega-Lite, matplotlib charts",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": {
     "name": "Steve Jones"
   },

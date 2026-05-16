@@ -78,13 +78,28 @@ def render_timeline(data, container, tokens):
 
     elements = [spine]
 
+    date_font_size = max(9, min(11, int(label_font_size * 0.75)))
+    date_badge_y = label_top_y - 2 * (label_font_size + 2) - 4   # above the label area
+
     for i, (stage, col) in enumerate(zip(stages, cols)):
         label = stage.get('label', '')
         description = stage.get('description', '')
+        date_val = stage.get('date', '')
 
         node_cx, _ = col.center_point()
 
         elements.append(svg_circle(node_cx, spine_y, node_r, fill=primary))
+
+        # DATE BADGE (small superscript above label, if present)
+        if date_val:
+            elements.append(svg_text(
+                node_cx, date_badge_y,
+                _truncate(str(date_val), max_label_chars),
+                font_family=font,
+                font_size=date_font_size,
+                fill=primary,
+                anchor='middle',
+            ))
 
         # LABEL ABOVE (always — no alternation)
         # Allow up to 2 lines for the label
