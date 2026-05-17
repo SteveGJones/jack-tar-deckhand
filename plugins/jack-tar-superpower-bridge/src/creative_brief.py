@@ -32,6 +32,19 @@ DEFAULT_BUDGET_CAP_USD = 1.00
 # the register's default when both are set. See plan §2.2.
 VALID_STRAP_STYLES = {"all-caps-three-beat", "prose-sentence"}
 
+# Issue #87 — register presets. The set is duplicated here (rather than
+# imported from src.registers) to avoid a circular import: creative_brief
+# is a leaf module that the registers package depends on for VALID_STRAP_STYLES
+# semantics. The single source of truth lives in
+# :data:`src.registers.loader.KNOWN_REGISTERS`; the tests assert these stay
+# in sync.
+VALID_REGISTERS = {
+    "infographic-narrative",
+    "atmospheric-photo",
+    "schematic-diagram",
+    "editorial-mixed-case",
+}
+
 
 class CreativeBriefValidationError(ValueError):
     """Raised when a CreativeBrief fails validation or markdown parsing."""
@@ -52,6 +65,10 @@ class CreativeBrief:
     budget_cap_usd: float = DEFAULT_BUDGET_CAP_USD
     # Issue #93 — optional strap-style preference. None = persona chooses.
     strap_style: str | None = None
+    # Issue #87 — optional register preset name. When set, the persona uses
+    # the preset's palette / typography / layout / strap_style as defaults
+    # which per-deck fields may override.
+    register: str | None = None
 
     def __post_init__(self) -> None:
         if self.confidentiality not in VALID_CONFIDENTIALITY:
@@ -71,6 +88,11 @@ class CreativeBrief:
                 f"strap_style {self.strap_style!r} not in {VALID_STRAP_STYLES} "
                 f"(or None to defer to the persona)"
             )
+        if self.register is not None and self.register not in VALID_REGISTERS:
+            raise CreativeBriefValidationError(
+                f"register {self.register!r} not in {VALID_REGISTERS} "
+                f"(or None to defer to the persona)"
+            )
 
     def to_markdown(self) -> str:
         # Issue #93 — emit Strap style line only when explicitly set; absence
@@ -79,6 +101,11 @@ class CreativeBrief:
         strap_line = (
             f"Strap style: {self.strap_style}\n" if self.strap_style else ""
         )
+        # Issue #87 — emit Register line only when explicitly set; same rule
+        # as strap_style.
+        register_line = (
+            f"Register: {self.register}\n" if self.register else ""
+        )
         return (
             f"# Creative Brief\n\n"
             f"Topic: {self.topic}\n"
@@ -86,6 +113,7 @@ class CreativeBrief:
             f"Duration: {self.duration_minutes} min\n"
             f"Confidentiality: {self.confidentiality}\n"
             f"Budget cap: ${self.budget_cap_usd:.2f}\n"
+            f"{register_line}"
             f"{strap_line}"
             f"\n"
             f"## Section A — Narrative Architecture\n\n"
@@ -137,6 +165,11 @@ _HEADER_RE = re.compile(
 # unchanged.
 _STRAP_STYLE_RE = re.compile(
     rf"^{_BOLD}Strap style:{_BOLD}\s+(?P<strap_style>all-caps-three-beat|prose-sentence)\s*$",
+    re.MULTILINE,
+)
+# Issue #87 — optional Register line, same scoping rule.
+_REGISTER_RE = re.compile(
+    rf"^{_BOLD}Register:{_BOLD}\s+(?P<register>infographic-narrative|atmospheric-photo|schematic-diagram|editorial-mixed-case)\s*$",
     re.MULTILINE,
 )
 _ARC_RE = re.compile(rf"^{_BOLD}Arc:{_BOLD}\s+(?P<arc>.+?)$", re.MULTILINE)
@@ -206,12 +239,14 @@ def parse_brief_markdown(text: str) -> CreativeBrief:
     section_c = text[c_start:c_end]
     placeholder_instructions = section_c.split("\n", 1)[1].strip()
 
-    # Issue #93 — optional strap_style field. Search only the header region
-    # (text up to Section A) to avoid false-positive matches inside Section
-    # A/B/C narrative prose.
+    # Issue #93 / #87 — optional strap_style and register fields. Search only
+    # the header region (text up to Section A) to avoid false-positive matches
+    # inside Section A/B/C narrative prose.
     header_end = text.index("## Section A — Narrative Architecture")
     strap_match = _STRAP_STYLE_RE.search(text[:header_end])
     strap_style = strap_match.group("strap_style") if strap_match else None
+    register_match = _REGISTER_RE.search(text[:header_end])
+    register = register_match.group("register") if register_match else None
 
     return CreativeBrief(
         topic=header.group("topic").strip(),
@@ -226,6 +261,7 @@ def parse_brief_markdown(text: str) -> CreativeBrief:
         confidentiality=header.group("confidentiality"),
         budget_cap_usd=float(header.group("budget")),
         strap_style=strap_style,
+        register=register,
     )
 
 

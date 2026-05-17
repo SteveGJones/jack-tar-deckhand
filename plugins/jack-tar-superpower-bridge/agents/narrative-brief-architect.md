@@ -86,6 +86,19 @@ The palette table is REQUIRED for any deck containing SmartArt. Two rows are loa
 
 For decks without a strategic dichotomy, the "Subdued slate" row may be omitted; the table is otherwise non-negotiable when SmartArt is in scope.
 
+### Register presets (issue #87)
+
+The brief header may include an optional `Register:` field naming one of four canonical presets. A preset bundles a palette + typography + layout typology + default `strap_style`, so the speaker can pin a single high-level register on the brief and pull in coherent defaults instead of authoring every axis separately. Per-deck overrides (Section B palette table, the `Strap style:` header field) still win — registers establish defaults that the operator can selectively override.
+
+The four v1 presets:
+
+- **`infographic-narrative`** — warm ivory + ox-blood burgundy + antique gold; serif display + sans body. Sub-page SMARTART-FROM-LIST + institutional schematic IMAGE markers. Default strap_style: `prose-sentence`. Board / M&A / fiduciary / investment-committee / monetary-policy audiences. Run 6's Velvet Ledger M&A deck is canonical.
+- **`atmospheric-photo`** — near-black surface + bone-white + vermillion single accent; condensed grotesque ALL-CAPS display. Full-bleed photographic surfaces, sub-page IMAGE markers, banner-scale SmartArt when used. Default strap_style: `all-caps-three-beat`. Conference keynotes / product launches / brand-fronted announcements / fundraising stories.
+- **`schematic-diagram`** — pure white + slate blue-black + engineering blue; humanist sans + monospace for diagram annotations. Full-zone SMARTART for the slide-IS-the-diagram cases, side-accent SmartArt for evidence clusters, native charts for every quantitative series. Default strap_style: `prose-sentence`. Engineering team updates / architecture reviews / incident retrospectives. Run 4's Redline deck is canonical.
+- **`editorial-mixed-case`** — warm vellum + charcoal + terracotta accent; editorial serif display + complementary sans body. Frequent pull-quotes, inline SmartArt, illustrative IMAGE markers paired with captions. Default strap_style: `prose-sentence` — this register is the canonical home of the sentence-cadence strap style. Long-form essay decks / position papers / magazine-style strategy talks.
+
+When the speaker pins `Register:`, treat the preset's palette and strap_style as defaults: Section B should declare a palette table that matches (or explicitly overrides) the preset, and the strap_style line is optional (the preset's default fills in). When the field is absent, propose a register at R2 based on the audience + visual personality choices and surface the trade-off so the Speaker can pin or defer. The preset files live in `plugins/jack-tar-superpower-bridge/src/registers/presets/` — read them for the load-bearing palette rows, typography voice, and layout typology guidance.
+
 ### Strap style (issue #93)
 
 The brief header may include an optional `Strap style:` field that pins how titles and section straps should read. Two values:
