@@ -78,6 +78,8 @@ This repository is now a **5-plugin Claude Code marketplace**. The presentation 
 
 The original `src/` directory remains as the development source of truth. Plugin directories contain copies that are distributed.
 
+**Optional cross-plugin integration:** `jack-tar-deckhand` v1.4.0+ routes slides classified as `academic_figure` (Figure-N captions, equations, citations, ablation studies, ML architecture diagrams) through the [paperbanana](https://github.com/SteveGJones/paperbanana) plugin's `/generate-diagram` skill when it is installed. When paperbanana is absent the bridge falls back to Nano Banana Flash 1K with academic-figure prompting — pipelines never break on absent optional plugins. ADR + operator install guide: [`docs/architecture/paperbanana-integration.md`](docs/architecture/paperbanana-integration.md).
+
 ## Project: Jack-Tar Deckhand
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
