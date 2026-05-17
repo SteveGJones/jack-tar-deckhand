@@ -25,6 +25,12 @@ from google import genai
 from google.genai.types import GenerateContentConfig, GenerateImagesConfig, ImageConfig
 from openai import OpenAI
 
+# Issue #92 — safety-filter softening vocab for retry path
+try:
+    from .safety_filter_vocab import soften_prompt
+except ImportError:  # pragma: no cover - direct-script execution path
+    from safety_filter_vocab import soften_prompt
+
 logger = logging.getLogger(__name__)
 
 
@@ -130,6 +136,62 @@ class ProviderResolutionUnsupportedError(ValueError):
             f"{provider}/{model} does not support resolution={requested!r}. "
             f"Supported: {supported}. Retry with one of those, or pick a "
             f"different model."
+        )
+
+
+class SafetyFilterTriggeredError(Exception):
+    """Raised on an internal provider call when the safety filter rejects a prompt.
+
+    Issue #92 — Google Nano Banana + Imagen return an empty ``candidates``
+    list (no error code, no exception from the SDK) when their safety filter
+    blocks a generation. We surface this as a named exception so the public
+    :func:`generate_cloud_image` retry layer can soften the prompt and retry.
+
+    This exception is internal to a single dispatch attempt. Public callers
+    catch :class:`SafetyFilterExhaustedError` instead.
+
+    Borrow note: empty-candidates guard pattern adapted from paperbanana
+    ``providers/image_gen/google_imagen.py:128-135`` (MIT-licensed).
+    """
+
+    def __init__(self, prompt, provider, model):
+        self.prompt = prompt
+        self.provider = provider
+        self.model = model
+        super().__init__(
+            f"{provider}/{model} returned no image candidates — safety filter "
+            f"likely triggered for prompt of length {len(prompt)}. The retry "
+            "layer will soften the prompt and try again."
+        )
+
+
+class SafetyFilterExhaustedError(Exception):
+    """Raised when softening retries cannot recover a safety-filtered prompt.
+
+    Issue #92 — after the retry layer has softened the prompt N times and the
+    provider still returns no candidates, we give up and raise this. The
+    caller decides whether to surface to the operator, escalate to a different
+    provider, or accept partial output.
+
+    Attributes:
+        original_prompt: the prompt as first received.
+        attempts: list of ``{prompt, attempt_index}`` dicts capturing every
+            softening pass that was tried. Useful for forensic review when
+            an operator complains that "the cloud just won't render this".
+        provider: which provider rejected.
+        model: which model rejected.
+    """
+
+    def __init__(self, original_prompt, attempts, provider, model):
+        self.original_prompt = original_prompt
+        self.attempts = attempts
+        self.provider = provider
+        self.model = model
+        super().__init__(
+            f"{provider}/{model} rejected the prompt after {len(attempts)} "
+            "softening attempts. The safety filter could not be appeased. "
+            "Consider rewriting the prompt manually, switching providers, or "
+            "overriding the softening vocab via SAFETY_FILTER_VOCAB_PATH."
         )
 
 
@@ -678,6 +740,14 @@ def _generate_via_nano_banana(client, model, prompt, resolution='1K'):
         config=config,
     )
 
+    # Issue #92 — Google safety filter returns an empty candidates list
+    # rather than an explicit error. Raise a typed exception so the public
+    # generate_cloud_image retry layer can soften the prompt and retry.
+    if not getattr(response, 'candidates', None):
+        raise SafetyFilterTriggeredError(
+            prompt=prompt, provider='google', model=model,
+        )
+
     for part in response.candidates[0].content.parts:
         if part.inline_data and part.inline_data.mime_type.startswith('image/'):
             return part.inline_data.data
@@ -714,6 +784,14 @@ def _generate_via_imagen(client, model, prompt, aspect_ratio, resolution):
         prompt=prompt,
         config=config,
     )
+
+    # Issue #92 — empty generated_images list signals safety-filter rejection
+    # for the Imagen path (analogous to the empty-candidates pattern on Nano
+    # Banana). Raise the typed exception so the retry layer can soften.
+    if not getattr(response, 'generated_images', None):
+        raise SafetyFilterTriggeredError(
+            prompt=prompt, provider='google', model=model,
+        )
 
     return response.generated_images[0].image.image_bytes
 
@@ -1225,7 +1303,29 @@ _PROVIDERS = {
 }
 
 
+_MAX_SAFETY_FILTER_RETRIES = 3
+
+
 @retry_on_connection_reset()
+def _generate_cloud_image_single_attempt(prompt, provider, output_path, *, resolution='1K', **kwargs):
+    """Single dispatch attempt — provider call + connection-reset retry only.
+
+    Internal helper. The public :func:`generate_cloud_image` wraps this with a
+    safety-filter softening loop. Separating the layers keeps the
+    connection-reset retry (Finding #16) and the safety-filter retry
+    (Issue #92) independent — each can fire without interfering with the
+    other.
+    """
+    if provider not in _PROVIDERS:
+        raise ValueError(
+            f"Unknown provider '{provider}'. "
+            f"Available: {list(_PROVIDERS)}"
+        )
+    return _PROVIDERS[provider](
+        prompt, output_path, resolution=resolution, **kwargs,
+    )
+
+
 def generate_cloud_image(prompt, provider, output_path, *, resolution='1K', **kwargs):
     """Generate an image using the specified cloud provider at the requested resolution.
 
@@ -1248,18 +1348,52 @@ def generate_cloud_image(prompt, provider, output_path, *, resolution='1K', **kw
         ValueError: If provider is unknown or resolution string is invalid.
         ProviderNotConfiguredError: If provider credentials are missing.
         ProviderResolutionUnsupportedError: provider/model can't honour resolution.
+        SafetyFilterExhaustedError: Google safety filter rejected the prompt
+            (and every softened retry). Other providers do not raise this.
 
-    Connection resilience (Run 6 Finding #16): the dispatcher is wrapped in
-    ``retry_on_connection_reset`` so transient TCP resets from third-party
-    APIs do not abort the bridge's enrichment cycle. Three attempts with
-    1s/2s/5s backoff. Non-connection failures (auth errors, quota limits,
-    ValueError, ProviderResolutionUnsupportedError) propagate immediately.
+    Resilience layers:
+        - Connection resets (Run 6 Finding #16): inner ``retry_on_connection_reset``
+          wrapper handles transient TCP failures. Three attempts with
+          1s/2s/5s backoff. Non-connection failures propagate.
+        - Safety-filter rejection (Issue #92): on
+          :class:`SafetyFilterTriggeredError`, the prompt is softened via
+          :func:`src.safety_filter_vocab.soften_prompt` and the call is
+          retried. Up to ``_MAX_SAFETY_FILTER_RETRIES`` softening attempts;
+          on final failure raises :class:`SafetyFilterExhaustedError` with
+          the full attempt history attached.
     """
-    if provider not in _PROVIDERS:
-        raise ValueError(
-            f"Unknown provider '{provider}'. "
-            f"Available: {list(_PROVIDERS)}"
-        )
-    return _PROVIDERS[provider](
-        prompt, output_path, resolution=resolution, **kwargs,
-    )
+    current_prompt = prompt
+    attempts: list[dict] = []
+    last_provider = provider
+    last_model = kwargs.get('model')
+    for attempt_index in range(_MAX_SAFETY_FILTER_RETRIES + 1):
+        try:
+            return _generate_cloud_image_single_attempt(
+                current_prompt, provider, output_path,
+                resolution=resolution, **kwargs,
+            )
+        except SafetyFilterTriggeredError as exc:
+            attempts.append({
+                'attempt_index': attempt_index,
+                'prompt': current_prompt,
+                'provider': exc.provider,
+                'model': exc.model,
+            })
+            last_provider = exc.provider
+            last_model = exc.model
+            if attempt_index >= _MAX_SAFETY_FILTER_RETRIES:
+                raise SafetyFilterExhaustedError(
+                    original_prompt=prompt,
+                    attempts=attempts,
+                    provider=last_provider,
+                    model=last_model,
+                ) from exc
+            softened = soften_prompt(current_prompt)
+            logger.warning(
+                "Safety filter triggered on attempt %d (provider=%s model=%s). "
+                "Softening prompt and retrying. Softened length=%d.",
+                attempt_index + 1, exc.provider, exc.model, len(softened),
+            )
+            current_prompt = softened
+    # Unreachable — loop either returns or raises.
+    raise RuntimeError("safety-filter retry loop exited without return")
