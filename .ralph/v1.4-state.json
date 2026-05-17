@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "started_at": "2026-05-17T05:50:05Z",
-  "last_updated_at": "2026-05-17T14:45:00Z",
+  "last_updated_at": "2026-05-17T15:05:00Z",
   "status": "in_progress",
-  "current_phase": "phase_3_e4_persona_docs",
+  "current_phase": "phase_3_e5_adr",
   "current_step": "not_started",
   "verification_budget_usd": 5.0,
   "verification_spent_usd": 0.0,
@@ -56,8 +56,13 @@
       "tests": "3 new tests pass; 103/103 deckhand suite green"
     },
     "phase_3_e4_persona_docs": {
-      "status": "not_started",
-      "budget_envelope_usd": 0.0
+      "status": "done",
+      "budget_envelope_usd": 0.0,
+      "artifacts": [
+        "plugins/jack-tar-deckhand/skills/narrative-architect/SKILL.md (Optional: academic-figure strategy annotation section)",
+        "plugins/jack-tar-deckhand/agents/smartart-selector.md (Academic-figure deferral rule section before Gantt criteria)"
+      ],
+      "tests": "docs-only change; 103/103 deckhand suite still green"
     },
     "phase_3_e5_adr": {
       "status": "not_started",
@@ -116,10 +121,11 @@
     "phase_2b_register_presets",
     "phase_3_e1_strategy",
     "phase_3_e2_dispatch",
-    "phase_3_e3_verify"
+    "phase_3_e3_verify",
+    "phase_3_e4_persona_docs"
   ],
   "blocker": null,
-  "iteration_count": 7,
+  "iteration_count": 8,
   "working_branch": "feat/v1.4-push-and-paperbanana",
   "_notes": [
     "Total budget envelope across all phases: $2.35 (well under $5.00 cap).",
