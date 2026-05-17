@@ -1,17 +1,3 @@
 # Loop Summary
 
-**Status:** Completed successfully
-**Iterations:** 5
-**Duration:** 35m 15s
-
-## Tasks
-
-_No scratchpad found._
-
-## Events
-
-_No events recorded._
-
-## Final Commit
-
-038e5e9: fix: QA thresholds for screen presentations and image-based slides
+_Reset after failed iter-6 termination on 2026-05-17. Awaiting next loop start._
