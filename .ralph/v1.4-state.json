@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "started_at": "2026-05-17T05:50:05Z",
-  "last_updated_at": "2026-05-17T15:05:00Z",
+  "last_updated_at": "2026-05-17T14:23:41Z",
   "status": "in_progress",
-  "current_phase": "phase_3_e5_adr",
+  "current_phase": "phase_3_e6_dogfood",
   "current_step": "not_started",
   "verification_budget_usd": 5.0,
   "verification_spent_usd": 0.0,
@@ -65,8 +65,13 @@
       "tests": "docs-only change; 103/103 deckhand suite still green"
     },
     "phase_3_e5_adr": {
-      "status": "not_started",
-      "budget_envelope_usd": 0.0
+      "status": "done",
+      "budget_envelope_usd": 0.0,
+      "artifacts": [
+        "docs/architecture/paperbanana-integration.md",
+        "CLAUDE.md (plugin table optional cross-plugin integration note)"
+      ],
+      "tests": "docs-only change; 103/103 deckhand suite still green"
     },
     "phase_3_e6_dogfood": {
       "status": "not_started",
@@ -125,7 +130,7 @@
     "phase_3_e4_persona_docs"
   ],
   "blocker": null,
-  "iteration_count": 8,
+  "iteration_count": 9,
   "working_branch": "feat/v1.4-push-and-paperbanana",
   "_notes": [
     "Total budget envelope across all phases: $2.35 (well under $5.00 cap).",
