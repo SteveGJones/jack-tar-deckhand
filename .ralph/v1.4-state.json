@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
   "started_at": "2026-05-17T05:50:05Z",
-  "last_updated_at": "2026-05-17T06:10:05Z",
+  "last_updated_at": "2026-05-17T14:15:00Z",
   "status": "in_progress",
-  "current_phase": null,
-  "current_step": null,
+  "current_phase": "phase_3_e3_verify",
+  "current_step": "not_started",
   "verification_budget_usd": 5.0,
   "verification_spent_usd": 0.0,
   "verification_calls": [],
@@ -37,8 +37,14 @@
       "budget_envelope_usd": 0.0
     },
     "phase_3_e2_dispatch": {
-      "status": "not_started",
-      "budget_envelope_usd": 0.0
+      "status": "done",
+      "budget_envelope_usd": 0.0,
+      "artifacts": [
+        "plugins/jack-tar-deckhand/src/paperbanana_dispatch.py",
+        "plugins/jack-tar-deckhand/tests/test_paperbanana_dispatch.py",
+        "plugins/jack-tar-deckhand/skills/imagegen-bridge/SKILL.md (Step 4.6 academic_figure branch)"
+      ],
+      "tests": "14 new tests pass; 100/100 deckhand suite green"
     },
     "phase_3_e3_verify": {
       "status": "not_started",
@@ -103,10 +109,11 @@
     "phase_1_cloud_safety_filter",
     "phase_2a_strap_style",
     "phase_2b_register_presets",
-    "phase_3_e1_strategy"
+    "phase_3_e1_strategy",
+    "phase_3_e2_dispatch"
   ],
   "blocker": null,
-  "iteration_count": 5,
+  "iteration_count": 6,
   "working_branch": "feat/v1.4-push-and-paperbanana",
   "_notes": [
     "Total budget envelope across all phases: $2.35 (well under $5.00 cap).",

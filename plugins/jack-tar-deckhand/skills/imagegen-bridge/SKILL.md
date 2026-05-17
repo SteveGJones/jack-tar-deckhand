@@ -126,6 +126,7 @@ Parse the budget state. The `state` field is one of: `allow`, `allow_with_caps`,
 
 If a strategy map exists, check each slide's strategy before routing:
 - **full_render** or **backdrop_render** slides: Use the three-stage render funnel. Dispatch the `prompt-engineer` agent (Haiku model) with a structured brief from `assemble_brief()`, then render through Ollama → cloud_low → cloud_full stages.
+- **academic_figure** slides: Route through the paperbanana cross-skill dispatch — see **Step 4.6** below.
 - **composed** slides: Use the standard routing matrix (unchanged).
 
 Use the image router to determine which skill handles each slide:
@@ -197,6 +198,91 @@ import json; print(json.dumps(result, indent=2))
 
 4. After Stage 1 (Ollama), **view the generated image** (Read tool) and assess it using the per-image review criteria in Step 7. If not acceptable, refine the prompt and retry (up to 10 iterations — Ollama is free). Save each attempt as `slide-NN-hero-vN.png`.
 5. After Stage 2 (cloud_low), view and assess. If acceptable, proceed to Stage 3 (cloud_full). If not, refine and retry (up to 3 iterations — cloud costs money).
+
+### Step 4.6: Academic Figure Dispatch (paperbanana cross-skill route)
+
+For slides whose strategy is `academic_figure` (set by the strategy
+classifier — see `src/strategy_classifier.py`, paperbanana E1), the
+bridge routes through paperbanana's `/generate-diagram` skill when
+paperbanana is installed, and falls back to a cloud render with
+academic-figure-aware prompting when it is not.
+
+The decision is built by `src/paperbanana_dispatch.py`. Use it from
+the bridge as the single source of truth — do NOT duplicate the
+availability check inline.
+
+1. **Build the dispatch payload**:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.paperbanana_dispatch import build_dispatch_payload, build_manifest_entry
+
+with open('./tmp/deck/outline.json') as f:
+    outline = json.load(f)
+with open('./tmp/deck/style-guide.json') as f:
+    style_guide = json.load(f)
+
+slide = next(s for s in outline['slides'] if s['slide_number'] == $SLIDE_NUMBER)
+dispatch = build_dispatch_payload(
+    slide,
+    output_dir='./tmp/deck/images',
+    style_guide=style_guide,
+)
+print(json.dumps({
+    'available': dispatch.available,
+    'skill': dispatch.skill,
+    'args': dispatch.args,
+    'output_path': dispatch.output_path,
+    'fallback_provider': dispatch.fallback_provider,
+    'fallback_model': dispatch.fallback_model,
+    'fallback_reason': dispatch.fallback_reason,
+}))
+"
+```
+
+2. **If `dispatch.available` is true** — dispatch paperbanana via the
+   Skill tool. The dispatched skill writes the rendered figure to
+   `dispatch.output_path`:
+
+```
+Skill(
+  skill="paperbanana:generate-diagram",
+  args=<JSON of dispatch.args>,
+)
+```
+
+   After the skill returns, dispatch the `image-reviewer` agent on
+   `dispatch.output_path` to verify quality (single pass — paperbanana
+   does its own internal iteration). If the reviewer returns `pass`,
+   record a manifest entry via `build_manifest_entry(dispatch,
+   dispatch_succeeded=True, content_hash=<sha256>)`.
+
+3. **If `dispatch.available` is false** — log a warning containing
+   `dispatch.fallback_reason` and fall back to the cloud path with
+   `--provider $FALLBACK_PROVIDER --model $FALLBACK_MODEL`. Generate
+   the image, run it through the standard `image-reviewer` cycle
+   (Step 7), and record the manifest entry via
+   `build_manifest_entry(dispatch, dispatch_succeeded=...)` so the
+   `backend: "cloud_fallback"` marker survives into the manifest.
+   This is the **documented expected degradation path** when
+   paperbanana is not installed locally — not an error.
+
+4. **Skip Step 5 (cache) and Step 6 (prompt translation)** for
+   academic_figure slides. The cache key composition is paperbanana-
+   specific and the prompt translation is owned by paperbanana itself
+   (or by the cloud-fallback path's own prompt assembly).
+
+5. **Always include `source_prompt`** in the manifest entry — the
+   `build_manifest_entry` helper handles this. Production-upgrade-plan
+   needs it to re-render at higher quality without regenerating the
+   prompt.
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly.
+> If you need to verify an image, dispatch the
+> `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or
+> the `general-purpose` subagent (Sonnet, higher accuracy). Both
+> subagents pull the image into THEIR context and return text.
 
 ## Step 5: Check Cache for Each Image
 
