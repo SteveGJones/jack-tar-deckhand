@@ -86,6 +86,15 @@ The palette table is REQUIRED for any deck containing SmartArt. Two rows are loa
 
 For decks without a strategic dichotomy, the "Subdued slate" row may be omitted; the table is otherwise non-negotiable when SmartArt is in scope.
 
+### Strap style (issue #93)
+
+The brief header may include an optional `Strap style:` field that pins how titles and section straps should read. Two values:
+
+- **`prose-sentence`** — full sentence-case prose straps. Example: "The growth plan we already validated." Best for QBRs, engineering retrospectives, board updates, and other internal / formal registers where a measured cadence matches the audience.
+- **`all-caps-three-beat`** — short uppercase straps in a three-beat cadence. Example: "BIG. BOLD. CLEAR." Best for conference keynotes with a strong visual identity, brand-fronted announcements, and decks where the strap is itself a graphic element.
+
+When the speaker pins `Strap style:` in the brief header, Section B should mention the choice ("Straps follow a prose-sentence cadence to match the board register" or "Straps are three-beat caps for keynote impact") so /pptx authors strap text accordingly. When the field is absent, choose based on the deck's register and audience (default to `prose-sentence` for internal / strategy / leadership work; reach for `all-caps-three-beat` only when the visual identity is explicitly bold and the audience is conference-scale). If the brief uses an `editorial-mixed-case` register (issue #87), the register supplies `strap_style: prose-sentence` as its default; the per-deck field overrides the register's default when both are set.
+
 ## Section C — Placeholder Instructions
 
 <Free-form instructions to the /pptx superpower describing the kinds of content that should carry markers. Mention BG / IMAGE / SMARTART-FROM-LIST / SMARTART marker types as a toolkit, with rough counts. Do NOT enumerate per-slide markers — let /pptx decide where they go based on its content.>

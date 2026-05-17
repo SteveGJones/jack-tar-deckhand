@@ -18,6 +18,20 @@ from pathlib import Path
 VALID_CONFIDENTIALITY = {"public", "internal", "restricted"}
 DEFAULT_BUDGET_CAP_USD = 1.00
 
+# Issue #93 — fine-grained per-deck strap-style override. The persona picks
+# when this is None (the historical default); the speaker pins it explicitly
+# when they want a specific register. Two values:
+#   - "all-caps-three-beat" — short uppercase straps in a three-beat cadence
+#     (e.g. "BIG. BOLD. CLEAR."). Best for conference keynotes with a strong
+#     visual identity.
+#   - "prose-sentence" — full sentence-case prose straps (e.g. "The growth
+#     plan we already validated"). Best for QBRs, engineering updates, and
+#     other internal / formal registers.
+# Cluster B overlap: the #87 ``editorial-mixed-case`` register declares a
+# default ``strap_style: prose-sentence``; #93's per-deck field overrides
+# the register's default when both are set. See plan §2.2.
+VALID_STRAP_STYLES = {"all-caps-three-beat", "prose-sentence"}
+
 
 class CreativeBriefValidationError(ValueError):
     """Raised when a CreativeBrief fails validation or markdown parsing."""
@@ -36,6 +50,8 @@ class CreativeBrief:
     placeholder_instructions: str
     confidentiality: str = "public"
     budget_cap_usd: float = DEFAULT_BUDGET_CAP_USD
+    # Issue #93 — optional strap-style preference. None = persona chooses.
+    strap_style: str | None = None
 
     def __post_init__(self) -> None:
         if self.confidentiality not in VALID_CONFIDENTIALITY:
@@ -50,15 +66,28 @@ class CreativeBrief:
             raise CreativeBriefValidationError(
                 f"budget_cap_usd must be non-negative, got {self.budget_cap_usd}"
             )
+        if self.strap_style is not None and self.strap_style not in VALID_STRAP_STYLES:
+            raise CreativeBriefValidationError(
+                f"strap_style {self.strap_style!r} not in {VALID_STRAP_STYLES} "
+                f"(or None to defer to the persona)"
+            )
 
     def to_markdown(self) -> str:
+        # Issue #93 — emit Strap style line only when explicitly set; absence
+        # signals "persona chooses" so we don't bake an artificial default into
+        # the saved markdown.
+        strap_line = (
+            f"Strap style: {self.strap_style}\n" if self.strap_style else ""
+        )
         return (
             f"# Creative Brief\n\n"
             f"Topic: {self.topic}\n"
             f"Audience: {self.audience}\n"
             f"Duration: {self.duration_minutes} min\n"
             f"Confidentiality: {self.confidentiality}\n"
-            f"Budget cap: ${self.budget_cap_usd:.2f}\n\n"
+            f"Budget cap: ${self.budget_cap_usd:.2f}\n"
+            f"{strap_line}"
+            f"\n"
             f"## Section A — Narrative Architecture\n\n"
             f"**Arc:** {self.narrative_arc}\n\n"
             f"{self.narrative_detail}\n\n"
@@ -101,6 +130,13 @@ _HEADER_RE = re.compile(
     rf"{_BOLD}Duration:{_BOLD}\s+(?P<duration>\d+)\s*min\n"
     rf"{_BOLD}Confidentiality:{_BOLD}\s+(?P<confidentiality>public|internal|restricted)\n"
     rf"{_BOLD}Budget cap:{_BOLD}\s+\$(?P<budget>[0-9]+(?:\.[0-9]+)?)",
+    re.MULTILINE,
+)
+# Issue #93 — optional per-deck strap_style line. Searched independently
+# of the strict header regex so legacy briefs (no Strap style line) parse
+# unchanged.
+_STRAP_STYLE_RE = re.compile(
+    rf"^{_BOLD}Strap style:{_BOLD}\s+(?P<strap_style>all-caps-three-beat|prose-sentence)\s*$",
     re.MULTILINE,
 )
 _ARC_RE = re.compile(rf"^{_BOLD}Arc:{_BOLD}\s+(?P<arc>.+?)$", re.MULTILINE)
@@ -170,6 +206,13 @@ def parse_brief_markdown(text: str) -> CreativeBrief:
     section_c = text[c_start:c_end]
     placeholder_instructions = section_c.split("\n", 1)[1].strip()
 
+    # Issue #93 — optional strap_style field. Search only the header region
+    # (text up to Section A) to avoid false-positive matches inside Section
+    # A/B/C narrative prose.
+    header_end = text.index("## Section A — Narrative Architecture")
+    strap_match = _STRAP_STYLE_RE.search(text[:header_end])
+    strap_style = strap_match.group("strap_style") if strap_match else None
+
     return CreativeBrief(
         topic=header.group("topic").strip(),
         audience=header.group("audience").strip(),
@@ -182,6 +225,7 @@ def parse_brief_markdown(text: str) -> CreativeBrief:
         placeholder_instructions=placeholder_instructions,
         confidentiality=header.group("confidentiality"),
         budget_cap_usd=float(header.group("budget")),
+        strap_style=strap_style,
     )
 
 

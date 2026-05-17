@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "started_at": "2026-05-17T05:50:05Z",
-  "last_updated_at": "2026-05-17T05:57:43Z",
+  "last_updated_at": "2026-05-17T06:01:55Z",
   "status": "in_progress",
   "current_phase": null,
   "current_step": null,
@@ -21,9 +21,10 @@
       "budget_envelope_usd": 0.0
     },
     "phase_2a_strap_style": {
-      "status": "not_started",
+      "status": "done",
       "issue": "#93",
-      "budget_envelope_usd": 0.0
+      "budget_envelope_usd": 0.0,
+      "verification_gate": "passed_3_of_3_scenarios"
     },
     "phase_2b_register_presets": {
       "status": "not_started",
@@ -98,10 +99,11 @@
   ],
   "completed_phases": [
     "phase_0_discipline_hook",
-    "phase_1_cloud_safety_filter"
+    "phase_1_cloud_safety_filter",
+    "phase_2a_strap_style"
   ],
   "blocker": null,
-  "iteration_count": 2,
+  "iteration_count": 3,
   "working_branch": "feat/v1.4-push-and-paperbanana",
   "_notes": [
     "Total budget envelope across all phases: $2.35 (well under $5.00 cap).",
