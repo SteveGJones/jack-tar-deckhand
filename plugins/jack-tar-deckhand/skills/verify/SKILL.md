@@ -1,7 +1,7 @@
 ---
 name: verify
 description: Meta-verify — discover all jack-tar engine plugins, call each verify, report aggregate pipeline capability and discipline-hook readiness.
-allowed-tools: Bash(python *), Bash(node *), Bash(echo *), Bash(test *), Skill
+allowed-tools: Bash(python *), Bash(python3 *), Bash(node *), Bash(echo *), Bash(test *), Skill
 ---
 
 # /verify
@@ -29,6 +29,34 @@ Invoke each in sequence:
 
 For each, extract the STATUS line from the output.
 
+## Step 2.5: Detect optional skill plugins (paperbanana)
+
+Paperbanana is an optional skill plugin that handles the `academic_figure`
+rendering strategy (publication-quality scientific figures via dedicated
+diagram generation). It is NOT a jack-tar engine plugin — it does not
+expose its own `:verify` skill — so detection runs locally against the
+filesystem via the helper in `src/paperbanana_dispatch.py`.
+
+```bash
+python3 -c "
+import sys
+sys.path.insert(0, '${CLAUDE_PLUGIN_ROOT}/src')
+from paperbanana_dispatch import is_paperbanana_available
+print('AVAILABLE' if is_paperbanana_available() else 'NOT_AVAILABLE')
+" 2>/dev/null || echo "ERROR"
+```
+
+The helper checks (in order):
+
+1. `$PAPERBANANA_ROOT` environment override pointing at the plugin dir.
+2. `~/.claude/plugins/cache/paperbanana/.claude-plugin/plugin.json`.
+3. `~/.claude/plugins/paperbanana/.claude-plugin/plugin.json`.
+
+When paperbanana is `NOT_AVAILABLE`, the imagegen-bridge's
+`academic_figure` branch (Step 4.6 in `skills/imagegen-bridge/SKILL.md`)
+falls back to Nano Banana Flash 1K with academic-figure-aware prompting
+— the pipeline still produces a figure, just not at publication tier.
+
 ## Step 3: Determine pipeline capabilities
 
 Based on engine plugin availability:
@@ -36,6 +64,7 @@ Based on engine plugin availability:
 - **Production images:** READY if jack-tar-cloud is FULLY_AVAILABLE or PARTIALLY_AVAILABLE
 - **Editable SmartArt:** READY if jack-tar-msft-smartart is FULLY_AVAILABLE
 - **Custom graphics:** READY if jack-tar-custom-smartart is FULLY_AVAILABLE or PARTIALLY_AVAILABLE
+- **Academic figures:** READY if paperbanana detected (Step 2.5); FALLBACK if not detected (cloud Flash 1K with academic-figure prompting still produces a figure, just not publication-tier)
 - **Deck assembly:** READY if pptxgenjs is installed
 - **QA checks:** always READY (built into this plugin)
 
@@ -104,11 +133,15 @@ ENGINE PLUGINS:
   jack-tar-msft-smartart:    FULLY_AVAILABLE
   jack-tar-custom-smartart:  NOT_AVAILABLE
 
+OPTIONAL SKILL PLUGINS:
+  paperbanana:               NOT_AVAILABLE (academic_figure will use Flash 1K fallback)
+
 PIPELINE CAPABILITY:
   Draft images:      READY (ollama available)
   Production images: READY (cloud partially available)
   Editable SmartArt: READY (msft-smartart available)
   Custom graphics:   NOT_READY (custom-smartart not available)
+  ACADEMIC FIGURE:   FALLBACK (paperbanana not detected — Flash 1K academic-figure prompting)
   Deck assembly:     READY (pptxgenjs installed)
   QA checks:         READY
 
