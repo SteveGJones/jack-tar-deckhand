@@ -509,6 +509,40 @@ End every iteration with:
 2. Either: commit made AND clean working tree, OR no code changes since last commit.
 3. A one-line summary to stdout: `Iteration <N> complete — phase=<X> step=<Y> spent=$<Z>`.
 
+### 12.1 NEVER stage ephemeral Ralph state into code commits
+
+The files under `.ralph/agent/` and the run-pointer files at `.ralph/` are **per-iteration scratch state**. Ralph itself mutates them every iteration. If they get caught in a code commit and land empty/deleted, the next iteration recovers from nothing and the loop can spiral into `consecutive_failures` (this is exactly what killed iter 6 on 2026-05-17 — the scratchpad got committed-as-deleted in a previous iteration's broad `git add`, and recovery never converged).
+
+**Never include in a code commit** (and never use `git add .` or `git add -A` in a Ralph iteration):
+
+- `.ralph/agent/scratchpad.md`
+- `.ralph/agent/summary.md`
+- `.ralph/agent/handoff.md`
+- `.ralph/agent/tasks.jsonl`
+- `.ralph/agent/memories.md`
+- `.ralph/agent/*.lock`
+- `.ralph/loop.lock`
+- `.ralph/current-events`
+- `.ralph/current-loop-id`
+- `.ralph/events-*.jsonl`
+- `.ralph/history.jsonl`
+
+**Always stage code commits by explicit path.** Examples:
+
+- GOOD: `git add plugins/jack-tar-cloud/src/safety_filter_vocab.py plugins/jack-tar-cloud/.claude-plugin/plugin.json`
+- BAD: `git add .`  ← sweeps in scratchpad
+- BAD: `git add -A`  ← sweeps in scratchpad + lock files
+- BAD: `git commit -a`  ← same problem, scoped to tracked files but still grabs scratchpad
+
+**Verify before every commit**: run `git diff --cached --name-only` and confirm zero `.ralph/agent/` or `.ralph/loop.lock` / `.ralph/current-*` / `.ralph/events-*` / `.ralph/history.jsonl` entries appear. If any do, `git restore --staged <path>` them before committing.
+
+The ONLY files Ralph ever commits from `.ralph/` are:
+
+- `.ralph/v1.4-state.json` (your authoritative progress record — committed at the end of each phase)
+- `.ralph/v1.4-blocker.md` (only when escalating via §8)
+
+"Clean working tree" in §12 step 2 refers to **code changes**, not to ephemeral agent state. The agent scratchpad SHOULD remain dirty at end of iteration — that's its job. Do not "clean" it by committing.
+
 This is the contract Ralph relies on. Honour it.
 
 ---
