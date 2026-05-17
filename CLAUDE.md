@@ -40,6 +40,16 @@ The hook is auto-installed when the plugin is enabled — no separate setup. Ver
 
 This rule was reaffirmed 2026-05-07 during the blog-post asset run when 9 PNGs were Read directly into context before the operator caught it. Memory alone does not bind; the harness has to.
 
+### Subagent-scope gap (issue #86, confirmed 2026-05-17)
+
+The `PreToolUse` hook governs the **orchestration session only**. It does **not** propagate into `Task`-dispatched subagent sessions — a synthetic test on 2026-05-17 confirmed that a `general-purpose` Haiku subagent successfully `Read` a PNG with the parent plugin's hook active. See `docs/architecture/discipline-hook-propagation.md` for the test evidence and root-cause analysis.
+
+**Soft-policy mitigation in force**: every delegated implementation prompt that may touch generated images MUST inline this reminder near the top of the prompt:
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly. If you need to verify an image, dispatch the `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or the `general-purpose` subagent (Sonnet, higher accuracy). Both subagents pull the image into THEIR context and return text.
+
+`image-reviewer` and `general-purpose` agents are themselves exempt — giving them the image IS the dispatch's purpose. Orchestrators reviewing PRs should verify that delegated implementation prompts include the inline rule when image handling is in scope.
+
 ## MANDATORY: Model routing for delegated agents
 
 **Spawn `claude-haiku-4-5` for lightweight tasks**: mechanical transforms, quick format checks, simple lookups, boilerplate fills, command line calls and MCP server calls.

@@ -1,67 +1,68 @@
 {
   "schema_version": "1.0",
-  "started_at": null,
-  "last_updated_at": null,
-  "status": "not_started",
+  "started_at": "2026-05-17T05:50:05Z",
+  "last_updated_at": "2026-05-17T05:51:44Z",
+  "status": "in_progress",
   "current_phase": null,
   "current_step": null,
-  "verification_budget_usd": 5.00,
-  "verification_spent_usd": 0.00,
+  "verification_budget_usd": 5.0,
+  "verification_spent_usd": 0.0,
   "verification_calls": [],
   "phases": {
     "phase_0_discipline_hook": {
-      "status": "not_started",
+      "status": "done",
       "issue": "#86",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0,
+      "finding": "hook does NOT propagate to Task subagents; soft-policy mitigation in force"
     },
     "phase_1_cloud_safety_filter": {
       "status": "not_started",
       "issue": "#92",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_2a_strap_style": {
       "status": "not_started",
       "issue": "#93",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_2b_register_presets": {
       "status": "not_started",
       "issue": "#87",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_3_e1_strategy": {
       "status": "not_started",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_3_e2_dispatch": {
       "status": "not_started",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_3_e3_verify": {
       "status": "not_started",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_3_e4_persona_docs": {
       "status": "not_started",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_3_e5_adr": {
       "status": "not_started",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_3_e6_dogfood": {
       "status": "not_started",
-      "budget_envelope_usd": 0.50
+      "budget_envelope_usd": 0.5
     },
     "phase_4a_text_density": {
       "status": "not_started",
       "issue": "#91",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_4b_composition_primitives": {
       "status": "not_started",
       "issue": "#90",
-      "budget_envelope_usd": 0.00
+      "budget_envelope_usd": 0.0
     },
     "phase_5a_full_bleed": {
       "status": "not_started",
@@ -71,11 +72,11 @@
     "phase_5b_iterate_slide": {
       "status": "not_started",
       "issue": "#89",
-      "budget_envelope_usd": 0.20
+      "budget_envelope_usd": 0.2
     },
     "final_v14_end_to_end_dogfood": {
       "status": "not_started",
-      "budget_envelope_usd": 1.50
+      "budget_envelope_usd": 1.5
     }
   },
   "execution_order": [
@@ -95,14 +96,16 @@
     "phase_5b_iterate_slide",
     "final_v14_end_to_end_dogfood"
   ],
-  "completed_phases": [],
+  "completed_phases": [
+    "phase_0_discipline_hook"
+  ],
   "blocker": null,
-  "iteration_count": 0,
+  "iteration_count": 1,
   "working_branch": "feat/v1.4-push-and-paperbanana",
   "_notes": [
     "Total budget envelope across all phases: $2.35 (well under $5.00 cap).",
     "If actual spend approaches $4.50, Ralph halts before exceeding the cap.",
-    "All cloud-image generation budget — agent token spend is separate and uncounted.",
+    "All cloud-image generation budget \u2014 agent token spend is separate and uncounted.",
     "Tier defaults: Imagen Fast 1K for non-text, Flash 1K for text-bearing. Pro 4K PROHIBITED."
   ]
 }
