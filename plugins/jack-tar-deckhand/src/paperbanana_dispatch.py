@@ -31,15 +31,7 @@ See also:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Mapping
-
-
-# Canonical skill name dispatched when paperbanana is reachable.
-# NOTE: vestigial in Task 1 — build_dispatch_payload still references it.
-# Task 2 switches the dispatch transport to CLI subprocess, at which point
-# this constant gets removed entirely.
-PAPERBANANA_SKILL_NAME = "paperbanana:generate-diagram"
 
 
 @dataclass
@@ -50,13 +42,17 @@ class PaperbananaDispatch:
         available: whether paperbanana was detected. When False, the
             bridge MUST take the cloud fallback path (see
             ``fallback_provider`` / ``fallback_model``).
-        skill: the Claude Code skill name to invoke when available.
-            Empty string when ``available`` is False.
-        args: argument mapping passed to the dispatched skill. Empty
-            when ``available`` is False.
         slide_number: 1-based slide index, copied from the slide dict.
-        output_path: where the bridge expects paperbanana to write the
-            rendered figure (or the cloud fallback to write its PNG).
+            Stays on the struct (not in ``args``) for manifest accounting.
+        args: argument mapping the bridge passes through to the
+            ``paperbanana generate`` CLI invocation. Shape:
+            ``{source_context, caption, aspect_ratio, iterations}``.
+            Empty when ``available`` is False.
+        output_dir: directory the bridge passes as ``paperbanana generate
+            --output <dir>``. Paperbanana writes its run directory inside
+            this dir (``<output_dir>/run_<ts>_<hash>/final_output.png``);
+            the caller does NOT control the run-id subdirectory name or
+            the final filename. See spike report §3 / ADR-v2 §4.
         fallback_provider: cloud provider to use when paperbanana is
             absent. ``"google"`` by default.
         fallback_model: cloud model to use when paperbanana is absent.
@@ -68,8 +64,7 @@ class PaperbananaDispatch:
 
     available: bool
     slide_number: int
-    output_path: str
-    skill: str = ""
+    output_dir: str
     args: dict = field(default_factory=dict)
     fallback_provider: str = "google"
     fallback_model: str = "gemini-3.1-flash-image-preview"
@@ -105,20 +100,84 @@ def is_paperbanana_available() -> bool:
     return shutil.which("paperbanana") is not None
 
 
-def _slide_subject_text(slide: Mapping) -> str:
-    """Extract the descriptive text from a slide dict.
+_MIN_SOURCE_CONTEXT_NOTES_CHARS = 200
 
-    Falls back through common outline shapes so this works whether the
-    caller passes a raw outline slide or a richer object.
+
+def _build_source_context_from_slide(slide: Mapping) -> str:
+    """Synthesise a methodology paragraph for paperbanana's Retriever agent.
+
+    Paperbanana's pipeline (Retriever → Planner → Stylist → Visualizer →
+    Critic) expects ~5–20 sentences of paper-style methodology prose
+    describing what the figure should depict. A slide headline is too
+    thin; the spike confirmed thin source_context produces lower-quality
+    figures (the Retriever can't surface relevant exemplars).
+
+    Priority order (first non-empty wins):
+
+    1. ``slide["methodology_context"]`` — explicit operator pre-annotation
+       on the outline. Best signal when the speaker has thought about it.
+    2. ``slide["speaker_notes"]`` — when ≥200 chars, this is typically a
+       paragraph or two and works well as methodology context.
+    3. ``visual_direction + body_points`` joined into prose. Last-resort
+       synthesis from whatever slide content exists.
+    4. ``headline`` / ``title`` — produces a thin source_context (and
+       thinner figures). Surfaced for graceful degradation, not as a
+       happy path.
+
+    Returns the empty string only when the slide has none of the above.
     """
-    for key in ("visual_direction", "headline", "title"):
+    explicit = slide.get("methodology_context")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()
+
+    notes = slide.get("speaker_notes")
+    if isinstance(notes, str) and len(notes.strip()) >= _MIN_SOURCE_CONTEXT_NOTES_CHARS:
+        return notes.strip()
+
+    parts: list[str] = []
+    visual_direction = slide.get("visual_direction")
+    if isinstance(visual_direction, str) and visual_direction.strip():
+        parts.append(visual_direction.strip())
+
+    body = slide.get("body_points")
+    if isinstance(body, list) and body:
+        parts.extend(str(point).strip() for point in body if point)
+
+    if parts:
+        # Naive sentence-joining; paperbanana's Retriever is robust to
+        # imperfect prose, and we'd rather pass the operator's actual
+        # words than risk rewriting them.
+        return ". ".join(parts).rstrip(".") + "."
+
+    for key in ("headline", "title"):
+        value = slide.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    return ""
+
+
+def _build_caption_from_slide(slide: Mapping) -> str:
+    """Extract the figure caption — paperbanana's ``caption`` arg.
+
+    Paperbanana distinguishes ``source_context`` (the methodology — what
+    the system does) from ``caption`` (the communicative intent — what
+    the figure should depict / what the reader should take away). The
+    Stylist + Critic agents both consume caption directly.
+
+    Priority order: explicit ``caption`` field, then ``headline``, then
+    ``title``, then the first body point.
+    """
+    for key in ("caption", "headline", "title"):
         value = slide.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
 
     body = slide.get("body_points")
     if isinstance(body, list) and body:
-        return " · ".join(str(point) for point in body if point)
+        first = body[0]
+        if first:
+            return str(first).strip()
 
     return ""
 
@@ -127,83 +186,67 @@ def build_dispatch_payload(
     slide: Mapping,
     *,
     output_dir: str,
-    style_guide: Mapping | None = None,
     paperbanana_available: bool | None = None,
-    availability_env: Mapping[str, str] | None = None,
-    fs_exists: Callable[[Path], bool] | None = None,
 ) -> PaperbananaDispatch:
     """Build the dispatch payload for an ``academic_figure`` slide.
 
+    The returned ``PaperbananaDispatch`` carries the args the bridge
+    will pass to ``paperbanana generate`` via subprocess (CLI transport;
+    see ADR-v2 §4). When paperbanana is unavailable, ``args`` is empty
+    and ``fallback_provider`` / ``fallback_model`` describe the cloud
+    fallback dispatch the bridge should run instead.
+
     Args:
-        slide: the outline slide dict. Must contain ``slide_number`` and
-            at least one of ``visual_direction`` / ``headline`` /
-            ``title`` / ``body_points``.
-        output_dir: directory where the resulting PNG / SVG should land.
-            Typically ``./tmp/deck/images``.
-        style_guide: optional StyleGuide dict — palette hexes are passed
-            through to paperbanana so the figure picks up brand colours.
+        slide: the outline slide dict. Must contain ``slide_number``.
+            For useful figure generation, also needs one or more of
+            ``methodology_context`` / ``speaker_notes`` / ``body_points``
+            / ``visual_direction`` to feed paperbanana's ``source_context``
+            arg, and one of ``caption`` / ``headline`` / ``title`` for
+            paperbanana's ``caption`` arg.
+        output_dir: directory the bridge passes as ``--output <dir>`` to
+            ``paperbanana generate``. Paperbanana writes its run directory
+            INSIDE this dir; the caller does not control the run-id
+            subdirectory name or the final filename. See spike §3.
         paperbanana_available: short-circuit the availability check
             (used by callers who have already detected paperbanana, e.g.
-            the verify-skill helper).
-        availability_env / fs_exists: forwarded to
-            ``is_paperbanana_available`` when ``paperbanana_available``
-            is None.
+            the verify-skill helper). When None, calls
+            ``is_paperbanana_available()`` to decide.
 
     Returns:
-        A ``PaperbananaDispatch``. When paperbanana is available, ``skill``
-        and ``args`` are populated. Otherwise ``fallback_provider`` /
-        ``fallback_model`` describe the cloud dispatch the bridge should
-        run instead, and ``fallback_reason`` carries the audit-log line.
+        A ``PaperbananaDispatch``. When paperbanana is available, ``args``
+        carries the four-key real contract. Otherwise ``fallback_*``
+        fields describe the Nano Banana Flash 1K fallback dispatch.
     """
     slide_number = int(slide.get("slide_number", 0))
-    subject = _slide_subject_text(slide)
-    suffix = "fig" if subject else "figure"
-    output_path = str(
-        Path(output_dir) / f"slide-{slide_number:02d}-academic-{suffix}.png"
-    )
 
     if paperbanana_available is None:
-        # availability_env and fs_exists params are vestigial after Task 1 —
-        # is_paperbanana_available() is now zero-arg. The params survive on
-        # build_dispatch_payload's signature only until Task 2 rewrites this
-        # function end-to-end against the real contract.
         paperbanana_available = is_paperbanana_available()
 
     if not paperbanana_available:
         return PaperbananaDispatch(
             available=False,
             slide_number=slide_number,
-            output_path=output_path,
+            output_dir=output_dir,
             fallback_reason=(
-                "paperbanana plugin not detected — falling back to "
-                "Nano Banana Flash 1K with academic-figure-aware prompting; "
-                "install paperbanana for publication-quality figures"
+                "paperbanana CLI not on PATH and paperbanana package not "
+                "importable — falling back to Nano Banana Flash 1K with "
+                "academic-figure-aware prompting. Install paperbanana via "
+                "`pip install 'paperbanana[google]'` for publication-tier "
+                "output. See /jack-tar-deckhand:verify for guidance."
             ),
         )
 
-    palette: list[str] = []
-    if isinstance(style_guide, Mapping):
-        candidate = style_guide.get("palette") or {}
-        if isinstance(candidate, Mapping):
-            for key in ("primary", "accent", "background", "ink"):
-                hex_value = candidate.get(key)
-                if isinstance(hex_value, str) and hex_value.startswith("#"):
-                    palette.append(hex_value)
-
     args: dict = {
-        "subject": subject,
-        "output_path": output_path,
-        "slide_number": slide_number,
-        "context": "deck-figure",
+        "source_context": _build_source_context_from_slide(slide),
+        "caption": _build_caption_from_slide(slide),
+        "aspect_ratio": "16:9",
+        "iterations": int(slide.get("paperbanana_iterations", 1)),
     }
-    if palette:
-        args["palette_hex"] = palette
 
     return PaperbananaDispatch(
         available=True,
         slide_number=slide_number,
-        output_path=output_path,
-        skill=PAPERBANANA_SKILL_NAME,
+        output_dir=output_dir,
         args=args,
     )
 
