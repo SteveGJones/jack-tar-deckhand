@@ -30,27 +30,16 @@ See also:
 """
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Mapping
 
 
 # Canonical skill name dispatched when paperbanana is reachable.
+# NOTE: vestigial in Task 1 — build_dispatch_payload still references it.
+# Task 2 switches the dispatch transport to CLI subprocess, at which point
+# this constant gets removed entirely.
 PAPERBANANA_SKILL_NAME = "paperbanana:generate-diagram"
-
-# Environment variable an operator can set to point at a paperbanana
-# install outside the standard Claude plugin cache (e.g. development
-# checkout). The value is a directory containing
-# ``.claude-plugin/plugin.json``.
-PAPERBANANA_ROOT_ENV = "PAPERBANANA_ROOT"
-
-# Standard locations the Claude Code plugin manager extracts plugins to.
-# Searched in order; the first match wins.
-_DEFAULT_SEARCH_ROOTS: tuple[str, ...] = (
-    "~/.claude/plugins/cache",
-    "~/.claude/plugins",
-)
 
 
 @dataclass
@@ -87,48 +76,33 @@ class PaperbananaDispatch:
     fallback_reason: str = ""
 
 
-def is_paperbanana_available(
-    *,
-    env: Mapping[str, str] | None = None,
-    fs_exists: Callable[[Path], bool] | None = None,
-) -> bool:
-    """Return True when the paperbanana plugin is reachable.
+def is_paperbanana_available() -> bool:
+    """Return True when the paperbanana CLI or Python package is runnable.
 
-    The check is filesystem-only — we look for
-    ``<root>/paperbanana/.claude-plugin/plugin.json`` under one of:
+    Paperbanana is treated as an external CLI tool (like LaTeX or
+    ImageMagick), not as a Claude Code plugin. The operator installs it
+    via ``pip install 'paperbanana[google]'`` (in jack-tar's venv),
+    ``pipx install 'paperbanana[google]'`` (globally), or ``uvx`` (MCP
+    server transport, v1.4.1+ candidate). jack-tar shells out on demand.
 
-    1. ``$PAPERBANANA_ROOT`` (operator override, points directly at the
-       plugin directory).
-    2. ``~/.claude/plugins/cache/<source>/paperbanana/``.
-    3. ``~/.claude/plugins/paperbanana/``.
+    Detection probes runnability, not installation marker:
 
-    Args:
-        env: mapping to consult for env vars. Defaults to ``os.environ``.
-            Injected for tests.
-        fs_exists: predicate that returns True when a path exists. Defaults
-            to ``Path.exists``. Injected for tests.
+    1. ``importlib.util.find_spec("paperbanana")`` — covers pip-installed
+       in jack-tar's venv (the common case for v1.4 E6 dogfood).
+    2. ``shutil.which("paperbanana")`` — covers pipx, system install, and
+       any case where the CLI is on PATH but the Python package isn't on
+       jack-tar's ``sys.path``.
+
+    Either check returning True is sufficient. See
+    ``docs/architecture/paperbanana-integration-v2.md`` for the full
+    framing rationale.
     """
-    env = env if env is not None else os.environ
-    fs_exists = fs_exists if fs_exists is not None else Path.exists
+    import importlib.util
+    import shutil
 
-    override = env.get(PAPERBANANA_ROOT_ENV)
-    if override:
-        manifest = Path(override).expanduser() / ".claude-plugin" / "plugin.json"
-        if fs_exists(manifest):
-            return True
-
-    for root_str in _DEFAULT_SEARCH_ROOTS:
-        root = Path(root_str).expanduser()
-        # Direct install path: <root>/paperbanana/.claude-plugin/plugin.json
-        direct = root / "paperbanana" / ".claude-plugin" / "plugin.json"
-        if fs_exists(direct):
-            return True
-        # Marketplace cache path: <root>/<source>/paperbanana/.claude-plugin/plugin.json
-        # We can't enumerate without listing the directory, so only the
-        # direct shape is supported by the offline check. Operators using
-        # marketplace cache layouts should set $PAPERBANANA_ROOT.
-
-    return False
+    if importlib.util.find_spec("paperbanana") is not None:
+        return True
+    return shutil.which("paperbanana") is not None
 
 
 def _slide_subject_text(slide: Mapping) -> str:
@@ -189,10 +163,11 @@ def build_dispatch_payload(
     )
 
     if paperbanana_available is None:
-        paperbanana_available = is_paperbanana_available(
-            env=availability_env,
-            fs_exists=fs_exists,
-        )
+        # availability_env and fs_exists params are vestigial after Task 1 —
+        # is_paperbanana_available() is now zero-arg. The params survive on
+        # build_dispatch_payload's signature only until Task 2 rewrites this
+        # function end-to-end against the real contract.
+        paperbanana_available = is_paperbanana_available()
 
     if not paperbanana_available:
         return PaperbananaDispatch(
