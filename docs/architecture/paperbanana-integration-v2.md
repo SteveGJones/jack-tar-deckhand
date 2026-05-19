@@ -192,23 +192,49 @@ Pipeline never blocks on paperbanana absence. The deck always ships; only the ac
 
 To enable paperbanana routing on a developer machine:
 
-### 6.1 Install in jack-tar's venv (simplest)
+### ⚠️ Known issue — PyPI release is stale (2026-05-18 / spike finding F2)
+
+**The current PyPI release `paperbanana 0.1.2` ships a stripped CLI.** It is missing `--aspect-ratio`, `--budget`, `--cost-only`, `--dry-run`, `--format`, `--vector`, `--auto`, `--continue-run` and most other flags that jack-tar's dispatch relies on. The source HEAD at [llmsresearch/paperbanana](https://github.com/llmsresearch/paperbanana) has the full surface but is also labelled `0.1.2` in `pyproject.toml` — i.e. the PyPI release is months behind main with no version-tag distinction.
+
+**Until upstream cuts a fresh release (we filed an issue requesting 0.2.0 — see §9), use the install-from-source variants below in preference to `pip install paperbanana`.** Track the upstream release at <https://github.com/llmsresearch/paperbanana/releases>.
+
+### 6.1 Install from source in jack-tar's venv (recommended until PyPI catches up)
+
+```
+cd ~/Documents/Development/jack-tar-deckhand
+.venv/bin/pip install -e git+https://github.com/llmsresearch/paperbanana.git@main#egg=paperbanana[google]
+.venv/bin/pip install platformdirs   # not pulled in cleanly by editable install of [google] — finding F3
+.venv/bin/paperbanana doctor          # smoke test
+```
+
+`find_spec("paperbanana")` returns True from inside jack-tar's venv → `is_paperbanana_available()` returns True. No further configuration.
+
+Or, if you already have a local clone:
+
+```
+.venv/bin/pip install -e ~/Documents/Development/paperbanana[google]
+.venv/bin/pip install platformdirs
+```
+
+### 6.2 Install via pipx from source (global CLI, no venv pollution)
+
+```
+pipx install 'git+https://github.com/llmsresearch/paperbanana.git@main#egg=paperbanana[google]'
+which paperbanana   # → ~/.local/bin/paperbanana
+```
+
+`shutil.which("paperbanana")` returns the path → `is_paperbanana_available()` returns True from any context.
+
+### 6.3 Plain PyPI install (only when upstream releases ≥0.2.0)
+
+Once upstream cuts a release with the full CLI surface:
 
 ```
 cd ~/Documents/Development/jack-tar-deckhand
 .venv/bin/pip install 'paperbanana[google]'
 ```
 
-`find_spec("paperbanana")` returns True from inside jack-tar's venv → `is_paperbanana_available()` returns True. No further configuration.
-
-### 6.2 Install via pipx (global CLI, no venv pollution)
-
-```
-pipx install 'paperbanana[google]'
-which paperbanana   # → ~/.local/bin/paperbanana
-```
-
-`shutil.which("paperbanana")` returns the path → `is_paperbanana_available()` returns True from any context.
+Verify before relying on this path: `paperbanana generate --help` should list `--aspect-ratio`, `--budget`, and `--continue-run` — if any of those are missing, the PyPI release is still stale and you need 6.1 instead.
 
 ### 6.3 Install via uvx (MCP server transport, v1.4.1+ candidate)
 
