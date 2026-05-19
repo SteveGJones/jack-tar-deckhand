@@ -19,6 +19,14 @@ The v1 ADR (2026-05-17, [now superseded](paperbanana-integration.md)) assumed pa
 
 This v2 ADR documents the real framing, the real contract, and the real operator install path.
 
+### Example output — paperbanana documenting jack-tar's own architecture
+
+The 2026-05-18 E6 dogfood produced the figure below by feeding paperbanana a methodology paragraph describing jack-tar-deckhand and asking it to draw the architecture. The figure converged after a Tier-2 refinement pass (6 total iterations, Critic-satisfied verdict, ~$0.36 cumulative Gemini spend across all tiers). It now serves as both the architecture reference for the system and as the canonical example of what paperbanana renders for `academic_figure`-tier slides.
+
+![Jack-Tar Deckhand architecture, rendered by paperbanana](diagrams/jack-tar-deckhand-architecture-paperbanana.png)
+
+*Figure 1. Paperbanana's rendering of the jack-tar-deckhand architecture (2752×1536, 4.1 MB PNG). Produced by `paperbanana generate --input <methodology.txt> --caption "..." --aspect-ratio 16:9 --iterations 2 --image-model gemini-3.1-flash-image-preview`, then refined with explicit-enumeration feedback for content completeness. See [`docs/superpowers/dogfooding/2026-05-18-paperbanana-integration.md`](../superpowers/dogfooding/2026-05-18-paperbanana-integration.md) for the full multi-tier dogfood including the convergence findings.*
+
 ---
 
 ## 2. Decision
