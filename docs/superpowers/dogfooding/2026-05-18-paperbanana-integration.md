@@ -244,11 +244,58 @@ The imagegen-bridge's CLI subprocess wrapper (Step 4.6) will need to either:
 
 Worth filing as a 4th upstream issue (separate from #213/#214/#215).
 
-### What we kept and what we threw away
+### Tier-2 follow-up — explicit enumeration + permission to shrink + 2 more iterations
 
-- **Kept (repo figure):** `docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png` — the iter-2 version. Better content coverage, comparable visual quality.
-- **Discarded (refinement attempt):** the iter-4 output. Lives at `~/Documents/Development/jack-tar-deckhand/outputs/run_20260518_190654_814b57/final_output.png` on the dogfood machine but `outputs/` is now gitignored so it doesn't pollute the repo.
-- **Preserved (forensics):** the `metadata_continued.json` and `iter_4/` subdir contain the exact Critic feedback + Visualizer prompts paperbanana used. Useful for reproducing or auditing.
+Operator requested a multi-tier convergence experiment to find the threshold at which content-additive feedback actually lands. Ran a second refinement against iter 4, this time with:
+
+- **Explicit enumeration:** "Skills list MUST contain EXACTLY these 11 entries in this exact order: brand-manager, slide-stylist, narrative-architect, strategy-map, smartart-selector, smartart-extractor, speaker-notes-writer, imagegen-bridge, deck-assembler, deck-qa, verify"
+- **Permission to shrink:** "Visualizer must NOT drop items to fit them in. Permission granted to shrink the body font, narrow the line height, or split into a 2-column sub-grid"
+- **Strong imperative language:** "MUST contain EXACTLY", "NO substitutions and NO omissions", "CRITICAL"
+- **Verbatim footnote text + format:** "in 12pt or smaller, reading exactly: '* smartart-selector appears in both columns…'"
+- **Preserve list:** named the iter-4 wins to keep (bridge coral, arrow routing, paperbanana box contrast)
+- **2 iterations** rather than 1
+
+**Outcome:** **Critic SATISFIED at iter 6** — first time in the experiment. Wall 1m 49s, ~$0.15 spend.
+
+Visual review verdict (subagent comparing iter 6 to iter 2 baseline): **"iter 6 clearly better, should replace the repo figure."**
+
+| Tier-2 ask | Outcome |
+|---|---|
+| Skills list — all 11 items in order | **fully fixed** ✓ (subagent enumerated all 11) |
+| Agents list — all 6 items in order | **fully fixed** ✓ (subagent enumerated all 6) |
+| smartart-selector dual-column | **yes, both columns** ✓ |
+| Footnote present + correctly formatted | **yes** ✓ ("* smartart-selector appears in both columns; it is both a user-facing skill and an AI persona agent.") |
+| Solid ~2px outer system boundary | **yes** ✓ |
+| Bridge coral preserved | **yes** ✓ (saturated coral from iter 4 kept) |
+| Arrow routing preserved | **yes** ✓ |
+
+Minor trade-off the Visualizer made (the reviewer accepted it): list rendering switched from clean two-column bullets to inline comma-separated prose to fit 11+6 names at the canvas size. The dual-column smartart-selector signal now depends on the footnote rather than spatial alignment.
+
+### F9 — Multi-tier convergence: explicit enumeration > vague refinement
+
+**Severity:** high (drives iterate-slide skill #89 design)
+
+| Tier | Iters | Feedback style | Critic outcome | Content fixes |
+|---|---|---|---|---|
+| 0 (baseline) | 2 (fresh) | none | partial flags | 7/11 skills, 5/6 agents |
+| 1 (refinement) | +1 | vague "include all 11" | echoed same critique | **regressed** to 6/11 + 4/6 |
+| 2 (refinement) | +2 | EXPLICIT enumeration + permission-to-shrink + STRONG imperative | **SATISFIED at iter 6** | 11/11 + 6/6 + footnote |
+
+The Visualizer agent reliably acts on explicit enumeration that the operator does the listing work for. Vague "include all N" reliably fails because the model defends its prior layout against unbounded growth. Permission to shrink (or change layout) unblocks the trade-off.
+
+**Implications for iterate-slide skill #89 design:**
+
+1. **The refinement-feedback prompt template should encourage explicit enumeration.** If the operator says "list all the missing items," #89 should expand "missing items" into the full inventory before sending the feedback to paperbanana.
+2. **The skill should generate trade-off permissions automatically.** When the feedback adds N items to a list, also add "permission granted to shrink font / change layout to fit them."
+3. **2 iterations is the practical floor for content-additive refinement.** Single-iter (Tier 1) regressed; 2-iter (Tier 2) converged. Default `--iterations 2` on refinement.
+4. **Re-bracket the protected items.** Tier-2 feedback named iter-4 wins explicitly under a "KEEP" header — those properties stuck through 2 more iterations. Without that, refinement might lose them via the same overfit-on-current-ask pathology.
+5. **Critic-satisfied is the natural stopping signal.** When `--auto` is wired up properly, it could converge in fewer roundtrips. Worth testing in a Tier-3 dogfood if budget allows.
+
+### What we kept
+
+- **Repo figure:** `docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png` — **iter 6 version** (Tier-2 refined). 4.1 MB, 2752×1536, sha256 `78d72ff0…0348af06`. Replaces the iter-2 version that was committed earlier in the dogfood.
+- **Discarded:** iter 4 (Tier-1 attempt) — comparable to baseline, not retained.
+- **Preserved (forensics):** the `metadata_continued.json` and `iter_3`/`iter_4`/`iter_5`/`iter_6` subdirs all live under the gitignored `outputs/run_20260518_190654_814b57/` on the dogfood machine. Useful for reproducing or auditing.
 
 ---
 
