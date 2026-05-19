@@ -444,25 +444,24 @@ def update_manifest_entry(
         A new dict ready to write back to the manifest.
     """
     updated = dict(prior_entry)
-
-    history = list(updated.get("paperbanana_history") or [])
-    if "paperbanana_args" in updated and not history:
-        history.append({
-            "iteration": "initial",
-            "args": dict(updated["paperbanana_args"]),
-        })
-
     updated["file_path"] = new_file_path
     updated["content_hash"] = new_content_hash
 
+    # Only touch the history chain + paperbanana_args when we're recording
+    # an actual refinement. refinement_args=None means "fix the path/hash
+    # without recording an iteration" — leaves the history untouched.
     if refinement_args is not None:
+        history = list(updated.get("paperbanana_history") or [])
+        if "paperbanana_args" in updated and not history:
+            history.append({
+                "iteration": "initial",
+                "args": dict(updated["paperbanana_args"]),
+            })
         history.append({
             "iteration": f"refinement_{len(history)}",
             "args": dict(refinement_args),
         })
         updated["paperbanana_args"] = dict(refinement_args)
-
-    if history:
         updated["paperbanana_history"] = history
 
     updated["refinement_count"] = int(updated.get("refinement_count", 0)) + 1
