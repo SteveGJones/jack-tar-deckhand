@@ -29,33 +29,76 @@ Invoke each in sequence:
 
 For each, extract the STATUS line from the output.
 
-## Step 2.5: Detect optional skill plugins (paperbanana)
+## Step 2.5: Detect optional external tool (paperbanana)
 
-Paperbanana is an optional skill plugin that handles the `academic_figure`
-rendering strategy (publication-quality scientific figures via dedicated
-diagram generation). It is NOT a jack-tar engine plugin — it does not
-expose its own `:verify` skill — so detection runs locally against the
-filesystem via the helper in `src/paperbanana_dispatch.py`.
+Paperbanana is an optional **external CLI tool** (like LaTeX or
+ImageMagick) that handles the `academic_figure` rendering strategy —
+publication-quality scientific figures via a multi-agent diagram
+generation pipeline. It is **NOT a Claude Code plugin and NOT a
+jack-tar engine plugin** — operators install it via
+`pip install 'paperbanana[google]'` (or `pipx` / `uvx`), and jack-tar
+shells out to its CLI on demand. See
+`docs/architecture/paperbanana-integration-v2.md` for the full framing
+rationale.
+
+Detection runs in two layers: runnability + health.
+
+### 2.5a — Runnability probe + doctor health-check + install guidance
 
 ```bash
-python3 -c "
+PB_RUNNABLE=$(python3 -c "
 import sys
 sys.path.insert(0, '${CLAUDE_PLUGIN_ROOT}/src')
 from paperbanana_dispatch import is_paperbanana_available
-print('AVAILABLE' if is_paperbanana_available() else 'NOT_AVAILABLE')
-" 2>/dev/null || echo "ERROR"
+print('READY' if is_paperbanana_available() else 'NOT_FOUND')
+" 2>/dev/null || echo "ERROR")
+
+if [ "$PB_RUNNABLE" = "READY" ]; then
+  PB_CLI_PATH=$(command -v paperbanana 2>/dev/null || echo "(import-only, not on PATH)")
+  PB_DOCTOR=$(paperbanana doctor 2>&1 || echo "")
+  if echo "$PB_DOCTOR" | grep -qE "GOOGLE_API_KEY[[:space:]]+set"; then
+    echo "paperbanana CLI:           READY ($PB_CLI_PATH)"
+    PB_FINAL="READY"
+  else
+    echo "paperbanana CLI:           PARTIAL ($PB_CLI_PATH — GOOGLE_API_KEY not set)"
+    echo "  Get a free Gemini key at https://makersuite.google.com/app/apikey"
+    echo "  Then: export GOOGLE_API_KEY=... && re-run /verify"
+    PB_FINAL="PARTIAL"
+  fi
+else
+  echo "paperbanana CLI:           NOT_FOUND"
+  echo ""
+  echo "  To install paperbanana (publication-tier academic figures):"
+  echo "    pip install 'paperbanana[google]'           # simplest, in jack-tar venv"
+  echo "    pipx install 'paperbanana[google]'          # global CLI"
+  echo "    uvx --from 'paperbanana[mcp]' paperbanana-mcp   # MCP server (v1.4.1+)"
+  echo ""
+  echo "  After install, get a free Gemini key:"
+  echo "    https://makersuite.google.com/app/apikey"
+  echo "    export GOOGLE_API_KEY=..."
+  echo "    paperbanana doctor   # smoke-test"
+  echo "    /jack-tar-deckhand:verify   # re-run"
+  PB_FINAL="NOT_FOUND"
+fi
 ```
 
-The helper checks (in order):
+The Python helper (`paperbanana_dispatch.is_paperbanana_available`)
+probes runnability via two paths:
 
-1. `$PAPERBANANA_ROOT` environment override pointing at the plugin dir.
-2. `~/.claude/plugins/cache/paperbanana/.claude-plugin/plugin.json`.
-3. `~/.claude/plugins/paperbanana/.claude-plugin/plugin.json`.
+1. `importlib.util.find_spec("paperbanana")` — covers
+   pip-installed-in-jack-tar-venv (the common case for v1.4).
+2. `shutil.which("paperbanana")` — covers pipx, system install, and
+   any case where the CLI is on PATH but the Python package is not on
+   jack-tar's `sys.path`.
 
-When paperbanana is `NOT_AVAILABLE`, the imagegen-bridge's
-`academic_figure` branch (Step 4.6 in `skills/imagegen-bridge/SKILL.md`)
-falls back to Nano Banana Flash 1K with academic-figure-aware prompting
-— the pipeline still produces a figure, just not at publication tier.
+When paperbanana is `NOT_FOUND`, the imagegen-bridge's `academic_figure`
+branch falls back to Nano Banana Flash 1K with academic-figure-aware
+prompting — the pipeline still produces a figure, just not at
+publication tier.
+
+When `PARTIAL` (CLI installed but `GOOGLE_API_KEY` not set),
+paperbanana invocations would crash at first Gemini call; the bridge
+also takes the fallback path so the deck still ships.
 
 ## Step 3: Determine pipeline capabilities
 
@@ -64,7 +107,7 @@ Based on engine plugin availability:
 - **Production images:** READY if jack-tar-cloud is FULLY_AVAILABLE or PARTIALLY_AVAILABLE
 - **Editable SmartArt:** READY if jack-tar-msft-smartart is FULLY_AVAILABLE
 - **Custom graphics:** READY if jack-tar-custom-smartart is FULLY_AVAILABLE or PARTIALLY_AVAILABLE
-- **Academic figures:** READY if paperbanana detected (Step 2.5); FALLBACK if not detected (cloud Flash 1K with academic-figure prompting still produces a figure, just not publication-tier)
+- **Academic figures:** READY if `$PB_FINAL` is READY (paperbanana installed + `GOOGLE_API_KEY` set); PARTIAL if `$PB_FINAL` is PARTIAL (CLI installed, key missing — fallback active); FALLBACK if NOT_FOUND (cloud Flash 1K with academic-figure prompting still produces a figure, just not publication-tier)
 - **Deck assembly:** READY if pptxgenjs is installed
 - **QA checks:** always READY (built into this plugin)
 
@@ -133,15 +176,26 @@ ENGINE PLUGINS:
   jack-tar-msft-smartart:    FULLY_AVAILABLE
   jack-tar-custom-smartart:  NOT_AVAILABLE
 
-OPTIONAL SKILL PLUGINS:
-  paperbanana:               NOT_AVAILABLE (academic_figure will use Flash 1K fallback)
+EXTERNAL TOOLS:
+  paperbanana CLI:           NOT_FOUND
+
+  To install paperbanana (publication-tier academic figures):
+    pip install 'paperbanana[google]'           # simplest, in jack-tar venv
+    pipx install 'paperbanana[google]'          # global CLI
+    uvx --from 'paperbanana[mcp]' paperbanana-mcp   # MCP server (v1.4.1+)
+
+  After install, get a free Gemini key:
+    https://makersuite.google.com/app/apikey
+    export GOOGLE_API_KEY=...
+    paperbanana doctor   # smoke-test
+    /jack-tar-deckhand:verify   # re-run
 
 PIPELINE CAPABILITY:
   Draft images:      READY (ollama available)
   Production images: READY (cloud partially available)
   Editable SmartArt: READY (msft-smartart available)
   Custom graphics:   NOT_READY (custom-smartart not available)
-  ACADEMIC FIGURE:   FALLBACK (paperbanana not detected — Flash 1K academic-figure prompting)
+  Academic figures:  FALLBACK (paperbanana not installed — Flash 1K fallback active)
   Deck assembly:     READY (pptxgenjs installed)
   QA checks:         READY
 
