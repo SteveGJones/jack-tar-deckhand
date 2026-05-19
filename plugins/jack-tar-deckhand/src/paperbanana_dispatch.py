@@ -30,8 +30,16 @@ See also:
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Mapping
+
+
+# Paperbanana writes run outputs to ``<output_dir>/run_<YYYYMMDD>_<HHMMSS>_<short-hash>/``.
+# We extract the run-id directory name from manifest paths so iterate-slide (#89)
+# can call ``paperbanana generate --continue-run <id> --feedback ...`` for cheap
+# critique-driven refinement instead of re-running from scratch.
+_RUN_ID_PATTERN = re.compile(r"/(run_\d{8}_\d{6}_[a-f0-9]+)/")
 
 
 @dataclass
@@ -251,10 +259,30 @@ def build_dispatch_payload(
     )
 
 
+def _extract_run_id(output_path: str) -> str:
+    """Parse paperbanana's run_id from a final output path.
+
+    Paperbanana writes outputs as
+    ``<output_dir>/run_<YYYYMMDD>_<HHMMSS>_<short-hash>/final_output.png``
+    (or ``.mcp.jpg`` when MCP transport re-compresses PNGs >3.75 MB —
+    spike §9.3). This returns the ``run_<ts>_<hash>`` directory name so
+    iterate-slide (#89) can call
+    ``paperbanana generate --continue-run <id> --feedback ...`` for
+    cheap critique-driven refinement.
+
+    Returns the empty string when the path doesn't match the expected
+    pattern — for example, the cloud-fallback path writes to a
+    jack-tar-managed location with no paperbanana run-id.
+    """
+    match = _RUN_ID_PATTERN.search(output_path)
+    return match.group(1) if match else ""
+
+
 def build_manifest_entry(
     dispatch: PaperbananaDispatch,
     *,
     dispatch_succeeded: bool,
+    output_path: str,
     content_hash: str | None = None,
     error: str | None = None,
 ) -> dict:
@@ -264,39 +292,56 @@ def build_manifest_entry(
         dispatch: the result of ``build_dispatch_payload``.
         dispatch_succeeded: whether paperbanana (or the fallback cloud
             call, if paperbanana was unavailable) produced the image.
+        output_path: the actual file paperbanana (or the fallback) wrote.
+            For paperbanana, this is ``<output_dir>/run_<ts>_<hash>/
+            final_output.png`` (or ``.mcp.jpg``) — the caller is
+            responsible for parsing paperbanana's stdout / scanning the
+            run directory to find this path. For the cloud fallback,
+            this is the jack-tar-conventional path the bridge wrote.
         content_hash: sha256 of the rendered file when generation
             succeeded. ``None`` when generation failed / was skipped.
         error: short error string when ``dispatch_succeeded`` is False.
 
     Returns:
-        A dict shaped like other image-manifest entries (slide_number,
-        file_path, status, source_prompt, ...). The ``source_prompt``
-        field carries the paperbanana subject string (or the fallback
-        prompt) so downstream production upgrades can re-render.
+        A dict shaped like other image-manifest entries:
+        ``slide_number``, ``file_path``, ``status``, ``image_id``,
+        ``model_used``, ``backend``, ``source_prompt`` (methodology
+        text), ``caption`` (figure caption), plus paperbanana-specific
+        ``paperbanana_run_id`` and ``paperbanana_args`` when available.
+        ``source_prompt`` carries the methodology text, ``caption``
+        carries the communicative intent — distinct fields because
+        iterate-slide (#89) needs both to re-call paperbanana with the
+        same semantic input.
     """
     if dispatch.available:
         backend = "paperbanana"
-        model_used = PAPERBANANA_SKILL_NAME
-        source_prompt = dispatch.args.get("subject", "")
+        model_used = "paperbanana"
     else:
         backend = "cloud_fallback"
         model_used = dispatch.fallback_model
-        source_prompt = dispatch.args.get("subject", "")  # fallback path leaves args empty
 
     status = "generated" if dispatch_succeeded else "failed"
 
     entry: dict = {
         "slide_number": dispatch.slide_number,
-        "file_path": dispatch.output_path,
+        "file_path": output_path,
         "status": status,
         "image_id": f"slide-{dispatch.slide_number:02d}-academic-figure",
         "model_used": model_used,
         "backend": backend,
-        "source_prompt": source_prompt,
+        "source_prompt": dispatch.args.get("source_context", ""),
+        "caption": dispatch.args.get("caption", ""),
     }
     if content_hash is not None:
         entry["content_hash"] = content_hash
-    if not dispatch.available:
+    if dispatch.available:
+        run_id = _extract_run_id(output_path)
+        if run_id:
+            entry["paperbanana_run_id"] = run_id
+        # Full args dict so iterate-slide can re-call with the same
+        # semantic input via --continue-run + --feedback.
+        entry["paperbanana_args"] = dict(dispatch.args)
+    else:
         entry["fallback_reason"] = dispatch.fallback_reason
     if error is not None:
         entry["error"] = error
