@@ -1,31 +1,39 @@
-"""Paperbanana dispatch helper — academic_figure routing (paperbanana E2).
+"""Paperbanana dispatch helper — academic_figure routing.
 
-When the strategy classifier (paperbanana E1, ``strategy_classifier.py``)
-labels a slide ``"academic_figure"``, the imagegen-bridge routes the
-image-generation step through paperbanana's
-``paperbanana:generate-diagram`` skill instead of the regular cloud
-image path. This module is the **testable boundary** for that
-dispatch — the Skill invocation itself happens inside SKILL.md by
+When the strategy classifier (``strategy_classifier.py``) labels a slide
+``"academic_figure"``, the imagegen-bridge routes the image-generation
+step through the **paperbanana CLI via subprocess** instead of the
+regular cloud image path. This module is the **testable boundary** for
+that dispatch — the subprocess call itself happens inside SKILL.md by
 Claude, but everything around it (availability detection, args
-assembly, fallback decision, manifest shape) is pure-Python and
-covered by unit tests.
+assembly, fallback decision, manifest shape) is pure-Python and covered
+by unit tests.
+
+Paperbanana is treated as an **external CLI tool** (like LaTeX or
+ImageMagick), not as a Claude Code plugin. Operators install it via
+``pip install 'paperbanana[google]'`` (or ``pipx`` / ``uvx``). See
+``docs/architecture/paperbanana-integration-v2.md`` for the full
+framing rationale.
 
 Design goals:
 
-- **Pure functions**: availability detection accepts an explicit
-  ``env`` mapping and ``fs_exists`` callable so tests can mock both
-  without monkey-patching ``os``.
-- **Graceful fallback**: when paperbanana is not detected, return a
+- **Pure functions**: helpers accept explicit ``slide`` Mappings and
+  return data structures; no I/O. ``is_paperbanana_available`` probes
+  runnability (``find_spec`` + ``shutil.which``); easy to verify against
+  a real venv.
+- **Graceful fallback**: when paperbanana is not runnable, return a
   fallback payload describing the cloud-image dispatch the bridge
   should run instead, plus a ``fallback_reason`` for the manifest /
   audit log.
 - **Manifest stability**: ``build_manifest_entry`` produces the exact
   shape the bridge writes to ``image-manifest.json`` so downstream
-  consumers (production-upgrade-plan, QA checks) can identify slides
-  that went through paperbanana.
+  consumers (production-upgrade-plan, QA checks, iterate-slide via
+  ``paperbanana_run_id``) can identify and re-invoke slides that went
+  through paperbanana.
 
 See also:
-    docs/superpowers/plans/2026-05-17-v1.4-push-and-paperbanana.md §6.5 E2
+    docs/architecture/paperbanana-integration-v2.md
+    docs/superpowers/plans/2026-05-18-paperbanana-dispatch-refactor.md
     plugins/jack-tar-deckhand/skills/imagegen-bridge/SKILL.md — academic_figure branch
 """
 from __future__ import annotations

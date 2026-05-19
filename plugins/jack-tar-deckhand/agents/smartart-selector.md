@@ -77,9 +77,9 @@ For those slides:
   citation [12]; defer to paperbanana academic_figure dispatch"`). The
   strategy_classifier (paperbanana E1) sets `strategy: "academic_figure"`
   on the StrategyMap upstream of you, and the imagegen-bridge dispatches
-  to the `paperbanana:/generate-diagram` skill (E2) for that slide
-  instead of running a SmartArt path. Your `"none"` recommendation
-  prevents a conflicting SmartArt graphic from being layered on top.
+  to the **paperbanana CLI via subprocess** for that slide instead of
+  running a SmartArt path. Your `"none"` recommendation prevents a
+  conflicting SmartArt graphic from being layered on top.
 - **Do** keep recommending `bar_chart` / `line_chart` / `radar_chart` for
   business slides whose data happens to be quantitative but carries no
   academic-figure signals (revenue by quarter, ARR cohort retention, NPS

@@ -1,6 +1,38 @@
-# Paperbanana Integration — Architecture Decision Record
+> # ⚠️ SUPERSEDED 2026-05-18
+>
+> **This ADR is superseded by [paperbanana-integration-v2.md](paperbanana-integration-v2.md).**
+>
+> A 2026-05-17 spike against the real `llmsresearch/paperbanana` CLI confirmed
+> this ADR's §3 (Composition approach), §4 (Contract surface), and §6 (Operator
+> install guide) all describe a contract paperbanana does not implement:
+>
+> - The dispatch args `{subject, output_path, slide_number, context, palette_hex}`
+>   share zero fields with paperbanana's real `{source_context, caption,
+>   aspect_ratio, iterations}` contract.
+> - Detection via `.claude-plugin/plugin.json` is wrong — paperbanana is not
+>   a Claude Code plugin and ships no such file. It is a Python package +
+>   MCP server, installed via `pip install 'paperbanana[google]'`.
+> - "Option 4: skill cross-invocation" is the wrong transport model.
+>   Paperbanana's canonical Claude Code integration is via MCP server, and
+>   the simpler integration is CLI subprocess.
+>
+> v2 documents the CLI-tool framing (paperbanana treated as a sibling
+> orchestrator, like LaTeX or ImageMagick), the real contract surface,
+> and the correct operator install guide.
+>
+> The body of this ADR is preserved below as historical record — it
+> documents what was thought to be true at v1.4 Phase 3 commit time, and
+> serves as a worked example of why integration code requires running
+> the integration partner at least once before shipping.
+>
+> Spike report: `~/Documents/Development/paperbanana/tmp/SPIKE_REPORT.md`
+> Refactor plan: [docs/superpowers/plans/2026-05-18-paperbanana-dispatch-refactor.md](../superpowers/plans/2026-05-18-paperbanana-dispatch-refactor.md)
+>
+> ---
 
-**Status:** Accepted — shipped in v1.4 (jack-tar-deckhand 1.3.3 → 1.4.0)
+# Paperbanana Integration — Architecture Decision Record (HISTORICAL)
+
+**Status:** ~~Accepted — shipped in v1.4 (jack-tar-deckhand 1.3.3 → 1.4.0)~~ **SUPERSEDED 2026-05-18**
 **Date:** 2026-05-17
 **Plan:** [docs/superpowers/plans/2026-05-17-v1.4-push-and-paperbanana.md](../superpowers/plans/2026-05-17-v1.4-push-and-paperbanana.md) §2.1, §6 Phase 3 (E1–E6)
 **Decision-makers:** operator + Ralph (v1.4 push, 2026-05-17)

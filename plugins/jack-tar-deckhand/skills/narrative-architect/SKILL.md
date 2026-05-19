@@ -192,10 +192,11 @@ more of:
 
 For those slides, the `strategy_classifier.py` heuristic (paperbanana E1)
 will set `strategy: "academic_figure"` automatically in the StrategyMap,
-and the imagegen-bridge will dispatch to the **paperbanana**
-`/generate-diagram` skill (paperbanana E2) for publication-grade rendering
-when the plugin is installed (falls back to cloud Flash 1K otherwise — see
-`/jack-tar-deckhand:verify` for live availability).
+and the imagegen-bridge will dispatch to the **paperbanana** CLI via
+subprocess (`paperbanana generate --input ... --caption ... --image-model
+gemini-3.1-flash-image-preview ...`) for publication-grade rendering
+when paperbanana is installed (falls back to cloud Flash 1K otherwise —
+see `/jack-tar-deckhand:verify` for live availability and install hints).
 
 What this means for you (narrative-architect):
 
@@ -221,5 +222,17 @@ falls back to cloud generation with academic-figure-aware prompting. The
 slide will still render; it just won't be publication-tier. The
 `/jack-tar-deckhand:verify` skill reports whether paperbanana is reachable
 before the deck builds — if the speaker cares about publication tier and
-the verify check is amber, point them at the paperbanana plugin install
+the verify check is NOT_FOUND, point them at the install command
+(`pip install 'paperbanana[google]'` — full guide in
+`docs/architecture/paperbanana-integration-v2.md` §6).
+
+**Source-context quality matters.** Paperbanana's Retriever + Planner
+agents work from the `source_context` field, which the dispatch helper
+(`paperbanana_dispatch._build_source_context_from_slide`) synthesises
+from the slide's `methodology_context` (operator pre-annotation, best),
+`speaker_notes` (when ≥200 chars, good), or `body_points +
+visual_direction` joined into prose (last resort). Thin slides
+(headline-only) produce thinner figures. For best academic_figure
+output, write substantive `speaker_notes` or explicit
+`methodology_context` on these slides.
 guide (see `docs/architecture/paperbanana-integration.md`).
