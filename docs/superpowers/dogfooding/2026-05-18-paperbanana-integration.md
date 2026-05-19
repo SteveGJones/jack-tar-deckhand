@@ -178,6 +178,80 @@ The architecture figure at `docs/architecture/diagrams/jack-tar-deckhand-archite
 
 ---
 
+## 7b. Iterate-slide refinement attempt (second-order dogfood)
+
+Operator requested a refinement pass via `paperbanana generate --continue-run` to exercise the iterate-slide pattern (#89) end-to-end, address the Critic's three contrast flags (F4), and add the missing skills/agents the Sonnet reviewer noted. This validates whether the `paperbanana_run_id` manifest field actually enables cheap refinement as designed.
+
+**Setup gotcha (new finding F7):** `--continue-run <id>` looks for the run dir under `settings.output_dir` (default `outputs/` relative to cwd), NOT at the path paperbanana originally wrote to (`/tmp/run_<id>/`). We had to `cp -r /tmp/run_20260518_190654_814b57 outputs/` before the continuation would find the prior state. The bridge's CLI subprocess wrapper will need to handle this by either (a) running paperbanana with cwd=`output_dir`, (b) symlinking the run dir to the canonical location, or (c) waiting for upstream to honour `--output-dir` on `generate --continue-run`. The dogfood log captures this as F7 — file as upstream issue.
+
+**The refinement command:**
+
+```
+paperbanana generate \
+  --continue-run run_20260518_190654_814b57 \
+  --iterations 1 \
+  --feedback "Three contrast fixes: (1) strengthen the outer 'Jack-Tar Deckhand System' boundary…
+              Three content fixes: (1) include all 11 skills…
+              One layout fix: reroute the 'Upstream /pptx' arrow…" \
+  --vlm-provider gemini --vlm-model gemini-2.5-flash \
+  --image-provider google_imagen --image-model gemini-3.1-flash-image-preview \
+  --budget 0.15
+```
+
+**Outcome:** Iter 4 produced in 60.5s for ~$0.07 (Flash 1K image + ~4 VLM calls).
+
+**Visual review verdict (via general-purpose subagent comparing iter-2 vs iter-4):** **comparable, do NOT replace the repo figure**.
+
+| Feedback item | Outcome |
+|---|---|
+| 1. Outer boundary contrast | partially_fixed (title got bolder, border thinned) |
+| 2. Bridge coral saturation | **fixed** ✓ |
+| 3. paperbanana CLI box contrast | partially_fixed |
+| 4. Eleven skills listed | **regressed** ✗ (went from 7/11 to 6/11) |
+| 5. Six agents listed | **regressed** ✗ (went from 5/6 to 4/6) |
+| 6. smartart-selector dual-column footnote | not addressed |
+| 7. Upstream arrow routing | **fixed** ✓ |
+
+The reviewer flagged a new defect: **the smartart-selector appearing in both columns (a correct dual-status signal) was REMOVED in iter 4**, even though the feedback asked us to add a footnote explaining the duality.
+
+### F8 — Single-iteration refinement is patchy for content additions
+
+**Severity:** medium
+
+The mechanical iterate-slide path works exactly as designed: `--continue-run` loads prior state, `--feedback` reaches the Critic, a new iteration runs, the cost is genuinely ~50% of a fresh 2-iter run ($0.07 vs $0.14). The cheap-refinement architectural claim is validated.
+
+But the Visualizer agent's ability to fully address content additions in a single iteration is limited. The Critic's iter-4 notes **echo the same content critiques verbatim** ("should be updated to include all 11 skills mentioned in the methodology") — meaning the Critic identified the gap but the Visualizer didn't close it. Contrast fixes (purely visual) landed cleanly; content-additive fixes (list items, footnotes) did not.
+
+**Implication for iterate-slide (#89) design:**
+
+1. **Single-iter refinement is reliable ONLY for visual/contrast/layout tweaks.** The bridge coral fix and the arrow rerouting are clean wins.
+2. **Content-additive feedback (add 4 items to a list, add a footnote) should NOT be batched in a single iteration.** Each content item likely needs its own refinement turn, OR a fresh 2-iteration run from scratch with updated `methodology_context`.
+3. **A failsafe rollback mechanism is essential.** When refinement is verdict=`comparable` or `worse`, the iterate-slide skill MUST preserve the prior file and not overwrite. We applied this manually here — the repo figure stays at iter-2; iter-4 is scratch.
+4. **The reviewer's "next iteration" suggestion is mechanistic** — it explicitly enumerated the 11 skills + 6 agents in the feedback text. That kind of "exhaustive list in the prompt" feedback might land better than the "include all 11 skills" abstract instruction. Worth A/B-testing in the #89 design phase.
+5. **Refinement cost projection is realistic** at ~$0.07 per Flash 1K iter. A 3-iter refinement cycle (visual fix → review → content fix → review → polish) would land at ~$0.21 — competitive with a fresh 2-iter run from scratch ($0.14) only if it's more reliable, which it isn't yet for content changes.
+
+### F7 — `--continue-run` cwd / output-dir resolution
+
+**Severity:** low-medium
+
+`paperbanana generate --continue-run <id>` looks for the run dir under `settings.output_dir` (default `outputs/` relative to cwd). Paperbanana CLI flags `--output` and `--output-dir` (the latter on `runs list`) do not change this lookup path. Workaround: copy/symlink the run dir to `<cwd>/outputs/run_<id>/` OR set `OUTPUT_DIR` env var (untested; needs confirming whether pydantic-settings picks it up via the bare field name).
+
+The imagegen-bridge's CLI subprocess wrapper (Step 4.6) will need to either:
+
+- Run paperbanana with cwd set to the output_dir's parent, OR
+- Set `OUTPUT_DIR=$DECK_DIR/images` env var on the subprocess call, OR
+- Wait for an upstream fix that makes `--continue-run` honour `--output-dir`
+
+Worth filing as a 4th upstream issue (separate from #213/#214/#215).
+
+### What we kept and what we threw away
+
+- **Kept (repo figure):** `docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png` — the iter-2 version. Better content coverage, comparable visual quality.
+- **Discarded (refinement attempt):** the iter-4 output. Lives at `~/Documents/Development/jack-tar-deckhand/outputs/run_20260518_190654_814b57/final_output.png` on the dogfood machine but `outputs/` is now gitignored so it doesn't pollute the repo.
+- **Preserved (forensics):** the `metadata_continued.json` and `iter_4/` subdir contain the exact Critic feedback + Visualizer prompts paperbanana used. Useful for reproducing or auditing.
+
+---
+
 ## 8. Artefacts
 
 - **Final figure:** [`docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png`](../../architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png) (3.9 MB, 2752×1536)
