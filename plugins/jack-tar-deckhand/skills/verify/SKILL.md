@@ -108,6 +108,7 @@ Based on engine plugin availability:
 - **Editable SmartArt:** READY if jack-tar-msft-smartart is FULLY_AVAILABLE
 - **Custom graphics:** READY if jack-tar-custom-smartart is FULLY_AVAILABLE or PARTIALLY_AVAILABLE
 - **Academic figures:** READY if `$PB_FINAL` is READY (paperbanana installed + `GOOGLE_API_KEY` set); PARTIAL if `$PB_FINAL` is PARTIAL (CLI installed, key missing — fallback active); FALLBACK if NOT_FOUND (cloud Flash 1K with academic-figure prompting still produces a figure, just not publication-tier)
+- **Iterate-slide refinement:** READY if `$PB_FINAL` is READY (`/jack-tar-deckhand:iterate-slide` can refine academic_figure slides via paperbanana `--continue-run`); PARTIAL if `$PB_FINAL` is PARTIAL (CLI present but missing key); NOT_AVAILABLE if NOT_FOUND (skill cannot run — refinement requires a paperbanana_run_id which only paperbanana-rendered slides have)
 - **Deck assembly:** READY if pptxgenjs is installed
 - **QA checks:** always READY (built into this plugin)
 
@@ -191,13 +192,14 @@ EXTERNAL TOOLS:
     /jack-tar-deckhand:verify   # re-run
 
 PIPELINE CAPABILITY:
-  Draft images:      READY (ollama available)
-  Production images: READY (cloud partially available)
-  Editable SmartArt: READY (msft-smartart available)
-  Custom graphics:   NOT_READY (custom-smartart not available)
-  Academic figures:  FALLBACK (paperbanana not installed — Flash 1K fallback active)
-  Deck assembly:     READY (pptxgenjs installed)
-  QA checks:         READY
+  Draft images:           READY (ollama available)
+  Production images:      READY (cloud partially available)
+  Editable SmartArt:      READY (msft-smartart available)
+  Custom graphics:        NOT_READY (custom-smartart not available)
+  Academic figures:       FALLBACK (paperbanana not installed — Flash 1K fallback active)
+  Iterate-slide refine:   NOT_AVAILABLE (paperbanana required — install per EXTERNAL TOOLS above)
+  Deck assembly:          READY (pptxgenjs installed)
+  QA checks:              READY
 
 DISCIPLINE HOOK (issue #76):
   Hook script:         OK (${CLAUDE_PLUGIN_ROOT}/hooks/block-png-read.sh)
