@@ -297,6 +297,53 @@ The Visualizer agent reliably acts on explicit enumeration that the operator doe
 - **Discarded:** iter 4 (Tier-1 attempt) — comparable to baseline, not retained.
 - **Preserved (forensics):** the `metadata_continued.json` and `iter_3`/`iter_4`/`iter_5`/`iter_6` subdirs all live under the gitignored `outputs/run_20260518_190654_814b57/` on the dogfood machine. Useful for reproducing or auditing.
 
+### Tier-3 — `--auto` mode (no operator feedback)
+
+Operator requested a third tier to test paperbanana's `--auto` flag end-to-end: can the Critic+Visualizer loop reach a `satisfied` state on a fresh run with NO operator-supplied enumeration feedback?
+
+**Setup:** Fresh paperbanana run with `--auto --max-iterations 4`. Same methodology text + caption as the baseline. New run id: `run_20260518_212056_f719d8`.
+
+**Outcome:** 3 visualizer iterations completed in 3:53 wall, ~$0.22 spend. **`--auto` terminated at iter 3 with Critic still flagging a defect** (missing primary output arrow from orchestrator to the .pptx deck node). Did not hit `--max-iterations 4`. The reason for early stop is unclear — possibly counts the Planning+Styling phase as an iteration, possibly some other safety condition.
+
+**Visual review verdict (subagent comparing Tier-3 to Tier-2 baseline):** **Tier-2 clearly better** for our use case (architecture-documentation figure), but Tier-3 is **better on flow / explanatory clarity** — it's not worse, it's *different*.
+
+### F10 — Two-axis design space: completeness vs explanatory flow
+
+**Severity:** high (this is the most important #89 design finding from the multi-tier dogfood)
+
+| Dimension | Tier-2 (explicit enumeration) | Tier-3 (--auto, no feedback) |
+|---|---|---|
+| Skills enumeration | **all 11** ✓ | 2 examples (brand-manager, deck-assembler) ✗ |
+| Agents enumeration | **all 6** ✓ | 2 examples (deck-conductor, prompt-engineer) ✗ |
+| Smartart-selector dual-column footnote | yes ✓ | not addressable (lists are abbreviated) |
+| Outer system boundary | solid 2px dark ✓ | dashed faint light-grey ✗ |
+| Bridge plugin visual emphasis | saturated coral ✓ | pale lavender ✗ |
+| **Arrow labels for engine plugins** | terse one-way requests | **richer bidirectional with labelled returns** ✓ |
+| **Bridge contract semantics** | generic "enriches upstream" caption | **explicit role tags + 4 labelled contract arrows** ✓ |
+| **paperbanana conditional invocation** | "Academic Figure Request" label | **"invokes for academic figures (conditional)" + "returns academic figure"** ✓ |
+| **Hierarchical clarity** | dense | **cleaner top-to-bottom: TalkBriefs → Orchestrator → 4 engines → Deck** ✓ |
+| **Visual crowdedness** | crowded (especially the inline skills/agents prose) | **less crowded; better legibility at small sizes** ✓ |
+
+The Critic optimises for **visual and flow coherence**, NOT for enumeration completeness. When the figure's value lies in *completeness* (specification artifact, e.g. "every skill is listed for audit"), `--auto` cannot infer "list all 11 by name" from a caption that says "with skills and agents." When the figure's value lies in *flow* (explanatory diagram, e.g. "show how a request travels through the system"), `--auto` produces a richer result than operator-driven enumeration.
+
+**Implications for the iterate-slide skill (#89) design — supersede F8/F9's "do this once" thinking with a two-mode skill:**
+
+1. **Two operator modes, not one.** The skill should expose `--mode auto` (Critic-driven convergence, for explanatory/conceptual figures) and `--mode enumerate` (operator-supplied checklist, for specification/contract figures). The Tier-2 vs Tier-3 evidence shows these produce qualitatively different outputs and serve different deck purposes.
+2. **Default routing:** `auto` for body-of-talk illustrative slides, `enumerate` for the "system overview" / "what's in scope" / "team roster" / "API surface" hero slides where completeness is the value.
+3. **The operator-checklist surface for enumerate mode** should be structured, not free-text:
+   - `must-mention`: list of items that MUST appear in the figure
+   - `must-be-visually-prominent`: visual properties that must hold (e.g., "this box should be the largest", "this border must be solid not dashed")
+   - `keep-from-prior`: properties to preserve across refinement iterations (the Tier-2 "KEEP" header pattern)
+4. **`--auto` mode default-stops at the safety cap, not at Critic-satisfied.** The dogfood showed that `--auto --max-iterations N` can terminate without convergence; the skill must check the final Critic verdict (satisfied vs needs-revision) and surface that to the operator rather than silently shipping a non-converged figure.
+5. **A `--draft` mode could combine the two:** `--auto` for first 2 iterations (cheap exploration) then if not converged, switch to operator-checklist for the final round (deterministic completion). This is the recipe Tier-2 effectively followed.
+6. **Cost telemetry per mode:** Tier-2 (3 iters split as 2 fresh + 1 vague + 2 enumerated) cost $0.36 cumulative. Tier-3 (3 iters auto) cost $0.22. For *equivalent quality on a completeness artifact*, the operator-supplied checklist is more cost-effective than `--auto` looping; for *equivalent quality on a flow diagram*, `--auto` is more cost-effective than operator iteration.
+
+### What we kept (cumulative across all 3 tiers)
+
+- **Repo figure remains the Tier-2 iter-6.** For the architecture-documentation use case, completeness wins. Tier-3 is genuinely better at flow but doesn't list all the skills + agents — fatal for the figure's purpose as a system specification.
+- **Tier-3 output preserved on dogfood machine** at `outputs/run_20260518_212056_f719d8/final_output.png` (gitignored). Useful as a comparative artifact when designing #89 — it's the canonical "what `--auto` produces for a completeness-style brief" example.
+- **Cumulative spend across all tiers: ~$0.58** ($0.14 baseline + $0.07 Tier-1 + $0.15 Tier-2 + $0.22 Tier-3). Over the $0.30 single-dogfood gate but the multi-tier experiment was explicitly authorised by the operator and the design-input value is significant.
+
 ---
 
 ## 8. Artefacts
