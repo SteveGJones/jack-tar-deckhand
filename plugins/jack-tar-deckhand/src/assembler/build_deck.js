@@ -171,6 +171,10 @@ async function assembleDeck() {
         const strategy = slideStrategies[slideData.slide_number] || 'composed';
 
         // Strategy-first routing: keynote strategies override slide-type routing
+        if (strategy === 'full_bleed') {
+            buildFullBleedSlide(pptx, slideData, { palette, SLIDE_W, SLIDE_H, noteData, imageData });
+            continue;
+        }
         if (strategy === 'full_render') {
             buildFullRenderSlide(pptx, slideData, { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, logoPath, hasLogo, noteData, imageData });
             continue;
@@ -940,6 +944,42 @@ function buildFullRenderSlide(pptx, slideData, ctx) {
     addFooterLogo(slide, ctx);
 
     // Speaker notes
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
+/**
+ * Full-bleed slide: the image IS the slide.
+ * Zero chrome — no title, no body, no footer logo. Just an edge-to-edge
+ * picture + speaker notes. Distinct from full_render (which keeps a title
+ * overlay and footer logo). Issue #88 — infographic-narrative register.
+ *
+ * Edge case: when no picture is available, render a solid brand-primary
+ * background. Still no chrome — the speaker can spot the missing image
+ * during review without misleading them with placeholder text.
+ */
+function buildFullBleedSlide(pptx, slideData, ctx) {
+    const { palette, SLIDE_W, SLIDE_H, noteData, imageData } = ctx;
+
+    const slide = pptx.addSlide();
+
+    const imgPath = imageData ? resolveImagePath(imageData.file_path) : null;
+    if (imgPath && fs.existsSync(imgPath)) {
+        slide.addImage({
+            path: imgPath,
+            x: 0,
+            y: 0,
+            w: SLIDE_W,
+            h: SLIDE_H,
+            sizing: { type: 'cover', w: SLIDE_W, h: SLIDE_H },
+            altText: imageData.alt_text || slideData.headline || '',
+        });
+    } else {
+        const bgColor = palette.primary || '1B3A4B';
+        slide.background = { color: bgColor };
+    }
+
     if (noteData) {
         slide.addNotes(noteData.text);
     }

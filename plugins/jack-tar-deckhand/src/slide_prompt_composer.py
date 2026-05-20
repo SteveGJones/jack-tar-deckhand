@@ -135,7 +135,7 @@ def build_strategy_map(outline, approval_mode='review', overrides=None, template
         if slide_num in overrides:
             entry['speaker_override'] = overrides[slide_num]
             # Override also sets the render funnel for the new strategy
-            if overrides[slide_num] in ('full_render', 'backdrop_render', 'background', 'backdrop'):
+            if overrides[slide_num] in ('full_render', 'backdrop_render', 'background', 'backdrop', 'full_bleed'):
                 entry['render_funnel'] = ['ollama', 'cloud_low', 'cloud_full']
             else:
                 entry['render_funnel'] = ['ollama']
