@@ -84,18 +84,37 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
-### Current Status (2026-05-17 — v1.4 push in flight)
+### Current Status (2026-05-20 — v1.4.1 shipped + v1.4 plan part-done)
 
-- **v1.4 push autonomous overnight execution starting**: Ralph Loop driving `feat/v1.4-push-and-paperbanana` branch. Driver: `PROMPT.md` at repo root. State: `.ralph/v1.4-state.json`. Plan: `docs/superpowers/plans/2026-05-17-v1.4-push-and-paperbanana.md`.
-- **Scope**: 7 feature issues (#87–#93) + #86 (discipline-hook propagation gap) + paperbanana integration folded as Phase 3 (6 sub-deliverables E1–E6).
-- **Hard rules** baked into PROMPT.md:
-  - $5.00 USD cloud verification budget HARD CAP — Ralph escalates before exceeding.
-  - Tier discipline: Imagen Fast 1K ($0.020) for non-text, Flash 1K ($0.067) default, **Pro 4K PROHIBITED** for v1.4.
-  - Visual review only via subagent dispatch; never Read PNGs directly.
-  - Commit per atomic step on working branch; NO PRs opened by Ralph.
-  - Blocker triggers: write `V1.4-BLOCKER.md` at repo root + cancel Ralph loop + commit; happy path writes `V1.4-COMPLETE.md`.
-- **End-state target** at v1.4 complete: cloud 1.3.3, bridge 0.3.0, deckhand 1.4.2 (some intermediate bumps along the way).
-- **Active session entry-points**: if you're picking up after Ralph stopped, read `V1.4-BLOCKER.md` (if present) OR `V1.4-COMPLETE.md`, then `.ralph/v1.4-state.json` for granular state, then the plan doc for the phase you'd resume.
+- **v1.4.1 merged on main** via [PR #102](https://github.com/SteveGJones/jack-tar-deckhand/pull/102) (merge commit `4f8fc2b`). Plugin bumped `1.3.3 → 1.4.0 → 1.4.1`. CI 9/9 green.
+- **What v1.4.1 ships:**
+  - **Paperbanana integration as external CLI tool** (sibling orchestrator framing). New `academic_figure` strategy + `paperbanana_dispatch.py` helper module + ADR v2 ([`docs/architecture/paperbanana-integration-v2.md`](docs/architecture/paperbanana-integration-v2.md)) supersedes v1. Detection via `find_spec` + `shutil.which`; transport via CLI subprocess; manifest carries `paperbanana_run_id` + `paperbanana_args` for refinement.
+  - **`/jack-tar-deckhand:iterate-slide` skill** (#89) — three-mode refinement contract (auto / enumerate / draft) derived empirically from the multi-tier dogfood. Helper module `src/iterate_slide_dispatch.py` covers mode dispatch + feedback assembly + F7 cwd workaround + manifest history + cost telemetry. 53 unit tests.
+  - **Ralph pre-session work bundled in:** #87 (register presets), #92 (cloud retry-on-empty-candidates), #93 (`strap_style: prose-sentence`).
+  - **Test suite:** 130/130 → **183/183 green** (130 dispatch + 53 iterate-slide).
+- **Dogfood evidence + design findings:** [`docs/superpowers/dogfooding/2026-05-18-paperbanana-integration.md`](docs/superpowers/dogfooding/2026-05-18-paperbanana-integration.md) — F1–F11 captured across 4 tiers of dogfood (~$0.72 cumulative spend, under the $5 v1.4 cap). F8/F9/F10 drive the iterate-slide two-mode design. F11 — paperbanana Critic verdict ≠ jack-tar reviewer (visual reviewer is authoritative).
+- **Architecture figure** at [`docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png`](docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png) — produced by paperbanana documenting jack-tar's own architecture (meta-dogfood); also embedded in ADR v2 §1.
+- **Upstream issues filed at llmsresearch/paperbanana** (parallel work): #213 (pricing table), #214 (deprecated defaults), #215 (version inconsistency), #216 (PyPI staleness), #217 (`--continue-run` cwd resolution).
+
+### v1.4 plan — remaining work (deferred to follow-up PRs)
+
+Three feature issues from the original v1.4 plan did NOT land in PR #102 and are queued for follow-up:
+
+| # | Title | Cluster | Effort | Notes |
+|---|---|---|---|---|
+| #88 | Deck-assembler `full-bleed image is the slide` scale | C (deck-assembler) | ~3–4 hr | **DO ALONE next.** Independent code surface (build_deck.js + build_deck_template.py + strategy_map schema). Reference implementation exists at `tmp/agentic-sdlc-keynote-deck/bridge-run-v2/fullbleed_deck.py` in the consuming repo. |
+| #90 | Prompt-engineer composition-primitives library | A (prompt-engineer) | ~4–5 hr | **Pair with #91.** Both touch the prompt-engineer agent. 5 primitives from the 2026-05-13 keynote: two-port-fixture, asymmetric-towers, multi-craft-hub, instrument-grid, three-tier-chain. |
+| #91 | Prompt-engineer pre-render text-density warning | A (prompt-engineer) | ~2–3 hr | **Pair with #90.** Threshold-warning when prompt asks for >12–15 quoted strings (Nanobanana Flash garbles above that). Acts as safety net for #90's primitive templates. |
+
+Also pending: final v1.4 end-to-end dogfood combining all features.
+
+Recommended sequencing for the remaining work:
+
+1. **PR #103 candidate: #88 alone** on branch `feat/v1.4.2-full-bleed-scale` — bumps deckhand to 1.4.2
+2. **PR #104 candidate: #90 + #91 together** on branch `feat/v1.4.3-prompt-engineer-primitives` — coupled prompt-engineer scope; #91 is the safety net for #90; bumps deckhand to 1.4.3
+3. **PR #105 candidate: final v1.4 end-to-end dogfood** — combine all v1.4 features in one deck render, log results
+
+Still-open issues NOT in the v1.4 scope: #86 (discipline-hook propagation — investigation-only commit landed; actual fix still open), #95 (Ralph false-completion — documented in dogfood log, cross-check rule applies meanwhile).
 
 ### Current Status (2026-05-12 — v1.3 push complete)
 
