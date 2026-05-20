@@ -344,6 +344,63 @@ The Critic optimises for **visual and flow coherence**, NOT for enumeration comp
 - **Tier-3 output preserved on dogfood machine** at `outputs/run_20260518_212056_f719d8/final_output.png` (gitignored). Useful as a comparative artifact when designing #89 — it's the canonical "what `--auto` produces for a completeness-style brief" example.
 - **Cumulative spend across all tiers: ~$0.58** ($0.14 baseline + $0.07 Tier-1 + $0.15 Tier-2 + $0.22 Tier-3). Over the $0.30 single-dogfood gate but the multi-tier experiment was explicitly authorised by the operator and the design-input value is significant.
 
+### Tier-4 (2026-05-19) — iterate-slide skill end-to-end dogfood
+
+Once the iterate-slide skill (#89) was implemented, we ran it against the iter-6 architecture figure to refine the most-flagged trade-off from Tier-2's visual review: the Skills and Agents lists had collapsed into inline comma-separated prose, losing the parallel two-column bullet layout. This was the perfect test subject — non-trivial, evidence-driven, and a real production deliverable.
+
+**Setup:**
+
+- Synthetic manifest at `/tmp/jack-tar-dogfood/architecture-manifest.json` with the iter-6 entry (slide_number=1, paperbanana_run_id=`run_20260518_190654_814b57`, full original args)
+- F7 workaround already satisfied: `outputs/run_20260518_190654_814b57/` already lives under jack-tar cwd from the Tier-2 copy
+- Mode: `enumerate` (validated path)
+- Feedback: explicit `must_be_visually_prominent` listing the two-column bulleted requirement + permission to shrink + KEEP header protecting all 7 iter-6 wins
+- Iterations: 2 (default)
+- Budget: $0.25 cap
+
+**The skill ran end-to-end via the helper functions:**
+
+1. `find_manifest_entry(manifest, 1)` → returned the prior entry with run_id
+2. `ensure_run_dir_local(...)` → confirmed local (no-op)
+3. `plan_refinement('enumerate', run_id, request, iterations=2)` → built the four-field args dict + assembled feedback (1627 chars)
+4. `cli_args_to_argv(plan.cli_args)` → 16-item argv array
+5. `subprocess.run(['.venv/bin/paperbanana', 'generate'] + argv, ...)` → exit 0, wall 133.2s
+6. `parse_output_path_from_stdout(...)` → extracted `outputs/run_20260518_190654_814b57/final_output.png` cleanly
+7. `sha256` of new file computed
+8. Visual review dispatched (general-purpose subagent comparing iter 8 to iter 6) → verdict "iter_8_clearly_better, replace with caveats"
+9. `update_manifest_entry(...)` → refinement_count 0→1, paperbanana_history seeded with initial + appended refinement_1, paperbanana_args updated to the new refinement's args
+10. Cost ledger record appended to `/tmp/jack-tar-dogfood/bridge-cost-ledger.jsonl` (estimated true cost $0.138)
+11. iter-8 PNG copied over the repo figure
+
+**Outcome: iter 8 replaces iter 6 as the repo figure.** All 7 iter-6 wins preserved (boundary, coral, footnote, full skills list, full agents list, smartart-selector dual-column, arrow routing) AND the requested list-layout fix landed cleanly (Skills + Agents now rendered as parallel vertical bulleted lists with each item on its own line — exactly what the feedback asked for).
+
+Two minor caveats noted in the visual review:
+- **Typo** "rounh" instead of "round" (or "route") in a newly-introduced arrow-routing annotation near the bridge. Wasn't asked for; Visualizer added it spontaneously.
+- **Bridge plugin migrated** to sit above the system frame instead of nested inside it. Minor structural shift; doesn't break the diagram's read.
+
+Both could be addressed with a follow-up `iterate-slide --mode enumerate` pass targeting just those two items.
+
+### F11 — paperbanana's Critic verdict can disagree with jack-tar-side visual review
+
+**Severity:** medium (informs the failsafe-rollback design in iterate-slide skill #89)
+
+The single most important finding from this run: **paperbanana reported the Critic was NOT satisfied at iter 8** ("Skills and Agents are still inline comma-separated prose, should be vertical bulleted"), but the jack-tar-side `general-purpose` subagent visual reviewer reported the exact opposite ("Skills and Agents are now two parallel vertical bulleted lists with one item per line, exactly what the refinement asked for"). The Critic was simply WRONG about what iter 8 showed.
+
+The skill's failsafe-rollback logic correctly prioritised the visual reviewer's verdict and shipped iter 8. If we'd treated paperbanana's Critic verdict as authoritative, we'd have rolled back to iter 6 and not landed the genuine improvement.
+
+**Implications for #89 design (folds into the existing F8/F9/F10 → two-mode contract):**
+
+1. **The jack-tar `image-reviewer` / `general-purpose` subagent is the authoritative gate, NOT paperbanana's Critic.** The skill's Step 7 (failsafe rollback) MUST evaluate the new image against the operator's feedback via jack-tar's reviewer dispatch, regardless of what paperbanana's `--auto` loop reported.
+2. **`--mode auto` should not blindly trust Critic-satisfied.** Even when paperbanana terminates with Critic-satisfied, run the jack-tar reviewer as a sanity check before updating the manifest. The reverse holds too: a Critic-unsatisfied result can still be a clear improvement worth shipping (this run).
+3. **The cost ledger should record BOTH verdicts** — paperbanana's Critic + jack-tar's reviewer — so future analysis can spot drift between them. Already implemented in the §7d ledger record.
+4. **Per-run divergence rate is worth tracking** — if jack-tar's reviewer ends up agreeing with paperbanana's Critic >90% of the time, we can default to trusting the Critic and only invoke the reviewer for ambiguous cases. The current rate is unknown; needs multiple runs to estimate.
+
+### What we kept (cumulative including Tier-4)
+
+- **Repo figure is NOW the iter-8 version** (sha256 `2d974779…`). Better than iter-6 on the headline ask (two-column bullet layout); two minor caveats deferred to a future refinement pass.
+- **Manifest entry** has `refinement_count=1`, `paperbanana_history` chain of `[initial, refinement_1]`, `paperbanana_args` updated to reflect the iter-7/8 refinement.
+- **Cost ledger** at `/tmp/jack-tar-dogfood/bridge-cost-ledger.jsonl` (gitignored) records the refinement with the verdict-divergence note for future audit.
+- **Cumulative spend across all four tiers: ~$0.72** (~$0.14 Tier-4 added to the prior $0.58). Demonstrated value: the iterate-slide skill works end-to-end including failsafe rollback, the F11 finding caught a real Critic miscall that would have blocked a clear improvement, and the architecture figure is now meaningfully better as a publishable artefact.
+
 ---
 
 ## 8. Artefacts
