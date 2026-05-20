@@ -1,6 +1,6 @@
 ---
 name: strategy-map
-description: Classify each slide's rendering strategy (full_render, background, backdrop, pragmatic_composition, composed) and generate image prompts via the prompt-engineer agent.
+description: Classify each slide's rendering strategy (full_render, full_bleed, background, backdrop, pragmatic_composition, composed) and generate image prompts via the prompt-engineer agent.
 argument-hint: [--deck-dir PATH] [--approval-mode review|one_shot]
 allowed-tools: Bash(python *), Read, Glob, Agent(prompt-engineer)
 ---
@@ -18,7 +18,8 @@ Classify rendering strategies for each slide and produce the StrategyMap contrac
 ## What It Does
 
 1. Reads the SlideOutline and classifies each slide into a rendering strategy:
-   - **full_render** — entire slide generated as one AI image (title, section divider, closing, sparse content)
+   - **full_render** — entire slide generated as one AI image with a programmatic title overlay and footer logo on top (title, section divider, closing, sparse content)
+   - **full_bleed** — _operator-opt-in only_ — image IS the slide, ZERO chrome: no title, no body, no footer logo (issue #88). Use for the infographic-narrative register where every slide is edge-to-edge. See "Opting into full_bleed" below.
    - **background** — atmospheric AI background + text in template zones (5 variants: left_panel, right_panel, bottom_bar, top_band, center_float)
    - **backdrop** — structured AI scene + vision post-analysis for text positioning (Claude Code vision-analyst agent)
    - **pragmatic_composition** — individual AI-generated elements assembled at exact positions with text labels
@@ -84,6 +85,24 @@ If overrides are provided, rebuild with the overrides dict and save again.
 ### Pragmatic composition for grid content
 
 When a slide has 4+ labeled elements in a grid layout, recommend `pragmatic_composition` over `backdrop`. Pragmatic composition gives precise control over element sizing and alignment since each image is independently generated and placed at exact coordinates. Backdrop relies on vision-detected positions from a single scene image, which produces inconsistent element sizes and misaligned text labels.
+
+### Opting into full_bleed (issue #88)
+
+The `full_bleed` strategy is **operator-opt-in only**. Neither the rule-based classifier nor the outline-driven classifier will assign it automatically — the Speaker must pass it via the `overrides` dict to `build_strategy_map` or via `upgrade_slide_strategy`.
+
+**When to reach for it.** Decks in the infographic-narrative register (see superpower-bridge `infographic-narrative.md` preset, related to issue #87) want every content slide rendered edge-to-edge — title and body baked into the picture itself, no template chrome, no footer logo. The image carries the entire slide's meaning. Examples: large-format conference keynote screens where each slide is a designed plate; long-scroll briefing decks; institutional reports rendered as full-image plates.
+
+**When NOT to reach for it.** Avoid for slides that need post-delivery editability (the picture is fixed; speakers can't tweak words in PowerPoint), and for slides whose value is the text itself. If you want a hero image plus a programmatic title overlay, that is `full_render`, not `full_bleed`.
+
+**Override example.**
+
+```python
+strategy_map = build_strategy_map(outline, overrides={3: "full_bleed", 5: "full_bleed"})
+```
+
+Overrides set `render_funnel` to `["ollama", "cloud_low", "cloud_full"]` so the slide actually gets a production-quality image rendered.
+
+**Edge case — no picture.** If image generation fails for a `full_bleed` slide the assembler emits a slide with a solid brand-primary background (no chrome). Speakers spot the gap during review rather than seeing a misleading title placeholder.
 
 ### body_layout option for background slides
 

@@ -58,7 +58,7 @@ Default deck-dir is `./tmp/deck` if not specified.
    - Images from ImageManifest placed in correct zones
    - Chart images from ChartManifest for data_chart slides
    - Speaker notes from SpeakerNotes contract
-   - If strategy-map.json exists, routes slides to full_render (full-bleed AI image), backdrop_render (AI background + text overlay), or composed (standard) assembly paths
+   - If strategy-map.json exists, routes slides to full_render (full-bleed AI image with title overlay), full_bleed (image IS the slide — zero chrome, issue #88), backdrop_render (AI background + text overlay), or composed (standard) assembly paths
 5. Generates progressive build slides for bullets with build_animation cues
 6. Writes the assembled .pptx to the output directory
 7. Reports file size and any asset warnings

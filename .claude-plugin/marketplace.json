@@ -31,9 +31,9 @@
     },
     {
       "name": "jack-tar-deckhand",
-      "description": "Full presentation pipeline \u2014 brand, style, narrative, images, SmartArt, assembly, QA + academic-figure rendering (optional paperbanana CLI) + /iterate-slide single-slide critique-driven refinement",
+      "description": "Full presentation pipeline \u2014 brand, style, narrative, images, SmartArt, assembly, QA + academic-figure rendering (optional paperbanana CLI) + /iterate-slide single-slide critique-driven refinement + full_bleed image-is-the-slide strategy",
       "source": "./plugins/jack-tar-deckhand",
-      "version": "1.4.1"
+      "version": "1.4.2"
     },
     {
       "name": "jack-tar-superpower-bridge",

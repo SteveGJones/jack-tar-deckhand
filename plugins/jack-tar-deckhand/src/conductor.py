@@ -228,7 +228,7 @@ def upgrade_slide_strategy(deck_dir, slide_number, new_strategy):
     Args:
         deck_dir: Path to the deck working directory.
         slide_number: Which slide to upgrade.
-        new_strategy: 'full_render', 'backdrop_render', or 'composed'.
+        new_strategy: 'full_render', 'backdrop_render', 'full_bleed', or 'composed'.
 
     Returns:
         dict: The updated strategy map.
@@ -241,7 +241,7 @@ def upgrade_slide_strategy(deck_dir, slide_number, new_strategy):
     for entry in strategy_map.get('slides', []):
         if entry['slide_number'] == slide_number:
             entry['speaker_override'] = new_strategy
-            if new_strategy in ('full_render', 'backdrop_render'):
+            if new_strategy in ('full_render', 'backdrop_render', 'full_bleed'):
                 entry['render_funnel'] = ['ollama', 'cloud_low', 'cloud_full']
             else:
                 entry['render_funnel'] = ['ollama']
