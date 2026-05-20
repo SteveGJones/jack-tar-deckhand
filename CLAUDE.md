@@ -40,6 +40,24 @@ The hook is auto-installed when the plugin is enabled — no separate setup. Ver
 
 This rule was reaffirmed 2026-05-07 during the blog-post asset run when 9 PNGs were Read directly into context before the operator caught it. Memory alone does not bind; the harness has to.
 
+### Subagent-scope gap (issue #86, confirmed 2026-05-17)
+
+The `PreToolUse` hook governs the **orchestration session only**. It does **not** propagate into `Task`-dispatched subagent sessions — a synthetic test on 2026-05-17 confirmed that a `general-purpose` Haiku subagent successfully `Read` a PNG with the parent plugin's hook active. See `docs/architecture/discipline-hook-propagation.md` for the test evidence and root-cause analysis.
+
+**Soft-policy mitigation in force**: every delegated implementation prompt that may touch generated images MUST inline this reminder near the top of the prompt:
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly. If you need to verify an image, dispatch the `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or the `general-purpose` subagent (Sonnet, higher accuracy). Both subagents pull the image into THEIR context and return text.
+
+`image-reviewer` and `general-purpose` agents are themselves exempt — giving them the image IS the dispatch's purpose. Orchestrators reviewing PRs should verify that delegated implementation prompts include the inline rule when image handling is in scope.
+
+## MANDATORY: Model routing for delegated agents
+
+**Spawn `claude-haiku-4-5` for lightweight tasks**: mechanical transforms, quick format checks, simple lookups, boilerplate fills, command line calls and MCP server calls.
+
+Reserve Sonnet/Opus for tasks that require judgement — investigations, design decisions, prose writing, visual review, multi-step implementations with surface-area decisions.
+
+When dispatching via `Task`, set `model: "haiku"` for the lightweight category. Default model inheritance from the parent session is wasteful for mechanical work.
+
 ## Plugin Architecture (EPIC #40)
 
 This repository is now a **5-plugin Claude Code marketplace**. The presentation pipeline has been refactored into independently installable plugins:
@@ -60,9 +78,31 @@ This repository is now a **5-plugin Claude Code marketplace**. The presentation 
 
 The original `src/` directory remains as the development source of truth. Plugin directories contain copies that are distributed.
 
+**Optional external tool — paperbanana:** `jack-tar-deckhand` v1.4.0+ routes slides classified as `academic_figure` (Figure-N captions, equations, citations, ablation studies, ML architecture diagrams) through the [paperbanana](https://github.com/llmsresearch/paperbanana) CLI via subprocess when paperbanana is installed locally (`pip install 'paperbanana[google]'`, `pipx`, or `uvx`). Paperbanana is treated as an external CLI tool — a sibling orchestrator, like LaTeX or ImageMagick — not as a Claude Code plugin. When paperbanana is absent the bridge falls back to Nano Banana Flash 1K with academic-figure-aware prompting — pipelines never break on absent optional dependencies. ADR + operator install guide: [`docs/architecture/paperbanana-integration-v2.md`](docs/architecture/paperbanana-integration-v2.md) (v1 ADR at [`paperbanana-integration.md`](docs/architecture/paperbanana-integration.md) preserved as historical record).
+
 ## Project: Jack-Tar Deckhand
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
+
+### Current Status (2026-05-17 — v1.4 push in flight)
+
+- **v1.4 push autonomous overnight execution starting**: Ralph Loop driving `feat/v1.4-push-and-paperbanana` branch. Driver: `PROMPT.md` at repo root. State: `.ralph/v1.4-state.json`. Plan: `docs/superpowers/plans/2026-05-17-v1.4-push-and-paperbanana.md`.
+- **Scope**: 7 feature issues (#87–#93) + #86 (discipline-hook propagation gap) + paperbanana integration folded as Phase 3 (6 sub-deliverables E1–E6).
+- **Hard rules** baked into PROMPT.md:
+  - $5.00 USD cloud verification budget HARD CAP — Ralph escalates before exceeding.
+  - Tier discipline: Imagen Fast 1K ($0.020) for non-text, Flash 1K ($0.067) default, **Pro 4K PROHIBITED** for v1.4.
+  - Visual review only via subagent dispatch; never Read PNGs directly.
+  - Commit per atomic step on working branch; NO PRs opened by Ralph.
+  - Blocker triggers: write `V1.4-BLOCKER.md` at repo root + cancel Ralph loop + commit; happy path writes `V1.4-COMPLETE.md`.
+- **End-state target** at v1.4 complete: cloud 1.3.3, bridge 0.3.0, deckhand 1.4.2 (some intermediate bumps along the way).
+- **Active session entry-points**: if you're picking up after Ralph stopped, read `V1.4-BLOCKER.md` (if present) OR `V1.4-COMPLETE.md`, then `.ralph/v1.4-state.json` for granular state, then the plan doc for the phase you'd resume.
+
+### Current Status (2026-05-12 — v1.3 push complete)
+
+- **Issues #20, #33, #34, #49, #54, #55, #56, #57** all closed across PRs #80–#85. Bridge v0.2.0 → 0.2.2 (CHART marker + inline `·` separator fix), deckhand 1.3.1 → 1.3.3 (gantt selector criteria + inline_data refactor coverage + 5 custom-smartart layout defects), custom-smartart 1.1.0 → 1.1.1.
+- **Triage cycle**: closed 27 issues total across a single session via 5 PRs + 17 already-fixed-on-main verdicts.
+- **New rule established**: verification-before-merge (`feedback_verification_before_merge.md`) — CI green is necessary but not sufficient; visual / runtime gates run before merge for any PR touching visual output, render paths, or new markers.
+- **New rule established**: verification for cached agents (`feedback_verification_for_cached_agents.md`) — dispatch general-purpose with new rule inline rather than the cached subagent.
 
 ### Current Status (2026-05-08)
 

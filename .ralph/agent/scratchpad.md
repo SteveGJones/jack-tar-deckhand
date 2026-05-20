@@ -1,90 +1,63 @@
-# Draft Deck — Layout Testing Scratchpad
+# v1.4 Ralph scratchpad
 
-## 2026-03-31 — Iteration 1: Init + Strategy Map
+## 2026-05-17 iter — phase_3_e5_adr (DONE @ 0869264)
 
-**Starting state:** No draft-state.json. Old strategy-map.json had only 3 strategies (full_render, composed, backdrop_render).
+State at start of iter:
+- branch: feat/v1.4-push-and-paperbanana
+- HEAD: 9d14347 (persona docs for academic_figure — E4)
+- spent: $0.00 / $5.00
+- last completed: phase_3_e4_persona_docs
+- next: phase_3_e5_adr (budget: $0.00, docs-only)
 
-**This iteration:**
-- Created draft-state.json (phase: strategy_map)
-- Wrote new strategy-map.json with all 5 strategies:
-  - full_render: slides 1, 13
-  - background: slides 2 (left_panel), 7 (right_panel), 12 (bottom_bar)
-  - backdrop: slides 5 (grid_2x2), 10 (grid_2x2)
-  - pragmatic_composition: slides 9 (three_across), 11 (three_across)
-  - composed: slides 3, 4, 6, 8, 14
-- Validated: all 5 strategies present, 14 slides
-- Created 5 tasks for remaining phases
+E5 outcome:
+- Wrote docs/architecture/paperbanana-integration.md — full ADR (10
+  sections: context, decision, alternatives, contract surface,
+  fallback behaviour, operator install guide, artefact map, risks,
+  related decisions, references). Documents Option 4 (skill
+  cross-invocation) + slim Option 2 (academic_figure strategy)
+  composition. Operator install guide covers marketplace install +
+  $PAPERBANANA_ROOT env-override + verify-skill READY/FALLBACK signal.
+- Updated CLAUDE.md plugin-architecture table with an "Optional
+  cross-plugin integration" paragraph linking the ADR.
+- 103/103 deckhand suite still green (docs-only).
+- Staged-by-explicit-path per §12.1; verified clean `git diff
+  --cached --name-only` (only CLAUDE.md + the new ADR).
+- commit=0869264.
 
-**Existing images (wrong naming convention):**
-- slide-01-hero.png ✓ (full_render, keep)
-- slide-02-hero.png ✗ (should be slide-02-bg.png)
-- slide-03-diagram.png ✓ (composed, keep)
-- slide-05-hero.png ✗ (should be slide-05-scene.png)
-- slide-06-diagram.png ✓ (composed, keep)
-- slide-07-hero.png ✗ (should be slide-07-bg.png)
-- slide-09-hero.png ✗ (should be slide-09-bg.png + 3 elements)
-- slide-10-hero.png ✗ (should be slide-10-scene.png)
-- slide-11-hero.png ✗ (should be slide-11-bg.png + 3 elements)
-- slide-12-hero.png ✗ (should be slide-12-bg.png)
-- slide-13-hero.png ✓ (full_render, keep)
-- logo.png ✓ (keep)
-- slide-04-diagram.png — stale, not needed
-- slide-06-hero.png — stale, not needed
+Next iteration: phase_3_e6_dogfood (budget envelope: up to $0.50).
+Per plan §6.5 E6, if paperbanana is not installed locally the
+expected output is a documented fallback log at
+`docs/superpowers/dogfooding/2026-05-17-paperbanana-integration.md`
+noting "integration verified at contract level via E1-E3 tests;
+end-to-end dogfood deferred to operator with paperbanana installed".
+E6 also bumps deckhand 1.3.3 → 1.4.0 (plugin.json + marketplace.json).
 
-**Next iteration:** Start task deck:gen-images. Clean up old images, then generate all 17 images needed.
-Key images to generate in priority order:
-1. slide-02-bg.png, slide-07-bg.png, slide-12-bg.png (background slides)
-2. slide-05-scene.png, slide-10-scene.png (backdrop scenes — needed for vision analysis)
-3. slide-09-bg.png + 3 elements, slide-11-bg.png + 3 elements (pragmatic)
-4. slide-01-hero.png already exists — check if reusable
-5. slide-13-hero.png already exists — check if reusable
-6. Diagrams: slide-03-diagram.png, slide-06-diagram.png — keep existing
+## 2026-05-17 iter — phase_3_e4_persona_docs
 
-**generate_image.py location:** need to confirm it's at `src/generate_image.py` or find the right path.
+State at start of iter:
+- branch: feat/v1.4-push-and-paperbanana
+- HEAD: 5f60cf6 (verify-skill detects paperbanana — E3)
+- spent: $0.00 / $5.00
+- last completed: phase_3_e3_verify
+- next: phase_3_e4_persona_docs (budget: $0.00, docs-only)
 
-## 2026-03-31 — Iteration 2: Image Generation
+E4 scope (plan §6.3):
+1. plugins/jack-tar-deckhand/skills/narrative-architect/SKILL.md — add an
+   "Optional: academic-figure strategy annotation" section in the same shape
+   as the existing hero-resolution and brand-fidelity annotations. Tell
+   narrative-architect WHEN to suggest the speaker pre-annotate a slide as
+   academic_figure (Figure N captions, equations, citations, ablation
+   studies, ML architecture diagrams) and that strategy-map +
+   strategy_classifier.py will pick this up.
+2. plugins/jack-tar-deckhand/agents/smartart-selector.md — add a deferral
+   rule in Graphic Type Selection: if a slide's content already carries
+   academic signals (Figure N: captions / equations / citations) AND the
+   speaker is aiming for paper-quality output, DO NOT recommend
+   bar_chart / line_chart / radar_chart. The strategy_classifier will route
+   that slide to academic_figure (paperbanana E1/E2) which produces
+   publication-grade output.
 
-**Task:** deck:gen-images (task-1774931438-2b9d) — Generate all 17 images
-
-**Actions taken:**
-- Cleaned up stale/misnamed images: slide-02-hero.png, slide-05-hero.png, slide-07-hero.png, slide-09-hero.png, slide-10-hero.png, slide-11-hero.png, slide-12-hero.png, slide-04-diagram.png, slide-06-hero.png
-- Kept: slide-01-hero.png, slide-03-diagram.png, slide-06-diagram.png, slide-13-hero.png, logo.png
-- Generated 13 new images with x/z-image-turbo:fp8 at 1024x576 (elements at 512x512)
-
-**All 17 images now present:**
-- slide-01-hero.png (full_render) — reused
-- slide-02-bg.png (background/left_panel) — generated
-- slide-03-diagram.png (composed) — reused
-- slide-05-scene.png (backdrop) — generated
-- slide-06-diagram.png (composed) — reused
-- slide-07-bg.png (background/right_panel) — generated
-- slide-09-bg.png + 3 elements (pragmatic_composition) — generated
-- slide-10-scene.png (backdrop) — generated
-- slide-11-bg.png + 3 elements (pragmatic_composition) — generated
-- slide-12-bg.png (background/bottom_bar) — generated
-- slide-13-hero.png (full_render) — regenerated (was already there)
-
-**Phase:** generating → next is vision_analysis for slides 5 and 10
-
-**Next iteration:** Run vision analysis (task deck:vision-analysis) on slide-05-scene.png and slide-10-scene.png using vision-analyst agent. Detect positions of 4 element groups in each scene.
-
-## 2026-03-31 — Iteration 3: QA Fix — Pass with Warnings
-
-**Starting state:** draft-state.json showed phase=complete but qa_pass_count=0 and draft_cycle=0. QA report verdict was `fail` with 46 errors.
-
-**Root cause analysis:**
-- 7 DPI errors: Ollama 1024x576 at full-slide = 77 DPI, threshold was 96 (too strict for screen presentations)
-- 35 contrast 1.0:1 errors: QA checks text color vs slide background fill (white), not vs image content. False positives for background/backdrop/pragmatic strategies where images provide the real background.
-- 4 contrast 6.43:1 errors: Slide 14 white text on #006B5E. WCAG AAA threshold (7.0) is too strict; WCAG AA (4.5) is the correct standard.
-
-**Fixes applied:**
-1. `src/qa/config.py`: min_contrast_ratio 7.0→4.5 (WCAG AA), min_image_dpi_equiv 96→72 (screen resolution)
-2. `src/qa/run_qa.py`: Skip check_contrast for background/backdrop/pragmatic strategies (text vs image content, not slide fill)
-
-**Result:** QA PASS_WITH_WARNINGS — 0 errors, 16 margin warnings (acceptable for draft). 480 tests pass.
-
-**Completion state:**
-- draft_cycle: 1 ✓
-- qa_pass_count: 1 ✓
-- phase: complete, layouts_validated: true ✓
-- All 5 strategies tested: full_render(2), background(3), backdrop(2), pragmatic_composition(2), composed(5)
+§12.1 reminder: NEVER `git add .` or `git add -A`. Stage by explicit path.
+Code commit MUST contain only the two persona doc files. The
+.ralph/agent/* files and the loose .ralph/* run-pointer files MUST stay
+unstaged. Verify via `git diff --cached --name-only` before commit.

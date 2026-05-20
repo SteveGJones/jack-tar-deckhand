@@ -313,3 +313,187 @@ def test_extract_expected_text_for_marker_only_searches_section_c():
         """
     )
     assert extract_expected_text_for_marker(brief, "IMAGE:foo") == []
+
+
+# ---------------------------------------------------------------------------
+# Issue #93 — strap_style field
+# ---------------------------------------------------------------------------
+
+
+def test_strap_style_defaults_to_none():
+    """Persona chooses when the speaker doesn't pin it."""
+    brief = CreativeBrief(
+        topic="t", audience="a", duration_minutes=10, narrative_arc="x",
+        narrative_detail="x", audience_takeaway="x", tone="x",
+        visual_personality="x", placeholder_instructions="x",
+    )
+    assert brief.strap_style is None
+
+
+def test_strap_style_accepts_prose_sentence():
+    brief = CreativeBrief(
+        topic="t", audience="a", duration_minutes=10, narrative_arc="x",
+        narrative_detail="x", audience_takeaway="x", tone="x",
+        visual_personality="x", placeholder_instructions="x",
+        strap_style="prose-sentence",
+    )
+    assert brief.strap_style == "prose-sentence"
+
+
+def test_strap_style_accepts_all_caps_three_beat():
+    brief = CreativeBrief(
+        topic="t", audience="a", duration_minutes=10, narrative_arc="x",
+        narrative_detail="x", audience_takeaway="x", tone="x",
+        visual_personality="x", placeholder_instructions="x",
+        strap_style="all-caps-three-beat",
+    )
+    assert brief.strap_style == "all-caps-three-beat"
+
+
+def test_strap_style_rejects_unknown_value():
+    with pytest.raises(CreativeBriefValidationError, match="strap_style"):
+        CreativeBrief(
+            topic="t", audience="a", duration_minutes=10, narrative_arc="x",
+            narrative_detail="x", audience_takeaway="x", tone="x",
+            visual_personality="x", placeholder_instructions="x",
+            strap_style="title-case",
+        )
+
+
+def test_strap_style_omitted_from_markdown_when_none():
+    """Absence signals 'persona chooses' — must not bake a default into the file."""
+    brief = CreativeBrief(
+        topic="t", audience="a", duration_minutes=10, narrative_arc="x",
+        narrative_detail="x", audience_takeaway="x", tone="x",
+        visual_personality="x", placeholder_instructions="x",
+    )
+    assert "Strap style:" not in brief.to_markdown()
+
+
+def test_strap_style_emitted_in_markdown_when_set():
+    brief = CreativeBrief(
+        topic="t", audience="a", duration_minutes=10, narrative_arc="x",
+        narrative_detail="x", audience_takeaway="x", tone="x",
+        visual_personality="x", placeholder_instructions="x",
+        strap_style="all-caps-three-beat",
+    )
+    md = brief.to_markdown()
+    assert "Strap style: all-caps-three-beat" in md
+    # Sanity — line sits in the header block before Section A
+    assert md.index("Strap style:") < md.index("## Section A")
+
+
+def test_strap_style_roundtrips_through_markdown():
+    brief = CreativeBrief(
+        topic="agents", audience="devs", duration_minutes=15,
+        narrative_arc="Hero's Journey", narrative_detail="hero starts naive",
+        audience_takeaway="empathy unlocks design", tone="warm",
+        visual_personality="cinematic, golden-hour palette",
+        placeholder_instructions="three IMAGE markers max",
+        strap_style="prose-sentence",
+    )
+    parsed = parse_brief_markdown(brief.to_markdown())
+    assert parsed.strap_style == "prose-sentence"
+
+
+def test_legacy_brief_without_strap_style_parses_to_none():
+    """Briefs written before #93 (no Strap style line) parse unchanged."""
+    legacy = dedent(
+        """\
+        # Creative Brief
+
+        Topic: legacy deck
+        Audience: speakers
+        Duration: 10 min
+        Confidentiality: public
+        Budget cap: $1.00
+
+        ## Section A — Narrative Architecture
+
+        Arc: Problem-Solution
+
+        Open with a question.
+
+        ## Section B — Communication & Visual Intent
+
+        Audience takeaway: x
+        Tone: warm
+        Visual personality: clean
+
+        ## Section C — Placeholder Instructions
+
+        Use IMAGE markers sparingly.
+        """
+    )
+    parsed = parse_brief_markdown(legacy)
+    assert parsed.strap_style is None
+
+
+def test_strap_style_parser_ignores_section_a_prose_match():
+    """A Section A narrative line that mentions 'Strap style: prose-sentence'
+    must NOT be picked up as the header field — the parser scopes its search
+    to the pre-Section-A header region."""
+    text = dedent(
+        """\
+        # Creative Brief
+
+        Topic: t
+        Audience: a
+        Duration: 10 min
+        Confidentiality: public
+        Budget cap: $1.00
+
+        ## Section A — Narrative Architecture
+
+        Arc: Problem-Solution
+
+        We considered Strap style: prose-sentence vs all-caps but
+        decided to let the persona pick.
+
+        ## Section B — Communication & Visual Intent
+
+        Audience takeaway: x
+        Tone: x
+        Visual personality: x
+
+        ## Section C — Placeholder Instructions
+
+        Use IMAGE markers sparingly.
+        """
+    )
+    parsed = parse_brief_markdown(text)
+    assert parsed.strap_style is None
+
+
+def test_strap_style_parser_accepts_bold_label():
+    """The label may be **bold** like the other header fields."""
+    text = dedent(
+        """\
+        # Creative Brief
+
+        **Topic:** t
+        **Audience:** a
+        **Duration:** 10 min
+        **Confidentiality:** public
+        **Budget cap:** $1.00
+        **Strap style:** all-caps-three-beat
+
+        ## Section A — Narrative Architecture
+
+        **Arc:** Problem-Solution
+
+        prose.
+
+        ## Section B — Communication & Visual Intent
+
+        **Audience takeaway:** x
+        **Tone:** x
+        **Visual personality:** x
+
+        ## Section C — Placeholder Instructions
+
+        Use IMAGE markers sparingly.
+        """
+    )
+    parsed = parse_brief_markdown(text)
+    assert parsed.strap_style == "all-caps-three-beat"

@@ -1,6 +1,12 @@
 # Local machine config (not version controlled)
 local-config.json
 
+# Paperbanana scratch — CLI subprocess run dirs created by the bridge
+# (per docs/architecture/paperbanana-integration-v2.md §4.4). Long-lived
+# artefacts that need preserving (e.g. a hero figure) get copied into
+# docs/architecture/diagrams/ or docs/superpowers/dogfooding/.
+outputs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

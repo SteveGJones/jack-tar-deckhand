@@ -126,6 +126,7 @@ Parse the budget state. The `state` field is one of: `allow`, `allow_with_caps`,
 
 If a strategy map exists, check each slide's strategy before routing:
 - **full_render** or **backdrop_render** slides: Use the three-stage render funnel. Dispatch the `prompt-engineer` agent (Haiku model) with a structured brief from `assemble_brief()`, then render through Ollama → cloud_low → cloud_full stages.
+- **academic_figure** slides: Route through the paperbanana CLI subprocess dispatch — see **Step 4.6** below.
 - **composed** slides: Use the standard routing matrix (unchanged).
 
 Use the image router to determine which skill handles each slide:
@@ -197,6 +198,149 @@ import json; print(json.dumps(result, indent=2))
 
 4. After Stage 1 (Ollama), **view the generated image** (Read tool) and assess it using the per-image review criteria in Step 7. If not acceptable, refine the prompt and retry (up to 10 iterations — Ollama is free). Save each attempt as `slide-NN-hero-vN.png`.
 5. After Stage 2 (cloud_low), view and assess. If acceptable, proceed to Stage 3 (cloud_full). If not, refine and retry (up to 3 iterations — cloud costs money).
+
+### Step 4.6: Academic Figure Dispatch (paperbanana CLI subprocess route)
+
+For slides whose strategy is `academic_figure` (set by the strategy
+classifier — see `src/strategy_classifier.py`), the bridge shells out
+to the **paperbanana CLI via subprocess** when paperbanana is
+installed, and falls back to a cloud render with academic-figure-aware
+prompting when it is not.
+
+Paperbanana is treated as an external CLI tool (sibling orchestrator),
+not a Claude Code plugin or a cross-skill dispatch target. See
+`docs/architecture/paperbanana-integration-v2.md` for the framing
+rationale.
+
+The dispatch decision is built by `src/paperbanana_dispatch.py`. Use
+it from the bridge as the single source of truth — do NOT duplicate
+the availability check inline.
+
+1. **Build the dispatch payload**:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.paperbanana_dispatch import build_dispatch_payload
+
+with open('./tmp/deck/outline.json') as f:
+    outline = json.load(f)
+
+slide = next(s for s in outline['slides'] if s['slide_number'] == $SLIDE_NUMBER)
+dispatch = build_dispatch_payload(
+    slide,
+    output_dir='./tmp/deck/images',
+)
+print(json.dumps({
+    'available': dispatch.available,
+    'args': dispatch.args,
+    'output_dir': dispatch.output_dir,
+    'slide_number': dispatch.slide_number,
+    'fallback_provider': dispatch.fallback_provider,
+    'fallback_model': dispatch.fallback_model,
+    'fallback_reason': dispatch.fallback_reason,
+}))
+"
+```
+
+2. **If `dispatch.available` is true** — dispatch paperbanana via
+   subprocess. Write the `source_context` to a tmp file (paperbanana's
+   CLI takes `--input <file>`, not inline text), then invoke the CLI:
+
+```bash
+# Write source_context to tmp file (jq extracts the field from the
+# dispatch JSON saved above as $DISPATCH_JSON)
+SRC_TMP=$(mktemp -t paperbanana-src.XXXXXX.txt)
+echo "$DISPATCH_JSON" | jq -r '.args.source_context' > "$SRC_TMP"
+
+# Build the CLI invocation from dispatch.args
+CAPTION=$(echo "$DISPATCH_JSON" | jq -r '.args.caption')
+ASPECT=$(echo "$DISPATCH_JSON" | jq -r '.args.aspect_ratio')
+ITERS=$(echo "$DISPATCH_JSON" | jq -r '.args.iterations')
+OUTPUT_DIR=$(echo "$DISPATCH_JSON" | jq -r '.output_dir')
+
+# Run paperbanana. Pass explicit models (avoids paperbanana's deprecated
+# defaults — upstream issue llmsresearch/paperbanana#214) and set a
+# CLI-side budget guard ($0.25 cap per slide; jack-tar's own accounting
+# is the authoritative gate since paperbanana's pricing table is
+# incomplete — upstream #213).
+PB_OUTPUT=$(paperbanana generate \
+  --input "$SRC_TMP" \
+  --caption "$CAPTION" \
+  --aspect-ratio "$ASPECT" \
+  --iterations "$ITERS" \
+  --vlm-provider gemini --vlm-model gemini-2.5-flash \
+  --image-provider google_imagen \
+  --image-model gemini-3.1-flash-image-preview \
+  --output "$OUTPUT_DIR" \
+  --budget 0.25 2>&1)
+
+# Parse paperbanana's stdout for the actual output path. The --output
+# flag's parent-directory hint is NOT reliably honoured by current
+# paperbanana versions (it sometimes writes to /tmp/run_*/ instead of
+# $OUTPUT_DIR/run_*/) — see dogfooding/2026-05-18 finding F1. Always
+# read paperbanana's `Output: <path>` line as authoritative.
+PB_FILE=$(echo "$PB_OUTPUT" | grep -oE 'Output: [^ ]+' | head -1 | cut -d' ' -f2)
+
+# Compute sha256 and build the manifest entry
+SHA=$(shasum -a 256 "$PB_FILE" | cut -d' ' -f1)
+
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.paperbanana_dispatch import PaperbananaDispatch, build_manifest_entry
+
+dispatch = PaperbananaDispatch(
+    available=True,
+    slide_number=$SLIDE_NUMBER,
+    output_dir='$OUTPUT_DIR',
+    args=json.loads('''$DISPATCH_ARGS_JSON'''),
+)
+entry = build_manifest_entry(
+    dispatch,
+    dispatch_succeeded=True,
+    output_path='$PB_FILE',
+    content_hash='$SHA',
+)
+print(json.dumps(entry))
+" >> ./tmp/deck/image-manifest.json
+```
+
+   After the CLI returns, dispatch the `image-reviewer` agent on the
+   parsed `$PB_FILE` to verify quality (single pass — paperbanana does
+   its own internal Critic-driven iteration up to `--iterations`).
+
+3. **If `dispatch.available` is false** — log a warning containing
+   `dispatch.fallback_reason` and fall back to the cloud path with
+   `--provider $FALLBACK_PROVIDER --model $FALLBACK_MODEL`. Generate
+   the image, run it through the standard `image-reviewer` cycle
+   (Step 7), and record the manifest entry via
+   `build_manifest_entry(dispatch, dispatch_succeeded=…, output_path=<jack-tar-conventional path>)`
+   so the `backend: "cloud_fallback"` marker survives into the
+   manifest. This is the **documented expected degradation path** when
+   paperbanana is not installed locally — not an error. The verify
+   skill's NOT_FOUND output already gives operators the install
+   commands; we just take the fallback path silently in pipeline
+   terms.
+
+4. **Skip Step 5 (cache) and Step 6 (prompt translation)** for
+   academic_figure slides. The cache key composition is paperbanana-
+   specific and the prompt translation is owned by paperbanana itself
+   (or by the cloud-fallback path's own prompt assembly).
+
+5. **The `source_prompt` field carries the methodology text** (paperbanana's
+   `source_context` arg) and the `caption` field carries the
+   communicative intent — `build_manifest_entry` populates both
+   automatically from `dispatch.args`. The iterate-slide skill (#89)
+   will use the manifest's `paperbanana_run_id` + `paperbanana_args`
+   to call `paperbanana generate --continue-run <id> --feedback "..."`
+   for cheap critique-driven refinement (~$0.07 per refinement vs
+   ~$0.14 for a full 2-iteration re-run from scratch).
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly.
+> If you need to verify an image, dispatch the
+> `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or
+> the `general-purpose` subagent (Sonnet, higher accuracy). Both
+> subagents pull the image into THEIR context and return text.
 
 ## Step 5: Check Cache for Each Image
 

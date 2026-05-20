@@ -20,7 +20,7 @@
           "slide_number": {"type": "integer", "minimum": 1},
           "strategy": {
             "type": "string",
-            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart"]
+            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", "academic_figure"]
           },
           "rationale": {"type": "string"},
           "render_funnel": {
@@ -32,7 +32,7 @@
           },
           "speaker_override": {
             "type": ["string", "null"],
-            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", null]
+            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", "academic_figure", null]
           },
           "backdrop_variant": {
             "type": "string",

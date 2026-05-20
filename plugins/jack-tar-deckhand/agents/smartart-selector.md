@@ -56,6 +56,47 @@ Match content patterns to graphic types:
 | Project schedule with explicit dates or durations | `gantt` | custom_svg |
 | No structured data, prose-only | `none` | — |
 
+### Academic-figure deferral rule (paperbanana E4)
+
+Some slides are **figures from research papers** rather than business
+visuals — they carry explicit signals such as `Figure 3:` / `Fig. 2.`
+captions, block equations (`$$ ... $$`, `\frac`, `\sum`), numbered
+citations (`[12]`), `et al.` author refs, `Algorithm N` headings, or
+subjects like "encoder/decoder architecture", "ablation study", or
+"confusion matrix".
+
+For those slides:
+
+- **Do NOT** recommend `bar_chart`, `line_chart`, `radar_chart`,
+  `feature_matrix`, or any other SmartArt graphic_type, **even if the
+  body_points look like tabular or quantitative data.** Forcing a SmartArt
+  graphic onto an academic figure produces a generic chart in place of
+  the publication-tier figure the speaker actually wants.
+- **Do** recommend `graphic_type: "none"` with a rationale that names the
+  academic signals detected (e.g. `"slide carries 'Figure 3:' caption and
+  citation [12]; defer to paperbanana academic_figure dispatch"`). The
+  strategy_classifier (paperbanana E1) sets `strategy: "academic_figure"`
+  on the StrategyMap upstream of you, and the imagegen-bridge dispatches
+  to the **paperbanana CLI via subprocess** for that slide instead of
+  running a SmartArt path. Your `"none"` recommendation prevents a
+  conflicting SmartArt graphic from being layered on top.
+- **Do** keep recommending `bar_chart` / `line_chart` / `radar_chart` for
+  business slides whose data happens to be quantitative but carries no
+  academic-figure signals (revenue by quarter, ARR cohort retention, NPS
+  by region). The deferral rule fires on academic-figure signals
+  specifically, not on "any quantitative data".
+
+If `paperbanana` is not installed locally, the imagegen-bridge falls back
+to cloud generation with academic-figure-aware prompting (see
+`skills/imagegen-bridge/SKILL.md` Step 4.6). The slide still renders; the
+fallback is documented and explicit. The deferral rule here applies
+identically — the bridge owns the route choice, not the SmartArt
+selector.
+
+The authoritative signal list and matching heuristics live in
+`src/strategy_classifier.py`. Read that file when you need to predict
+whether a borderline slide will route to academic_figure.
+
 ### Gantt criteria (issue #34 sub-issue 4)
 
 Recommend `gantt` **only when** the content carries one or both of:

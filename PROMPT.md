@@ -1,611 +1,550 @@
-# Draft Deck — Layout Testing Loop (Ollama Only, Zero Cost)
+# PROMPT.md — v1.4 push + paperbanana autonomous execution driver
 
-## Objective
+You are Claude Code, executing the v1.4 push for the jack-tar-deckhand repo overnight. You run inside a Ralph Loop — each iteration re-reads this file, performs ONE atomic chunk of work, updates state, commits, and exits. Ralph re-invokes you until state.status reaches `complete` or `blocked`.
 
-Test all 5 rendering strategies using free local Ollama generation. Reuse the existing 14-slide narrative ("Presentations, Engineered"). The goal is to validate that our layout approaches work — text positioning, element composition, backdrop overlays, background zones — by iterating until the layouts are correct. Image quality doesn't matter here (it's Ollama draft quality). Layout correctness does.
+**The operator is asleep.** Do not ask questions. Resolve ambiguity using the plan document; if the plan does not resolve it, escalate (write blocker, exit). Do NOT improvise beyond the plan.
 
-**This is NOT a one-shot pipeline.** Each Ralph iteration should:
-1. Check current draft state
-2. Identify the next layout issue to fix or step to complete
-3. Do that one thing well
-4. Let the next iteration handle the next issue
+---
 
-## Completion Promise
+## 1. Identity and scope
 
-Only output this when ALL quality gates pass:
+**Working branch**: `feat/v1.4-push-and-paperbanana` (create off `main` if absent).
+**Plan document** (authoritative for all design decisions): `docs/superpowers/plans/2026-05-17-v1.4-push-and-paperbanana.md`
+**State file**: `.ralph/v1.4-state.json` (create with defaults if absent — see §4).
+**Blocker file** (write on escalation only): `V1.4-BLOCKER.md` at repo root — visible location so operator sees it immediately on morning checkin. Keep `.ralph/v1.4-blocker.md` as a mirror for state-tooling parity.
+
+**Scope**: 6 phases covering 7 issues (#87-#93) + #86 + 6 paperbanana sub-deliverables (E1-E6 in plan §6 Phase 3). See plan §1 for the inventory.
+
+---
+
+## 2. HARD RULES (DO NOT BREAK)
+
+### 2.1 Verification budget — $5.00 USD HARD CAP
+
+- Track cumulative cloud-image spend in `state.verification_spent_usd`.
+- Before ANY cloud-image generation call, compute `state.verification_spent_usd + estimated_cost`. If that exceeds `4.50` (90% of cap), ESCALATE — write blocker noting budget proximity, do NOT make the call.
+- After each cloud-image call, immediately update `state.verification_spent_usd` AND append an entry to `state.verification_calls`.
+- Token spend for agent dispatches (Sonnet, Haiku, etc.) is NOT counted against this budget. Only cloud image generation costs.
+
+### 2.2 Tier discipline — ranked cheapest first
+
+| Tier | Provider/model | Cost/img | When to use |
+|---|---|---|---|
+| Tier 0 | Imagen Fast 1K (`imagen-4.0-fast-generate-001`) | $0.020 | Non-text-bearing visuals (atmospheric backgrounds, illustrative scenes) |
+| Tier 1 | **Nanobanana Flash 1K** (`gemini-3.1-flash-image-preview`) — **DEFAULT** | $0.067 | Default for all verification gates; text + complex composition |
+| Tier 2 | Nanobanana Pro 1K (`gemini-3-pro-image-preview`) | $0.134 | Only if Flash fails review twice AND budget remains > $1.00 |
+| Tier 3 | Pro 4K | $0.240 | **PROHIBITED** for v1.4 work — would burn 5% of budget per shot |
+
+Recraft chain is **PROHIBITED** for v1.4 (high cost, marginal value for verification).
+
+For agent dispatches inside Ralph iterations, default `model="haiku"` for mechanical tasks (file edits, lookups, format checks) per the MANDATORY rule in `CLAUDE.md`. Use `model="sonnet"` only for tasks requiring judgement (design decisions, visual review, prose writing, multi-step investigations).
+
+### 2.3 Discipline hook
+
+The `jack-tar-deckhand` plugin's PreToolUse hook (issue #76, PR #79) blocks `Read` on image files in YOUR session. NEVER attempt `Read` on `.png/.jpg/.jpeg/.gif/.webp/.bmp/.tiff`. ALWAYS dispatch the `jack-tar-deckhand:image-reviewer` (Haiku) or `general-purpose` (Sonnet) agent for visual verification.
+
+Phase 0 of this plan (issue #86) may close a gap where Task-dispatched subagents bypass the hook. Until then, every delegated implementation prompt MUST explicitly remind the dispatched agent to use subagents for visual review.
+
+### 2.4 Branch and merge
+
+- Working branch: `feat/v1.4-push-and-paperbanana`. Create with `git checkout -b ...` if absent.
+- Commit per atomic step. Commit messages: `feat(plugin): <description> (#issue)` or `fix(plugin): ...` or `docs: ...`.
+- DO NOT open PRs. DO NOT push to main. DO NOT force-push. DO NOT use `--admin`. The operator batches PRs in the morning.
+- After every code change touching `src/` AND `plugins/<plugin>/src/`, verify byte-identity. If they drift, fix in the same commit.
+
+### 2.5 Version bumps
+
+Each phase has a designated version bump (see plan §6). Update both the plugin's `.claude-plugin/plugin.json` AND the marketplace manifest at `.claude-plugin/marketplace.json` in the same commit. Verify with `grep "version" .claude-plugin/marketplace.json | head -8` after edit.
+
+### 2.6 Test discipline
+
+After every code change, run the affected plugin's test suite:
 ```
-<promise>DRAFT DECK COMPLETE</promise>
+cd plugins/<plugin-name> && python3 -m pytest -q
 ```
 
-## State Tracking
+Tests must pass before commit. If a test fails:
+1. First attempt: read the failure, fix the obvious cause, re-run.
+2. Second attempt: read the test, read the code, fix the deeper cause, re-run.
+3. Third attempt: ESCALATE. Do not keep guessing.
 
-All state lives in `./tmp/deck/draft-state.json`. Create it on first run, update it every iteration.
+---
+
+## 3. INPUTS (read at start of each iteration)
+
+You MUST read these files in order before deciding what to do:
+
+1. `.ralph/v1.4-state.json` — your authoritative progress record.
+2. `docs/superpowers/plans/2026-05-17-v1.4-push-and-paperbanana.md` — the plan (especially §5 sequencing, §6 phase details, §2 resolved decisions).
+3. The most recent commit on the working branch: `git log -1 --format='%H %s'`.
+
+You MAY read these as needed:
+- `/tmp/issues-87-93-triage.md` — original triage.
+- `/tmp/paperbanana-vs-jack-tar-research.md` — paperbanana borrow patterns.
+- The relevant GitHub issue: `gh issue view N` for the current phase's issue.
+
+---
+
+## 4. STATE MODEL
+
+`.ralph/v1.4-state.json`:
 
 ```json
 {
-  "draft_cycle": 0,
-  "phase": "init",
-  "slides": {},
-  "qa_pass_count": 0,
-  "issues": [],
-  "layouts_validated": false
+  "schema_version": "1.0",
+  "started_at": "2026-05-17T20:00:00Z",
+  "last_updated_at": "2026-05-17T20:00:00Z",
+  "status": "in_progress",
+  "current_phase": "phase_0",
+  "current_step": "investigation",
+  "verification_budget_usd": 5.00,
+  "verification_spent_usd": 0.00,
+  "verification_calls": [],
+  "phases": {
+    "phase_0_discipline_hook": {"status": "not_started", "issue": "#86"},
+    "phase_1_cloud_safety_filter": {"status": "not_started", "issue": "#92"},
+    "phase_2a_strap_style": {"status": "not_started", "issue": "#93"},
+    "phase_2b_register_presets": {"status": "not_started", "issue": "#87"},
+    "phase_3_e1_strategy": {"status": "not_started"},
+    "phase_3_e2_dispatch": {"status": "not_started"},
+    "phase_3_e3_verify": {"status": "not_started"},
+    "phase_3_e4_persona_docs": {"status": "not_started"},
+    "phase_3_e5_adr": {"status": "not_started"},
+    "phase_3_e6_dogfood": {"status": "not_started"},
+    "phase_4a_text_density": {"status": "not_started", "issue": "#91"},
+    "phase_4b_composition_primitives": {"status": "not_started", "issue": "#90"},
+    "phase_5a_full_bleed": {"status": "not_started", "issue": "#88"},
+    "phase_5b_iterate_slide": {"status": "not_started", "issue": "#89"},
+    "final_v14_end_to_end_dogfood": {"status": "not_started"}
+  },
+  "completed_phases": [],
+  "blocker": null,
+  "iteration_count": 0
 }
 ```
 
-Phases progress: `init` → `strategy_map` → `generating` → `vision_analysis` → `assembling` → `reviewing` → `iterating` → `complete`
+**Status values**: `not_started` | `in_progress` | `verified` | `committed` | `done` | `blocked` | `skipped`.
 
-Each slide entry tracks:
-```json
-{
-  "images_generated": false,
-  "vision_analysed": false,
-  "assembled": false,
-  "reviewed": false,
-  "review_status": null,
-  "issues": [],
-  "regen_count": 0
-}
-```
-
-Read `draft-state.json` at the START of every iteration to know where you are. Update it after every meaningful action.
-
-## Working Directory
-
-All artifacts live in `./tmp/deck/`. Existing contracts to reuse (DO NOT MODIFY):
-- `brand-profile.json` (metamirror.io)
-- `style-guide.json`
-- `outline.json` (14-slide Duarte Sparkline)
-- `speaker-notes.json`
+After any state change, write the file atomically (write to `.ralph/v1.4-state.json.tmp` then `mv` over the target). Update `last_updated_at` ISO timestamp and increment `iteration_count`.
 
 ---
 
-## Phase 1: Strategy Map (one-time)
+## 5. ITERATION ALGORITHM
 
-If `strategy-map.json` doesn't contain all 5 strategies, write it with these assignments:
+Each Ralph iteration:
 
-| Slide | Strategy | Variant/Layout | Image Needs |
-|-------|----------|----------------|-------------|
-| 1 | `full_render` | — | 1 hero image |
-| 2 | `background` | `left_panel` | 1 atmospheric bg |
-| 3 | `composed` | — | 1 diagram (keep existing) |
-| 4 | `composed` | — | none (text only) |
-| 5 | `backdrop` | `grid_2x2`, 4 elements | 1 scene image |
-| 6 | `composed` | — | 1 diagram (keep existing) |
-| 7 | `background` | `right_panel` | 1 atmospheric bg |
-| 8 | `composed` | — | none (text only) |
-| 9 | `pragmatic_composition` | `three_across`, 3 elements | 1 bg + 3 element images |
-| 10 | `backdrop` | `grid_2x2`, 4 elements | 1 scene image |
-| 11 | `pragmatic_composition` | `three_across`, 3 elements | 1 bg + 3 element images |
-| 12 | `background` | `bottom_bar` | 1 atmospheric bg |
-| 13 | `full_render` | — | 1 hero image |
-| 14 | `composed` | — | none (text only) |
+1. **Read state**. If missing, create with the §4 defaults.
+2. **Stop checks** (in order — exit cleanly on any match):
+   - If `state.status == "complete"`: invoke `Skill(skill="ralph-loop:cancel-ralph", args="")` (idempotent — safe even if already cancelled), exit. The loop's done.
+   - If `state.status == "blocked"`: exit immediately. Do NOT touch any files. The blocker is at `V1.4-BLOCKER.md` and was already committed by the iteration that escalated; subsequent iterations are defence-in-depth only. Cancel-ralph was already invoked in §8 step 5.
+   - If `state.verification_spent_usd >= 4.50`: escalate via §8 with blocker reason "verification budget approaching cap at $<X.XX>".
+   - If `state.iteration_count >= 200`: escalate via §8 with blocker reason "iteration cap reached, loop appears stuck".
+3. **Read recent git state**. If working tree is dirty AND HEAD is not the expected per state.last_commit: write blocker "unexpected dirty tree", exit.
+4. **Ensure working branch**. `git rev-parse --abbrev-ref HEAD` should be `feat/v1.4-push-and-paperbanana`. If not, `git checkout main && git checkout -b feat/v1.4-push-and-paperbanana` (create only if branch absent).
+5. **Pick next atomic step**:
+   - Find the phase in `state.phases` with status `in_progress` (resume).
+   - Otherwise, find the next phase in execution order (§6) with status `not_started`.
+   - If all phases done: set status `complete`, exit.
+6. **Execute one atomic step** within that phase (see §6 catalogue).
+7. **Verify** the step (tests, byte-identity, etc.) per §2.6.
+8. **Update state** (write file atomically, increment iteration_count).
+9. **Commit** if the step modified code (skip commit for read-only investigation steps; squash with the next commit). Commit message format: `<type>(plugin): <description> (#issue)` or `<type>: <description>`.
+10. **Exit**.
 
-The full JSON for strategy-map.json:
-
-```json
-{
-  "created_at": "2026-03-31T00:00:00+00:00",
-  "approval_mode": "review",
-  "slides": [
-    {
-      "slide_number": 1,
-      "strategy": "full_render",
-      "rationale": "Title slide — dramatic hero image, headline baked into AI image",
-      "render_funnel": ["ollama"],
-      "speaker_override": null
-    },
-    {
-      "slide_number": 2,
-      "strategy": "background",
-      "rationale": "Content slide — atmospheric chaos background with text in left panel zone",
-      "render_funnel": ["ollama"],
-      "speaker_override": null,
-      "backdrop_variant": "left_panel"
-    },
-    {
-      "slide_number": 3,
-      "strategy": "composed",
-      "rationale": "Pipeline diagram — programmatic assembly with shapes and labels",
-      "render_funnel": ["ollama"],
-      "speaker_override": null
-    },
-    {
-      "slide_number": 4,
-      "strategy": "composed",
-      "rationale": "Section divider — text on coloured background, no image needed",
-      "render_funnel": ["ollama"],
-      "speaker_override": null
-    },
-    {
-      "slide_number": 5,
-      "strategy": "backdrop",
-      "rationale": "Content slide — structured scene of disconnected parts, vision-detected text positioning",
-      "render_funnel": ["ollama"],
-      "speaker_override": null,
-      "element_layout": {
-        "template": "grid_2x2",
-        "elements": [
-          {"id": "no_structure", "label_source": "body_points[0]", "x": 0.05, "y": 0.18, "w": 0.42, "h": 0.35},
-          {"id": "no_contracts", "label_source": "body_points[1]", "x": 0.55, "y": 0.18, "w": 0.42, "h": 0.35},
-          {"id": "no_quality", "label_source": "body_points[2]", "x": 0.05, "y": 0.58, "w": 0.42, "h": 0.35},
-          {"id": "tangled", "label_source": "body_points[3]", "x": 0.55, "y": 0.58, "w": 0.42, "h": 0.35}
-        ],
-        "title_region": {"x": 0.05, "y": 0.03, "w": 0.90, "h": 0.10}
-      }
-    },
-    {
-      "slide_number": 6,
-      "strategy": "composed",
-      "rationale": "Architecture diagram — programmatic assembly",
-      "render_funnel": ["ollama"],
-      "speaker_override": null
-    },
-    {
-      "slide_number": 7,
-      "strategy": "background",
-      "rationale": "Content slide — validation grid background with text in right panel zone",
-      "render_funnel": ["ollama"],
-      "speaker_override": null,
-      "backdrop_variant": "right_panel"
-    },
-    {
-      "slide_number": 8,
-      "strategy": "composed",
-      "rationale": "Section divider — text on coloured background, no image needed",
-      "render_funnel": ["ollama"],
-      "speaker_override": null
-    },
-    {
-      "slide_number": 9,
-      "strategy": "pragmatic_composition",
-      "rationale": "Content slide — individual constraint elements placed at prescribed positions with labels",
-      "render_funnel": ["ollama"],
-      "speaker_override": null,
-      "element_layout": {
-        "template": "three_across",
-        "elements": [
-          {"id": "locked_output", "label_source": "body_points[0]", "x": 0.05, "y": 0.22, "w": 0.27, "h": 0.50},
-          {"id": "rigid_style", "label_source": "body_points[2]", "x": 0.37, "y": 0.22, "w": 0.27, "h": 0.50},
-          {"id": "passive_human", "label_source": "body_points[3]", "x": 0.69, "y": 0.22, "w": 0.27, "h": 0.50}
-        ],
-        "title_region": {"x": 0.05, "y": 0.03, "w": 0.90, "h": 0.12}
-      }
-    },
-    {
-      "slide_number": 10,
-      "strategy": "backdrop",
-      "rationale": "Content slide — AI/human dialogue scene, vision-detected text positioning",
-      "render_funnel": ["ollama"],
-      "speaker_override": null,
-      "element_layout": {
-        "template": "grid_2x2",
-        "elements": [
-          {"id": "narrative_arcs", "label_source": "body_points[0]", "x": 0.05, "y": 0.18, "w": 0.42, "h": 0.35},
-          {"id": "palette_mood", "label_source": "body_points[1]", "x": 0.55, "y": 0.18, "w": 0.42, "h": 0.35},
-          {"id": "strategy_override", "label_source": "body_points[2]", "x": 0.05, "y": 0.58, "w": 0.42, "h": 0.35},
-          {"id": "human_decides", "label_source": "body_points[3]", "x": 0.55, "y": 0.58, "w": 0.42, "h": 0.35}
-        ],
-        "title_region": {"x": 0.05, "y": 0.03, "w": 0.90, "h": 0.10}
-      }
-    },
-    {
-      "slide_number": 11,
-      "strategy": "pragmatic_composition",
-      "rationale": "Content slide — three rendering strategy panels as individual elements",
-      "render_funnel": ["ollama"],
-      "speaker_override": null,
-      "element_layout": {
-        "template": "three_across",
-        "elements": [
-          {"id": "full_render_panel", "label_source": "body_points[0]", "x": 0.05, "y": 0.22, "w": 0.27, "h": 0.50},
-          {"id": "backdrop_panel", "label_source": "body_points[1]", "x": 0.37, "y": 0.22, "w": 0.27, "h": 0.50},
-          {"id": "composed_panel", "label_source": "body_points[2]", "x": 0.69, "y": 0.22, "w": 0.27, "h": 0.50}
-        ],
-        "title_region": {"x": 0.05, "y": 0.03, "w": 0.90, "h": 0.12}
-      }
-    },
-    {
-      "slide_number": 12,
-      "strategy": "background",
-      "rationale": "Content slide — progression background with text in bottom bar zone",
-      "render_funnel": ["ollama"],
-      "speaker_override": null,
-      "backdrop_variant": "bottom_bar"
-    },
-    {
-      "slide_number": 13,
-      "strategy": "full_render",
-      "rationale": "Blank visual — cinematic payoff image, no text overlay",
-      "render_funnel": ["ollama"],
-      "speaker_override": null
-    },
-    {
-      "slide_number": 14,
-      "strategy": "composed",
-      "rationale": "Closing slide — brand text on primary background, no image needed",
-      "render_funnel": ["ollama"],
-      "speaker_override": null
-    }
-  ]
-}
-```
-
-Validate:
-```bash
-python3 -c "
-from src.slide_prompt_composer import load_strategy_map
-sm = load_strategy_map('./tmp/deck')
-strategies = set(e['strategy'] for e in sm['slides'])
-print(f'Strategies: {strategies}')
-assert len(strategies & {'full_render','background','backdrop','pragmatic_composition','composed'}) == 5
-print('All 5 strategies present')
-"
-```
-
-Update phase to `strategy_map` in draft-state.json.
+If Ralph holds context across iterations, you MAY perform multiple atomic steps in one iteration as long as each step independently commits. Do not skip the commit between steps.
 
 ---
 
-## Phase 2: Image Generation
+## 6. PHASE EXECUTION ORDER + ATOMIC STEPS
 
-Use model `x/z-image-turbo:fp8`, resolution 1024x576 (16:9).
+Execution order (per plan §5):
 
-```bash
-python3 src/generate_image.py --prompt "PROMPT" --model "x/z-image-turbo:fp8" --output "PATH" --width 1024 --height 576 --timeout 120
-```
+1. **Phase 0** — discipline hook propagation (#86)
+2. **Phase 1** — Cluster D, cloud safety filter (#92)
+3. **Phase 2a** — strap_style (#93)
+4. **Phase 2b** — register presets (#87)
+5. **Phase 3 E1-E6** — paperbanana integration (folded into v1.4)
+6. **Phase 4a** — text-density warning (#91)
+7. **Phase 4b** — composition primitives (#90)
+8. **Phase 5a** — full-bleed scale (#88)
+9. **Phase 5b** — iterate-slide skill (#89)
+10. **Final** — v1.4 end-to-end dogfood + CLAUDE.md status update
 
-**First, clean up old images** that don't match the new strategy naming:
-```bash
-# Remove old hero images for slides that are now background/backdrop/pragmatic
-rm -f ./tmp/deck/images/slide-02-hero.png  # now background
-rm -f ./tmp/deck/images/slide-05-hero.png  # now backdrop
-rm -f ./tmp/deck/images/slide-07-hero.png  # now background
-rm -f ./tmp/deck/images/slide-09-hero.png  # now pragmatic
-rm -f ./tmp/deck/images/slide-10-hero.png  # now backdrop
-rm -f ./tmp/deck/images/slide-11-hero.png  # now pragmatic
-rm -f ./tmp/deck/images/slide-12-hero.png  # now background
-# Keep logo.png, slide-03-diagram.png, slide-06-diagram.png
-```
+For implementation details of each phase, read plan §6. Below is the atomic-step skeleton for each.
 
-Generate each image. Skip files that already exist at the correct path. For each image, update the slide's `images_generated` flag in draft-state.json.
+### 6.1 Phase 0 — #86 discipline hook propagation
 
-### Image Generation Table
+Steps:
+1. Read Claude Code hook docs via `WebFetch` (https://docs.anthropic.com/...). Check whether hooks propagate to Task subagents.
+2. Run a synthetic test: dispatch a Task subagent (general-purpose, haiku) with prompt asking it to attempt `Read /tmp/test-discipline.png` and report whether it succeeded. Create the test PNG first via `python3 -c "from PIL import Image; Image.new('RGB',(10,10)).save('/tmp/test-discipline.png')"`.
+3. If subagent's Read succeeded → hook does NOT propagate → design fallback (see plan §6 Phase 0).
+4. If subagent's Read was blocked → hook DOES propagate → document the behaviour.
+5. Implement the fallback if needed (env-var pattern, settings.local.json update).
+6. Write `docs/architecture/discipline-hook-propagation.md` documenting the finding.
+7. Commit: `docs: discipline hook propagation investigation (#86)` or `fix: discipline hook fallback enforcement (#86)`.
+8. Update state.
 
-| Slide | Strategy | File Path | Prompt |
-|-------|----------|-----------|--------|
-| 1 | full_render | `images/slide-01-hero.png` | Abstract geometric composition of interlocking teal crystalline forms emerging from dark depth. Deep teal (#006B5E), reflection mint (#5CDBC0), dark surface (#0E1513). Bold cinematic composition with strong depth and light. Text "Presentations, Engineered" in large white font. Professional, striking, engineered precision. |
-| 2 | background | `images/slide-02-bg.png` | Abstract atmospheric backdrop of scattered, misaligned geometric fragments in muted silver and secondary teal on dark surface. Conveys disorder and frustration. Shapes disconnected, overlapping awkwardly. Visual chaos. NO TEXT in the image. Deep teal (#006B5E), silver (#9DA3A0), secondary teal (#4B635B), dark surface (#0E1513). |
-| 5 | backdrop | `images/slide-05-scene.png` | Abstract scene of disconnected mechanical parts, gears, connectors, structural elements that do not fit together. Four distinct groups of parts arranged in a 2x2 grid pattern with clear separation between groups. Muted palette: silver (#9DA3A0), secondary teal (#4B635B) on dark background (#0E1513). Parts are individually well-made but unconnected. NO TEXT. |
-| 7 | background | `images/slide-07-bg.png` | Abstract backdrop of a precise grid of geometric check-marks and validation symbols in structured rows. Deep teal (#006B5E) on light surface (#F5FBF7) with selective mint (#5CDBC0) highlights. Systematic coverage and engineering discipline. Clean, methodical, confident. NO TEXT. |
-| 9 bg | pragmatic | `images/slide-09-bg.png` | Dark atmospheric abstract background texture. Oppressive angular dark geometry suggesting confinement. Dark tones (#0E1513, #4B635B). Moody, restrictive, claustrophobic. NO TEXT, no distinct objects, just atmospheric texture. |
-| 9 e1 | pragmatic | `images/slide-09-elem-locked_output.png` | Single abstract geometric icon of a locked padlock or sealed box, single fixed output with no alternatives. Deep teal (#006B5E) and dark surface (#0E1513). Clean flat illustration, isolated on very dark background. NO TEXT. |
-| 9 e2 | pragmatic | `images/slide-09-elem-rigid_style.png` | Single abstract geometric icon of rigid inflexible interlocking bars or fixed template frame, style baked in and not customisable. Silver (#9DA3A0) and dark teal (#4B635B). Clean flat illustration, isolated on very dark background. NO TEXT. |
-| 9 e3 | pragmatic | `images/slide-09-elem-passive_human.png` | Single abstract geometric icon of a small figure behind glass or one-way mirror, passive reviewer who cannot create. Muted silver (#9DA3A0) and teal (#006B5E). Clean flat illustration, isolated on very dark background. NO TEXT. |
-| 10 | backdrop | `images/slide-10-scene.png` | Abstract scene showing two geometric forms in dialogue. Left side: angular precise crystalline shapes representing AI. Right side: flowing organic curves representing human creativity. Meeting in centre, creating something new. Brand teal (#006B5E) for AI, reflection mint (#5CDBC0) for human. Four distinct visual regions in 2x2 pattern. NO TEXT. |
-| 11 bg | pragmatic | `images/slide-11-bg.png` | Clean neutral dark background with subtle geometric grid pattern. Dark surface (#0E1513) with very faint teal (#006B5E) grid lines. Minimal, technical, professional. NO TEXT, no distinct objects. |
-| 11 e1 | pragmatic | `images/slide-11-elem-full_render_panel.png` | Preview of a presentation slide rendered as a single artistic AI-generated image. Dramatic, bold, cinematic. Complete visual scene filling the entire frame. Teal (#006B5E) and mint (#5CDBC0). Clean flat illustration. NO TEXT. |
-| 11 e2 | pragmatic | `images/slide-11-elem-backdrop_panel.png` | Preview of a presentation slide with an AI-generated background image and a semi-transparent text overlay panel on one side. Image plus editable text zone. Teal (#006B5E) and mint (#5CDBC0). Clean flat illustration. NO TEXT. |
-| 11 e3 | pragmatic | `images/slide-11-elem-composed_panel.png` | Preview of a presentation slide with structured layout: shapes, boxes, text areas, small chart. Standard professional deck layout. Precise programmatic assembly. Teal (#006B5E) and mint (#5CDBC0). Clean flat illustration. NO TEXT. |
-| 12 | background | `images/slide-12-bg.png` | Abstract backdrop showing three-stage progression flowing left to right. Left: rough sketchy geometric form in muted grey. Centre: refined mid-stage in brand teal (#006B5E). Right: polished crystalline form in vivid mint (#5CDBC0). Clear directional flow, draft to production. NO TEXT. |
-| 13 | full_render | `images/slide-13-hero.png` | Full-bleed cinematic image: scattered chaotic geometric fragments transformed into a single magnificent crystalline structure. Precise, unified, radiant. Deep teal (#006B5E) core, reflection mint (#5CDBC0) edges catching light, primary container (#7AF8DB) highlights. Dark background (#0E1513). Order from complexity. Dramatic, complete. No text. |
+Budget envelope for Phase 0: $0.00 (no cloud calls).
 
-Diagrams (keep existing if present, use `x/flux2-klein:4b` at 1024x768 if missing):
-- `images/slide-03-diagram.png` — pipeline flow: Brief → Brand → Style → Narrative → Images → Assembly → QA → Deck
-- `images/slide-06-diagram.png` — architecture: Content, Design, Image, Assembly & QA services with Deck Conductor
+### 6.2 Phase 1 — #92 cloud safety filter
 
-Update phase to `generating` in draft-state.json. Once all images exist, move to `vision_analysis`.
+Steps (one atomic commit per step):
+1. Add `SafetyFilterTriggeredError` and `SafetyFilterExhaustedError` exception classes in `plugins/jack-tar-cloud/src/generate_cloud_image.py`.
+2. Create `plugins/jack-tar-cloud/src/safety_filter_vocab.py` with 20-entry default vocab + `SAFETY_FILTER_VOCAB_PATH` env override. See plan §6.1 for the vocab list.
+3. Guard `_generate_via_nano_banana` empty-candidates path — raise `SafetyFilterTriggeredError(prompt, provider, model)` when `response.candidates` is None/empty (around line 681).
+4. Guard `_generate_via_imagen` similarly.
+5. Add retry-with-softening wrapper around `generate_cloud_image` dispatch — catches `SafetyFilterTriggeredError`, applies softening from vocab, retries up to 3 times, raises `SafetyFilterExhaustedError` on final failure.
+6. Add `plugins/jack-tar-cloud/tests/test_safety_filter.py` — mocked empty-candidates responses for both Nano Banana + Imagen; assert retry fires, softening replaces target words, max 3 attempts.
+7. Run cloud plugin tests: `cd plugins/jack-tar-cloud && python3 -m pytest -q`. Must pass.
+8. Bump `plugins/jack-tar-cloud/.claude-plugin/plugin.json` 1.3.2 → 1.3.3. Update `.claude-plugin/marketplace.json` accordingly.
+9. Commit: `fix(jack-tar-cloud): retry-on-empty-candidates with auto-softening (#92)`.
+10. Update state.
 
----
+Budget envelope for Phase 1: $0.00 (mocked-only tests).
 
-## Phase 3: Vision Analysis (Backdrop Slides)
+### 6.3 Phase 2a — #93 strap_style
 
-**This is critical.** For backdrop slides (5, 10), the vision-analyst agent must analyse the scene image to detect where visual elements are positioned. This produces `detected_positions` that the assembler uses for text placement instead of the prescribed fallbacks.
+Steps:
+1. Add `strap_style` field to brief schema at `plugins/jack-tar-superpower-bridge/src/creative_brief.py` and `plugins/jack-tar-superpower-bridge/src/schemas/talk_brief.schema.json`. Enum: `["all-caps-three-beat", "prose-sentence"]`. Default: `null` (persona chooses).
+2. Update `plugins/jack-tar-superpower-bridge/agents/narrative-brief-architect.md` Section B authoring guidance with `strap_style` choice.
+3. Update `plugins/jack-tar-superpower-bridge/skills/bridge-brief/SKILL.md` to note R2 dispatch awareness of strap_style.
+4. Add round-trip tests + lint validation in `plugins/jack-tar-superpower-bridge/tests/`.
+5. Run bridge tests. Must pass.
+6. **Verification gate**: dispatch general-purpose Sonnet (`Task(subagent_type="general-purpose", model="sonnet", prompt=...)`) with the new rule inline + 3 scenarios from plan §6.2a. Capture verdict in commit body.
+7. Commit: `feat(jack-tar-superpower-bridge): strap_style field for brief register (#93)`.
+8. Update state.
 
-For each backdrop slide:
+Budget envelope for Phase 2a: $0.00 (agent dispatch only, no cloud calls).
 
-1. **Read the scene image** using the Read tool (it supports images)
-2. **Analyse element positions** — look at the image and identify where the visual element groups are
-3. **Write detected_positions** into the image manifest entry for that scene image
+### 6.4 Phase 2b — #87 register presets
 
-The detected_positions array goes on the scene image's manifest entry:
-```json
-{
-  "slide_number": 5,
-  "file_path": "./tmp/deck/images/slide-05-scene.png",
-  "detected_positions": [
-    {"element_id": "no_structure", "x": 0.05, "y": 0.10, "w": 0.40, "h": 0.35, "confidence": 0.85},
-    {"element_id": "no_contracts", "x": 0.55, "y": 0.10, "w": 0.40, "h": 0.35, "confidence": 0.82},
-    {"element_id": "no_quality", "x": 0.05, "y": 0.55, "w": 0.40, "h": 0.35, "confidence": 0.80},
-    {"element_id": "tangled", "x": 0.55, "y": 0.55, "w": 0.40, "h": 0.35, "confidence": 0.78}
-  ]
-}
-```
+Steps:
+1. Create `plugins/jack-tar-superpower-bridge/src/registers/loader.py` — port of paperbanana's `methodology.py` venue-loader pattern. Include MIT attribution comment crediting paperbanana.
+2. Create `plugins/jack-tar-superpower-bridge/src/registers/presets/` directory.
+3. Create `infographic-narrative.md`, `atmospheric-photo.md`, `schematic-diagram.md`, `editorial-mixed-case.md` preset files. Each contains: palette table, typography, layout typology, default `strap_style`. See plan §6.2b for content guidance.
+4. Add `preferences.register` field to brief schema. Enum: the 4 preset names + null.
+5. Update brief-save lint to validate register against enum.
+6. Update `narrative-brief-architect.md` Section B to use register defaults.
+7. Add tests for register loading + brief integration.
+8. Run bridge tests. Must pass.
+9. **Verification gate**: dispatch general-purpose Sonnet with all 4 preset docs inline + 5 subject scenarios. Verdict in commit body.
+10. Bump `plugins/jack-tar-superpower-bridge/.claude-plugin/plugin.json` 0.2.2 → 0.3.0. Marketplace sync.
+11. Commit: `feat(jack-tar-superpower-bridge): register presets — 4 canonical registers (#87)`.
+12. Update state.
 
-**Quality gate:** If any element confidence is below 0.5, the scene image is too ambiguous. Regenerate it with an adjusted prompt that makes the element groups more distinct, then re-analyse.
+Budget envelope for Phase 2b: $0.00 (agent dispatch only).
 
-### Slide 5 — "Pile of Parts"
-- Look for 4 distinct groups of disconnected parts in the image
-- Map each group to: no_structure (top-left), no_contracts (top-right), no_quality (bottom-left), tangled (bottom-right)
-- element_ids MUST match the strategy map element ids exactly
+### 6.5 Phase 3 — paperbanana integration (E1-E6)
 
-### Slide 10 — "Skills Propose. You Decide."
-- Look for the AI (angular/crystalline) and human (organic/flowing) forms
-- Map visual regions to: narrative_arcs (top-left), palette_mood (top-right), strategy_override (bottom-left), human_decides (bottom-right)
-- element_ids MUST match the strategy map element ids exactly
+Each E sub-step is its own atomic commit.
 
-Update phase to `vision_analysis` in draft-state.json. Mark each slide's `vision_analysed: true`.
+**E1**: `academic_figure` strategy classifier.
+1. Add `academic_figure` to `plugins/jack-tar-deckhand/src/schemas/strategy_map.schema.json` enum.
+2. Add classifier heuristics in `plugins/jack-tar-deckhand/src/strategy_classifier.py`.
+3. Tests.
+4. Commit: `feat(jack-tar-deckhand): academic_figure strategy classifier (paperbanana E1)`.
 
----
+**E2**: imagegen-bridge dispatch.
+1. Update `plugins/jack-tar-deckhand/skills/imagegen-bridge/SKILL.md` with new dispatch branch.
+2. Wire dispatch into Python or skill orchestration.
+3. Mocked tests.
+4. Commit: `feat(jack-tar-deckhand): imagegen-bridge dispatch to paperbanana for academic_figure (paperbanana E2)`.
 
-## Phase 4: Build Image Manifest
+**E3**: verify-skill update.
+1. Add ACADEMIC FIGURE capability row to `plugins/jack-tar-deckhand/skills/verify/SKILL.md`.
+2. Helper to detect paperbanana availability.
+3. Commit: `feat(jack-tar-deckhand): verify-skill detects paperbanana (paperbanana E3)`.
 
-Write `./tmp/deck/image-manifest.json` with ALL images. Use this Python script:
+**E4**: persona doc updates.
+1. Update `agents/narrative-architect.md`.
+2. Update `agents/smartart-selector.md` (mark academic-figure for paper-quality work, but keep existing chart types for non-paper).
+3. Commit: `docs(jack-tar-deckhand): persona docs for academic_figure (paperbanana E4)`.
 
-```python
-import json, os, hashlib
-from datetime import datetime, timezone
-from PIL import Image
+**E5**: ADR.
+1. Create `docs/architecture/paperbanana-integration.md` with the Option 4 + slim Option 2 ADR.
+2. Update `CLAUDE.md` plugin table with the integration note.
+3. Commit: `docs: paperbanana integration ADR (paperbanana E5)`.
 
-DECK_DIR = './tmp/deck'
+**E6**: dogfood.
+1. Construct a small fixture deck with one `academic_figure`-classified slide.
+2. **IF paperbanana is installed locally**: run real generation, capture output. Spend budget envelope: $0 (paperbanana uses operator's API key directly).
+3. **IF paperbanana NOT installed**: write a dogfood log entry noting "integration verified at contract level via E1-E3 tests; end-to-end dogfood deferred to operator with paperbanana installed". This is the documented expected fallback.
+4. Log to `docs/superpowers/dogfooding/2026-05-17-paperbanana-integration.md`.
+5. Bump `plugins/jack-tar-deckhand/.claude-plugin/plugin.json` 1.3.3 → 1.4.0. Marketplace sync.
+6. Commit: `feat(jack-tar-deckhand): paperbanana integration v1.4.0 (paperbanana E6)`.
 
-def image_entry(slide_number, file_path, alt_text, element_id=None, placement_zone=None, detected_positions=None):
-    abs_path = os.path.abspath(file_path)
-    if not os.path.exists(abs_path):
-        print(f'WARNING: missing {file_path}')
-        return None
-    with open(abs_path, 'rb') as f:
-        content_hash = hashlib.sha256(f.read()).hexdigest()
-    img = Image.open(abs_path)
-    w, h = img.size
-    entry = {
-        'slide_number': slide_number,
-        'file_path': file_path,
-        'status': 'generated',
-        'content_hash': content_hash,
-        'dimensions': {'width': w, 'height': h},
-        'alt_text': alt_text,
-        'image_id': os.path.splitext(os.path.basename(file_path))[0],
-        'model_used': 'x/z-image-turbo:fp8',
-    }
-    if element_id:
-        entry['element_id'] = element_id
-    if placement_zone:
-        entry['placement_zone'] = placement_zone
-    if detected_positions:
-        entry['detected_positions'] = detected_positions
-    return entry
+Budget envelope for Phase 3: $0.00–$0.50 (E6 may use 1-2 Flash 1K images for the fixture deck context — not the academic figure itself, which paperbanana renders).
 
-images = []
+### 6.6 Phase 4a — #91 text-density warning
 
-# full_render
-images.append(image_entry(1, './tmp/deck/images/slide-01-hero.png', 'Presentations, Engineered'))
-images.append(image_entry(13, './tmp/deck/images/slide-13-hero.png', 'This Deck Was Built by the Pipeline'))
+Steps:
+1. Update `plugins/jack-tar-deckhand/agents/prompt-engineer.md` with the text-density pre-render warning section.
+2. **Verification gate**: dispatch general-purpose Sonnet with new rule inline + 3 prompt scenarios (8, 12, 18 strings).
+3. Commit: `feat(jack-tar-deckhand): prompt-engineer text-density warning (#91)`.
 
-# background
-images.append(image_entry(2, './tmp/deck/images/slide-02-bg.png', 'Every Deck Starts With a Blank Slide and a Sigh'))
-images.append(image_entry(7, './tmp/deck/images/slide-07-bg.png', 'Every Skill Has a Contract. Every Contract Has Tests.'))
-images.append(image_entry(12, './tmp/deck/images/slide-12-bg.png', 'Draft Fast. Produce Once.'))
+Budget envelope: $0.00.
 
-# backdrop — INCLUDE detected_positions from Phase 3
-# READ detected positions from draft-state.json and inject here
-images.append(image_entry(5, './tmp/deck/images/slide-05-scene.png',
-    'Features Without Architecture Is Just a Pile of Parts',
-    detected_positions=SLIDE_5_DETECTED))  # Replace with actual detected positions
-images.append(image_entry(10, './tmp/deck/images/slide-10-scene.png',
-    'Skills Propose. You Decide.',
-    detected_positions=SLIDE_10_DETECTED))  # Replace with actual detected positions
+### 6.7 Phase 4b — #90 composition primitives
 
-# pragmatic slide 9
-images.append(image_entry(9, './tmp/deck/images/slide-09-bg.png', 'Slide 9 background', placement_zone='background'))
-images.append(image_entry(9, './tmp/deck/images/slide-09-elem-locked_output.png', 'Locked output', element_id='locked_output'))
-images.append(image_entry(9, './tmp/deck/images/slide-09-elem-rigid_style.png', 'Rigid style', element_id='rigid_style'))
-images.append(image_entry(9, './tmp/deck/images/slide-09-elem-passive_human.png', 'Passive human', element_id='passive_human'))
+Steps:
+1. Update `plugins/jack-tar-deckhand/agents/prompt-engineer.md` with the 5 primitives section.
+2. Create `plugins/jack-tar-deckhand/src/schemas/composition_primitives.schema.json`.
+3. Create `docs/architecture/composition-primitives-authoring-guide.md`.
+4. **Verification gate**: dispatch general-purpose Sonnet with primitives inline + 5 subject scenarios.
+5. Bump deckhand 1.4.0 → 1.4.1. Marketplace sync.
+6. Commit: `feat(jack-tar-deckhand): composition primitives library (#90)`.
 
-# pragmatic slide 11
-images.append(image_entry(11, './tmp/deck/images/slide-11-bg.png', 'Slide 11 background', placement_zone='background'))
-images.append(image_entry(11, './tmp/deck/images/slide-11-elem-full_render_panel.png', 'Full render', element_id='full_render_panel'))
-images.append(image_entry(11, './tmp/deck/images/slide-11-elem-backdrop_panel.png', 'Backdrop render', element_id='backdrop_panel'))
-images.append(image_entry(11, './tmp/deck/images/slide-11-elem-composed_panel.png', 'Composed', element_id='composed_panel'))
+Budget envelope: $0.00.
 
-# composed diagrams
-images.append(image_entry(3, './tmp/deck/images/slide-03-diagram.png', 'Brief In. Polished Deck Out.'))
-images.append(image_entry(6, './tmp/deck/images/slide-06-diagram.png', 'Four Services. Four Personas. One Pipeline.'))
+### 6.8 Phase 5a — #88 full-bleed scale
 
-images = [img for img in images if img is not None]
+Steps:
+1. Add `full_bleed` to scale enum in `plugins/jack-tar-deckhand/src/schemas/strategy_map.schema.json`.
+2. Update `plugins/jack-tar-deckhand/src/assembler/build_deck.js` with new branch in `buildSlide()`.
+3. Update `src/assembler/build_deck.js` (synced copy).
+4. Create `plugins/jack-tar-superpower-bridge/src/enrichment_ops/full_bleed.py`.
+5. Add tests for both paths.
+6. Run deckhand + bridge tests. Must pass.
+7. **Verification gate (visual)**: build a synthetic 4-slide deck (one slide per scale: bg, content_zone, side_accent, full_bleed). Use **Imagen Fast 1K @ $0.020 each → $0.08 total** for the slide images (non-text-bearing fillers are fine). Rasterise via LibreOffice. Dispatch image-reviewer subagent. Capture verdict.
+8. Bump deckhand 1.4.1 → 1.4.2.
+9. Commit: `feat(jack-tar-deckhand): full_bleed image scale (#88)`.
 
-manifest = {
-    'generated_at': datetime.now(timezone.utc).isoformat(),
-    'image_backend': 'ollama-draft',
-    'images': images,
-    'summary': {
-        'total_images': len(images),
-        'generated_count': len(images),
-        'cached_count': 0,
-        'placeholder_count': 0,
-        'failed_count': 0,
-    }
-}
+Budget envelope: ~$0.10.
 
-with open(os.path.join(DECK_DIR, 'image-manifest.json'), 'w') as f:
-    json.dump(manifest, f, indent=2)
-    f.write('\n')
-print(f'Wrote image-manifest.json with {len(images)} images')
-```
+### 6.9 Phase 5b — #89 iterate-slide skill
 
-**Important:** The `SLIDE_5_DETECTED` and `SLIDE_10_DETECTED` placeholders must be replaced with the actual detected_positions arrays from Phase 3. Read them from draft-state.json or compute them inline.
+Steps:
+1. Create `plugins/jack-tar-deckhand/src/iterate_state.py` — `IterateState` dataclass with load/save. Port of paperbanana's `ResumeState`. MIT attribution.
+2. Create `plugins/jack-tar-deckhand/src/iterate_loop.py` — orchestration loop with `user_feedback` threading.
+3. Create `plugins/jack-tar-deckhand/skills/iterate-slide/SKILL.md`.
+4. Tests with mocked regenerate-and-review.
+5. Run deckhand tests. Must pass.
+6. **Verification gate (visual + workflow)**: build a synthetic 3-slide deck. Use **Imagen Fast 1K @ $0.020 × 3 = $0.06** for initial generation. Run iterate-slide on slide 2 with a deliberate critique ("change colour to navy"). Slide 2 regenerates (1 more call at Flash 1K $0.067 = $0.13 total for this gate). Verify slide 1 and 3 byte-identical, slide 2 changed per critique. Dispatch image-reviewer subagent. Capture verdict.
+7. Bump deckhand 1.4.2 → 1.4.3.
+8. Commit: `feat(jack-tar-deckhand): iterate-slide skill (#89)`.
+
+Budget envelope: ~$0.15.
+
+### 6.10 Final — v1.4 end-to-end dogfood + CLAUDE.md status
+
+Steps:
+1. Build a single end-to-end deck combining: register (#87) + academic_figure (paperbanana) + full_bleed cover (#88) + iterate-slide on at least one slide (#89). Use Flash 1K throughout. **Budget envelope: ~$1.00 for the end-to-end (10-15 image calls).**
+2. Run through PowerPoint Mac PDF (best-effort; if fails, fall back to LibreOffice). Dispatch image-reviewer subagent on each rasterised slide.
+3. Log at `docs/superpowers/dogfooding/2026-05-17-v1.4-end-to-end.md`.
+4. Update root `CLAUDE.md` "Current Status" section with the v1.4 entry. Cross-reference all closed issues + the paperbanana integration + the final plugin versions.
+5. Set `state.status = "complete"`.
+6. Commit: `docs: v1.4 end-to-end dogfood + status update`.
+
+Budget envelope: ~$1.00.
+
+**Cumulative budget projection across all phases: $1.25–$1.50, well under the $5.00 cap.**
 
 ---
 
-## Phase 5: Assemble & Review Cycle
+## 7. VERIFICATION GATE SPECIFICATIONS
 
-This is the core iteration loop. Repeat until all slides pass review.
+### 7.1 Agent dispatch gates (Phases 2a, 2b, 4a, 4b)
 
-### 5a. Assemble
-```bash
-node src/assembler/build_deck.js --deck-dir ./tmp/deck
+Pattern:
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  description="Verify <issue>",
+  prompt="""You are verifying behaviour of the updated <rule>.
+  
+  [paste the new rule text verbatim]
+  
+  [N test scenarios]
+  
+  Return ONLY this JSON:
+  { "scenario_1": {...}, ..., "rule_followed_correctly": <bool> }
+  """
+)
 ```
 
-### 5b. Review Each Slide
+Capture the JSON verdict in the commit body. Gate passes if `rule_followed_correctly == true` AND no scenario is misclassified.
 
-After assembly, review the deck by reading the .pptx output and checking each strategy type:
+### 7.2 Visual gates (Phases 5a, 5b, final)
 
-#### Background slides (2, 7, 12) — check:
-- [ ] Text zone is positioned correctly for the variant (left_panel, right_panel, bottom_bar)
-- [ ] Semi-transparent overlay is present behind text
-- [ ] Text is readable against the background image
-- [ ] Background image fills the full slide (no white gaps)
+Pattern:
+1. Generate fixture images at the cheapest viable tier (Imagen Fast for non-text, Flash 1K for text-bearing).
+2. Assemble synthetic .pptx via PptxGenJS.
+3. Rasterise via `soffice --headless --convert-to pdf` + `pdftoppm -r 110 -png`.
+4. Dispatch `jack-tar-deckhand:image-reviewer` (haiku) on each rasterised slide with the expected-behaviour checklist.
+5. Gate passes if aggregate verdict is `pass` AND no blocking issues.
 
-#### Backdrop slides (5, 10) — check:
-- [ ] Scene image fills the full slide
-- [ ] Text labels are positioned at detected element locations (not overlapping each other)
-- [ ] Labels don't extend off-slide (x+w <= 1.0, y+h <= 1.0)
-- [ ] Backing pills are visible behind text
-- [ ] If labels overlap or are off-slide, adjust detected_positions in the manifest and re-assemble
-
-#### Pragmatic composition slides (9, 11) — check:
-- [ ] Background image fills the full slide
-- [ ] Element images appear at prescribed positions (three_across layout)
-- [ ] Text labels appear below each element (or above if element is in bottom third)
-- [ ] Elements don't overlap each other
-- [ ] Headline appears in the title region
-
-#### Full render slides (1, 13) — check:
-- [ ] Image fills the full slide (correct dimensions, no white gaps)
-- [ ] For slide 1: headline text is part of the image (full_render bakes text in)
-- [ ] For slide 13: image covers full slide area (quality doesn't matter for draft)
-
-#### Composed slides (3, 4, 6, 8, 14) — check:
-- [ ] Text renders correctly
-- [ ] Diagrams (3, 6) display their images
-- [ ] Section dividers (4, 8) have correct background colour (#7AF8DB)
-- [ ] Closing slide (14) has correct background colour (#006B5E)
-
-### 5c. Fix Issues
-
-For each issue found during review:
-
-**Bad text positioning (backdrop):**
-→ Adjust the `detected_positions` in image-manifest.json
-→ Re-assemble (no need to regenerate images)
-
-**Text not readable over background:**
-→ Check that the overlay transparency is appropriate
-→ If the background image is too busy/bright, regenerate with adjusted prompt emphasising "dark", "muted", "atmospheric"
-→ Re-build manifest, re-assemble
-
-**Elements overlapping (pragmatic):**
-→ Adjust element positions in strategy-map.json (the x, y, w, h values)
-→ Re-assemble
-
-**Image quality poor (layout-affecting only):**
-→ Don't chase image quality — this is Ollama draft, it will look rough
-→ Only regenerate if the image is so bad it breaks layout testing (e.g., blank image, wrong aspect ratio, no discernible elements for backdrop detection)
-→ Increment `regen_count` in draft-state.json (max 3 per image)
-
-**Missing image file:**
-→ Regenerate it
-→ Re-build manifest
-
-### 5d. Track Progress
-
-After each review, update draft-state.json:
-```json
-{
-  "draft_cycle": 2,
-  "phase": "iterating",
-  "slides": {
-    "1": {"images_generated": true, "reviewed": true, "review_status": "pass"},
-    "5": {"images_generated": true, "vision_analysed": true, "reviewed": true, "review_status": "needs_adjustment", "issues": ["label overlap on no_quality and tangled"]},
-    ...
-  }
-}
-```
-
-Increment `draft_cycle` each time you go through the full assemble-review loop.
+DO NOT Read PNG files directly in your own context. The discipline hook blocks it; even if it didn't, you would be burning context.
 
 ---
 
-## Phase 6: QA
+## 8. ESCALATION — write blocker, cancel Ralph, exit
 
-Once all slides pass visual review, run automated QA:
+When to escalate:
 
-```bash
-python3 -m src.qa.run_qa --deck-dir ./tmp/deck --pptx-path ./tmp/deck/output/presentation.pptx
+- Test failure after 2 fix attempts.
+- Verification gate returns `refine` or `fail` and you cannot determine why in 1 inspection.
+- Budget check fails: `state.verification_spent_usd + estimated_call_cost > 4.50`.
+- Design decision needed that is not resolved in plan §2 or §3.
+- Git state is unexpected (merge conflict, detached HEAD, dirty tree mid-phase).
+- Network error after 3 retries.
+- Iteration count reaches 200.
+- Any phase takes more than 15 iterations to complete.
+
+### Escalation procedure (do ALL of these, in order)
+
+**Step 1 — Write the visible blocker file at repo root.** This is the artefact the operator sees on morning checkin. Path: `V1.4-BLOCKER.md` (repo root, ALL CAPS for visibility).
+
+**Step 2 — Mirror to `.ralph/v1.4-blocker.md`** so state-tooling can find it.
+
+**Step 3 — Update state**: `state.status = "blocked"`, `state.blocker = <one-line summary>`, write atomically.
+
+**Step 4 — Commit the blocker and state** so it survives any subsequent process state: `git add V1.4-BLOCKER.md .ralph/v1.4-blocker.md .ralph/v1.4-state.json && git commit -m "halt: v1.4 Ralph blocked — see V1.4-BLOCKER.md"`. Do NOT push.
+
+**Step 5 — Cancel the Ralph loop** so it does not spawn further iterations:
+```
+Skill(skill="ralph-loop:cancel-ralph", args="")
+```
+If the cancel skill is not available or fails, the §5 step 2 stop check (`state.status == "blocked"` → exit) is the fallback — Ralph will exit each subsequent iteration, but cancelling is cleaner.
+
+**Step 6 — Exit this iteration.**
+
+### Blocker format (both `V1.4-BLOCKER.md` and `.ralph/v1.4-blocker.md`)
+
+```markdown
+# v1.4 Ralph Loop — Blocked
+
+**STOP**: this Ralph loop has halted. Read this file to understand what to resolve before restarting.
+
+**Time blocked**: <ISO timestamp>
+**Phase**: <phase id from §6, e.g. phase_5b_iterate_slide>
+**Atomic step**: <step description>
+**Iteration count**: <N>
+**Verification budget spent**: $<X.XX> / $5.00
+**Loop cancel status**: <cancelled via ralph-loop:cancel-ralph | cancel skill unavailable, relying on §5 stop check>
+
+## What happened
+
+<3-5 sentences describing the situation. Be concrete. Quote error messages verbatim if applicable. Name the file:line where things went wrong.>
+
+## What you tried
+
+- **Attempt 1**: <description> → <outcome>
+- **Attempt 2**: <description> → <outcome>
+- (more attempts if any)
+
+## What the operator needs to do
+
+Concrete, actionable next-step. Examples of acceptable shapes:
+
+- "Decide between option A (description) and option B (description). After deciding, update plan §<section> with the resolution and edit `.ralph/v1.4-state.json` to set `phases.<phase_id>.status = "not_started"` then restart Ralph."
+- "The test at <file:line> fails because of <root cause>. Manual fix needed; once the fix lands and tests pass, set the phase status back to `not_started` and restart."
+- "Verification budget is at $<X.XX> with <N> phases remaining. Either approve a higher cap (edit `state.verification_budget_usd`) and restart, or accept partial completion."
+
+## State preservation
+
+- **Last committed change**: `<git sha>` — `<commit message>`
+- **Working tree status**: clean | dirty (files: <list>)
+- **Phases completed**: <list>
+- **Phases remaining**: <list>
+- **State file**: `.ralph/v1.4-state.json` (do not delete; Ralph will resume from this)
+
+## To restart Ralph (after resolution)
+
+1. Address the blocker per "What the operator needs to do" above.
+2. Edit `.ralph/v1.4-state.json`: set `status` from `"blocked"` back to `"in_progress"`, clear `blocker` to `null`.
+3. Re-invoke `/ralph-loop:ralph-loop` with PROMPT.md.
+4. Delete `V1.4-BLOCKER.md` and `.ralph/v1.4-blocker.md` once resolved so they don't shadow future blockers.
 ```
 
-Read `./tmp/deck/qa-report.json` and check the verdict.
+### Why cancel the loop AND set status=blocked
 
-**If verdict is `fail`:**
-- Read the findings
-- Fix critical/error-level issues (re-generate images, adjust positions, re-assemble)
-- Run QA again
-- Max 2 QA correction cycles
-
-**If verdict is `pass` or `pass_with_warnings`:**
-- Warnings are acceptable for a draft
-- Record qa_pass_count in draft-state.json
-
-**Key QA checks for new strategies:**
-- AP-27 (element_layout validation): elements within bounds, count <= 5, valid label_source refs
-- AP-28 (vision confidence): detected_positions confidence >= 0.7
+Belt + braces. The cancel call halts Ralph at the harness level. The status=blocked check halts at the prompt level. Either alone would work; both together protect against cancel-skill unavailability or future PROMPT.md edits that miss the §5 step 2 check.
 
 ---
 
-## Phase 7: Completion
+## 9. STOP CONDITIONS
 
-Only when ALL of these are true:
-1. All 17 images generated successfully
-2. Vision analysis done for backdrop slides (5, 10) with confidence >= 0.5
-3. Deck assembled without errors
-4. All slide LAYOUTS reviewed and validated:
-   - Background zone text positioning correct for all 3 variants (left_panel, right_panel, bottom_bar)
-   - Backdrop text labels placed at vision-detected positions without overlap or off-slide
-   - Pragmatic element images at correct positions with labels adjacent
-   - Full render images filling slides correctly
-   - Composed slides rendering text/diagrams properly
-5. QA verdict is pass or pass_with_warnings
-6. draft_cycle >= 1 (at least one full review cycle completed)
+Ralph stops (exits the current iteration AND cancels the loop) when:
 
-Update draft-state.json:
-```json
-{
-  "phase": "complete",
-  "layouts_validated": true
-}
-```
+- `state.status == "complete"`: all phases done, v1.4 ready for operator review. On reaching complete, also invoke `Skill(skill="ralph-loop:cancel-ralph", args="")` to halt the loop cleanly. Write `V1.4-COMPLETE.md` at repo root summarising what shipped (mirrors the §8 visible-flag pattern but for the happy path).
+- `state.status == "blocked"`: see §8 — the loop has already been cancelled and the blocker is at `V1.4-BLOCKER.md`. Any subsequent iteration (defence in depth, in case cancel failed) reads state, sees blocked, exits immediately without action.
+- `state.iteration_count >= 200`: hard cap. Treat as a blocker — escalate via §8 with reason "iteration cap reached".
+- `state.verification_spent_usd >= 4.50`: pre-cap halt. Treat as a blocker — escalate via §8 with reason "verification budget approaching cap".
 
-Print a summary:
-```
-LAYOUT TESTING SUMMARY
-======================
-Slides: 14
-Strategies tested: full_render(2), background(3), backdrop(2), pragmatic_composition(2), composed(5)
-Images: 17 generated (Ollama x/z-image-turbo:fp8, zero cost)
-Draft cycles: N
-QA verdict: pass/pass_with_warnings
-Layout issues fixed: N
-Output: ./tmp/deck/output/presentation.pptx
+On clean stop, leave the working branch ready for operator review. DO NOT push branches or open PRs.
 
-All 5 rendering strategies validated. Layouts correct.
-```
+### The contract is: blocked → loop ends, with a visible file at repo root the operator reads first
 
-Then output:
-```
-<promise>DRAFT DECK COMPLETE</promise>
-```
+If you escalate, the operator MUST see `V1.4-BLOCKER.md` at root the moment they open the repo. The loop MUST NOT continue spawning iterations after a blocker. Both conditions are load-bearing — failing either erodes operator trust and wastes their morning.
 
 ---
 
-## Important Rules
+## 10. WHEN IN DOUBT
 
-1. **Ollama only** — do NOT use any cloud providers. Zero cost. This is local machine only.
-2. **Layout correctness is the goal, not image quality** — Ollama images will look rough. That's fine. We're testing whether text lands in the right zones, elements don't overlap, overlays are positioned correctly, and all 5 strategies produce valid slide layouts.
-3. **Do not modify** `outline.json`, `style-guide.json`, `brand-profile.json`, or `speaker-notes.json`
-4. **Image generation takes time** — ~40-60 seconds per image. Use `--timeout 120`
-5. **Max 3 regenerations per image** — only regenerate for layout-breaking issues (blank, wrong ratio, undetectable elements), not for aesthetics
-6. **Max 2 QA correction cycles** — accept warnings on a draft
-7. **Keep logo.png** — `./tmp/deck/images/logo.png` must not be deleted
-8. **One thing per iteration** — don't try to do everything in one pass. Generate images in one iteration, analyse in the next, assemble in the next, review in the next. Ralph gives you unlimited iterations — use them.
-9. **Always read draft-state.json first** — know where you are before acting
-10. **Vision analysis is NOT optional** for backdrop slides — the whole point is vision-detected positioning, not just falling back to prescribed positions. Iterate the positions until they're right.
-11. **Iterate positions aggressively** — if a backdrop label is off-position or a pragmatic element overlaps, adjust coordinates and re-assemble. This is free. Keep going until the layout is correct. This is what the drafting loop is for.
+- Re-read the plan section for the current phase.
+- If the plan doesn't resolve it, escalate. Do not improvise.
+- If a test passes "by accident" (you can't explain why), assume the test is wrong and escalate.
+- If a verification gate verdict surprises you, escalate.
+- If git rejects a commit or push, read the error carefully — never `--force` or `--admin`.
+
+---
+
+## 11. FIRST-ITERATION BOOTSTRAP
+
+On the very first iteration (`state.iteration_count == 0`):
+
+1. Create `.ralph/v1.4-state.json` with the §4 defaults if missing.
+2. Create `feat/v1.4-push-and-paperbanana` branch off main if absent.
+3. Verify all referenced inputs exist (plan doc, /tmp triage reports). If a /tmp file is missing because /tmp got cleaned, you may proceed but make a note in state.
+4. Begin Phase 0.
+5. Commit any state initialisation (state file, blocker template) with `chore: initialise v1.4 Ralph state`.
+
+---
+
+## 12. EXIT WITH GRACE
+
+End every iteration with:
+1. State written.
+2. Either: commit made AND clean working tree, OR no code changes since last commit.
+3. A one-line summary to stdout: `Iteration <N> complete — phase=<X> step=<Y> spent=$<Z>`.
+
+### 12.1 NEVER stage ephemeral Ralph state into code commits
+
+The files under `.ralph/agent/` and the run-pointer files at `.ralph/` are **per-iteration scratch state**. Ralph itself mutates them every iteration. If they get caught in a code commit and land empty/deleted, the next iteration recovers from nothing and the loop can spiral into `consecutive_failures` (this is exactly what killed iter 6 on 2026-05-17 — the scratchpad got committed-as-deleted in a previous iteration's broad `git add`, and recovery never converged).
+
+**Never include in a code commit** (and never use `git add .` or `git add -A` in a Ralph iteration):
+
+- `.ralph/agent/scratchpad.md`
+- `.ralph/agent/summary.md`
+- `.ralph/agent/handoff.md`
+- `.ralph/agent/tasks.jsonl`
+- `.ralph/agent/memories.md`
+- `.ralph/agent/*.lock`
+- `.ralph/loop.lock`
+- `.ralph/current-events`
+- `.ralph/current-loop-id`
+- `.ralph/events-*.jsonl`
+- `.ralph/history.jsonl`
+
+**Always stage code commits by explicit path.** Examples:
+
+- GOOD: `git add plugins/jack-tar-cloud/src/safety_filter_vocab.py plugins/jack-tar-cloud/.claude-plugin/plugin.json`
+- BAD: `git add .`  ← sweeps in scratchpad
+- BAD: `git add -A`  ← sweeps in scratchpad + lock files
+- BAD: `git commit -a`  ← same problem, scoped to tracked files but still grabs scratchpad
+
+**Verify before every commit**: run `git diff --cached --name-only` and confirm zero `.ralph/agent/` or `.ralph/loop.lock` / `.ralph/current-*` / `.ralph/events-*` / `.ralph/history.jsonl` entries appear. If any do, `git restore --staged <path>` them before committing.
+
+The ONLY files Ralph ever commits from `.ralph/` are:
+
+- `.ralph/v1.4-state.json` (your authoritative progress record — committed at the end of each phase)
+- `.ralph/v1.4-blocker.md` (only when escalating via §8)
+
+"Clean working tree" in §12 step 2 refers to **code changes**, not to ephemeral agent state. The agent scratchpad SHOULD remain dirty at end of iteration — that's its job. Do not "clean" it by committing.
+
+This is the contract Ralph relies on. Honour it.
+
+---
+
+**You are now ready. Begin iteration 1.**

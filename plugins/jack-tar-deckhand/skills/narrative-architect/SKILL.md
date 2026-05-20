@@ -175,3 +175,64 @@ If the speaker is shooting for a memorable opener or closing slide, ask: "Would 
 ## Optional: brand-fidelity annotation
 
 If the talk is brand-led (product launch, company keynote, vendor pitch) or has slides where exact brand-color match is critical (logos, product shots), ask: "For [slide N], should brand colors be rendered hex-exact (`brand_fidelity: \"exact\"` → Recraft V4 raster, ~2× cost at 4K) or close-enough (default → FLUX or Nano Banana)?" Annotate `brand_fidelity` on the SlideOutline entry if so — the strategy-map step will carry it through. Default `"none"` unchanged.
+
+## Optional: academic-figure strategy annotation (paperbanana E4)
+
+If the talk is research-flavoured — a paper readout, a thesis defence, a
+conference deep-dive on an ML architecture, a tutorial on an algorithm —
+some slides will be **figures**, not narrative beats. They carry one or
+more of:
+
+- An explicit caption (`Figure 3: ...`, `Fig. 2.`) repeated from the paper
+- A block equation or LaTeX math (`$$ ... $$`, `\frac`, `\sum`, `\alpha`, `\theta`, ...)
+- Numbered citations (`[12]`) or "et al." author refs in the body
+- An `Algorithm N` heading or `pseudocode` block
+- Subjects like "system architecture (encoder/decoder/heads)", "ablation
+  study", "confusion matrix"
+
+For those slides, the `strategy_classifier.py` heuristic (paperbanana E1)
+will set `strategy: "academic_figure"` automatically in the StrategyMap,
+and the imagegen-bridge will dispatch to the **paperbanana** CLI via
+subprocess (`paperbanana generate --input ... --caption ... --image-model
+gemini-3.1-flash-image-preview ...`) for publication-grade rendering
+when paperbanana is installed (falls back to cloud Flash 1K otherwise —
+see `/jack-tar-deckhand:verify` for live availability and install hints).
+
+What this means for you (narrative-architect):
+
+- **Do** write `visual_direction` prose that names the academic subject
+  literally ("Figure 3: encoder-decoder architecture with 4 attention
+  heads"). The literal caption keywords are what the classifier matches.
+- **Do** preserve any paper-style notation in `body_points` rather than
+  paraphrasing it into business language. `[12]` and "et al." are signal,
+  not noise.
+- **Don't** force these slides into a SmartArt graphic_type. The
+  smartart-selector defers academic figures to the paperbanana route
+  (see its "Academic-figure deferral rule") — recommending `bar_chart` or
+  `line_chart` for a slide that's actually Figure 3 of a paper would
+  bypass paperbanana and produce a generic chart instead of the
+  paper-quality figure the speaker wants.
+- **Don't** prompt the speaker about this — the classifier is content-
+  driven. Only ask if the speaker explicitly wants to override (e.g. force
+  a slide that lacks signals into academic_figure for stylistic
+  consistency with the rest of the figure set).
+
+If `paperbanana` is not installed on the speaker's machine, the bridge
+falls back to cloud generation with academic-figure-aware prompting. The
+slide will still render; it just won't be publication-tier. The
+`/jack-tar-deckhand:verify` skill reports whether paperbanana is reachable
+before the deck builds — if the speaker cares about publication tier and
+the verify check is NOT_FOUND, point them at the install command
+(`pip install 'paperbanana[google]'` — full guide in
+`docs/architecture/paperbanana-integration-v2.md` §6).
+
+**Source-context quality matters.** Paperbanana's Retriever + Planner
+agents work from the `source_context` field, which the dispatch helper
+(`paperbanana_dispatch._build_source_context_from_slide`) synthesises
+from the slide's `methodology_context` (operator pre-annotation, best),
+`speaker_notes` (when ≥200 chars, good), or `body_points +
+visual_direction` joined into prose (last resort). Thin slides
+(headline-only) produce thinner figures. For best academic_figure
+output, write substantive `speaker_notes` or explicit
+`methodology_context` on these slides.
+guide (see `docs/architecture/paperbanana-integration.md`).
