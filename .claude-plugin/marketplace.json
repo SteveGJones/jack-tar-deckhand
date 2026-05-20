@@ -33,7 +33,7 @@
       "name": "jack-tar-deckhand",
       "description": "Full presentation pipeline \u2014 brand, style, narrative, images, SmartArt, assembly, QA",
       "source": "./plugins/jack-tar-deckhand",
-      "version": "1.4.0"
+      "version": "1.4.1"
     },
     {
       "name": "jack-tar-superpower-bridge",
