@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/creative-vision-manifest.json",
+  "title": "CreativeVisionManifest",
+  "description": "Persisted state for a creative_vision slide. Mirror of paperbanana_run_id contract. Issue #105.",
+  "type": "object",
+  "required": [
+    "run_id", "slide_number", "strategy", "prose_history",
+    "attempts", "final", "iterate_slide_hooks"
+  ],
+  "properties": {
+    "run_id": {"type": "string"},
+    "slide_number": {"type": "integer", "minimum": 1},
+    "strategy": {"type": "string", "const": "creative_vision"},
+    "prose_history": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["version", "timestamp", "prose"],
+        "properties": {
+          "version": {"type": "integer", "minimum": 1},
+          "timestamp": {"type": "string"},
+          "prose": {"type": "string"},
+          "revised_by": {"type": "string", "enum": ["operator", "system"]},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "attempt_index", "prose_version", "tier", "text_iterations",
+          "render", "image_reviewer_verdict", "directors_critic_verdict",
+          "cumulative_cost_usd"
+        ],
+        "properties": {
+          "attempt_index": {"type": "integer", "minimum": 1},
+          "prose_version": {"type": "integer", "minimum": 1},
+          "tier": {"type": "string"},
+          "text_iterations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["prompt_draft", "reviewer_verdict"],
+              "properties": {
+                "prompt_draft": {"type": "string"},
+                "reviewer_verdict": {"type": "string", "enum": ["pass", "refine"]},
+                "reviewer_feedback": {"type": "string"}
+              }
+            }
+          },
+          "render": {
+            "type": "object",
+            "required": ["model", "resolution", "cost_usd", "output_path"],
+            "properties": {
+              "model": {"type": "string"},
+              "resolution": {"type": "string"},
+              "cost_usd": {"type": "number", "minimum": 0},
+              "output_path": {"type": "string"}
+            }
+          },
+          "image_reviewer_verdict": {"type": "string", "enum": ["pass", "refine"]},
+          "directors_critic_verdict": {
+            "type": "object",
+            "required": [
+              "verdict", "per_axis_scores", "issues", "gap_location",
+              "recommended_action", "tier", "iteration_index", "plateau_signal"
+            ],
+            "properties": {
+              "verdict": {
+                "type": "string",
+                "enum": ["pass", "refine_at_tier", "escalate_tier", "abort"]
+              },
+              "per_axis_scores": {
+                "type": "object",
+                "required": ["entity_fidelity", "spatial_fidelity", "style_fidelity", "quality", "composition"],
+                "properties": {
+                  "entity_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+                  "spatial_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+                  "style_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+                  "quality": {"type": "integer", "minimum": 0, "maximum": 100},
+                  "composition": {"type": "integer", "minimum": 0, "maximum": 100}
+                }
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["axis", "detail"],
+                  "properties": {
+                    "axis": {"type": "string"},
+                    "detail": {"type": "string"}
+                  }
+                }
+              },
+              "gap_location": {
+                "type": "string",
+                "enum": ["prose", "prompt", "tier", "unknown"]
+              },
+              "recommended_action": {"type": "string"},
+              "tier": {"type": "string"},
+              "iteration_index": {"type": "integer", "minimum": 1},
+              "plateau_signal": {"type": "boolean"}
+            }
+          },
+          "cumulative_cost_usd": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "final": {
+      "type": ["object", "null"],
+      "required": ["image_path", "accepted_at_tier", "total_cost_usd", "total_iterations", "final_verdict"],
+      "properties": {
+        "image_path": {"type": "string"},
+        "accepted_at_tier": {"type": "string"},
+        "total_cost_usd": {"type": "number", "minimum": 0},
+        "total_iterations": {"type": "integer", "minimum": 1},
+        "final_verdict": {
+          "type": "object",
+          "required": [
+            "verdict", "per_axis_scores", "issues", "gap_location",
+            "recommended_action", "tier", "iteration_index", "plateau_signal"
+          ],
+          "properties": {
+            "verdict": {
+              "type": "string",
+              "enum": ["pass", "refine_at_tier", "escalate_tier", "abort"]
+            },
+            "per_axis_scores": {
+              "type": "object",
+              "required": ["entity_fidelity", "spatial_fidelity", "style_fidelity", "quality", "composition"],
+              "properties": {
+                "entity_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+                "spatial_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+                "style_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+                "quality": {"type": "integer", "minimum": 0, "maximum": 100},
+                "composition": {"type": "integer", "minimum": 0, "maximum": 100}
+              }
+            },
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["axis", "detail"],
+                "properties": {
+                  "axis": {"type": "string"},
+                  "detail": {"type": "string"}
+                }
+              }
+            },
+            "gap_location": {
+              "type": "string",
+              "enum": ["prose", "prompt", "tier", "unknown"]
+            },
+            "recommended_action": {"type": "string"},
+            "tier": {"type": "string"},
+            "iteration_index": {"type": "integer", "minimum": 1},
+            "plateau_signal": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "iterate_slide_hooks": {
+      "type": "object",
+      "required": [
+        "can_revise_prose", "can_refine_prompt", "can_escalate_tier",
+        "current_tier", "remaining_budget_usd"
+      ],
+      "properties": {
+        "can_revise_prose": {"type": "boolean"},
+        "can_refine_prompt": {"type": "boolean"},
+        "can_escalate_tier": {"type": "boolean"},
+        "current_tier": {"type": "string"},
+        "next_tier_available": {"type": ["string", "null"]},
+        "remaining_budget_usd": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}

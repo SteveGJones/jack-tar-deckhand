@@ -125,3 +125,63 @@ def test_verdict_accepts_all_gap_locations(gap):
     v = _valid_verdict()
     v["gap_location"] = gap
     validate(instance=v, schema=_load("directors_critic_verdict.schema.json"))
+
+
+# --- creative_vision_manifest -----------------------------------------------
+
+
+def _valid_manifest():
+    return {
+        "run_id": "cv-2026-05-21-093142-slide-3",
+        "slide_number": 3,
+        "strategy": "creative_vision",
+        "prose_history": [
+            {"version": 1, "timestamp": "2026-05-21T09:31:42Z", "prose": "Four ships..."}
+        ],
+        "attempts": [],
+        "final": None,
+        "iterate_slide_hooks": {
+            "can_revise_prose": True,
+            "can_refine_prompt": True,
+            "can_escalate_tier": True,
+            "current_tier": "ollama",
+            "next_tier_available": "flash_1k",
+            "remaining_budget_usd": 1.0,
+        },
+    }
+
+
+def test_manifest_minimal_valid():
+    validate(instance=_valid_manifest(), schema=_load("creative_vision_manifest.schema.json"))
+
+
+def test_manifest_prose_revision_appended():
+    m = _valid_manifest()
+    m["prose_history"].append({
+        "version": 2,
+        "timestamp": "2026-05-21T10:00:00Z",
+        "prose": "Four 1980s Cold-War warships...",
+        "revised_by": "operator",
+        "reason": "fishing-boat look in v1",
+    })
+    validate(instance=m, schema=_load("creative_vision_manifest.schema.json"))
+
+
+def test_manifest_with_final_block():
+    m = _valid_manifest()
+    m["final"] = {
+        "image_path": "runs/07-flash-4k.png",
+        "accepted_at_tier": "flash_4k",
+        "total_cost_usd": 0.43,
+        "total_iterations": 7,
+        "final_verdict": _valid_verdict(),
+    }
+    m["final"]["final_verdict"]["verdict"] = "pass"
+    validate(instance=m, schema=_load("creative_vision_manifest.schema.json"))
+
+
+def test_manifest_strategy_must_be_creative_vision():
+    bad = _valid_manifest()
+    bad["strategy"] = "full_bleed"
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("creative_vision_manifest.schema.json"))
