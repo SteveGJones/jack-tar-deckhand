@@ -69,3 +69,59 @@ def test_parsed_vision_progression_axis_optional():
     pv = _valid_parsed_vision()
     pv["composition"]["progression_axis"] = "spatial_horizontal"
     validate(instance=pv, schema=_load("parsed_vision.schema.json"))
+
+
+# --- directors_critic_verdict ------------------------------------------------
+
+
+def _valid_verdict():
+    return {
+        "verdict": "refine_at_tier",
+        "per_axis_scores": {
+            "entity_fidelity": 65,
+            "spatial_fidelity": 85,
+            "style_fidelity": 90,
+            "quality": 80,
+            "composition": 75,
+        },
+        "issues": [
+            {"axis": "entity_fidelity", "detail": "Databricks ship missing"}
+        ],
+        "gap_location": "prompt",
+        "recommended_action": "Re-emphasise Databricks as labelled fourth ship",
+        "tier": "flash_2k",
+        "iteration_index": 2,
+        "plateau_signal": False,
+    }
+
+
+def test_verdict_minimal_valid():
+    validate(instance=_valid_verdict(), schema=_load("directors_critic_verdict.schema.json"))
+
+
+def test_verdict_rejects_unknown_verdict_enum():
+    bad = _valid_verdict()
+    bad["verdict"] = "made_up"
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("directors_critic_verdict.schema.json"))
+
+
+def test_verdict_rejects_score_out_of_range():
+    bad = _valid_verdict()
+    bad["per_axis_scores"]["quality"] = 150
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("directors_critic_verdict.schema.json"))
+
+
+@pytest.mark.parametrize("verdict", ["pass", "refine_at_tier", "escalate_tier", "abort"])
+def test_verdict_accepts_all_verdicts(verdict):
+    v = _valid_verdict()
+    v["verdict"] = verdict
+    validate(instance=v, schema=_load("directors_critic_verdict.schema.json"))
+
+
+@pytest.mark.parametrize("gap", ["prose", "prompt", "tier", "unknown"])
+def test_verdict_accepts_all_gap_locations(gap):
+    v = _valid_verdict()
+    v["gap_location"] = gap
+    validate(instance=v, schema=_load("directors_critic_verdict.schema.json"))
