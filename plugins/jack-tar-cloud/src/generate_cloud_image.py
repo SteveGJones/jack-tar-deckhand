@@ -31,6 +31,19 @@ try:
 except ImportError:  # pragma: no cover - direct-script execution path
     from safety_filter_vocab import soften_prompt
 
+try:
+    from .cloud_results import GenerationResult
+    from .actual_cost_calculator import (
+        compute_nano_banana_actual_cost,
+        compute_openai_image_actual_cost,
+    )
+except ImportError:  # pragma: no cover - direct-script execution path
+    from cloud_results import GenerationResult
+    from actual_cost_calculator import (
+        compute_nano_banana_actual_cost,
+        compute_openai_image_actual_cost,
+    )
+
 logger = logging.getLogger(__name__)
 
 
@@ -616,17 +629,32 @@ def generate_openai(prompt, output_path, *, resolution='1K', size=None,
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(image_bytes)
 
-    cost = estimate_openai_cost(size=size, quality=quality)
-    logger.info('OpenAI image generated: %s (cost: $%.3f)', output_path, cost)
+    cost_estimated = estimate_openai_cost(size=size, quality=quality)
 
-    return {
-        'file_path': str(output_path),
-        'provider': 'openai',
-        'model_used': model,
-        'cost_usd': cost,
-        'status': 'generated',
-        'resolution': resolution,
-    }
+    usage_dict = None
+    cost_actual = cost_estimated  # default: fall back to catalog rate
+    if hasattr(response, 'usage') and response.usage is not None:
+        usage_dict = {
+            'input_tokens': getattr(response.usage, 'input_tokens', 0),
+            'output_tokens': getattr(response.usage, 'output_tokens', 0),
+            'total_tokens': getattr(response.usage, 'total_tokens', 0),
+        }
+        try:
+            cost_actual = compute_openai_image_actual_cost(model, usage_dict)
+        except ValueError:
+            cost_actual = cost_estimated  # unknown model — fall back
+
+    logger.info('OpenAI image generated: %s (cost: $%.3f)', output_path, cost_actual)
+
+    return GenerationResult(
+        path=str(output_path),
+        cost_estimated=cost_estimated,
+        cost_actual=cost_actual,
+        usage_metadata=usage_dict,
+        provider='openai',
+        model=model,
+        resolution=resolution,
+    )
 
 
 def generate_google(prompt, output_path, **kwargs):
@@ -684,9 +712,10 @@ def generate_google(prompt, output_path, **kwargs):
     client = genai.Client(**client_kwargs)
 
     if model in _NANO_BANANA_MODELS:
-        image_bytes = _generate_via_nano_banana(client, model, prompt, resolution)
+        image_bytes, usage_dict = _generate_via_nano_banana(client, model, prompt, resolution)
     elif model in _IMAGEN_MODELS:
         image_bytes = _generate_via_imagen(client, model, prompt, aspect_ratio, resolution)
+        usage_dict = None  # Imagen has no token-level usage surface
     else:
         raise ValueError(
             f"Unknown Google model: {model}. "
@@ -696,20 +725,29 @@ def generate_google(prompt, output_path, **kwargs):
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(image_bytes)
 
-    cost = estimate_google_cost(model=model, resolution=resolution)
+    cost_estimated = estimate_google_cost(model=model, resolution=resolution)
+
+    cost_actual = cost_estimated  # default: Imagen or unknown model
+    if usage_dict is not None:
+        try:
+            cost_actual = compute_nano_banana_actual_cost(model, usage_dict)
+        except ValueError:
+            cost_actual = cost_estimated  # unknown model — fall back
+
     logger.info(
         'Google image generated: %s (model: %s, resolution: %s, cost: $%.3f)',
-        output_path, model, resolution, cost,
+        output_path, model, resolution, cost_actual,
     )
 
-    return {
-        'file_path': str(output_path),
-        'provider': 'google',
-        'model_used': model,
-        'cost_usd': cost,
-        'status': 'generated',
-        'resolution': resolution,
-    }
+    return GenerationResult(
+        path=str(output_path),
+        cost_estimated=cost_estimated,
+        cost_actual=cost_actual,
+        usage_metadata=usage_dict,
+        provider='google',
+        model=model,
+        resolution=resolution,
+    )
 
 
 def _generate_via_nano_banana(client, model, prompt, resolution='1K'):
@@ -725,7 +763,10 @@ def _generate_via_nano_banana(client, model, prompt, resolution='1K'):
         resolution: '512' | '1K' | '2K' | '4K' (must be supported by model).
 
     Returns:
-        bytes: Raw image bytes from the response.
+        tuple: (image_bytes, usage_dict) where usage_dict has keys
+            'prompt_token_count', 'candidates_token_count', 'total_token_count'
+            extracted from the response's usage_metadata. usage_dict is None
+            if the API did not return usage_metadata.
 
     Raises:
         RuntimeError: If no image part is found in the response.
@@ -748,14 +789,28 @@ def _generate_via_nano_banana(client, model, prompt, resolution='1K'):
             prompt=prompt, provider='google', model=model,
         )
 
+    image_data = None
     for part in response.candidates[0].content.parts:
         if part.inline_data and part.inline_data.mime_type.startswith('image/'):
-            return part.inline_data.data
+            image_data = part.inline_data.data
+            break
 
-    raise RuntimeError(
-        f'No image data returned from Nano Banana model {model}. '
-        'The response contained only text parts.'
-    )
+    if image_data is None:
+        raise RuntimeError(
+            f'No image data returned from Nano Banana model {model}. '
+            'The response contained only text parts.'
+        )
+
+    usage_dict = None
+    usage_meta = getattr(response, 'usage_metadata', None)
+    if usage_meta is not None:
+        usage_dict = {
+            'prompt_token_count': getattr(usage_meta, 'prompt_token_count', 0),
+            'candidates_token_count': getattr(usage_meta, 'candidates_token_count', 0),
+            'total_token_count': getattr(usage_meta, 'total_token_count', 0),
+        }
+
+    return image_data, usage_dict
 
 
 def _generate_via_imagen(client, model, prompt, aspect_ratio, resolution):
@@ -866,20 +921,21 @@ def generate_fal(prompt, output_path, **kwargs):
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(response.content)
 
-    cost = estimate_fal_cost(model=model, image_size=image_size)
+    cost_estimated = estimate_fal_cost(model=model, image_size=image_size)
     logger.info(
         'FAL.ai image generated: %s (model: %s, resolution: %s, cost: $%.3f)',
-        output_path, model, resolution, cost,
+        output_path, model, resolution, cost_estimated,
     )
 
-    return {
-        'file_path': str(output_path),
-        'provider': 'fal',
-        'model_used': model,
-        'cost_usd': cost,
-        'status': 'generated',
-        'resolution': resolution,
-    }
+    return GenerationResult(
+        path=str(output_path),
+        cost_estimated=cost_estimated,
+        cost_actual=cost_estimated,  # FAL has no token-level usage surface
+        usage_metadata=None,
+        provider='fal',
+        model=model,
+        resolution=resolution,
+    )
 
 
 # --- Recraft V4 raster (direct API) ---
@@ -990,21 +1046,22 @@ def generate_recraft_direct(prompt, output_path, *, tier='pro',
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(r.content)
 
-    cost = estimate_recraft_cost(tier=tier, resolution=resolution)
+    cost_estimated = estimate_recraft_cost(tier=tier, resolution=resolution)
     logger.info(
         'Recraft V4 raster generated: %s (tier: %s, resolution: %s, cost: $%.3f)',
-        output_path, tier, resolution, cost,
+        output_path, tier, resolution, cost_estimated,
     )
 
-    return {
-        'file_path': str(output_path),
-        'provider': 'recraft',
-        'tier': tier,
-        'resolution': resolution,
-        'model_used': f'recraft-v4-{tier}',
-        'cost_usd': cost,
-        'status': 'generated',
-    }
+    return GenerationResult(
+        path=str(output_path),
+        cost_estimated=cost_estimated,
+        cost_actual=cost_estimated,  # Recraft flat-rate; no token surface
+        usage_metadata=None,
+        provider='recraft',
+        model=f'recraft-v4-{tier}',
+        resolution=resolution,
+        tier=tier,
+    )
 
 
 def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
@@ -1085,21 +1142,22 @@ def _generate_recraft_direct_with_upscale(prompt, output_path, *, api_key,
         except OSError:
             pass
 
-    cost = estimate_recraft_cost(tier='pro', resolution='4K')
+    cost_estimated = estimate_recraft_cost(tier='pro', resolution='4K')
     logger.info(
         'Recraft V4 raster 4K generated via upscale chain: %s (cost: $%.3f)',
-        output_path, cost,
+        output_path, cost_estimated,
     )
 
-    return {
-        'file_path': str(output_path),
-        'provider': 'recraft',
-        'tier': 'pro',
-        'resolution': '4K',
-        'model_used': 'recraft-v4-pro+upscale',
-        'cost_usd': cost,
-        'status': 'generated',
-    }
+    return GenerationResult(
+        path=str(output_path),
+        cost_estimated=cost_estimated,
+        cost_actual=cost_estimated,  # Recraft flat-rate; no token surface
+        usage_metadata=None,
+        provider='recraft',
+        model='recraft-v4-pro+upscale',
+        resolution='4K',
+        tier='pro',
+    )
 
 
 # --- Recraft V4 raster (FAL.ai) ---
@@ -1159,21 +1217,22 @@ def generate_recraft_fal(prompt, output_path, *, tier='pro', resolution='2K',
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(r.content)
 
-    cost = estimate_recraft_cost(tier=tier, resolution=resolution)
+    cost_estimated = estimate_recraft_cost(tier=tier, resolution=resolution)
     logger.info(
         'FAL Recraft raster generated: %s (tier: %s, resolution: %s, cost: $%.3f)',
-        output_path, tier, resolution, cost,
+        output_path, tier, resolution, cost_estimated,
     )
 
-    return {
-        'file_path': str(output_path),
-        'provider': 'fal-recraft',
-        'tier': tier,
-        'resolution': resolution,
-        'model_used': f'recraft-v4-{tier}',
-        'cost_usd': cost,
-        'status': 'generated',
-    }
+    return GenerationResult(
+        path=str(output_path),
+        cost_estimated=cost_estimated,
+        cost_actual=cost_estimated,  # FAL Recraft flat-rate; no token surface
+        usage_metadata=None,
+        provider='fal-recraft',
+        model=f'recraft-v4-{tier}',
+        resolution=resolution,
+        tier=tier,
+    )
 
 
 def _generate_recraft_fal_with_upscale(prompt, output_path, *, colors=None):
@@ -1201,21 +1260,22 @@ def _generate_recraft_fal_with_upscale(prompt, output_path, *, colors=None):
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(r.content)
 
-    cost = estimate_recraft_cost(tier='pro', resolution='4K')
+    cost_estimated = estimate_recraft_cost(tier='pro', resolution='4K')
     logger.info(
         'FAL Recraft raster generated (4K via upscale): %s (cost: $%.3f)',
-        output_path, cost,
+        output_path, cost_estimated,
     )
 
-    return {
-        'file_path': str(output_path),
-        'provider': 'fal-recraft',
-        'tier': 'pro',
-        'resolution': '4K',
-        'model_used': 'recraft-v4-pro+upscale',
-        'cost_usd': cost,
-        'status': 'generated',
-    }
+    return GenerationResult(
+        path=str(output_path),
+        cost_estimated=cost_estimated,
+        cost_actual=cost_estimated,  # FAL Recraft flat-rate; no token surface
+        usage_metadata=None,
+        provider='fal-recraft',
+        model='recraft-v4-pro+upscale',
+        resolution='4K',
+        tier='pro',
+    )
 
 
 # --- Dispatch ---
