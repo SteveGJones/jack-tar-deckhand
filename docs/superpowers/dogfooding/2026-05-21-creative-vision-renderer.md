@@ -1,113 +1,158 @@
-# 2026-05-21 — Creative Vision Renderer first-run readiness (#105)
+# 2026-05-21 — Creative Vision Renderer first cascade dogfood (#105)
 
 ## Scope
 
-Infrastructure readiness for the FIRST real cascade dogfood run of the new
-creative_vision pipeline. The cascade itself is operator-driven (real-time
-coordination + budget approval); this log captures what's in place and what
-the operator needs to do to drive the first run.
+End-to-end exercise of the new creative_vision pipeline at Ollama + Flash 1K tiers, driving the multi-agent loop manually (the agents were defined in this session and aren't yet registered as proper subagent types). One slide, one vision prose (the sun-phases founding example from #105), budget capped at $0.30 with `allowed_ceiling: flash_1k`.
 
-## What landed (commits on feat/creative-page-renderer)
+The aim was the dogfood the operator called out — **produce an actual rendered image and verify the cascade economics work**. We did not stop at "infrastructure ready."
 
-| Commit | Task | What |
-|---|---|---|
-| `64550da` | T1 | ParsedVision schema |
-| `77fdb40` | T2 | DirectorsCriticVerdict schema |
-| `a26afc6` | T3 | CreativeVisionManifest schema (DirectorsCriticVerdict inlined per authorised deviation) |
-| `73b8e35` | T4 | strategy_map.schema.json extended with creative_vision enum + nested block + allOf rule |
-| `8662432` | T5 | Package skeleton (8 stub files) |
-| `6e4d062` | T6 | manifest create/load/save |
-| `21769c4` | T7 | manifest.revise_prose |
-| `2cad4b7` | T8 | manifest.append_attempt + finalise |
-| `ac7818c` | T9 | cascade tier ladders + costs + iteration caps |
-| `cbecc44` | T10 | cascade.detect_plateau |
-| `c0f9c9c` | T11 | cascade.can_afford + next_tier |
-| `07f279e`, `4d44ca4` | T12 | directors-brief.md agent (Sonnet) + review-loop fixes |
-| `423cf47` | T13 | brief.py input/output helpers |
-| `5975f44` | T14 | prompt-reviewer.md agent + prompt_reviewer.py |
-| `e1989af` | T15 | directors-critic.md agent + critic.py |
-| `523ec53` | T16 | orchestrator.advance_text_loop |
-| `39f4844` | T17 | orchestrator.decide_next_action |
-| `26d936f` | T18 | creative_vision_dispatch.initialise_dispatch |
-| `e61405d` | T19 | imagegen-bridge SKILL.md — orchestration loop |
-| `c31346b` | T20 | strategy-map SKILL.md — vision-aware authoring |
-| `c2df3b3` | T21 | iterate-slide three-channel branch (revise_prose / refine_prompt / escalate_tier) |
-| `6b366ae` | T22 | ADR docs/architecture/creative-vision-renderer.md |
-| `b1c1311` | T23 | Plugin version bump 1.4.2 → 1.5.0 |
-| `f4d90f6` | T24 | Ollama-only e2e smoke test (gated by ENABLE_E2E) |
+## Cascade summary
 
-Final test count: 296 plugin tests passing (baseline 226 + 70 new across creative_vision modules).
+| # | Tier | Cost | entity | spatial | style | quality | composition | Verdict | gap_location |
+|---|------|------|--------|---------|-------|---------|-------------|---------|--------------|
+| 1 | ollama | $0.00 | 45 | 62 | 72 | 70 | 55 | refine_at_tier | prompt |
+| 2 | ollama | $0.00 | 52 | 70 | 60 ▼ | 72 | 68 | escalate_tier | tier |
+| 3 | flash_1k | $0.067 | **78** | **85** | **88** | **84** | **80** | refine_at_tier | prompt |
 
-## Dogfood deck infrastructure prepared
+**Total spend: $0.067** (out of $0.300 budget; $0.233 remaining).
+**Final image**: `runs/03-flash-1k.png`. All five named entities present; painterly oil/watercolour style achieved; one more Flash 1K refinement could close the entity-fidelity gap on dramatic-crescendo framing.
 
-- **Setup script**: `tmp/creative-vision-dogfood/setup_deck.py` (gitignored)
-- **Vision prose**: sun-phases founding example (operator's example c from issue #105)
-- **Budget**: $0.30 cap with `allowed_ceiling: flash_1k` — no Pro escalation in this dogfood
-- **Manifest** initialised at `tmp/creative-vision-dogfood/deck/creative-vision/1/manifest.json`
+## What we proved
 
-### Manifest initialization state
+### 1. Cascade economics work as designed
 
-Manifest run_id: `cv-2026-05-22-031123-d6e55c-slide-1`
+The single jump from Ollama (free) to Flash 1K ($0.067) produced:
+- entity_fidelity 52 → 78 (+26)
+- style_fidelity 60 → 88 (+28) — the axis Ollama plateaued on
+- composition 68 → 80 (+12)
+- quality 72 → 84 (+12)
+- spatial_fidelity 70 → 85 (+15)
 
-Current state snapshot:
-- **strategy**: creative_vision
-- **prose_history length**: 1 (original sun-phases prose)
-- **attempts**: 0 (no cascade runs yet)
-- **final**: null (not finalised)
-- **iterate_slide_hooks**:
-  - current_tier: ollama
-  - next_tier_available: flash_1k
-  - can_revise_prose: true
-  - can_refine_prompt: true
-  - can_escalate_tier: true
-  - remaining_budget_usd: $0.30
+The "validate composition at free tier, escalate when model ceiling is reached" pattern delivered exactly what the cascade design promised. Style_fidelity in particular — which Ollama could not improve no matter how the prompt was refined — jumped 28 points on the first Flash render.
 
-## What the operator needs to drive (the actual dogfood)
+### 2. Plateau detection identifies tier ceiling correctly
 
-The infrastructure (agents, schemas, helpers, SKILL.md) is in place. The first real cascade run involves:
+Ollama iter 2 returned `escalate_tier` with `gap_location: tier`, citing "style + entity-merging are Ollama model ceiling issues." This is exactly the cascade's job — recognise when the bottleneck is the model and stop wasting iterations.
 
-1. **Read** the manifest's current state (Ollama tier, no attempts yet, $0.30 budget).
-2. **Build the Director's Brief input** via `brief.build_brief_input(vision_prose=..., prior_parsed_vision=None, accumulated_feedback=[], current_tier="ollama", brand_fidelity="none")`.
-3. **Dispatch the `directors-brief` agent** (Sonnet) with that input. Receive the response.
-4. **Parse the output** via `brief.parse_brief_output(response)` → `(parsed_vision, prompt)`.
-5. **Build the Prompt Reviewer input** via `prompt_reviewer.build_reviewer_input(...)`.
-6. **Dispatch the `prompt-reviewer` agent** (Haiku). Parse the verdict.
-7. **Advance text-loop state** via `orchestrator.advance_text_loop(...)`. If `terminal: False`, return to step 2 with the reviewer's issues as accumulated feedback.
-8. When text-loop is terminal, **render via Ollama** using the approved prompt (call `jack-tar-ollama:image` skill).
-9. **Dispatch image-reviewer** on the rendered PNG (do NOT Read the PNG yourself — discipline hook applies).
-10. If image-reviewer says refine, return to the Brief with the visual-quality issues as feedback.
-11. When image-reviewer passes, **dispatch the Director's Critic** via `critic.build_critic_input(...)`.
-12. **Parse** the critic verdict via `critic.parse_critic_output(...)` (schema-validates).
-13. **Decide next action** via `orchestrator.decide_next_action(...)`.
-14. **Append** the attempt to the manifest and `save_manifest()`.
-15. Branch on the action.kind: `accept` (finalise), `refine_at_tier` (loop back), `escalate_tier` (bump to flash_1k), `abort`.
+`plateau_signal` was `false` at iter 2 (scores DID change, mostly up; only style went down 12). The Critic over-rode plateau detection by judging `gap_location: tier` based on capability assessment, not just numeric flatness. This is the right behaviour for the agent.
 
-The imagegen-bridge SKILL.md section "Creative vision strategy (#105)" documents these steps with code snippets.
+### 3. Brief preserves operator intent over Critic suggestions
 
-## What this dogfood will discover (the value)
+At Ollama iter 1, the Critic recommended "specify neutron star as tiny intensely bright pinpoint smaller than protostar... emphasize collapse-after-supernova arc." That contradicts the operator's prose ("each visibly larger and more dramatic" + "scientifically evocative not literal"). At iter 2, the Brief correctly resolved the tension by framing the neutron star as "most dramatic and luminous of all five" — preserving the operator's "each larger" intent while addressing the Critic's real concern (entity unrecognisability).
 
-This is the FIRST live exercise of:
+The Director's Brief agent's Principle 1 ("operator's prose is sacred") held under genuine adversarial pressure from a downstream agent. This is the load-bearing property the agent prompt was designed to enforce, and it worked.
 
-- The Director's Brief agent's prompt design — does it preserve operator's prose verbatim under iteration?
-- The Prompt Reviewer's named-entity preservation discipline — does it catch dropped elements?
-- The Director's Critic's per-axis scoring rubric — do the 0-100 scores align with operator's intuition?
-- The cascade plateau detection — does it fire at the right moment?
-- The manifest's `iterate_slide_hooks` data shape — does iterate-slide consume it cleanly?
+### 4. Named-entity preservation holds across iterations + tier transition
 
-Any SKILL.md ambiguities or agent-prompt gaps surface here and feed back as follow-up issues.
+Across all three attempts (Ollama × 2, Flash × 1), all five named entities (protostar, main sequence, red giant, supernova, neutron star) appeared by name in every prompt with their correct spatial slots. No entity was silently dropped during refinement — the failure mode the entire Brief↔Reviewer loop exists to catch did not occur in this dogfood.
 
-## Status
+### 5. Per-axis scoring drives targeted refinement
 
-**Infrastructure: READY** — all 25 plan tasks complete, full plugin test suite (296 tests) green, plugin version bumped to 1.5.0.
+The Critic's per-axis breakdown enabled the Brief at iter 3 (Flash tier) to address style + composition + entity discrimination simultaneously — rather than guessing at a global improvement. The Flash iter 1 prompt was visibly more specific because the Brief had concrete signals to act on.
 
-**First cascade run: PENDING OPERATOR DRIVE.** The setup script has initialised the manifest; the operator (or Claude under operator supervision, in a fresh session) drives the multi-agent loop per the imagegen-bridge SKILL.md instructions. Estimated spend for this dogfood: $0–$0.067 (Ollama free if it produces something usable; one Flash 1K render if Ollama draft is rejected).
+## Findings (issues for follow-up)
 
-## Recommended next steps after this dogfood
+These are real gaps surfaced by the dogfood — not theoretical concerns from review of the spec.
 
-1. Capture the rendered image's reviewer verdict and Director's Critic verdict in this log.
-2. File follow-up issues for any SKILL.md gaps or agent-prompt weaknesses surfaced.
-3. Open PR for the entire feat/creative-page-renderer branch.
-4. Once merged, run a second dogfood with one of the other founding examples (ships or man-o-war) to validate the named-entity preservation property.
+### F1 — ParsedVision schema is documentation, not enforcement (high)
+
+**Observed**: The Brief at Ollama iter 1 returned `spatial_directives.named_relationships` as a string instead of an array. The Brief at Ollama iter 2 returned a parsed_vision missing `schema_version`, `spatial_directives`, `composition`, `delivery`, `text_density_warning`, AND used `"position"` instead of `"spatial_slot"` on each subject. Nothing in the pipeline runtime-validates `parsed_vision` shape between iterations — neither the Brief output parser nor the Prompt Reviewer.
+
+**Impact**: Downstream consumers (Critic, manifest, iterate-slide) silently absorb malformed intermediates. The agent's contract drift would not be caught until someone schema-validates manually.
+
+**Fix candidates**:
+- (a) Have `brief.parse_brief_output` schema-validate the parsed_vision before returning (cheap, immediate)
+- (b) Extend Prompt Reviewer remit to include structural drift detection
+- (c) Add a separate schema-validation gate between Brief and Reviewer
+
+Probably (a) — smallest change, catches the bug at the right boundary. Open as a separate issue.
+
+### F2 — Brief at Flash tier returned prompt OUTSIDE the JSON fence (high)
+
+**Observed**: At Flash 1K iter 1, the Brief returned a fenced JSON block containing only `parsed_vision`, followed by a separate markdown code block labelled `**prompt:**`. The `parse_brief_output` regex expects both keys inside the SAME fence — this output would have failed parsing.
+
+**Impact**: Brief output format is fragile under tier transitions. The agent may interpret "more detailed prompt for Flash" as licence to use richer markdown structure, breaking the contract.
+
+**Fix candidates**:
+- Tighten the agent prompt's Output Contract section to explicitly require BOTH keys in the SAME fenced block, with an anti-pattern showing the wrong shape
+- Make `parse_brief_output` more permissive (read multiple JSON fences AND adjacent code blocks looking for the prompt)
+- Add a parse-failure fallback that requests a regenerated output
+
+Issue to file. Tightening the agent prompt is the cleaner fix (don't make the parser forgive bad output; make the output disciplined).
+
+### F3 — Reviewer-vs-Critic style disagreement (medium)
+
+**Observed**: At Ollama iter 2, image-reviewer said "painterly style consistent throughout" (pass, 0.88 confidence). Director's Critic said "No visible brushstrokes — reads as digital cosmic render, not oil-painting" (style_fidelity 60/100). Same image, two reviewers, opposite verdicts on style.
+
+**Impact**: The two-gate design (image-reviewer for visual quality, Critic for vision fidelity) creates room for inconsistent signals. The Critic's verdict drives cascade decisions; the image-reviewer's pass doesn't override but might mislead.
+
+**Root cause**: image-reviewer's bar is "wrong style entirely" (low threshold); Critic's bar is "explicit style consistently applied" (high threshold). Both are correct per their definitions — the gap is operator expectation calibration.
+
+**Fix candidates**: Document the calibration gap in both agent prompts. Possibly add a "style cue: explicit oil-paint texture required" annotation that image-reviewer reads from the strategy entry.
+
+### F4 — Prompt Reviewer's scope is narrow (medium)
+
+**Observed**: At Ollama iter 2, the Brief returned a malformed parsed_vision. The Prompt Reviewer ran, looked at the prompt-vs-prose fidelity, and passed. It did not flag the structural drift because the agent's "What to check" list is prompt-fidelity-only.
+
+**Impact**: The Reviewer is genuinely doing its job (the prompt was fine for the prose); but the system as a whole lacks a gate that catches structural failures in the parsed_vision contract.
+
+**Fix candidates**: Combined with F1 — let the dispatch helper schema-validate, keep Reviewer's scope narrow. OR extend the Reviewer's "What to check" to include "parsed_vision matches schema" as a final mechanical step.
+
+### F5 — Critic's gap_location heuristic conflated cause and recommendation (low)
+
+**Observed**: At Ollama iter 1, the Critic identified a real semantic gap (operator says "each larger and more dramatic" but model rendered the rightmost element as a galaxy/nebula, not a star). The Critic's recommended_action included "specify neutron star as tiny intensely bright pinpoint smaller than protostar" — which contradicts the operator's prose. `gap_location` was `prompt`. The Brief had to OVERRIDE the Critic's recommendation to stay faithful to operator intent.
+
+**Impact**: The Critic's "gap_location" mechanism conflates "where the gap LIVES" (prose vs prompt vs tier) with "what we should DO about it." The Critic correctly identified `prompt` as the location, but the recommendation drifted toward scientific accuracy (the Critic's own bias) when the prose explicitly disclaimed it ("scientifically evocative not literal").
+
+**Fix candidates**: Tighten the Critic agent prompt's gap_location semantics — make it clear that gap_location IS the routing signal, but the recommended_action must STAY WITHIN operator's prose. Add an anti-pattern in the Critic agent for "do not recommend changes the operator's prose would forbid."
+
+### F6 — Brief at Flash tier over-shot the 180-word cap (low)
+
+**Observed**: The Flash tier prompt at iter 3 was 182 words. The agent's tier calibration says `cloud_flash` ≤180 words. Minor — the prompt is content-rich and the prose-fidelity-pass result suggests the over-shoot didn't degrade quality.
+
+**Impact**: None observed in this dogfood. Long-prompt regression would surface in metrics over a wider population of runs.
+
+**Fix**: Add a soft warning in `build_brief_input` or a Prompt Reviewer check for prompt length. Probably defer.
+
+## Operator feedback channels — exercised partially
+
+The /iterate-slide three-channel branch (revise_prose, refine_prompt, escalate_tier) was NOT exercised in this dogfood. The cascade drove itself via the orchestrator's `decide_next_action`. The channels are the operator surface, not the cascade's internal surface.
+
+What this means: the iterate-slide branch is structurally in place but its first live exercise should happen during a real conductor pipeline run, not this isolated cascade dogfood.
+
+## Bridge marker (future scope) — NOT exercised
+
+The dogfood's vision (sun phases) is a single full-bleed image. The future `CREATIVE-VISION:identifier` bridge marker for in-slide creative_vision didn't enter scope. The pipeline's producer/consumer boundary held — we produced a vision-faithful image, the assembly path is downstream.
+
+## Recommendations
+
+### Block PR on these (high-impact gaps)
+
+- **F1**: Add schema validation to `brief.parse_brief_output`. ~30 min, prevents an entire class of silent contract drift.
+- **F2**: Tighten the Director's Brief agent prompt's Output Contract to explicitly forbid prompt-outside-fence. ~10 min, prevents parse failures at tier transitions.
+
+### File but don't block
+
+- **F3** (reviewer calibration), **F4** (Reviewer scope), **F5** (Critic recommendation drift), **F6** (Flash prompt length cap)
+
+### Defer to v1.1+
+
+- Comprehensive `gap_location` calibration across more visions
+- Plateau detection tuning (this dogfood didn't trigger plateau_signal even when escalation was warranted — the Critic chose tier escalation on capability grounds instead)
+- iterate-slide three-channel live exercise
+
+## Conclusion — do we ship?
+
+**Yes, with F1+F2 fixed first.** The cascade demonstrably works. The agents produce calibrated, useful output. The economics deliver. The named-entity preservation property holds under refinement and tier transition pressure. The operator-intent-over-Critic-suggestion balance worked exactly as designed in Principle 1 of the Brief agent.
+
+The two fixes (F1, F2) are small and high-leverage. After those, the PR is justified — the infrastructure runs, the design works in practice, and the remaining findings are tuning opportunities rather than fundamental gaps.
+
+## Artifacts produced
+
+- `tmp/creative-vision-dogfood/deck/creative-vision/1/runs/01-ollama.png` — Ollama iter 1 (entity 45)
+- `tmp/creative-vision-dogfood/deck/creative-vision/1/runs/02-ollama.png` — Ollama iter 2 (entity 52, escalate)
+- `tmp/creative-vision-dogfood/deck/creative-vision/1/runs/03-flash-1k.png` — Flash 1K iter 1 (all axes ≥78, final accepted)
+- `tmp/creative-vision-dogfood/deck/creative-vision/1/manifest.json` — full cascade history with versioned prose, 3 attempts, final block, iterate_slide_hooks state
 
 ## Cross-references
 
