@@ -21,6 +21,11 @@
 - **Batch tier (50% discount):**
   - Text / image input: $0.25 per 1M tokens
   - Image output: $30.00 per 1M tokens
+  - **Per-image output costs by resolution (batch tier, derived from token counts):**
+    - 0.5K: 747 tokens × $30.00 / 1,000,000 = **$0.022 per image**
+    - 1K: 1,120 tokens × $30.00 / 1,000,000 = **$0.034 per image**
+    - 2K: 1,680 tokens × $30.00 / 1,000,000 = **$0.050 per image**
+    - 4K: 2,520 tokens × $30.00 / 1,000,000 = **$0.076 per image**
 - **Free tier:** Not available for this model
 - **Source:** https://ai.google.dev/gemini-api/docs/pricing
 - **Date captured:** 2026-05-21
@@ -43,7 +48,10 @@
   - 4K (4096 × 4096 px): 2,000 tokens → **$0.240 per image**
 - **Batch tier (50% discount):**
   - Text / image input: $1.00 per 1M tokens
-  - Image output: $0.067 per 1K/2K image, $0.12 per 4K image
+  - Image output: $60.00 per 1M tokens (50% of $120.00)
+  - **Per-image output costs by resolution (batch tier, derived from token counts):**
+    - 1K / 2K: 1,120 tokens × $60.00 / 1,000,000 = **$0.067 per image**
+    - 4K: 2,000 tokens × $60.00 / 1,000,000 = **$0.120 per image**
 - **Free tier:** Not available for this model
 - **Source:** https://ai.google.dev/gemini-api/docs/pricing
 - **Date captured:** 2026-05-21
@@ -76,6 +84,22 @@
   - Catalog-only billing applies: jack-tar cost estimates for Imagen use these flat rates directly. Task 6 (Imagen actual-cost path) is SKIPPED — there is no runtime usage field to read.
   - No resolution-based pricing tiers published; the flat rate applies regardless of the `image_size` parameter.
   - Vertex AI Imagen pricing is separate (SKU-based) and was not confirmed reachable at `cloud.google.com/vertex-ai/generative-ai/pricing#imagen-models` — the page redirected to a Gemini Agent Platform pricing view that did not include Imagen SKUs. Vertex AI rates are out of scope for this spike (jack-tar uses the Gemini Developer API track).
+
+---
+
+## Existing code discrepancies (spike findings)
+
+### Imagen Developer API 2K — codebase appears to over-estimate
+
+`plugins/jack-tar-cloud/src/generate_cloud_image.py:298-306` defines `_IMAGEN_DEVELOPER_COSTS` with 2K rates ($0.101 for Standard and Ultra) that **do not match** the published flat-per-image rates ($0.040 Standard, $0.060 Ultra) captured above.
+
+The code comment ("1K matches Vertex flat; 2K is dearer (1680 tokens at the Imagen rate)") asserts a token-based billing model for Imagen on the Gemini Developer API. However, Phase 0 SDK inspection (`phase-0-discovery.md`) confirmed `GenerateImagesResponse` exposes **no usage_metadata field at all**, and the official pricing page lists Imagen as flat per-image regardless of resolution.
+
+**Hypothesis:** the codebase comment is stale or was based on a conservative worst-case estimate that did not survive into the live pricing page. The $0.101 rate over-estimates the published $0.040 / $0.060 flat rates by 2.5× / 1.7× respectively.
+
+**Verification path:** this hypothesis can only be confirmed by examining the Google billing console after a real Imagen 2K call (out of scope for Phase 1, which has no usage_metadata to compare). For now, this finding is documented but the codebase remains unchanged pending billing-console verification.
+
+**Impact on Phase 2 refactor (if pursued):** if the codebase is over-estimating Imagen 2K, the `_IMAGEN_DEVELOPER_COSTS` table should be flattened to match the published rates. This is the kind of correction the spike's hypothesis predicts. Track as a follow-up after Phase 1 GO verdict.
 
 ---
 
