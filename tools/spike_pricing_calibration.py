@@ -167,8 +167,12 @@ from src.actual_cost_calculator import (  # noqa: E402
 )
 
 
-def _call_nano_banana(model: str, resolution: str, prompt: str) -> tuple[dict, bytes]:
-    """Call Nano Banana via google-genai. Return (usage_metadata_dict, image_bytes)."""
+def _call_nano_banana(model: str, resolution: str, prompt: str) -> tuple[Optional[dict], bytes]:
+    """Call Nano Banana via google-genai. Return (usage_metadata_dict_or_None, image_bytes).
+
+    A None usage indicates the API call produced no usable response (safety block,
+    empty candidates, etc.). The caller logs a sentinel row.
+    """
     from google import genai
     from google.genai import types
     client = genai.Client()
@@ -177,16 +181,25 @@ def _call_nano_banana(model: str, resolution: str, prompt: str) -> tuple[dict, b
         image_config=types.ImageConfig(image_size=resolution),
     )
     response = client.models.generate_content(model=model, contents=[prompt], config=config)
-    usage = {
-        "prompt_token_count": response.usage_metadata.prompt_token_count,
-        "candidates_token_count": response.usage_metadata.candidates_token_count,
-        "total_token_count": response.usage_metadata.total_token_count,
-    }
+
+    # Extract usage metadata if available
+    usage = None
+    if response.usage_metadata is not None:
+        usage = {
+            "prompt_token_count": response.usage_metadata.prompt_token_count,
+            "candidates_token_count": response.usage_metadata.candidates_token_count,
+            "total_token_count": response.usage_metadata.total_token_count,
+        }
+
+    # Extract image bytes if available; safety-blocked responses have no parts
     image_bytes = b""
-    for part in response.candidates[0].content.parts:
-        if hasattr(part, "inline_data") and part.inline_data:
-            image_bytes = part.inline_data.data
-            break
+    if response.candidates and response.candidates[0].content is not None:
+        parts = response.candidates[0].content.parts or []
+        for part in parts:
+            if hasattr(part, "inline_data") and part.inline_data:
+                image_bytes = part.inline_data.data
+                break
+
     return usage, image_bytes
 
 
@@ -241,17 +254,10 @@ def _actual_for_cell(cell: MatrixCell, usage: Optional[dict], estimated: float) 
 
 
 def run_cell(cell: MatrixCell, prompts: PromptSet) -> dict:
-    """Call the API for one cell, return the result row dict (no file writes)."""
+    """Call the API for one cell, return the result row dict. Sentinel row on errors."""
     prompt = getattr(prompts, cell.prompt_key)
     estimated = _estimate_for_cell(cell)
-    if cell.provider == "google_nano_banana":
-        usage, _img = _call_nano_banana(cell.model, cell.resolution, prompt)
-    elif cell.provider == "openai":
-        usage, _img = _call_openai(cell.model, cell.resolution, prompt)
-    else:
-        raise ValueError(f"Unknown provider: {cell.provider}")
-    actual = _actual_for_cell(cell, usage, estimated)
-    return {
+    base_row = {
         "provider": cell.provider,
         "model": cell.model,
         "resolution": cell.resolution,
@@ -259,11 +265,33 @@ def run_cell(cell: MatrixCell, prompts: PromptSet) -> dict:
         "prompt_chars": len(prompt),
         "prompt_words": len(prompt.split()),
         "catalog_estimate_usd": estimated,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        if cell.provider == "google_nano_banana":
+            usage, _img = _call_nano_banana(cell.model, cell.resolution, prompt)
+        elif cell.provider == "openai":
+            usage, _img = _call_openai(cell.model, cell.resolution, prompt)
+        else:
+            raise ValueError(f"Unknown provider: {cell.provider}")
+    except Exception as exc:  # noqa: BLE001 — spike scope: record any failure, continue
+        return {
+            **base_row,
+            "raw_usage": None,
+            "computed_actual_usd": 0.0,
+            "delta_usd": 0.0,
+            "delta_pct": 0.0,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    actual = _actual_for_cell(cell, usage, estimated)
+    return {
+        **base_row,
         "raw_usage": usage,
         "computed_actual_usd": actual,
         "delta_usd": estimated - actual,
         "delta_pct": (estimated - actual) / estimated * 100 if estimated else 0.0,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "error": None,
     }
 
 
@@ -326,11 +354,14 @@ def main() -> int:
         row = run_cell(cell, prompts)
         append_result(args.results, row)
         spent += row["computed_actual_usd"]
-        print(
-            f"  actual ${row['computed_actual_usd']:.3f}"
-            f"  delta {row['delta_pct']:+.1f}%"
-            f"  cumulative ${spent:.3f}"
-        )
+        if row.get("error"):
+            print(f"  ERROR (sentinel row): {row['error']}")
+        else:
+            print(
+                f"  actual ${row['computed_actual_usd']:.3f}"
+                f"  delta {row['delta_pct']:+.1f}%"
+                f"  cumulative ${spent:.3f}"
+            )
 
     print(f"Done. Cumulative actual: ${spent:.3f}")
     return 0
