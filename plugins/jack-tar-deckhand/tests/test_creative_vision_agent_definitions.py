@@ -30,3 +30,13 @@ def test_prompt_reviewer_agent_exists_and_has_required_sections():
     assert "haiku" in content.lower()
     assert "pass" in content.lower() and "refine" in content.lower()
     assert "elements" in content.lower()  # checks for dropped-elements detection
+
+
+def test_directors_critic_agent_exists_and_has_required_sections():
+    content = _load_agent("directors-critic")
+    assert "Director's Critic" in content or "Directors Critic" in content
+    assert "sonnet" in content.lower()
+    for axis in ("entity_fidelity", "spatial_fidelity", "style_fidelity", "quality", "composition"):
+        assert axis in content
+    for verdict in ("pass", "refine_at_tier", "escalate_tier", "abort"):
+        assert verdict in content
