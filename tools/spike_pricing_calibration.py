@@ -134,3 +134,200 @@ def providers_with_keys() -> set[str]:
     if os.environ.get("OPENAI_API_KEY"):
         detected.add("openai")
     return detected
+
+
+# ---------------------------------------------------------------------------
+# Real SDK dispatch
+# ---------------------------------------------------------------------------
+import argparse  # noqa: E402 — after dataclass/helper definitions
+import sys
+from pathlib import Path as _Path
+from typing import Optional
+
+# Ensure the project root is on sys.path so 'src.*' imports resolve when the
+# script is run directly (e.g. `python tools/spike_pricing_calibration.py`).
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from src.generate_cloud_image import (  # noqa: E402
+    estimate_google_cost,
+    estimate_openai_cost,
+)
+from src.actual_cost_calculator import (  # noqa: E402
+    compute_nano_banana_actual_cost,
+    compute_openai_image_actual_cost,
+)
+
+
+def _call_nano_banana(model: str, resolution: str, prompt: str) -> tuple[dict, bytes]:
+    """Call Nano Banana via google-genai. Return (usage_metadata_dict, image_bytes)."""
+    from google import genai
+    from google.genai import types
+    client = genai.Client()
+    config = types.GenerateContentConfig(
+        response_modalities=["IMAGE"],
+        image_config=types.ImageConfig(image_size=resolution),
+    )
+    response = client.models.generate_content(model=model, contents=[prompt], config=config)
+    usage = {
+        "prompt_token_count": response.usage_metadata.prompt_token_count,
+        "candidates_token_count": response.usage_metadata.candidates_token_count,
+        "total_token_count": response.usage_metadata.total_token_count,
+    }
+    image_bytes = b""
+    for part in response.candidates[0].content.parts:
+        if hasattr(part, "inline_data") and part.inline_data:
+            image_bytes = part.inline_data.data
+            break
+    return usage, image_bytes
+
+
+def _call_openai(model: str, resolution: str, prompt: str) -> tuple[Optional[dict], bytes]:
+    """Call OpenAI images.generate. Return (usage_or_None, image_bytes).
+
+    response_format="b64_json" is specified explicitly — the default for
+    gpt-image-1 is a URL, so without this the image bytes would be empty.
+    """
+    import base64
+    from openai import OpenAI
+    client = OpenAI()
+    response = client.images.generate(
+        model=model,
+        prompt=prompt,
+        size="1024x1024",
+        quality="medium",
+        n=1,
+        response_format="b64_json",
+    )
+    usage = None
+    if hasattr(response, "usage") and response.usage is not None:
+        usage = {
+            "input_tokens": getattr(response.usage, "input_tokens", 0),
+            "output_tokens": getattr(response.usage, "output_tokens", 0),
+            "total_tokens": getattr(response.usage, "total_tokens", 0),
+        }
+    image_bytes = (
+        base64.b64decode(response.data[0].b64_json)
+        if response.data and response.data[0].b64_json
+        else b""
+    )
+    return usage, image_bytes
+
+
+def _estimate_for_cell(cell: MatrixCell) -> float:
+    if cell.provider == "google_nano_banana":
+        return estimate_google_cost(model=cell.model)
+    if cell.provider == "openai":
+        return estimate_openai_cost(size="1024x1024", quality="medium")
+    raise ValueError(f"Unknown provider: {cell.provider}")
+
+
+def _actual_for_cell(cell: MatrixCell, usage: Optional[dict], estimated: float) -> float:
+    if usage is None:
+        return estimated
+    if cell.provider == "google_nano_banana":
+        return compute_nano_banana_actual_cost(cell.model, usage)
+    if cell.provider == "openai":
+        return compute_openai_image_actual_cost(cell.model, usage)
+    raise ValueError(f"Unknown provider: {cell.provider}")
+
+
+def run_cell(cell: MatrixCell, prompts: PromptSet) -> dict:
+    """Call the API for one cell, return the result row dict (no file writes)."""
+    prompt = getattr(prompts, cell.prompt_key)
+    estimated = _estimate_for_cell(cell)
+    if cell.provider == "google_nano_banana":
+        usage, _img = _call_nano_banana(cell.model, cell.resolution, prompt)
+    elif cell.provider == "openai":
+        usage, _img = _call_openai(cell.model, cell.resolution, prompt)
+    else:
+        raise ValueError(f"Unknown provider: {cell.provider}")
+    actual = _actual_for_cell(cell, usage, estimated)
+    return {
+        "provider": cell.provider,
+        "model": cell.model,
+        "resolution": cell.resolution,
+        "prompt_key": cell.prompt_key,
+        "prompt_chars": len(prompt),
+        "prompt_words": len(prompt.split()),
+        "catalog_estimate_usd": estimated,
+        "raw_usage": usage,
+        "computed_actual_usd": actual,
+        "delta_usd": estimated - actual,
+        "delta_pct": (estimated - actual) / estimated * 100 if estimated else 0.0,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def append_result(results_path: Path, row: dict) -> None:
+    """Append a row to results.json, creating the file if needed."""
+    existing = load_results(results_path)
+    existing.append(row)
+    results_path.parent.mkdir(parents=True, exist_ok=True)
+    results_path.write_text(json.dumps(existing, indent=2))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--max-spend-usd", type=float, default=5.0)
+    parser.add_argument(
+        "--results",
+        type=Path,
+        default=Path("docs/spikes/2026-05-21-actual-token-pricing/calibration-results.json"),
+    )
+    parser.add_argument(
+        "--prompts",
+        type=Path,
+        default=Path("docs/spikes/2026-05-21-actual-token-pricing/prompts"),
+    )
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+
+    prompts = load_prompts(args.prompts)
+    detected = providers_with_keys()
+    pending = missing_cells(args.results)
+    cells = [c for c in pending if c.provider in detected]
+    skipped = [c for c in pending if c.provider not in detected]
+    if skipped:
+        print(
+            f"SKIPPED {len(skipped)} cells — missing API keys for: "
+            f"{sorted({c.provider for c in skipped})}"
+        )
+    spent = sum(r["computed_actual_usd"] for r in load_results(args.results))
+    print(f"Spent so far: ${spent:.3f}; cap ${args.max_spend_usd:.3f}; {len(cells)} cells pending")
+
+    if args.dry_run:
+        print("--- DRY RUN — matrix preview ---")
+        for c in cells:
+            est = _estimate_for_cell(c)
+            print(f"  {c.provider}/{c.model}/{c.resolution}/{c.prompt_key} ~${est:.3f}")
+        print(f"Total estimated: ${sum(_estimate_for_cell(c) for c in cells):.3f}")
+        return 0
+
+    for cell in cells:
+        est = _estimate_for_cell(cell)
+        try:
+            check_spend_cap(spent=spent, next_estimate=est, cap=args.max_spend_usd)
+        except SpendCapExceeded as exc:
+            print(f"HALT: {exc}")
+            return 1
+        print(
+            f"Calling {cell.provider}/{cell.model}/{cell.resolution}/{cell.prompt_key}"
+            f" (est ${est:.3f})..."
+        )
+        row = run_cell(cell, prompts)
+        append_result(args.results, row)
+        spent += row["computed_actual_usd"]
+        print(
+            f"  actual ${row['computed_actual_usd']:.3f}"
+            f"  delta {row['delta_pct']:+.1f}%"
+            f"  cumulative ${spent:.3f}"
+        )
+
+    print(f"Done. Cumulative actual: ${spent:.3f}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
