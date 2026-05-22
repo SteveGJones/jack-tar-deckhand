@@ -73,3 +73,30 @@ def test_load_raises_when_missing(tmp_path):
     deck_dir.mkdir()
     with pytest.raises(FileNotFoundError):
         load_manifest(str(deck_dir), slide_number=3)
+
+
+from src.creative_vision.manifest import revise_prose  # noqa: E402
+
+
+def test_revise_prose_bumps_version():
+    m = initialise_manifest(slide_number=3, vision_prose="v1 prose", budget_usd=1.0)
+    revise_prose(m, new_prose="v2 prose", revised_by="operator", reason="too vague")
+    assert len(m["prose_history"]) == 2
+    assert m["prose_history"][1]["version"] == 2
+    assert m["prose_history"][1]["prose"] == "v2 prose"
+    assert m["prose_history"][1]["revised_by"] == "operator"
+    assert m["prose_history"][1]["reason"] == "too vague"
+
+
+def test_revise_prose_preserves_history():
+    m = initialise_manifest(slide_number=3, vision_prose="v1", budget_usd=1.0)
+    revise_prose(m, new_prose="v2", revised_by="operator", reason="x")
+    revise_prose(m, new_prose="v3", revised_by="operator", reason="y")
+    assert [h["version"] for h in m["prose_history"]] == [1, 2, 3]
+    assert [h["prose"] for h in m["prose_history"]] == ["v1", "v2", "v3"]
+
+
+def test_revise_prose_rejects_empty_string():
+    m = initialise_manifest(slide_number=3, vision_prose="v1", budget_usd=1.0)
+    with pytest.raises(ValueError):
+        revise_prose(m, new_prose="", revised_by="operator", reason="x")

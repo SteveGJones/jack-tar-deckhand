@@ -70,3 +70,23 @@ def load_manifest(deck_dir: str, slide_number: int) -> dict:
         raise FileNotFoundError(f"No creative_vision manifest at {path}")
     with open(path) as f:
         return json.load(f)
+
+
+def revise_prose(manifest: dict, new_prose: str, revised_by: str, reason: str) -> None:
+    """Append a new prose version to manifest['prose_history'] in-place.
+
+    Bumps the version number; preserves prior versions for audit.
+
+    Raises:
+        ValueError: when new_prose is empty.
+    """
+    if not new_prose:
+        raise ValueError("new_prose must not be empty")
+    next_version = manifest["prose_history"][-1]["version"] + 1
+    manifest["prose_history"].append({
+        "version": next_version,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "prose": new_prose,
+        "revised_by": revised_by,
+        "reason": reason,
+    })
