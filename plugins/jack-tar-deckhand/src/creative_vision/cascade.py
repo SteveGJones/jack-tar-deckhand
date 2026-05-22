@@ -46,3 +46,26 @@ def ladder_for(brand_fidelity: str) -> list[str]:
     if brand_fidelity == "exact":
         return LADDER_RECRAFT
     return LADDER_DEFAULT
+
+
+_AXES = ("entity_fidelity", "spatial_fidelity", "style_fidelity", "quality", "composition")
+
+PLATEAU_THRESHOLD = 5  # points per axis
+PLATEAU_WINDOW = 2     # number of prior iterations to look back
+
+
+def detect_plateau(score_history: list[dict]) -> bool:
+    """Return True if no axis has improved by ≥PLATEAU_THRESHOLD across the last PLATEAU_WINDOW iterations.
+
+    Requires at least PLATEAU_WINDOW+1 entries (current + that many priors).
+    Returns False when there's insufficient history to judge.
+    """
+    if len(score_history) < PLATEAU_WINDOW + 1:
+        return False
+    window = score_history[-(PLATEAU_WINDOW + 1):]
+    earliest = window[0]
+    latest = window[-1]
+    for axis in _AXES:
+        if latest[axis] - earliest[axis] >= PLATEAU_THRESHOLD:
+            return False
+    return True

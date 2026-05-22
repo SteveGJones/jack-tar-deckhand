@@ -63,3 +63,43 @@ def test_default_iteration_caps_match_spec():
 
 def test_default_budget_matches_spec():
     assert DEFAULT_BUDGET_USD == 1.00
+
+
+from src.creative_vision.cascade import detect_plateau  # noqa: E402
+
+
+def _scores(entity=80, spatial=80, style=80, quality=80, composition=80):
+    return {
+        "entity_fidelity": entity,
+        "spatial_fidelity": spatial,
+        "style_fidelity": style,
+        "quality": quality,
+        "composition": composition,
+    }
+
+
+def test_plateau_false_with_improvement():
+    history = [_scores(entity=60), _scores(entity=72)]
+    assert detect_plateau(history) is False
+
+
+def test_plateau_true_when_no_axis_improves_by_5():
+    history = [_scores(entity=60, spatial=60), _scores(entity=62, spatial=63), _scores(entity=63, spatial=64)]
+    # max delta is 3 on any axis — under 5-point threshold
+    assert detect_plateau(history) is True
+
+
+def test_plateau_false_with_only_one_prior_iteration():
+    # Need at least 2 priors to compute a window — return False
+    assert detect_plateau([_scores()]) is False
+
+
+def test_plateau_true_when_scores_degrade():
+    history = [_scores(entity=80, spatial=80), _scores(entity=78, spatial=78), _scores(entity=77, spatial=79)]
+    # No 5-point improvement on any axis across 2 iterations
+    assert detect_plateau(history) is True
+
+
+def test_plateau_false_when_any_axis_improves_by_5_plus():
+    history = [_scores(entity=70), _scores(entity=70), _scores(entity=76)]
+    assert detect_plateau(history) is False
