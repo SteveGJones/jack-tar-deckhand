@@ -247,12 +247,16 @@
     "prompt_chars": 428,
     "prompt_words": 60,
     "catalog_estimate_usd": 0.034,
-    "timestamp": "2026-05-22T03:56:46.446277+00:00",
-    "raw_usage": null,
-    "computed_actual_usd": 0.0,
-    "delta_usd": 0.0,
-    "delta_pct": 0.0,
-    "error": "BadRequestError: Error code: 400 - {'error': {'message': \"Unknown parameter: 'response_format'.\", 'type': 'invalid_request_error', 'param': 'response_format', 'code': 'unknown_parameter'}}"
+    "timestamp": "2026-05-22T04:00:20.616977+00:00",
+    "raw_usage": {
+      "input_tokens": 93,
+      "output_tokens": 1056,
+      "total_tokens": 1149
+    },
+    "computed_actual_usd": 0.042705,
+    "delta_usd": -0.008704999999999997,
+    "delta_pct": -25.60294117647058,
+    "error": null
   },
   {
     "provider": "openai",
@@ -262,12 +266,16 @@
     "prompt_chars": 1437,
     "prompt_words": 197,
     "catalog_estimate_usd": 0.034,
-    "timestamp": "2026-05-22T03:56:47.759870+00:00",
-    "raw_usage": null,
-    "computed_actual_usd": 0.0,
-    "delta_usd": 0.0,
-    "delta_pct": 0.0,
-    "error": "BadRequestError: Error code: 400 - {'error': {'message': \"Unknown parameter: 'response_format'.\", 'type': 'invalid_request_error', 'param': 'response_format', 'code': 'unknown_parameter'}}"
+    "timestamp": "2026-05-22T04:00:38.869628+00:00",
+    "raw_usage": {
+      "input_tokens": 271,
+      "output_tokens": 1056,
+      "total_tokens": 1327
+    },
+    "computed_actual_usd": 0.043595,
+    "delta_usd": -0.009595,
+    "delta_pct": -28.220588235294112,
+    "error": null
   },
   {
     "provider": "openai",
@@ -277,11 +285,15 @@
     "prompt_chars": 3580,
     "prompt_words": 491,
     "catalog_estimate_usd": 0.034,
-    "timestamp": "2026-05-22T03:56:47.926179+00:00",
-    "raw_usage": null,
-    "computed_actual_usd": 0.0,
-    "delta_usd": 0.0,
-    "delta_pct": 0.0,
-    "error": "BadRequestError: Error code: 400 - {'error': {'message': \"Unknown parameter: 'response_format'.\", 'type': 'invalid_request_error', 'param': 'response_format', 'code': 'unknown_parameter'}}"
+    "timestamp": "2026-05-22T04:00:59.328858+00:00",
+    "raw_usage": {
+      "input_tokens": 840,
+      "output_tokens": 1056,
+      "total_tokens": 1896
+    },
+    "computed_actual_usd": 0.04644,
+    "delta_usd": -0.01244,
+    "delta_pct": -36.588235294117645,
+    "error": null
   }
 ]

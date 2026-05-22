@@ -206,8 +206,7 @@ def _call_nano_banana(model: str, resolution: str, prompt: str) -> tuple[Optiona
 def _call_openai(model: str, resolution: str, prompt: str) -> tuple[Optional[dict], bytes]:
     """Call OpenAI images.generate. Return (usage_or_None, image_bytes).
 
-    response_format="b64_json" is specified explicitly — the default for
-    gpt-image-1 is a URL, so without this the image bytes would be empty.
+    gpt-image-1 returns b64_json by default (it's the only format the new API supports).
     """
     import base64
     from openai import OpenAI
@@ -218,7 +217,6 @@ def _call_openai(model: str, resolution: str, prompt: str) -> tuple[Optional[dic
         size="1024x1024",
         quality="medium",
         n=1,
-        response_format="b64_json",
     )
     usage = None
     if hasattr(response, "usage") and response.usage is not None:
