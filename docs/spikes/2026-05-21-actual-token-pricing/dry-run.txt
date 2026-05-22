@@ -1,0 +1,19 @@
+Spent so far: $0.000; cap $5.000; 16 cells pending
+--- DRY RUN — matrix preview ---
+  google_nano_banana/gemini-3.1-flash-image-preview/1K/short_a ~$0.067
+  google_nano_banana/gemini-3.1-flash-image-preview/1K/medium_a ~$0.067
+  google_nano_banana/gemini-3.1-flash-image-preview/1K/long_a ~$0.067
+  google_nano_banana/gemini-3.1-flash-image-preview/2K/short_a ~$0.101
+  google_nano_banana/gemini-3.1-flash-image-preview/2K/medium_a ~$0.101
+  google_nano_banana/gemini-3.1-flash-image-preview/2K/long_a ~$0.101
+  google_nano_banana/gemini-3.1-flash-image-preview/4K/short_a ~$0.151
+  google_nano_banana/gemini-3.1-flash-image-preview/4K/medium_a ~$0.151
+  google_nano_banana/gemini-3.1-flash-image-preview/4K/long_a ~$0.151
+  google_nano_banana/gemini-3-pro-image-preview/1K/short_a ~$0.134
+  google_nano_banana/gemini-3-pro-image-preview/1K/medium_a ~$0.134
+  google_nano_banana/gemini-3-pro-image-preview/1K/long_a ~$0.134
+  google_nano_banana/gemini-3-pro-image-preview/4K/long_a ~$0.240
+  openai/gpt-image-1/1K/short_a ~$0.034
+  openai/gpt-image-1/1K/medium_a ~$0.034
+  openai/gpt-image-1/1K/long_a ~$0.034
+Total estimated: $1.701
