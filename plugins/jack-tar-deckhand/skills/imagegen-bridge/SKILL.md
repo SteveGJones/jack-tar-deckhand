@@ -342,6 +342,214 @@ print(json.dumps(entry))
 > the `general-purpose` subagent (Sonnet, higher accuracy). Both
 > subagents pull the image into THEIR context and return text.
 
+### Step 4.7: Creative Vision Dispatch (multi-agent cascade loop)
+
+For slides whose strategy is `creative_vision` (set by the strategy classifier or
+operator override in `strategy-map.json`), the bridge drives a **multi-agent
+orchestration loop** — not a single render call. The loop runs Director's Brief →
+Prompt Reviewer → Render → image-reviewer → Director's Critic in sequence for each
+cascade tier, escalating tiers until the Critic accepts or the budget is exhausted.
+
+#### When to enter this branch
+
+A slide has `strategy: creative_vision` in `strategy-map.json` AND a populated
+`creative_vision.vision_prose` field. Skip slides flagged
+`pending_vision_prose: true` — they are waiting for operator-provided prose and
+must not enter the loop.
+
+#### Pre-flight: initialise the dispatch manifest
+
+```python
+from src.creative_vision_dispatch import DispatchRequest, initialise_dispatch
+
+req = DispatchRequest(
+    deck_dir=deck_dir,
+    slide_number=entry["slide_number"],
+    vision_prose=entry["creative_vision"]["vision_prose"],
+    budget_usd=entry["creative_vision"].get("budget_usd", 1.00),
+    allowed_ceiling=entry["creative_vision"].get("allowed_ceiling", "pro_4k"),
+    brand_fidelity=entry.get("brand_fidelity", "none"),
+)
+manifest = initialise_dispatch(req)
+```
+
+This creates `<deck_dir>/creative-vision/<slide_number>/manifest.json` and returns
+the manifest dict. The manifest records every attempt, cost, and verdict so the
+session can be resumed if interrupted.
+
+#### The orchestration loop
+
+Pull the cascade ladder and start at index 0 (`ollama`):
+
+```python
+from src.creative_vision.cascade import ladder_for, DEFAULT_ITERATION_CAPS
+ladder = ladder_for(req.brand_fidelity)
+current_tier_index = 0
+per_tier_iteration_count = 0
+cumulative_cost = 0.0
+```
+
+For each tier, run the following per-tier loop:
+
+**Step A — Director's Brief (generate approved prompt)**
+
+1. Build the brief input via `brief.build_brief_input(...)`.
+2. Dispatch the `directors-brief` agent (Sonnet) with that input.
+3. Parse via `brief.parse_brief_output(response)` → `(parsed_vision, prompt)`.
+
+**Step B — Text-side gate (Brief ↔ Prompt Reviewer)**
+
+Track loop state with `TextLoopState`:
+
+```python
+from src.creative_vision.orchestrator import TextLoopState, advance_text_loop
+text_state = TextLoopState()
+```
+
+Loop:
+- Build reviewer input via
+  `prompt_reviewer.build_reviewer_input(original_prose, prompt, parsed_vision)`.
+- Dispatch the `prompt-reviewer` agent (Haiku).
+- Parse via `prompt_reviewer.parse_reviewer_output(response)` → `(verdict, issues)`.
+- Advance state: `text_state = advance_text_loop(text_state, reviewer_verdict=verdict, reviewer_issues=issues, current_prompt=prompt)`.
+- If `text_state.terminal` is False: re-dispatch `directors-brief` with
+  `accumulated_feedback` extended by the reviewer's issues. Get a new prompt. Loop back.
+- When `text_state.terminal` is True, the prompt is approved
+  (`text_state.approved_prompt`). If `text_state.forced_pass` is True, log a
+  warning but proceed — the gate reached its cap and the best available prompt
+  advances.
+
+**Step C — Render at the current tier**
+
+Pick the render skill based on the cascade tier:
+
+- `ollama` tier → dispatch `/jack-tar-ollama:image` with the approved prompt.
+- `flash_1k` / `flash_2k` / `flash_4k` tiers → dispatch `/jack-tar-cloud:image`
+  with `--provider google --model gemini-3.1-flash-image-preview` and the
+  matching `--resolution` flag.
+- `pro_1k` / `pro_2k` / `pro_4k` tiers → dispatch `/jack-tar-cloud:image` with
+  `--provider google --model gemini-3-pro-image-preview` at the matching
+  `--resolution`.
+- `recraft_*` tiers → dispatch `/jack-tar-cloud:recraft-image` with the matching
+  `--tier` and `--resolution` flags.
+
+Save the output PNG path. Cost: `TIER_COSTS[current_tier]` USD (zero for Ollama).
+Accumulate into `cumulative_cost`.
+
+**Step D — image-reviewer verdict**
+
+Dispatch the `image-reviewer` agent (Haiku) on the rendered PNG. If verdict is
+`refine`, build new accumulated feedback (visual-quality issues) and return to
+Step A — the Director's Brief regenerates the prompt incorporating the visual
+feedback. Do NOT re-render with the same prompt; the text gate (Step B) fires
+again before any retry render.
+
+**Step E — Director's Critic**
+
+Dispatch the `directors-critic` agent (Sonnet) via
+`critic.build_critic_input(...)`. Parse via
+`critic.parse_critic_output(response)` (which schema-validates the JSON response).
+
+**Step F — Append attempt to manifest**
+
+```python
+from src.creative_vision.manifest import append_attempt, save_manifest
+attempt = {
+    "attempt_index": len(manifest["attempts"]) + 1,
+    "prose_version": manifest["prose_history"][-1]["version"],
+    "tier": current_tier,
+    "text_iterations": text_state.iterations,
+    "render": {
+        "output_path": render_output_path,
+        "model": tier_model,
+    },
+    "image_reviewer_verdict": ir_verdict,
+    "directors_critic_verdict": critic_verdict,
+    "cumulative_cost_usd": cumulative_cost,
+}
+append_attempt(manifest, attempt, ladder)
+save_manifest(req.deck_dir, manifest)
+```
+
+**Step G — Decide next action**
+
+```python
+from src.creative_vision.orchestrator import decide_next_action
+action = decide_next_action(
+    critic_verdict=critic_verdict,
+    current_tier=current_tier,
+    ladder=ladder,
+    remaining_budget_usd=manifest["iterate_slide_hooks"]["remaining_budget_usd"],
+    per_tier_iteration_count=per_tier_iteration_count,
+    per_tier_cap=DEFAULT_ITERATION_CAPS[current_tier],
+    allowed_ceiling=req.allowed_ceiling,
+)
+```
+
+**Step H — Branch on action.kind**
+
+- `accept` → call `finalise_manifest(...)`. Loop ends. Use this image as the final.
+- `refine_at_tier` → increment `per_tier_iteration_count`; loop back to Step A at
+  the SAME tier. Carry over any accumulated feedback.
+- `escalate_tier` → set `current_tier = action.next_tier`; reset
+  `per_tier_iteration_count = 0`; loop back to Step A at the new tier.
+- `abort` → call `finalise_manifest(...)` with the best-so-far image. Log the
+  reason. Pipeline continues with whatever image was last accepted (or a
+  placeholder if no image was accepted).
+
+#### Post-loop integration
+
+When the loop terminates, fold the final image into the standard ImageManifest
+entry for this slide so deck-assembler (Step 8 of the conductor pipeline) treats
+it as a normal image bound for full-bleed assembly:
+
+```python
+image_manifest["images"].append({
+    "image_id": f"slide-{slide_number}-creative-vision",
+    "slide_number": slide_number,
+    "file_path": manifest["final"]["image_path"],
+    "placement_zone": "full_bleed",  # always full_bleed for creative_vision
+    "status": (
+        "generated"
+        if manifest["final"]["final_verdict"]["verdict"] == "pass"
+        else "accepted_with_issues"
+    ),
+    "source_prompt": manifest["final"]["approved_prompt"],
+    "model_used": manifest["final"]["tier"],
+    "creative_vision_manifest_path": str(
+        Path(req.deck_dir) / "creative-vision" / str(slide_number) / "manifest.json"
+    ),
+})
+```
+
+Skip Step 5 (cache lookup) and Step 6 (prompt translation) for `creative_vision`
+slides — the Director's Brief owns prompt authorship and the manifest owns
+iteration history.
+
+#### Discipline-hook rule (in force — do not bypass)
+
+Never `Read` a generated PNG in this orchestration session. Always dispatch the
+`jack-tar-deckhand:image-reviewer` subagent or the `general-purpose` subagent to
+evaluate the image — they read the PNG into THEIR context and return text. The
+`ALLOW_PNG_READ=1` bypass is for cases where the image IS the user-facing answer;
+the cascade loop never satisfies that condition.
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly.
+> If you need to verify an image, dispatch the
+> `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or
+> the `general-purpose` subagent (Sonnet, higher accuracy). Both
+> subagents pull the image into THEIR context and return text.
+
+#### Reference
+
+- Spec: `docs/superpowers/specs/2026-05-21-creative-vision-renderer-design.md`
+- Manifest module: `plugins/jack-tar-deckhand/src/creative_vision/manifest.py`
+- Cascade module: `plugins/jack-tar-deckhand/src/creative_vision/cascade.py`
+- Orchestrator module: `plugins/jack-tar-deckhand/src/creative_vision/orchestrator.py`
+- Director's Brief agent: `plugins/jack-tar-deckhand/agents/directors-brief.md`
+- Prompt Reviewer agent: `plugins/jack-tar-deckhand/agents/prompt-reviewer.md`
+- Director's Critic agent: `plugins/jack-tar-deckhand/agents/directors-critic.md`
+
 ## Step 5: Check Cache for Each Image
 
 **Production mode:** If `production-upgrade-plan.json` exists in the deck directory, skip this step and use Step 9A instead. The upgrade plan takes precedence over the routing matrix for production renders.
