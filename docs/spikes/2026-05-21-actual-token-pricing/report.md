@@ -57,3 +57,12 @@ Criteria from spec:
 - **OpenAI placeholder caveat.** All three OpenAI cells show -25% to -37% delta, but the rates used are unverified placeholders ($5/MTok input, $40/MTok output). Token counts are real; dollar conversions are provisional. Before relying on the OpenAI dollar deltas in Phase 2, verify actual gpt-image-1 rates from the OpenAI dashboard and re-derive the three cells.
 
 - **Two existing-code discrepancies surfaced.** (a) The `_IMAGEN_DEVELOPER_COSTS` table in `plugins/jack-tar-cloud/src/generate_cloud_image.py` lines 298–306 lists 2K Imagen at $0.101 (token-based formula) when the published flat rate is $0.040 — already documented in `token-pricing-rates.md` as a known inconsistency. (b) The divergence between the catalog flat rate and the actual token-based bill explains why the prompt-length sensitivity seen in this spike is completely invisible at the budget-tracker level: `BudgetTracker._BUDGET_RATES` charges the same flat rate regardless of whether the prompt is 50 or 500 words.
+
+## Follow-up issues filed
+
+These extensions are enabled by Phase 2's actual-vs-estimated tracking but not implemented in this spike. Filed as separate issues so they can be picked up independently when warranted.
+
+- **#108** — Rolling-mean adjusted pre-flight estimator. Multiply the catalog rate by the per-(model, resolution) observed actual/estimate ratio over a recent window. Opt-in.
+- **#109** — Prompt-length-aware pre-flight cost estimator. Extend `estimate_google_cost` to accept the prompt and scale the estimate by the observed long-prompt jump (~+25-35% candidates_token_count at the same resolution).
+- **#110** — Billing-console reconciliation skill. Pull Google Cloud Billing line items and cross-check against our token-rate formula to verify whether $60/MTok image-output is the real billed rate or whether caching/discounts flatten it. Resolves the question of whether the spike's actual-cost formula or the user's original observation is closer to ground truth.
+- **#111** — Mid-deck cap recalculation using cumulative actual. Add `BudgetTracker.remaining_with_safety_margin` so the deck conductor can escalate to the speaker when observed drift means the planned remaining cells won't fit under the cap.
