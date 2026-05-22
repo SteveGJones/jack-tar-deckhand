@@ -139,3 +139,52 @@ class TestCostSummary:
         assert '$1.94' in md  # remaining
         assert 'allow' in md.lower()  # state
         assert '1' in md  # cache hits
+
+
+class TestCostActual:
+    def test_log_api_call_records_cost_actual_when_provided(self):
+        from src.budget_tracker import BudgetTracker
+        tracker = BudgetTracker(total_budget_usd=10.0)
+        tracker.log_api_call(
+            model_key="gemini-3.1-flash-image-preview-1K",
+            cost_estimated=0.067,
+            image_id="img-1",
+            cost_actual=0.040,
+            usage_metadata={"prompt_token_count": 100, "candidates_token_count": 1290},
+        )
+        assert tracker.spent_usd == 0.040  # cumulative tracks actual when present
+        rows = tracker.ledger
+        assert len(rows) == 1
+        assert rows[0]["cost_estimated"] == 0.067
+        assert rows[0]["cost_actual"] == 0.040
+
+    def test_log_api_call_uses_estimate_when_actual_absent(self):
+        from src.budget_tracker import BudgetTracker
+        tracker = BudgetTracker(total_budget_usd=10.0)
+        tracker.log_api_call(
+            model_key="fal-flux-2-pro-1K",
+            cost_estimated=0.030,
+            image_id="img-2",
+        )
+        assert tracker.spent_usd == 0.030
+        assert tracker.ledger[0]["cost_estimated"] == 0.030
+        assert tracker.ledger[0]["cost_actual"] is None
+
+    def test_cost_summary_markdown_shows_both_columns(self):
+        from src.budget_tracker import BudgetTracker
+        tracker = BudgetTracker(total_budget_usd=10.0)
+        tracker.log_api_call("gemini-3.1-flash-image-preview-1K", 0.067, "img-1", cost_actual=0.040)
+        tracker.log_api_call("fal-flux-2-pro-1K", 0.030, "img-2")
+        md = tracker.cost_summary_markdown()
+        assert "Estimated $" in md
+        assert "Actual $" in md
+        assert "0.067" in md
+        assert "0.040" in md
+
+    def test_log_api_call_legacy_cost_usd_alias_still_works(self):
+        """Legacy callers passing cost_usd should still work for one release cycle."""
+        from src.budget_tracker import BudgetTracker
+        tracker = BudgetTracker(total_budget_usd=10.0)
+        # Legacy form: cost_usd as a keyword.
+        tracker.log_api_call(model_key="x", cost_usd=0.05, image_id="img-x")
+        assert tracker.spent_usd == 0.05
