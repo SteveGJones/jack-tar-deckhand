@@ -85,3 +85,31 @@ def test_spend_cap_exceeded_raises():
 def test_spend_cap_allows_under_cap():
     # Should not raise
     check_spend_cap(spent=4.85, next_estimate=0.10, cap=5.0)
+
+
+def test_skip_provider_missing_key(monkeypatch):
+    from tools.spike_pricing_calibration import providers_with_keys
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert providers_with_keys() == set()
+
+
+def test_provider_keys_detected(monkeypatch):
+    from tools.spike_pricing_calibration import providers_with_keys
+    monkeypatch.setenv("GOOGLE_API_KEY", "fake")
+    monkeypatch.setenv("OPENAI_API_KEY", "fake")
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    detected = providers_with_keys()
+    assert "google_nano_banana" in detected
+    assert "openai" in detected
+
+
+def test_provider_keys_google_only(monkeypatch):
+    """Google credential covers Nano Banana; no OpenAI key means no OpenAI."""
+    from tools.spike_pricing_calibration import providers_with_keys
+    monkeypatch.setenv("GOOGLE_API_KEY", "fake")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    detected = providers_with_keys()
+    assert detected == {"google_nano_banana"}

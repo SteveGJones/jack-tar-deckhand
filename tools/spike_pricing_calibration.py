@@ -13,6 +13,7 @@ Usage:
 """
 from __future__ import annotations
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -115,3 +116,21 @@ def missing_cells(results_path: Path) -> list[MatrixCell]:
         for c in ALL_CELLS
         if (c.provider, c.model, c.resolution, c.prompt_key) not in done_keys
     ]
+
+
+def providers_with_keys() -> set[str]:
+    """Return the set of providers reachable in the current environment.
+
+    'google_nano_banana' requires a Google credential — either GOOGLE_API_KEY
+    (Developer API) or GOOGLE_CLOUD_PROJECT (Vertex with ADC).
+    'openai' requires OPENAI_API_KEY.
+
+    Imagen is intentionally absent — Phase 0 confirmed no usage_metadata field,
+    so Imagen cells were dropped from ALL_CELLS in Task 10.
+    """
+    detected = set()
+    if os.environ.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_CLOUD_PROJECT"):
+        detected.add("google_nano_banana")
+    if os.environ.get("OPENAI_API_KEY"):
+        detected.add("openai")
+    return detected
