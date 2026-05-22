@@ -69,3 +69,22 @@ def detect_plateau(score_history: list[dict]) -> bool:
         if latest[axis] - earliest[axis] >= PLATEAU_THRESHOLD:
             return False
     return True
+
+
+def can_afford(remaining_budget_usd: float, tier: str) -> bool:
+    """Return True when the budget has room for one more render at the given tier."""
+    return remaining_budget_usd >= TIER_COSTS[tier] or TIER_COSTS[tier] == 0.0
+
+
+def next_tier(current: str, ladder: list[str], allowed_ceiling: str | None = None) -> str | None:
+    """Return the next tier above ``current`` in the ladder, or None if at top/ceiling."""
+    if current not in ladder:
+        return None
+    idx = ladder.index(current)
+    if idx + 1 >= len(ladder):
+        return None
+    candidate = ladder[idx + 1]
+    if allowed_ceiling is not None and allowed_ceiling in ladder:
+        if ladder.index(candidate) > ladder.index(allowed_ceiling):
+            return None
+    return candidate

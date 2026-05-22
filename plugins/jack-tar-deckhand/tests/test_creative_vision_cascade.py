@@ -103,3 +103,32 @@ def test_plateau_true_when_scores_degrade():
 def test_plateau_false_when_any_axis_improves_by_5_plus():
     history = [_scores(entity=70), _scores(entity=70), _scores(entity=76)]
     assert detect_plateau(history) is False
+
+
+from src.creative_vision.cascade import can_afford, next_tier  # noqa: E402
+
+
+def test_can_afford_when_budget_covers_next_render():
+    assert can_afford(remaining_budget_usd=0.50, tier="flash_2k") is True
+
+
+def test_can_afford_false_when_budget_short():
+    assert can_afford(remaining_budget_usd=0.10, tier="flash_2k") is False
+
+
+def test_can_afford_ollama_always_true():
+    assert can_afford(remaining_budget_usd=0.0, tier="ollama") is True
+
+
+def test_next_tier_default_ladder():
+    assert next_tier("flash_1k", LADDER_DEFAULT) == "flash_2k"
+
+
+def test_next_tier_top_of_ladder_returns_none():
+    assert next_tier("pro_4k", LADDER_DEFAULT) is None
+
+
+def test_next_tier_clamped_by_allowed_ceiling():
+    assert next_tier("flash_1k", LADDER_DEFAULT, allowed_ceiling="flash_4k") == "flash_2k"
+    # At the ceiling, no further escalation
+    assert next_tier("flash_4k", LADDER_DEFAULT, allowed_ceiling="flash_4k") is None
