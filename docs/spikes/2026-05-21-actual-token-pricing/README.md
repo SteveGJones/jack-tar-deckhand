@@ -41,3 +41,11 @@
 ## Phase 1 spend
 
 $2.254 of $5 cap (45%). 13 Google cells + 3 OpenAI cells, all successful after one retry round (graceful per-cell error handling added during Task 14 fix-up).
+
+## Phase 2 dogfood (Task 21)
+
+- Date: 2026-05-21
+- Brief: single-image smoke test (Nano Banana Flash 1K)
+- Estimated: $0.0670, Actual: $0.0895, Delta: -33.6%
+- `cost_summary_markdown` confirmed to show both columns: `dogfood-cost-summary.md`
+- Plumbing verified: `generate_cloud_image()` → `GenerationResult` → `BudgetTracker.log_api_call(cost_estimated, cost_actual, usage_metadata)` → markdown with two-column table.
