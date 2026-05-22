@@ -185,3 +185,55 @@ def test_manifest_strategy_must_be_creative_vision():
     bad["strategy"] = "full_bleed"
     with pytest.raises(ValidationError):
         validate(instance=bad, schema=_load("creative_vision_manifest.schema.json"))
+
+
+# --- strategy_map.creative_vision integration -------------------------------
+
+
+def _valid_strategy_map_entry_creative_vision():
+    return {
+        "approval_mode": "review",
+        "slides": [
+            {
+                "slide_number": 1,
+                "strategy": "creative_vision",
+                "rationale": "operator-directed",
+                "render_funnel": ["ollama", "cloud_low", "cloud_full"],
+                "creative_vision": {
+                    "vision_prose": "Four warships on a lake.",
+                    "budget_usd": 1.0,
+                    "allowed_ceiling": "pro_4k",
+                    "iteration_caps_override": None,
+                },
+            }
+        ],
+    }
+
+
+def test_strategy_map_accepts_creative_vision_strategy():
+    validate(
+        instance=_valid_strategy_map_entry_creative_vision(),
+        schema=_load("strategy_map.schema.json"),
+    )
+
+
+def test_strategy_map_creative_vision_block_required_when_strategy_set():
+    bad = _valid_strategy_map_entry_creative_vision()
+    del bad["slides"][0]["creative_vision"]
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_creative_vision_block_forbidden_when_strategy_other():
+    bad = _valid_strategy_map_entry_creative_vision()
+    bad["slides"][0]["strategy"] = "composed"
+    # creative_vision block still present - must reject
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_vision_prose_required_inside_block():
+    bad = _valid_strategy_map_entry_creative_vision()
+    del bad["slides"][0]["creative_vision"]["vision_prose"]
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("strategy_map.schema.json"))
