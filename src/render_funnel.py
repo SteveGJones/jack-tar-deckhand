@@ -149,7 +149,8 @@ def execute_funnel_stage(deck_dir, slide_number, strategy, prompt, funnel_stage,
             )
         else:
             result = _generate_cloud(prompt, provider, output_path, funnel_stage, model=model)
-            cost = result.get('cost_usd', 0.0)
+            # result is a GenerationResult dataclass; use cost_actual for the logged cost
+            cost = getattr(result, 'cost_actual', None) or getattr(result, 'cost_estimated', 0.0)
             resolution = _CLOUD_STAGE_SIZE.get(funnel_stage, '1536x1024')
 
         # Log the attempt

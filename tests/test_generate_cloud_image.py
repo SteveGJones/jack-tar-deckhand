@@ -45,6 +45,7 @@ class TestGenerateOpenAI:
         mock_image.b64_json = b64_data
         mock_response = MagicMock()
         mock_response.data = [mock_image]
+        mock_response.usage = None  # no usage metadata in this mock
 
         mock_client = MagicMock()
         mock_client.images.generate.return_value = mock_response
@@ -58,10 +59,10 @@ class TestGenerateOpenAI:
 
         assert output.exists()
         assert output.read_bytes() == raw_bytes
-        assert result['file_path'] == str(output)
-        assert result['provider'] == 'openai'
-        assert result['model_used'] == 'gpt-image-1.5'
-        assert result['status'] == 'generated'
+        assert result.path == str(output)
+        assert str(result) == str(output)  # __str__ shim
+        assert result.provider == 'openai'
+        assert result.model == 'gpt-image-1.5'
 
     def test_uses_medium_quality_by_default(self, tmp_path):
         from src.generate_cloud_image import generate_openai
@@ -71,6 +72,7 @@ class TestGenerateOpenAI:
         mock_image.b64_json = b64_data
         mock_response = MagicMock()
         mock_response.data = [mock_image]
+        mock_response.usage = None
 
         mock_client = MagicMock()
         mock_client.images.generate.return_value = mock_response
@@ -90,6 +92,7 @@ class TestGenerateOpenAI:
         mock_image.b64_json = b64_data
         mock_response = MagicMock()
         mock_response.data = [mock_image]
+        mock_response.usage = None
 
         mock_client = MagicMock()
         mock_client.images.generate.return_value = mock_response
@@ -109,6 +112,7 @@ class TestGenerateOpenAI:
         mock_image.b64_json = b64_data
         mock_response = MagicMock()
         mock_response.data = [mock_image]
+        mock_response.usage = None
 
         mock_client = MagicMock()
         mock_client.images.generate.return_value = mock_response
@@ -133,6 +137,7 @@ class TestGenerateOpenAI:
         mock_image.b64_json = b64_data
         mock_response = MagicMock()
         mock_response.data = [mock_image]
+        mock_response.usage = None
 
         mock_client = MagicMock()
         mock_client.images.generate.return_value = mock_response
@@ -158,6 +163,7 @@ class TestGenerateOpenAI:
         mock_image.b64_json = b64_data
         mock_response = MagicMock()
         mock_response.data = [mock_image]
+        mock_response.usage = None
 
         mock_client = MagicMock()
         mock_client.images.generate.return_value = mock_response
@@ -166,9 +172,10 @@ class TestGenerateOpenAI:
         with patch('src.generate_cloud_image.OpenAI', return_value=mock_client):
             result = generate_openai(prompt='test', output_path=str(output))
 
-        assert 'cost_usd' in result
-        assert isinstance(result['cost_usd'], float)
-        assert result['cost_usd'] > 0
+        assert isinstance(result.cost_estimated, float)
+        assert result.cost_estimated > 0
+        assert isinstance(result.cost_actual, float)
+        assert result.cost_actual > 0
 
     def test_raises_on_missing_api_key(self, tmp_path):
         from src.generate_cloud_image import generate_openai, ProviderNotConfiguredError
@@ -207,6 +214,7 @@ class TestGenerateGoogle:
         mock_response = MagicMock()
         mock_response.candidates = [MagicMock()]
         mock_response.candidates[0].content.parts = [mock_part]
+        mock_response.usage_metadata = None  # no usage metadata in this mock
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
@@ -216,7 +224,7 @@ class TestGenerateGoogle:
             with patch('src.generate_cloud_image.genai.Client', return_value=mock_client):
                 result = generate_google(prompt='A futuristic city', output_path=str(output))
 
-        assert result['model_used'] == 'gemini-3.1-flash-image-preview'
+        assert result.model == 'gemini-3.1-flash-image-preview'
         mock_client.models.generate_content.assert_called_once()
 
     def test_nano_banana_flash_generates_and_saves(self, tmp_path):
@@ -232,6 +240,7 @@ class TestGenerateGoogle:
         mock_response = MagicMock()
         mock_response.candidates = [MagicMock()]
         mock_response.candidates[0].content.parts = [mock_part]
+        mock_response.usage_metadata = None
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
@@ -247,10 +256,10 @@ class TestGenerateGoogle:
 
         assert output.exists()
         assert output.read_bytes() == png_bytes
-        assert result['file_path'] == str(output)
-        assert result['provider'] == 'google'
-        assert result['model_used'] == 'gemini-3.1-flash-image-preview'
-        assert result['status'] == 'generated'
+        assert result.path == str(output)
+        assert str(result) == str(output)  # __str__ shim
+        assert result.provider == 'google'
+        assert result.model == 'gemini-3.1-flash-image-preview'
 
     def test_nano_banana_pro_routes_to_generate_content(self, tmp_path):
         """Nano Banana Pro model should also use generate_content API."""
@@ -265,6 +274,7 @@ class TestGenerateGoogle:
         mock_response = MagicMock()
         mock_response.candidates = [MagicMock()]
         mock_response.candidates[0].content.parts = [mock_part]
+        mock_response.usage_metadata = None
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
@@ -278,7 +288,7 @@ class TestGenerateGoogle:
                     model='gemini-3-pro-image-preview',
                 )
 
-        assert result['model_used'] == 'gemini-3-pro-image-preview'
+        assert result.model == 'gemini-3-pro-image-preview'
         mock_client.models.generate_content.assert_called_once()
         mock_client.models.generate_images.assert_not_called()
 
@@ -308,9 +318,8 @@ class TestGenerateGoogle:
 
         assert output.exists()
         assert output.read_bytes() == png_bytes
-        assert result['model_used'] == 'imagen-4.0-generate-001'
-        assert result['provider'] == 'google'
-        assert result['status'] == 'generated'
+        assert result.model == 'imagen-4.0-generate-001'
+        assert result.provider == 'google'
         mock_client.models.generate_images.assert_called_once()
         mock_client.models.generate_content.assert_not_called()
 
@@ -338,7 +347,7 @@ class TestGenerateGoogle:
                     model='imagen-4.0-fast-generate-001',
                 )
 
-        assert result['model_used'] == 'imagen-4.0-fast-generate-001'
+        assert result.model == 'imagen-4.0-fast-generate-001'
         mock_client.models.generate_images.assert_called_once()
         mock_client.models.generate_content.assert_not_called()
 
@@ -374,7 +383,7 @@ class TestGenerateGoogle:
         assert call_kwargs['aspect_ratio'] == '16:9'
 
     def test_result_has_required_fields(self, tmp_path):
-        """Result dict must have file_path, provider, model_used, cost_usd, status."""
+        """Result must be a GenerationResult with provider, cost_estimated, cost_actual."""
         from src.generate_cloud_image import generate_google
 
         png_bytes = _fake_png_bytes()
@@ -386,6 +395,7 @@ class TestGenerateGoogle:
         mock_response = MagicMock()
         mock_response.candidates = [MagicMock()]
         mock_response.candidates[0].content.parts = [mock_part]
+        mock_response.usage_metadata = None
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
@@ -395,10 +405,13 @@ class TestGenerateGoogle:
             with patch('src.generate_cloud_image.genai.Client', return_value=mock_client):
                 result = generate_google(prompt='test', output_path=str(output))
 
-        required_fields = {'file_path', 'provider', 'model_used', 'cost_usd', 'status'}
-        assert required_fields.issubset(result.keys())
-        assert isinstance(result['cost_usd'], float)
-        assert result['cost_usd'] > 0
+        from src.cloud_results import GenerationResult
+        assert isinstance(result, GenerationResult)
+        assert result.provider == 'google'
+        assert isinstance(result.cost_estimated, float)
+        assert result.cost_estimated > 0
+        assert isinstance(result.cost_actual, float)
+        assert result.cost_actual > 0
 
     def test_nano_banana_content_config_has_image_modality(self, tmp_path):
         """Nano Banana calls should specify response_modalities=['IMAGE', 'TEXT']."""
@@ -413,6 +426,7 @@ class TestGenerateGoogle:
         mock_response = MagicMock()
         mock_response.candidates = [MagicMock()]
         mock_response.candidates[0].content.parts = [mock_part]
+        mock_response.usage_metadata = None
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
@@ -442,6 +456,7 @@ class TestGenerateGoogle:
         mock_response = MagicMock()
         mock_response.candidates = [MagicMock()]
         mock_response.candidates[0].content.parts = [mock_part]
+        mock_response.usage_metadata = None
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
@@ -466,6 +481,7 @@ class TestGenerateGoogle:
         mock_response = MagicMock()
         mock_response.candidates = [MagicMock()]
         mock_response.candidates[0].content.parts = [mock_part]
+        mock_response.usage_metadata = None
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
@@ -476,7 +492,7 @@ class TestGenerateGoogle:
                 with patch('src.generate_cloud_image.genai.Client', return_value=mock_client):
                     result = generate_google(prompt='test', output_path=str(output))
 
-        assert result['provider'] == 'google'
+        assert result.provider == 'google'
         assert output.exists()
 
 
@@ -519,9 +535,9 @@ class TestGenerateFal:
 
         assert output.exists()
         assert output.read_bytes() == fake_png
-        assert result['file_path'] == str(output)
-        assert result['provider'] == 'fal'
-        assert result['status'] == 'generated'
+        assert result.path == str(output)
+        assert str(result) == str(output)  # __str__ shim
+        assert result.provider == 'fal'
 
     def test_default_model_is_flux_2_pro(self, tmp_path):
         from src.generate_cloud_image import generate_fal
@@ -546,7 +562,7 @@ class TestGenerateFal:
         # Verify fal_client.subscribe was called with the default model
         call_args = mock_fal_client.subscribe.call_args
         assert call_args[0][0] == 'fal-ai/flux-2-pro'
-        assert result['model_used'] == 'fal-ai/flux-2-pro'
+        assert result.model == 'fal-ai/flux-2-pro'
 
     def test_default_image_size_is_landscape_16_9(self, tmp_path):
         from src.generate_cloud_image import generate_fal
@@ -591,12 +607,13 @@ class TestGenerateFal:
                     mock_requests.get.return_value = mock_response
                     result = generate_fal(prompt='test', output_path=str(output))
 
-        required_fields = {'file_path', 'provider', 'model_used', 'cost_usd', 'status'}
-        assert required_fields.issubset(result.keys())
-        assert result['provider'] == 'fal'
-        assert isinstance(result['cost_usd'], float)
-        assert result['cost_usd'] > 0
-        assert result['status'] == 'generated'
+        from src.cloud_results import GenerationResult
+        assert isinstance(result, GenerationResult)
+        assert result.provider == 'fal'
+        assert isinstance(result.cost_estimated, float)
+        assert result.cost_estimated > 0
+        assert isinstance(result.cost_actual, float)
+        assert result.cost_actual > 0
 
     def test_cost_estimation_flux_2_pro(self, tmp_path):
         from src.generate_cloud_image import generate_fal
@@ -619,7 +636,8 @@ class TestGenerateFal:
                     result = generate_fal(prompt='test', output_path=str(output))
 
         # FLUX.2 Pro default landscape_16_9 (~1920x1080) costs ~$0.045
-        assert result['cost_usd'] == pytest.approx(0.045, abs=0.005)
+        assert result.cost_estimated == pytest.approx(0.045, abs=0.005)
+        assert result.cost_actual == pytest.approx(0.045, abs=0.005)  # FAL: actual == estimated
 
     def test_cost_estimation_flux_2_klein(self, tmp_path):
         from src.generate_cloud_image import generate_fal
@@ -646,8 +664,9 @@ class TestGenerateFal:
                     )
 
         # FLUX.2 Klein has a flat rate of $0.014/image
-        assert result['cost_usd'] == 0.014
-        assert result['model_used'] == 'fal-ai/flux-2-klein'
+        assert result.cost_estimated == 0.014
+        assert result.cost_actual == 0.014  # FAL: actual == estimated
+        assert result.model == 'fal-ai/flux-2-klein'
 
     def test_custom_model_override(self, tmp_path):
         from src.generate_cloud_image import generate_fal
@@ -675,7 +694,7 @@ class TestGenerateFal:
 
         call_args = mock_fal_client.subscribe.call_args
         assert call_args[0][0] == 'fal-ai/ideogram/v3'
-        assert result['model_used'] == 'fal-ai/ideogram/v3'
+        assert result.model == 'fal-ai/ideogram/v3'
 
     def test_custom_image_size_override(self, tmp_path):
         from src.generate_cloud_image import generate_fal
@@ -784,6 +803,7 @@ class TestGenerateCloudImage:
         mock_image.b64_json = b64_data
         mock_response = MagicMock()
         mock_response.data = [mock_image]
+        mock_response.usage = None
 
         mock_client = MagicMock()
         mock_client.images.generate.return_value = mock_response
@@ -796,7 +816,7 @@ class TestGenerateCloudImage:
                 output_path=str(output),
             )
 
-        assert result['provider'] == 'openai'
+        assert result.provider == 'openai'
         assert output.exists()
 
     def test_raises_for_unknown_provider(self, tmp_path):
