@@ -1,0 +1,29 @@
+Spent so far: $0.000; cap $5.000; 16 cells pending
+Calling google_nano_banana/gemini-3.1-flash-image-preview/1K/short_a (est $0.067)...
+  actual $0.095  delta -41.4%  cumulative $0.095
+Calling google_nano_banana/gemini-3.1-flash-image-preview/1K/medium_a (est $0.067)...
+  actual $0.088  delta -31.8%  cumulative $0.183
+Calling google_nano_banana/gemini-3.1-flash-image-preview/1K/long_a (est $0.067)...
+  actual $0.120  delta -79.2%  cumulative $0.303
+Calling google_nano_banana/gemini-3.1-flash-image-preview/2K/short_a (est $0.101)...
+  actual $0.124  delta -22.3%  cumulative $0.427
+Calling google_nano_banana/gemini-3.1-flash-image-preview/2K/medium_a (est $0.101)...
+  actual $0.123  delta -21.4%  cumulative $0.549
+Calling google_nano_banana/gemini-3.1-flash-image-preview/2K/long_a (est $0.101)...
+  actual $0.154  delta -52.7%  cumulative $0.703
+Calling google_nano_banana/gemini-3.1-flash-image-preview/4K/short_a (est $0.151)...
+  actual $0.171  delta -13.5%  cumulative $0.875
+Calling google_nano_banana/gemini-3.1-flash-image-preview/4K/medium_a (est $0.151)...
+Traceback (most recent call last):
+  File "/Users/stevejones/Documents/Development/jack-tar-deckhand/.claude/worktrees/spike-actual-token-pricing/tools/spike_pricing_calibration.py", line 340, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/stevejones/Documents/Development/jack-tar-deckhand/.claude/worktrees/spike-actual-token-pricing/tools/spike_pricing_calibration.py", line 326, in main
+    row = run_cell(cell, prompts)
+  File "/Users/stevejones/Documents/Development/jack-tar-deckhand/.claude/worktrees/spike-actual-token-pricing/tools/spike_pricing_calibration.py", line 248, in run_cell
+    usage, _img = _call_nano_banana(cell.model, cell.resolution, prompt)
+                  ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/stevejones/Documents/Development/jack-tar-deckhand/.claude/worktrees/spike-actual-token-pricing/tools/spike_pricing_calibration.py", line 186, in _call_nano_banana
+    for part in response.candidates[0].content.parts:
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
