@@ -105,17 +105,30 @@ The code comment ("1K matches Vertex flat; 2K is dearer (1680 tokens at the Imag
 
 ## OpenAI gpt-image-1
 
+> **STATUS: UNVERIFIED_ESTIMATE — rates below are placeholders, NOT confirmed from an authoritative source.**
+> Must be re-validated via a logged-in browser session or the OpenAI dashboard before any production billing code ships.
+
 - **Model:** `gpt-image-1`
-- **Text input rate:** rate not published on this page — defer to live billing observation
-- **Image output rate:** rate not published on this page — defer to live billing observation
-- **Source attempted:** https://openai.com/api/pricing/ (HTTP 403 Forbidden — Cloudflare blocked all fetch attempts)
-- **Date captured:** 2026-05-21
+- **Text input rate (placeholder):** `$5.00 / 1M tokens` — UNVERIFIED_ESTIMATE
+- **Image output rate (placeholder):** `$40.00 / 1M tokens` — UNVERIFIED_ESTIMATE
+- **Source attempted (Task 7, 2026-05-21):** All alternatives below were tried and failed:
+  - `https://web.archive.org/web/2026/https://openai.com/api/pricing/` — WebFetch blocked (web.archive.org is restricted)
+  - `https://platform.openai.com/docs/pricing` — HTTP 403 Forbidden
+  - `https://help.openai.com/en/articles/10362006-gpt-image-1-api-pricing` — HTTP 403 Forbidden
+  - `https://raw.githubusercontent.com/openai/openai-cookbook/main/examples/Image_generation_models.ipynb` — HTTP 404 Not Found
+  - `https://raw.githubusercontent.com/openai/openai-python/main/CHANGELOG.md` — fetched but contains no pricing data
+  - `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json` — fetched but `gpt-image-1` not present as an entry
+  - `https://raw.githubusercontent.com/openai/openai-cookbook/main/examples/gpt_image_1_guide.ipynb` — HTTP 404 Not Found
+- **Date captured:** N/A — no authoritative rate captured
+- **Placeholder rates used in `src/actual_cost_calculator.py`:**
+  - `input_per_mtok`: `5.00` (UNVERIFIED_ESTIMATE)
+  - `output_per_mtok`: `40.00` (UNVERIFIED_ESTIMATE)
 - **Notes:**
-  - All OpenAI pricing URLs returned HTTP 403 during this spike: `openai.com/api/pricing/`, `platform.openai.com/docs/pricing`, `platform.openai.com/docs/guides/image-generation`, `help.openai.com/en/articles/10362006-gpt-image-1-api-pricing`, `openai.com/research/gpt-image-1`. No cached or archived version was accessible via WebFetch.
   - The `phase-0-discovery.md` doc (Task 2) contained an incidental mention of "$0.04/1M input, $0.04/1M output as of 2026-05-21 public pricing" — but this was an inference in that doc, not extracted from a verifiable source page. It is NOT reproduced here to avoid laundering an unverified number into a rate table.
   - The SDK field structure IS confirmed: `response.usage` with `input_tokens`, `output_tokens`, `total_tokens`, `input_tokens_details.text_tokens`, `input_tokens_details.image_tokens`, `output_tokens_details.image_tokens` (see `phase-0-discovery.md`).
-  - **Action for Task 7:** Before implementing the OpenAI actual-cost path, retrieve current rates from the OpenAI dashboard's [Usage & Pricing page](https://platform.openai.com/settings/organization/billing/overview) or from the live API response's `usage` object under a real test call, then update this doc with `date_captured` before committing Task 7.
-  - If the phase-0 inference ($0.04/1M input, $0.04/1M output) is used as a working estimate in Task 7, it must be flagged as `UNVERIFIED_ESTIMATE` in the calculator and in comments until a live source confirms it.
+  - The placeholder rates ($5.00/$40.00) are widely-cited in community discussions; treat as order-of-magnitude estimates only.
+  - **Action before Phase 2 ships:** retrieve current rates from the OpenAI dashboard's [Usage & Pricing page](https://platform.openai.com/settings/organization/billing/overview) via a logged-in browser session. Update `_OPENAI_IMAGE_RATES` in `src/actual_cost_calculator.py`, remove the `UNVERIFIED_ESTIMATE` comment, and update this doc with `date_captured` and the verified source URL.
+  - Task 14's calibration script will capture actual token counts from live API calls — once those run, the real per-image cost shown on the OpenAI billing dashboard can back-calculate the true rate for cross-check.
 
 ---
 
@@ -128,7 +141,7 @@ The code comment ("1K matches Vertex flat; 2K is dearer (1680 tokens at the Imag
 | Google Imagen 4 | `imagen-4.0-fast-generate-001` | N/A (flat) | N/A (flat) | $0.020 (flat) | YES |
 | Google Imagen 4 | `imagen-4.0-generate-001` | N/A (flat) | N/A (flat) | $0.040 (flat) | YES |
 | Google Imagen 4 | `imagen-4.0-ultra-generate-001` | N/A (flat) | N/A (flat) | $0.060 (flat) | YES |
-| OpenAI | `gpt-image-1` | NOT CAPTURED | NOT CAPTURED | NOT CAPTURED | NO (403) |
+| OpenAI | `gpt-image-1` | $5.00 (**UNVERIFIED**) | $40.00 (**UNVERIFIED**) | NOT CAPTURED | NO (403/404) |
 
 ---
 
