@@ -8,6 +8,16 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
+
+from jsonschema import ValidationError, validate
+
+_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "parsed_vision.schema.json"
+
+
+def _load_parsed_vision_schema() -> dict:
+    with open(_SCHEMA_PATH) as f:
+        return json.load(f)
 
 
 def build_brief_input(
@@ -63,4 +73,14 @@ def parse_brief_output(agent_response: str) -> tuple[dict, str]:
         raise ValueError(f"directors-brief JSON parse failed: {e}") from e
     if "parsed_vision" not in payload or "prompt" not in payload:
         raise ValueError("directors-brief response missing parsed_vision or prompt key")
-    return payload["parsed_vision"], payload["prompt"]
+    parsed_vision = payload["parsed_vision"]
+    prompt = payload["prompt"]
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ValueError("directors-brief prompt must be a non-empty string")
+    try:
+        validate(instance=parsed_vision, schema=_load_parsed_vision_schema())
+    except ValidationError as e:
+        raise ValueError(
+            f"directors-brief parsed_vision failed schema: {e.message} at {list(e.absolute_path)}"
+        ) from e
+    return parsed_vision, prompt

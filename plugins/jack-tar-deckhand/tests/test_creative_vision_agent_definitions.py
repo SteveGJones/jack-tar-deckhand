@@ -24,6 +24,22 @@ def test_directors_brief_agent_exists_and_has_required_sections():
     assert "operator's prose" in content.lower() or "vision prose" in content.lower()
 
 
+def test_directors_brief_output_contract_shows_wrong_shape_anti_pattern():
+    """F2 from 2026-05-22 dogfood — Brief sometimes emitted the prompt outside
+    the JSON fence. The Output Contract must show the WRONG shape explicitly
+    so the agent learns from a concrete failure example."""
+    content = _load_agent("directors-brief")
+    assert "WRONG" in content or "wrong shape" in content.lower(), (
+        "Output Contract should explicitly call out a WRONG shape anti-pattern"
+    )
+    assert "outside the fence" in content.lower() or "two separate fences" in content.lower(), (
+        "Output Contract should name the prompt-outside-fence anti-pattern"
+    )
+    assert "CORRECT" in content or "correct shape" in content.lower(), (
+        "Output Contract should label the CORRECT shape next to the WRONG ones"
+    )
+
+
 def test_prompt_reviewer_agent_exists_and_has_required_sections():
     content = _load_agent("prompt-reviewer")
     assert "Prompt Reviewer" in content

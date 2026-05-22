@@ -37,7 +37,9 @@ You receive a dispatch payload with these fields. Some are optional on iteration
 
 ## Output Contract
 
-Return a **single fenced `json` code block** containing exactly two keys:
+Return a **single fenced `json` code block** containing exactly two keys.
+
+### CORRECT shape (both keys inside ONE fence)
 
 ```json
 {
@@ -51,6 +53,83 @@ Return a **single fenced `json` code block** containing exactly two keys:
 **`prompt`** is the render-ready string to pass directly to the image generator at the current tier. No preamble, no explanation, no metadata — just the prompt text.
 
 No other text outside the fenced block. No commentary before or after.
+
+### WRONG shape — DO NOT do any of these (cascade-failing anti-patterns)
+
+These shapes have been observed in real cascade runs and BROKE the parser. The downstream `parse_brief_output` helper extracts a single JSON object from the FIRST `json` fence and looks for both keys inside it. Any of the following shapes will fail or — worse — silently drop the prompt:
+
+**WRONG: prompt outside the fence (most common failure — F2 from 2026-05-21 dogfood)**
+
+```
+Here is the parsed vision:
+
+```json
+{
+  "parsed_vision": { ... }
+}
+```
+
+And the prompt: "Four warships engaged on a lake..."
+```
+
+This is broken because the prompt is prose outside the fence. The parser will raise `directors-brief response missing parsed_vision or prompt key`. Both keys MUST live inside the same single fenced JSON block.
+
+**WRONG: two separate fences**
+
+```
+```json
+{"parsed_vision": { ... }}
+```
+
+```json
+{"prompt": "..."}
+```
+```
+
+Broken. The parser reads only the first fence. The second fence is discarded.
+
+**WRONG: subjects as plain strings instead of `{name, role, spatial_slot}` objects (F1 from 2026-05-21 dogfood)**
+
+```json
+{
+  "parsed_vision": {
+    "subjects": ["SAP warship", "Databricks warship", "OpenAI warship"]
+  }
+}
+```
+
+Broken. Every subject must be a `{"name": <string>, "role": <"named_entity"|"abstract_motif"|"setting_element">, "spatial_slot": <string|null>}` object. Plain strings will be rejected by the `parse_brief_output` schema validator with a clear error pointing at the failing path.
+
+**WRONG: omitting `text_density_warning` or other required top-level keys**
+
+```json
+{
+  "parsed_vision": {
+    "schema_version": "1.0",
+    "original_prose": "...",
+    "prose_version": 1,
+    "subjects": [...],
+    "spatial_directives": {...},
+    "style": {...},
+    "composition": {...},
+    "delivery": {...}
+  }
+}
+```
+
+Broken. `text_density_warning` (and every other key in the schema's `required` list) is mandatory. Schema validation will fail.
+
+**WRONG: empty prompt string**
+
+```json
+{"parsed_vision": {...}, "prompt": ""}
+```
+
+Broken. The prompt must be a non-empty render-ready string.
+
+### Self-check before returning
+
+Before emitting, mentally read the very first ```json``` fence in your response. Count the keys. There must be exactly two top-level keys: `parsed_vision` (a schema-conformant object) and `prompt` (a non-empty string). If anything else is outside the fence, it will not reach the cascade.
 
 ### ParsedVision schema quick reference
 

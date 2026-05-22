@@ -84,6 +84,37 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
+### Current Status (2026-05-21 — v1.4.2 shipped + v1.5.0 creative vision IN PROGRESS)
+
+- **v1.4.2 full_bleed strategy shipped** via [PR #104](https://github.com/SteveGJones/jack-tar-deckhand/pull/104) (merge commit `d2253ad`). Plugin bumped `1.4.1 → 1.4.2`. Closes issue #88.
+  - `full_bleed` rendering strategy: image IS the slide, zero chrome (no title overlay, no body text, no footer logo). `strategy_map.schema.json` extended with `full_bleed` enum value. `build_deck.js` + `build_deck_template.py` handle full-bleed assembly.
+
+- **v1.5.0 creative vision renderer — IN PROGRESS on branch `feat/creative-page-renderer`** (28+ commits, 296 tests, issue #105).
+  - **What it is**: paperbanana-shaped multi-agent cascade for operator prose → vision-faithful full-slide images. Abstract, conceptual images driven by a language-to-image pipeline.
+  - **Pipeline**: operator prose → Director's Brief (Sonnet) → ParsedVision + prompt → Prompt Reviewer (Haiku) → render → image-reviewer (Haiku) → Director's Critic (Sonnet) → verdict → loop or escalate
+  - **New agents**: `directors-brief.md` (Sonnet), `prompt-reviewer.md` (Haiku), `directors-critic.md` (Sonnet). In `plugins/jack-tar-deckhand/agents/`.
+  - **New schemas**: `parsed_vision.schema.json`, `directors_critic_verdict.schema.json`, `creative_vision_manifest.schema.json` in `plugins/jack-tar-deckhand/src/schemas/`
+  - **New strategy**: `creative_vision` enum in strategy_map (always pairs with `full_bleed` assembly; `allOf` conditional enforces bidirectional)
+  - **New modules**: `src/creative_vision/{manifest,cascade,brief,prompt_reviewer,critic,orchestrator}.py`, `src/creative_vision_dispatch.py`
+  - **iterate_slide extended**: 3 channels for creative_vision slides: `revise_prose`, `refine_prompt`, `escalate_tier`
+  - **Cascade tiers**: Ollama (free) → Flash 1K ($0.067) → Flash 4K ($0.151) → Pro 1K ($0.134) → Pro 4K ($0.240); `allowed_ceiling` budget cap
+  - **Sun-phases dogfood COMPLETE**: $0.067 total spend, 3 iters (Ollama ×2 + Flash 1K ×1). Entity 78, spatial 85, style 88, comp 80. Final: `tmp/creative-vision-dogfood/deck/creative-vision/1/runs/03-flash-1k.png`. Log: [`docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer.md`](docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer.md).
+  - **F1** (Brief returns non-canonical parsed_vision shape — subjects as plain strings, wrong field names) and **F2** (prompt outside JSON fence at Flash tier) must be fixed before opening the PR. See dogfood log §Findings.
+
+### Data supply chain dogfood (2026-05-22 — COMPLETE)
+
+4-panel 1980s Wall Street-aesthetic storyboard: sales team scrawling orders on cocktail napkin → finance cleaning the napkin into typed paper → customer reading the invoice → supply chain confused at missing delivery address (truck driver peering at signpost). Budget $0.50, ceiling `pro_1k`.
+
+- **Final image**: `tmp/creative-vision-dogfood/deck/creative-vision/2/runs/03-flash-1k.png` (all four callouts crisp, sports cars + signpost rendered, blank-signpost punchline lands)
+- **Total spend**: $0.067 (Ollama×2 + Flash 1K×1; same envelope as sun-phases despite a more complex multi-entity vision)
+- **Final scores at Flash 1K**: entity 82, spatial 85, style 72, quality 84, comp 88. Verdict `pass` (see F3 below — Critic violated its own ≥80 rule on style; documented).
+- **Findings**:
+  - **F1** (Brief returns non-canonical parsed_vision shape) — **FIXED in this PR**: `brief.parse_brief_output` now validates parsed_vision against the schema + rejects empty prompts. 3 new tests cover the failure paths.
+  - **F2** (prompt outside JSON fence) — **FIXED in this PR**: directors-brief.md Output Contract now shows labelled CORRECT shape next to WRONG shape anti-pattern block with 4 concrete failures + self-check. 1 new agent-definition test pins the labels.
+  - **F3** (Critic returned pass with style_fidelity 72 — verdict-coherence violation) — **NEW, deferred follow-up patch**: add semantic validation to `critic.parse_critic_output` so pass-with-any-axis-below-80 raises like the schema check.
+- **Log**: [`docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer-data-supply-chain.md`](docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer-data-supply-chain.md)
+- **Tests**: 296 → 300 passing (1 skipped). PR open for issue #105.
+
 ### Current Status (2026-05-20 — v1.4.1 shipped + v1.4 plan part-done)
 
 - **v1.4.1 merged on main** via [PR #102](https://github.com/SteveGJones/jack-tar-deckhand/pull/102) (merge commit `4f8fc2b`). Plugin bumped `1.3.3 → 1.4.0 → 1.4.1`. CI 9/9 green.
@@ -96,23 +127,20 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 - **Architecture figure** at [`docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png`](docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png) — produced by paperbanana documenting jack-tar's own architecture (meta-dogfood); also embedded in ADR v2 §1.
 - **Upstream issues filed at llmsresearch/paperbanana** (parallel work): #213 (pricing table), #214 (deprecated defaults), #215 (version inconsistency), #216 (PyPI staleness), #217 (`--continue-run` cwd resolution).
 
-### v1.4 plan — remaining work (deferred to follow-up PRs)
+### v1.4 plan — remaining work (updated 2026-05-21)
 
-Three feature issues from the original v1.4 plan did NOT land in PR #102 and are queued for follow-up:
+Original v1.4 plan had 3 deferred issues. #88 shipped in PR #104. Remaining:
 
 | # | Title | Cluster | Effort | Notes |
 |---|---|---|---|---|
-| #88 | Deck-assembler `full-bleed image is the slide` scale | C (deck-assembler) | ~3–4 hr | **DO ALONE next.** Independent code surface (build_deck.js + build_deck_template.py + strategy_map schema). Reference implementation exists at `tmp/agentic-sdlc-keynote-deck/bridge-run-v2/fullbleed_deck.py` in the consuming repo. |
-| #90 | Prompt-engineer composition-primitives library | A (prompt-engineer) | ~4–5 hr | **Pair with #91.** Both touch the prompt-engineer agent. 5 primitives from the 2026-05-13 keynote: two-port-fixture, asymmetric-towers, multi-craft-hub, instrument-grid, three-tier-chain. |
-| #91 | Prompt-engineer pre-render text-density warning | A (prompt-engineer) | ~2–3 hr | **Pair with #90.** Threshold-warning when prompt asks for >12–15 quoted strings (Nanobanana Flash garbles above that). Acts as safety net for #90's primitive templates. |
+| ~~#88~~ | ~~Deck-assembler `full-bleed` scale~~ | — | — | **DONE** — PR #104 (`d2253ad`), deckhand 1.4.2. |
+| #90 | Prompt-engineer composition-primitives library | A (prompt-engineer) | ~4–5 hr | **Pair with #91.** 5 primitives from the 2026-05-13 keynote. |
+| #91 | Prompt-engineer pre-render text-density warning | A (prompt-engineer) | ~2–3 hr | **Pair with #90.** Safety net for #90's primitive templates. |
 
-Also pending: final v1.4 end-to-end dogfood combining all features.
+Sequencing:
 
-Recommended sequencing for the remaining work:
-
-1. **PR #103 candidate: #88 alone** on branch `feat/v1.4.2-full-bleed-scale` — bumps deckhand to 1.4.2
-2. **PR #104 candidate: #90 + #91 together** on branch `feat/v1.4.3-prompt-engineer-primitives` — coupled prompt-engineer scope; #91 is the safety net for #90; bumps deckhand to 1.4.3
-3. **PR #105 candidate: final v1.4 end-to-end dogfood** — combine all v1.4 features in one deck render, log results
+1. **Next: finish issue #105** on branch `feat/creative-page-renderer` — complete data supply chain dogfood → fix F1+F2 → open PR → deckhand 1.4.2 → 1.5.0
+2. **Then: #90 + #91 together** — coupled prompt-engineer scope; bumps deckhand to 1.5.1
 
 Still-open issues NOT in the v1.4 scope: #86 (discipline-hook propagation — investigation-only commit landed; actual fix still open), #95 (Ralph false-completion — documented in dogfood log, cross-check rule applies meanwhile).
 
