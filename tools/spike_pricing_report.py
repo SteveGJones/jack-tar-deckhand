@@ -26,7 +26,8 @@ def main():
         "",
         "**Spec:** `docs/superpowers/specs/2026-05-21-actual-token-pricing-validation-design.md`",
         "**Plan:** `docs/superpowers/plans/2026-05-21-actual-token-pricing.md`",
-        "**Data:** `calibration-results.json` (16 cells, " + str(len(successful)) + " successful, " + str(len(errored)) + " errored)",
+        "**Data:** `calibration-results.json` (16 cells, "
+        + str(len(successful)) + " successful, " + str(len(errored)) + " errored)",
         "",
         "## Headline",
         "",
@@ -55,7 +56,9 @@ def main():
         "",
         f"**Cumulative catalog estimate:** ${overall_estimate:.3f}",
         f"**Cumulative actual:**           ${overall_actual:.3f}",
-        f"**Overall delta:**               {(overall_estimate - overall_actual) / overall_estimate * 100:+.1f}% (negative = actual exceeds estimate)",
+        f"**Overall delta:**               "
+        f"{(overall_estimate - overall_actual) / overall_estimate * 100:+.1f}% "
+        f"(negative = actual exceeds estimate)",
         "",
     ]
 
@@ -86,7 +89,9 @@ def main():
         lines += [
             "## OpenAI — caveat",
             "",
-            "OpenAI deltas use placeholder rates ($5/MTok input, $40/MTok output) because openai.com pricing pages returned 403 during Task 4. The token counts are real; the dollar conversion is provisional. If verified rates differ from placeholders, the delta direction could flip. Treat OpenAI signal as directional only.",
+            "OpenAI deltas use placeholder rates ($5/MTok input, $40/MTok output) because openai.com"  # noqa: E501
+            " pricing pages returned 403 during Task 4. Token counts are real; dollar conversion is"
+            " provisional. If verified rates differ, delta direction could flip. Treat as directional only.",
             "",
         ]
 

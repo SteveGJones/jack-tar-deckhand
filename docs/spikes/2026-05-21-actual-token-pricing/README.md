@@ -3,7 +3,15 @@
 **Date:** 2026-05-21
 **Spec:** `docs/superpowers/specs/2026-05-21-actual-token-pricing-validation-design.md`
 **Plan:** `docs/superpowers/plans/2026-05-21-actual-token-pricing.md`
-**Status:** Phase 1 complete — proceeding to Phase 2 (production refactor)
+**Status:** Complete — Phase 1 and Phase 2 both shipped
+
+## Spike outcome summary
+
+We tested whether `estimate_google_cost` (the resolution-aware catalog formula in `jack-tar-cloud`) produces reliable cost forecasts by running a 16-cell live calibration matrix against real Google Nano Banana and OpenAI APIs and comparing token-derived actual cost against catalog estimates. The hypothesis was that catalog estimates might over-state cost (explaining a user-reported billing discrepancy). The result inverted this: **catalog under-estimates actual cost by 32.5% cumulative**. Every one of the 16 cells showed actual > estimated, and the median per-cell delta for Google Nano Banana was −31% to −53% (actual exceeds estimate). The under-estimation stems from uncounted text-input tokens — the catalog formula assumes a fixed image-token count but does not account for the prompt-length component of the input charge. The `BudgetTracker._BUDGET_RATES` flat-rate table (a separate code path) does over-estimate certain cases and is the probable source of the user's original observation.
+
+The spike shipped four production-ready infrastructure pieces. `GenerationResult` is a new dataclass (in `src/cloud_results.py` and `plugins/jack-tar-cloud/src/cloud_results.py`) that wraps the existing image-path return value and adds `cost_actual`, `usage_metadata`, and `provider` fields. `BudgetTracker` gained dual-column tracking — every `log_api_call` now accepts both `cost_estimated` and `cost_actual`, and `cost_summary_markdown()` renders a two-column table showing both. `actual_cost_calculator.py` provides pure functions (`compute_nano_banana_actual_cost`, `compute_openai_image_actual_cost`) that derive actual cost from raw `usage_metadata` dicts without touching SDK objects. A 90-day freshness test (`test_pricing_freshness.py`) fails CI if the embedded token rates go stale. The calibration and smoke-test scripts (`tools/spike_pricing_calibration.py`, `tools/spike_dogfood_smoke.py`) live in `tools/` as one-shot reproducible experiments.
+
+Three follow-ups are deferred to a post-spike PR. First, verify OpenAI image token rates against the OpenAI dashboard — the calibration used $5/$40 per MTok placeholder rates because openai.com returned 403 during Task 4, so the OpenAI delta figures are directional only. Second, reconcile the $60/MTok image-output rate used in `compute_nano_banana_actual_cost` against the Google Cloud billing console on a real run — the rate matches the published Gemini Developer API image-generation pricing but has not been cross-checked against an actual invoice line item. Third, the flat-rate `BudgetTracker._BUDGET_RATES` table should be replaced or deprecated in favour of the resolution-aware `estimate_google_cost` path to eliminate the over/under inconsistency that likely caused the user's original confusion.
 
 ## Verdict
 

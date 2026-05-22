@@ -29,11 +29,11 @@ _gen = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_gen)
 
 sys.path.insert(0, str(_PROJECT_ROOT))
-from src.budget_tracker import BudgetTracker
+from src.budget_tracker import BudgetTracker  # noqa: E402
 
 # Import GenerationResult from the *same* module the plugin loaded into sys.modules
 # to avoid the two-class identity problem (plugin uses bare 'cloud_results' import).
-import cloud_results as _cr
+import cloud_results as _cr  # noqa: E402
 GenerationResult = _cr.GenerationResult
 
 

@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 import pytest
 from tools.spike_pricing_calibration import (
     load_prompts,
@@ -8,7 +7,6 @@ from tools.spike_pricing_calibration import (
     missing_cells,
     check_spend_cap,
     SpendCapExceeded,
-    MatrixCell,
     ALL_CELLS,
 )
 

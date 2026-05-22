@@ -140,9 +140,9 @@ def providers_with_keys() -> set[str]:
 # Real SDK dispatch
 # ---------------------------------------------------------------------------
 import argparse  # noqa: E402 — after dataclass/helper definitions
-import sys
-from pathlib import Path as _Path
-from typing import Optional
+import sys  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+from typing import Optional  # noqa: E402
 
 # Ensure the project root is on sys.path so 'src.*' imports resolve when the
 # script is run directly (e.g. `python tools/spike_pricing_calibration.py`).
