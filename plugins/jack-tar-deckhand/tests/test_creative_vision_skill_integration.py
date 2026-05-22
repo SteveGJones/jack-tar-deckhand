@@ -29,3 +29,10 @@ def test_strategy_map_documents_creative_vision_authoring():
     # Must explain cost banner / operator opt-in
     for keyword in ("budget", "operator-opt-in", "prose"):
         assert keyword in text.lower(), f"strategy-map SKILL.md missing keyword: {keyword!r}"
+
+
+def test_iterate_slide_documents_three_channels():
+    text = _load_skill("iterate-slide")
+    assert "creative_vision" in text
+    for channel in ("revise prose", "refine prompt", "escalate tier"):
+        assert channel in text.lower()

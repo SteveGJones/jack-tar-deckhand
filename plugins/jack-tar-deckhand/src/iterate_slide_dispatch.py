@@ -466,3 +466,47 @@ def update_manifest_entry(
 
     updated["refinement_count"] = int(updated.get("refinement_count", 0)) + 1
     return updated
+
+
+# --- creative_vision three-channel branch (#105) ---
+
+from src.creative_vision.manifest import load_manifest, revise_prose, save_manifest  # noqa: E402
+
+
+def is_creative_vision_slide(deck_dir: str, slide_number: int) -> bool:
+    """True when a CreativeVisionManifest exists for this slide."""
+    try:
+        load_manifest(deck_dir, slide_number)
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def available_channels_for_creative_vision(deck_dir: str, slide_number: int) -> list[str]:
+    """List of channels the operator can choose between right now.
+
+    Channels: 'revise_prose', 'refine_prompt', 'escalate_tier'. The third
+    is excluded when the manifest says we're out of budget OR at the ceiling.
+    """
+    m = load_manifest(deck_dir, slide_number)
+    hooks = m["iterate_slide_hooks"]
+    channels = []
+    if hooks.get("can_revise_prose", True):
+        channels.append("revise_prose")
+    if hooks.get("can_refine_prompt", True):
+        channels.append("refine_prompt")
+    if hooks.get("can_escalate_tier", True):
+        channels.append("escalate_tier")
+    return channels
+
+
+def revise_prose_action(deck_dir: str, slide_number: int, new_prose: str, reason: str) -> dict:
+    """Append a new prose version to the manifest and return the updated manifest.
+
+    Does NOT re-run the pipeline — the caller (SKILL.md) re-invokes the dispatch
+    after the prose is updated, which will produce a fresh attempt with the new prose.
+    """
+    m = load_manifest(deck_dir, slide_number)
+    revise_prose(m, new_prose=new_prose, revised_by="operator", reason=reason)
+    save_manifest(deck_dir, m)
+    return m
