@@ -22,3 +22,11 @@ def test_directors_brief_agent_exists_and_has_required_sections():
     assert "ParsedVision" in content
     assert "model: sonnet" in content.lower() or "sonnet" in content.lower()
     assert "operator's prose" in content.lower() or "vision prose" in content.lower()
+
+
+def test_prompt_reviewer_agent_exists_and_has_required_sections():
+    content = _load_agent("prompt-reviewer")
+    assert "Prompt Reviewer" in content
+    assert "haiku" in content.lower()
+    assert "pass" in content.lower() and "refine" in content.lower()
+    assert "elements" in content.lower()  # checks for dropped-elements detection
