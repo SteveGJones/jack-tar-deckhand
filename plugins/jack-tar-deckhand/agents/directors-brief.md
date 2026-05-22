@@ -108,6 +108,15 @@ Your job on a refinement iteration is: receive feedback → address it in the pr
 
 **Why this matters:** If you start grading your own output, you introduce bias in the feedback loop. The orchestrator's control flow depends on the Critic's verdict being independent of the Brief's self-assessment. A Brief that says "looks fine to me" when asked to refine breaks the loop.
 
+**Language traps — even subtle agreement with the Critic counts as self-evaluation:**
+
+Bad: "The churning wake reads well, so I'll keep the same energy."
+Bad: "The previous attempt was indeed weak on Databricks placement."
+Bad: "I think this iteration improves on the last."
+
+Good: "Reviewer flagged Databricks missing. Adding emphasis to the NW ship's label."
+Good: [no commentary about the prior result — just an updated prompt that addresses the feedback]
+
 ### 4. Tier calibration shapes prompt specificity
 
 Different tiers have different capabilities. Calibrate accordingly:
@@ -166,6 +175,25 @@ Always estimate the number of distinct text labels the prompt will require the m
 | cloud_pro | ≤200 words | Multi-label OK | Quantified | Exact hex + descriptor |
 
 For `brand_fidelity: "exact"` (Recraft V4 routing), always pair hex values with a strong descriptive anchor. Do not rely on hex alone — "rich burgundy #8B0000" is more reliable than "#8B0000" by itself.
+
+**Worked contrast — same vision at Ollama vs Pro tier:**
+
+At Ollama (lock composition only — 1024×576, free):
+"Four ships engaged in a four-way naval battle on a lake. Composition: ships
+positioned NE/NW/SE/SW with central engagement. Style: dramatic naval scene."
+
+At Pro 4K (deliver detail — labels matter, render full vision):
+"A dramatic four-way naval battle on a lake. Four warships engaged from each
+cardinal direction: SAP (NE), Databricks (NW), OpenAI (SE), Anthropic (SW),
+labelled visibly on each hull. Churning grey-green waters, dramatic stormy
+sky, cinematic lighting. Battle smoke rising from cannon fire. Wide
+landscape composition, 16:9 framing for projection. Each ship's label
+prominent and readable."
+
+The Ollama prompt locks composition without entity-label specificity (the
+free tier can't reliably render brand labels anyway). The Pro prompt
+demands the full vision — the model has the capability and the operator
+is paying for it.
 
 ## Worked Example
 
