@@ -150,10 +150,17 @@ _PROJECT_ROOT = _Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.generate_cloud_image import (  # noqa: E402
-    estimate_google_cost,
-    estimate_openai_cost,
-)
+import importlib.util as _ilu  # noqa: E402
+
+_PLUGIN_CLOUD_SRC = Path(__file__).parent.parent / "plugins" / "jack-tar-cloud" / "src"
+_PLUGIN_CLOUD = _PLUGIN_CLOUD_SRC / "generate_cloud_image.py"
+if str(_PLUGIN_CLOUD_SRC) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_CLOUD_SRC))
+_spec = _ilu.spec_from_file_location("jack_tar_cloud_generate_cloud_image", _PLUGIN_CLOUD)
+_mod = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+estimate_google_cost = _mod.estimate_google_cost
+estimate_openai_cost = _mod.estimate_openai_cost
 from src.actual_cost_calculator import (  # noqa: E402
     compute_nano_banana_actual_cost,
     compute_openai_image_actual_cost,
@@ -217,7 +224,7 @@ def _call_openai(model: str, resolution: str, prompt: str) -> tuple[Optional[dic
 
 def _estimate_for_cell(cell: MatrixCell) -> float:
     if cell.provider == "google_nano_banana":
-        return estimate_google_cost(model=cell.model)
+        return estimate_google_cost(model=cell.model, resolution=cell.resolution)
     if cell.provider == "openai":
         return estimate_openai_cost(size="1024x1024", quality="medium")
     raise ValueError(f"Unknown provider: {cell.provider}")
