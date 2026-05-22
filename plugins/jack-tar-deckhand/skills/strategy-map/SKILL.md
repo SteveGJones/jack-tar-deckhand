@@ -167,6 +167,89 @@ Most slides don't need exact brand-color compliance — Nano Banana Pro and FLUX
 - 2K Recraft Pro: $0.25 (matches FAL FLUX 2 Pro 2K)
 - 4K Recraft (chain: 2K + Creative Upscale): $0.50 — vs Nano Banana Pro 4K $0.24. Confirm with the speaker before marking 4K hero slides for `brand_fidelity: "exact"` — three such slides represent ~$1.50 vs ~$0.72 of generation spend.
 
+## Creative vision authoring (#105)
+
+### When to assign `creative_vision`
+
+Assign `creative_vision` when the operator describes a specific, rich vision with one or more of:
+
+- **Named entities** (e.g., "SAP", "Databricks" — specific labelled things that must appear in the image)
+- **Extended metaphor with explicit mapping** (e.g., framework components as cabins inside a man-o-war)
+- **Particular composition** (left-to-right progression, four-way arrangement, contained-within hierarchy)
+- **Specific style direction** ("1950s cartoon", "oil painting", "infographic plate")
+
+Concrete examples (founding examples from issue #105):
+
+- "Four warships SAP/Databricks/OpenAI/Anthropic engaged in a four-way naval battle on a lake. Dramatic, churning waters."
+- "Frameworks shown as cabins inside an old man-o-war, Jack-Tar as Captain, 1950s cartoon style."
+- "Horizontal left-to-right progression showing sun phases: protostar, main sequence, red giant, supernova, neutron star."
+
+The renderer's job is to bring THAT exact vision to life faithfully — not to interpret it artistically.
+
+### Pairing with full_bleed assembly
+
+The `creative_vision` strategy ALWAYS pairs with `full_bleed` assembly. The rendered image IS the slide — no chrome, no title overlay, no body bullets. This is a property of the strategy, not a choice. The producer/consumer boundary is explicit: `creative_vision` produces a vision-faithful image; `full_bleed` assembly delivers it edge-to-edge.
+
+### Operator-opt-in only
+
+Neither the rule-based classifier nor the outline-driven classifier emits `creative_vision`. It must be assigned explicitly by the operator (or by Claude on the operator's behalf, with operator confirmation). The risk of cascade-spending without intent is too high to leave to heuristics.
+
+### Required block on the strategy-map entry
+
+```json
+{
+  "slide_number": 3,
+  "strategy": "creative_vision",
+  "rationale": "operator-directed: four ships sea-battle metaphor",
+  "render_funnel": ["ollama", "cloud_low", "cloud_full"],
+  "speaker_override": null,
+  "brand_fidelity": "none",
+  "creative_vision": {
+    "vision_prose": "<free-form prose describing the vision>",
+    "budget_usd": 1.00,
+    "allowed_ceiling": "pro_4k",
+    "iteration_caps_override": null
+  }
+}
+```
+
+Schema rule: the `creative_vision` block is **required when `strategy: creative_vision`** and **forbidden otherwise**. Only `vision_prose` is required inside the block; the other fields take cascade defaults.
+
+### Cost banner the skill MUST surface before recording the choice
+
+When a slide is being assigned `creative_vision`, surface a cost banner before confirming:
+
+```
+Slide N marked creative_vision. Worst-case spend ~$X.YY per slide.
+Deck currently has K creative_vision slides; deck worst-case ~$Z.ZZ.
+Provide vision prose (free-form prose; describe named entities, spatial
+directives, style, and any compositional progression):
+```
+
+The worst-case per slide is computed from `budget_usd` × 1.0 (the budget is the cap, so worst-case ≈ budget). For a default `$1.00` budget at the default `pro_4k` ceiling, worst-case ≈ $1.00 per slide.
+
+### Defer-prose pattern
+
+If the operator wants to mark a slide as `creative_vision` but isn't yet ready to write the prose, the skill can record the strategy with `pending_vision_prose: true` (a flag adjacent to the `creative_vision` block) and leave `vision_prose` empty. The pipeline halts at that slide until the prose is provided — imagegen-bridge skips it with a clear message and resumes when prose is added.
+
+### Decision tree — when to pick `creative_vision` vs alternatives
+
+| Operator's intent | Strategy to pick |
+|---|---|
+| Specific rich vision with named entities / extended metaphor / particular composition | `creative_vision` |
+| Edge-to-edge image with whatever the generic imagegen-bridge produces (no specific vision) | `full_bleed` |
+| AI background image + programmatic title/body overlay | `backdrop_render` or `background` |
+| Standard chrome (title + bullets + small hero image) | `composed` |
+| Academic figure (Figure-N caption, equations, architecture diagram) | `academic_figure` |
+| Editable SmartArt graphic | `smartart` |
+
+### Cross-references
+
+- Spec: `docs/superpowers/specs/2026-05-21-creative-vision-renderer-design.md`
+- Schema: `plugins/jack-tar-deckhand/src/schemas/strategy_map.schema.json`
+- Pipeline implementation: imagegen-bridge SKILL.md section "Creative vision strategy (#105)"
+- Founding examples: the four-ships, man-o-war, and sun-phases examples from issue #105
+
 ## Output
 
 `./tmp/deck/strategy-map.json` conforming to the StrategyMap schema.

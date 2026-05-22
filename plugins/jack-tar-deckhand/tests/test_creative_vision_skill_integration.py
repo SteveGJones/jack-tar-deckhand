@@ -20,3 +20,12 @@ def test_imagegen_bridge_documents_creative_vision_dispatch():
     # Must describe the full pipeline loop, not just call the dispatch
     for keyword in ("Director's Brief", "Prompt Reviewer", "Director's Critic", "tier", "cascade"):
         assert keyword in text, f"imagegen-bridge SKILL.md missing keyword: {keyword!r}"
+
+
+def test_strategy_map_documents_creative_vision_authoring():
+    text = _load_skill("strategy-map")
+    assert "creative_vision" in text
+    assert "vision_prose" in text
+    # Must explain cost banner / operator opt-in
+    for keyword in ("budget", "operator-opt-in", "prose"):
+        assert keyword in text.lower(), f"strategy-map SKILL.md missing keyword: {keyword!r}"
