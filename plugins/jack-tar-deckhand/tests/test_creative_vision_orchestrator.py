@@ -64,3 +64,103 @@ def test_text_loop_empty_issues():
     state = TextLoopState(iterations=[])
     state = advance_text_loop(state, reviewer_verdict="pass", reviewer_issues=[], current_prompt="p")
     assert state.iterations[0]["reviewer_feedback"] == ""
+
+
+from src.creative_vision.orchestrator import (  # noqa: E402
+    NextAction,
+    decide_next_action,
+)
+
+
+def _verdict(verdict="pass", plateau=False):
+    return {
+        "verdict": verdict,
+        "per_axis_scores": {"entity_fidelity": 80, "spatial_fidelity": 80, "style_fidelity": 80, "quality": 80, "composition": 80},
+        "issues": [],
+        "gap_location": "unknown",
+        "recommended_action": "x",
+        "tier": "flash_1k",
+        "iteration_index": 1,
+        "plateau_signal": plateau,
+    }
+
+
+def test_decide_next_action_pass_returns_accept():
+    action = decide_next_action(
+        critic_verdict=_verdict("pass"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k", "flash_2k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=1,
+        per_tier_cap=3,
+        allowed_ceiling="flash_2k",
+    )
+    assert action.kind == "accept"
+
+
+def test_decide_next_action_refine_below_cap_returns_refine():
+    action = decide_next_action(
+        critic_verdict=_verdict("refine_at_tier"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k", "flash_2k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=1,
+        per_tier_cap=3,
+        allowed_ceiling="flash_2k",
+    )
+    assert action.kind == "refine_at_tier"
+
+
+def test_decide_next_action_refine_at_cap_returns_escalate():
+    action = decide_next_action(
+        critic_verdict=_verdict("refine_at_tier"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k", "flash_2k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=3,
+        per_tier_cap=3,
+        allowed_ceiling="flash_2k",
+    )
+    assert action.kind == "escalate_tier"
+    assert action.next_tier == "flash_2k"
+
+
+def test_decide_next_action_escalate_when_budget_insufficient_returns_abort():
+    action = decide_next_action(
+        critic_verdict=_verdict("escalate_tier"),
+        current_tier="flash_2k",
+        ladder=["ollama", "flash_1k", "flash_2k", "flash_4k"],
+        remaining_budget_usd=0.05,  # below flash_4k cost
+        per_tier_iteration_count=3,
+        per_tier_cap=3,
+        allowed_ceiling="flash_4k",
+    )
+    assert action.kind == "abort"
+    assert action.abort_reason == "budget_exhausted"
+
+
+def test_decide_next_action_escalate_at_top_of_ladder_returns_accept_with_warning():
+    action = decide_next_action(
+        critic_verdict=_verdict("refine_at_tier"),
+        current_tier="pro_4k",
+        ladder=["ollama", "flash_1k", "flash_2k", "flash_4k", "pro_1k", "pro_2k", "pro_4k"],
+        remaining_budget_usd=10.0,
+        per_tier_iteration_count=1,
+        per_tier_cap=1,
+        allowed_ceiling="pro_4k",
+    )
+    assert action.kind == "accept"
+    assert action.forced is True  # accepted because we're at ceiling and out of iterations
+
+
+def test_decide_next_action_critic_abort_returns_abort():
+    action = decide_next_action(
+        critic_verdict=_verdict("abort"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=1,
+        per_tier_cap=3,
+        allowed_ceiling=None,
+    )
+    assert action.kind == "abort"

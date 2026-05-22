@@ -76,3 +76,78 @@ def advance_text_loop(
         forced_pass=False,
         approved_prompt=None,
     )
+
+
+from src.creative_vision.cascade import can_afford, next_tier  # noqa: E402
+
+
+@dataclass
+class NextAction:
+    """Encodes the decision made by the image-side state machine.
+
+    Attributes:
+        kind: 'refine_at_tier' | 'escalate_tier' | 'accept' | 'abort'
+        next_tier: The tier to escalate to (when kind == 'escalate_tier'), or None.
+        abort_reason: Reason for abort (when kind == 'abort'), or None. E.g. 'budget_exhausted', 'critic_abort'.
+        forced: True when we accepted a non-passing image because we hit a hard ceiling (iteration cap + top of ladder).
+    """
+    kind: str
+    next_tier: str | None = None
+    abort_reason: str | None = None
+    forced: bool = False
+
+
+def decide_next_action(
+    *,
+    critic_verdict: dict,
+    current_tier: str,
+    ladder: list[str],
+    remaining_budget_usd: float,
+    per_tier_iteration_count: int,
+    per_tier_cap: int,
+    allowed_ceiling: str | None,
+) -> NextAction:
+    """Decide what to do next based on the Director's Critic verdict + cascade state.
+
+    This is the image-side state machine. Given a Critic verdict plus the current
+    cascade state (tier, ladder, budget, iterations), it returns the next action:
+
+    - 'accept': The image is good enough; stop iterating.
+    - 'refine_at_tier': Iterate again at the current tier (prompt refinement + regenerate).
+    - 'escalate_tier': Escalate to the next tier in the ladder and regenerate.
+    - 'abort': Give up (budget exhausted, critic says abort, or forced accept at ceiling).
+
+    Args:
+        critic_verdict: Dict from the Director's Critic, with 'verdict' key ('pass' | 'refine_at_tier' | 'escalate_tier' | 'abort').
+        current_tier: The tier we're currently at (e.g. 'flash_1k').
+        ladder: The full tier ladder (e.g. ['ollama', 'flash_1k', 'flash_2k', ...]).
+        remaining_budget_usd: How much budget is left.
+        per_tier_iteration_count: Number of iterations already done at the current tier.
+        per_tier_cap: Max iterations allowed per tier (e.g. 3).
+        allowed_ceiling: Max tier we're allowed to escalate to (e.g. 'flash_2k'). None means no cap.
+
+    Returns:
+        A NextAction with kind set and relevant fields filled in.
+    """
+    verdict = critic_verdict["verdict"]
+
+    if verdict == "pass":
+        return NextAction(kind="accept")
+
+    if verdict == "abort":
+        return NextAction(kind="abort", abort_reason="critic_abort")
+
+    # refine_at_tier OR escalate_tier — check whether we can stay at this tier
+    cap_reached = per_tier_iteration_count >= per_tier_cap
+
+    if verdict == "refine_at_tier" and not cap_reached:
+        return NextAction(kind="refine_at_tier")
+
+    # We need to escalate (either Critic said so OR cap reached on refine)
+    candidate = next_tier(current_tier, ladder, allowed_ceiling=allowed_ceiling)
+    if candidate is None:
+        # At the ceiling — forced accept
+        return NextAction(kind="accept", forced=True)
+    if not can_afford(remaining_budget_usd, candidate):
+        return NextAction(kind="abort", abort_reason="budget_exhausted")
+    return NextAction(kind="escalate_tier", next_tier=candidate)
