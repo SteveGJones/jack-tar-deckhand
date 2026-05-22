@@ -90,3 +90,44 @@ def revise_prose(manifest: dict, new_prose: str, revised_by: str, reason: str) -
         "revised_by": revised_by,
         "reason": reason,
     })
+
+
+def _next_tier(current: str, ladder: list[str]) -> str | None:
+    if current not in ladder:
+        return None
+    idx = ladder.index(current)
+    return ladder[idx + 1] if idx + 1 < len(ladder) else None
+
+
+def append_attempt(manifest: dict, attempt: dict, ladder: list[str]) -> None:
+    """Append an attempt record and update iterate_slide_hooks accordingly.
+
+    The `ladder` is the cascade tier order — the manifest module is
+    intentionally decoupled from cascade.LADDER_DEFAULT so cascade can be
+    tested independently. The caller (orchestrator) passes the correct
+    ladder based on brand_fidelity routing.
+
+    Reads `manifest['_initial_budget_usd']` (stashed by `initialise_manifest`)
+    and recomputes `remaining_budget_usd` as `initial - cumulative`. When
+    remaining hits zero, `can_escalate_tier` is flipped off.
+    """
+    manifest["attempts"].append(attempt)
+    hooks = manifest["iterate_slide_hooks"]
+    hooks["current_tier"] = attempt["tier"]
+    hooks["next_tier_available"] = _next_tier(attempt["tier"], ladder)
+    initial_budget = manifest["_initial_budget_usd"]
+    hooks["remaining_budget_usd"] = max(0.0, initial_budget - attempt["cumulative_cost_usd"])
+    if hooks["remaining_budget_usd"] <= 0.001:
+        hooks["can_escalate_tier"] = False
+
+
+def finalise_manifest(manifest: dict, image_path: str, final_verdict: dict) -> None:
+    """Stamp the final block from the manifest's last attempt and final verdict."""
+    last = manifest["attempts"][-1]
+    manifest["final"] = {
+        "image_path": image_path,
+        "accepted_at_tier": last["tier"],
+        "total_cost_usd": last["cumulative_cost_usd"],
+        "total_iterations": len(manifest["attempts"]),
+        "final_verdict": final_verdict,
+    }
