@@ -283,3 +283,16 @@ This is paired with F10: the operator gate is where simplification offers natura
 **Total slide spend**: $1.016 of $1.50 envelope ($0.484 remaining).
 **Tests**: 300/300 passing (1 skipped) — unchanged from pre-addendum baseline; the F10 + F11 fixes are in CLAUDE.md / SKILL.md / agent definitions (no new code tests required).
 **PR**: #107 — methodology fixes land alongside the manifest finalisation.
+
+### Architectural decision (2026-05-23): Prompt Simplifier as F11's missing piece
+
+The F11 fix in this PR shipped the *heuristic* (over-elaboration check in the Prompt Reviewer) and the *gate-level invitation to simplify* (CLAUDE.md + SKILL.md Step H.1 paragraph 4), but didn't ship an *agent whose job is to produce the simplified prompt*. During the dogfood the operator did the simplification by hand.
+
+Operator review of the dogfood proposed three options:
+- A. Three prompt-mutation agents (Expand / Maintain / Shrink) giving the reviewer alternatives
+- B. Just the simplification heuristic that this PR shipped
+- C. Two agents — Director's Brief (existing, elaboration) + a new **Prompt Simplifier** (Shrink counterpart), dispatched in parallel at the operator gate when F11 fires, both prompts surfaced to the operator who picks
+
+**Operator decision: Option C.** Two clean single-responsibility agents; Maintain implicit (the Brief can choose not to grow when it judges that's right); the operator gets a real choice exactly when they need it; no over-engineering until dogfood evidence demands a third agent.
+
+Tracked as issue [#112](https://github.com/SteveGJones/jack-tar-deckhand/issues/112) — explicitly scoped to a follow-up PR (not this PR) to keep the F1/F2/F10/F11 methodology fixes clean and auditable. The Prompt Simplifier will be the first dogfood-driven agent addition to the creative-vision cascade since its founding implementation in PR #107.
