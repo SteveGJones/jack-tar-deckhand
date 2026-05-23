@@ -491,11 +491,41 @@ action = decide_next_action(
 - `accept` → call `finalise_manifest(...)`. Loop ends. Use this image as the final.
 - `refine_at_tier` → increment `per_tier_iteration_count`; loop back to Step A at
   the SAME tier. Carry over any accumulated feedback.
-- `escalate_tier` → set `current_tier = action.next_tier`; reset
-  `per_tier_iteration_count = 0`; loop back to Step A at the new tier.
+- `escalate_tier` → **OPERATOR GATE REQUIRED if and only if** the current tier
+  has `TIER_COSTS[current_tier] == 0` AND `TIER_COSTS[action.next_tier] > 0`
+  (i.e., the escalation crosses the free→cost boundary). See Step H.1 below
+  before proceeding. If the gate passes, set `current_tier = action.next_tier`;
+  reset `per_tier_iteration_count = 0`; loop back to Step A at the new tier.
 - `abort` → call `finalise_manifest(...)` with the best-so-far image. Log the
   reason. Pipeline continues with whatever image was last accepted (or a
   placeholder if no image was accepted).
+
+**Step H.1 — Operator gate at free→cost transition (MANDATORY, issue #105 F10)**
+
+This step is the load-bearing economic checkpoint of the cascade. When `action.kind == "escalate_tier"` AND the boundary being crossed is free→cost (current is Ollama, next is any cloud tier), the loop MUST:
+
+1. Open the most recent free-tier render for the operator:
+   ```bash
+   open <render_output_path>
+   ```
+   (Use `open` on macOS, `xdg-open` on Linux, `start` on Windows. The native viewer pulls the image into the operator's eye, NOT into orchestration context — no `Read` of the PNG inside the orchestrator.)
+
+2. State the prospective cloud spend to the operator. Format:
+   > Free→cost gate. The Ollama draft is at `<path>`. Rendering at `<next_tier>` will cost `$<TIER_COSTS[next_tier]>`. Cumulative slide spend after this render will be `$<cumulative + tier_cost>` of the `$<budget>` envelope. Say "go" to render, or describe what's wrong with the draft and I'll iterate the prompt instead.
+
+3. **Pause the loop.** Do not invoke the cloud render. Wait for an explicit affirmative signal from the operator ("go", "yes", "render", "proceed", "render at <tier>"). Negative or descriptive feedback ("no", "still wrong", "the customer is missing") means the operator wants prompt iteration at the free tier — return to Step A WITH the operator's feedback added to `accumulated_feedback`.
+
+4. **F11 — Simplification offer.** When the cascade has accumulated ≥3 refinement iterations at the same prose version AND the prompt has grown >400 words, ALSO offer the operator a simplified prompt as an alternative at the gate. Heuristic: drop contradictory unifiers, embrace the model's natural framing, ≤200 words. Let the operator pick between the elaborated prompt and the simplified one.
+
+5. Only after explicit operator affirmation do you proceed to set `current_tier = action.next_tier` and dispatch the cloud render in Step C.
+
+**Why this step exists**: during the 2026-05-22 dogfood (issue #105), this gate was skipped three times across the v2/v3/diptych rounds, leading to $0.480 of un-gated Pro 4K spend that was both methodologically wrong (gate-skipping) AND tier-inappropriate (Pro 1K would have sufficed — F9). The gate is the only checkpoint where the operator can apply their own visual judgement before money is spent. The Critic's `escalate_tier` verdict is advisory — it evaluates against the prose, not against operator intent. Skipping the gate turns the cascade from "human-in-the-loop with a free preview" into "agent loop that bills the operator."
+
+**Bypass conditions — narrow:**
+- The cascade is wholly within free tiers (no cost transition — gate does not apply).
+- The operator has explicitly pre-authorised cost up to a stated cap for the session AND `cumulative_cost + tier_cost <= cap`.
+
+Cost-to-cost transitions (e.g., Flash 1K → Pro 1K) do not require this gate — the operator already committed to spending at the first free→cost transition. They MAY still be surfaced as informational ("rendering at Pro 1K will cost an additional $0.067"), but no pause is required.
 
 #### Post-loop integration
 

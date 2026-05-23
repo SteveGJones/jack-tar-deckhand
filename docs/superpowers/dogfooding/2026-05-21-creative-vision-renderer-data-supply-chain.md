@@ -165,3 +165,121 @@ The creative_vision renderer is converging on the same operating envelope every 
 - **style_fidelity** is the persistent laggard at Flash 1K when the operator asks for a specific period aesthetic (1950s cartoon, 1980s film grain, etc.). Escalating to Pro 1K is the documented next step if style matters critically — but for the operator-visible deliverable the Flash 1K image is generally shippable.
 
 Ship the loop. The F1/F2 fixes harden the boundary between Brief and downstream consumers; F3 is a known follow-up patch. No blocker.
+
+---
+
+## Addendum (2026-05-22 → 2026-05-23): operator-driven extension of the same slide
+
+The above section ran to its natural close at $0.067 with a 4-panel cartoon. The operator subsequently reviewed the deliverable and rejected it: *"that is a good cartoon, but it has no flow, I wanted the STYLE of a cartoon, not the 4 panel layout, I wanted to see the FLOWING of the data product."* What followed was an extended cascade across two more prose revisions, a Pro 4K diptych, a methodology rollback, and an operator-driven prompt simplification that finally landed.
+
+### Cascade summary — full slide (14 attempts, $1.016 total)
+
+| Attempt | Prose | Tier | Cost | Cumulative | Outcome |
+|---|---|---|---|---|---|
+| 1 | v1 (4-panel cartoon) | ollama | $0.00 | $0.000 | refine — sports cars missing, no signpost, modern-flat style |
+| 2 | v1 (callouts added) | ollama | $0.00 | $0.000 | refine — style regressed; escalate_tier |
+| 3 | v1 | flash_1k | $0.067 | $0.067 | original accept; operator later rejected "not flowing" |
+| 4 | v2 (cinematic panorama) | ollama | $0.00 | $0.067 | refine — 4-panel grid despite "NO panels" |
+| 5 | v2 (cinematographic rewrites) | flash_1k | $0.067 | $0.134 | refine — still 4-panel grid even with shouted negatives |
+| 6 | v2 (architectural-continuity) | pro_1k | $0.134 | $0.268 | Critic abort, gap=prose; Haiku said continuity worked |
+| 7 | v3 (customer×3 bookend) | ollama | $0.00 | $0.268 | refine — zone 5 absent at Ollama |
+| 8 | v3 | pro_1k | $0.134 | $0.402 | reviewers said zone 5 absent; operator-override: zone 5 was actually in the foreground (F6 reviewer blindspot) |
+| 9 | v3 → diptych Frame A | pro_4k | $0.240 | $0.642 | accept (operator initial approval — then withdrawn for methodology audit) |
+| 10 | v3 → diptych Frame B | pro_4k | $0.240 | $0.882 | accept (same) |
+| 11 | v3 (diptych Frame A v4 rewrites) | ollama | $0.00 | $0.882 | refine — "still one office, not three scenes" — camera-as-unifier rewrite failed |
+| 12 | v3 (cinematic montage v1) | ollama | $0.00 | $0.882 | refine — 9-panel grid; "montage" interpreted as comic territory |
+| 13 | v3 (**operator-simplified prompt**) | ollama | $0.00 | $0.882 | **pass** — 5 scenes clearly distinguishable; gate passed |
+| 14 | v3 (same simplified) | **pro_1k** | $0.134 | **$1.016** | **OPERATOR FINAL ACCEPT** |
+
+**Final image**: `tmp/creative-vision-dogfood/deck/creative-vision/2/runs/21-montage-simplified-pro-1k.png` — a 5-panel cinematic montage at Pro 1K with chyrons `SALES` / `FINANCE` / `CUSTOMER STATUS` / `DISTRIBUTION` / `FULFILLMENT FAILURE`; data-product (napkin → typed invoice) visibly traceable across panels; customer character (salt-and-pepper hair, tortoiseshell glasses) recognisable across his three appearances (bar / confused with invoice / shouting on phone at dusk).
+
+**Pro 4K diptych** (`09-frame-a-pro-4k.png` + `10-frame-b-pro-4k.png`, $0.480) was rolled back from `final` per operator decision — the artefacts remain in the runs/ directory as audit evidence of the methodology gap.
+
+### Findings — added to the F-list
+
+#### F6 — Reviewer blindspot on foreground-placed elements (NEW)
+
+Both reviewers reported "zone 5 absent" on the Pro 1K v3 render. The operator immediately saw that the zone 5 customer-on-phone-shouting *was* present — but in the foreground, not at the right edge as the prompt requested. The reviewers' "absent" verdict was actually a positional misread: they expected zone 5 at the right edge and didn't recognise it when it appeared centre-foreground.
+
+**Proposed fix (deferred)**: image-reviewer and Director's Critic agent definitions should be updated to scan for prompted entities anywhere in the frame, not just the prompted spatial slot. The "where is X?" check should be a presence check first, position check second.
+
+#### F7 — Critic verdict-coherence violation (was F3, retained)
+
+Already captured — Critic returning `pass` with `style_fidelity: 72` on the v1 final. Fix proposed: add semantic validation to `critic.parse_critic_output` paralleling F1.
+
+#### F8 — Diptych pivot as a strategic cascade move (NEW)
+
+When a single-image composition has reached its model-capability ceiling for a multi-zone narrative, *splitting per-image complexity in half via a deliberate diptych* (zones 1-3 in Frame A, zones 4-5 in Frame B) is a viable cascade pattern beyond single-image refinement. Each frame has fewer zones → character consistency holds → composition can breathe. The diptych itself can mirror a before/after narrative (order placed / order failed) in a meaningful way.
+
+This is a documented strategic move for future complex-narrative dogfoods. Note: it did NOT solve the data-supply-chain composition (the operator subsequently rejected the diptych framing in favour of a 5-panel montage), but it is a valid tool when the multi-zone problem dominates.
+
+#### F9 — Tier overspend symptom (NEW — closed in this PR via rollback)
+
+The Pro 4K diptych ($0.480) was conservatively over-spent: the Critic recommended either *(b) split into two frames at lower per-image complexity* OR *(c) Pro 4K with refined prompt*, and I conflated them — applied both at once. The diptych structure made each frame simpler; Pro 1K would have sufficed for that complexity (3-zone + 2-zone). Pro 4K was the unbudget-disciplined choice.
+
+The methodology lesson — that lower per-image complexity is the load-bearing lever, not the tier bump — is the takeaway. The Pro 4K diptych was rolled back from `final` per operator decision; the artefacts stay in runs/ as audit evidence.
+
+#### F10 — Skipped operator gate at free→cost transition (NEW — root cause for F9, closed in this PR)
+
+**THE HEADLINE FINDING.** The whole reason Ollama exists in the cascade is to give the operator a free preview that they sign off on before any money is spent. During this dogfood, this gate was skipped three times:
+
+1. **v2 cascade**: rendered Ollama v2, sent to Critic, got `escalate_tier`, immediately rendered Flash 1K. Operator never saw the Ollama draft.
+2. **v3 cascade**: skipped Ollama entirely; went straight to Pro 1K. Operator asked to see the Ollama draft AFTER the cloud spend.
+3. **Diptych**: rendered Frame A and Frame B at Pro 4K immediately. No Ollama drafts. No gate.
+
+The Critic's `escalate_tier` verdict is **advisory, not authorisation to spend**. Only the operator can know whether a draft is structurally on-track for what they want; the Critic evaluates against the prose but not against operator intent. Letting the Critic drive cloud spend turns the cascade from "human-in-the-loop with a free preview" into "agent loop that bills the operator."
+
+The methodology fix is landed in this PR:
+- `CLAUDE.md` — new MANDATORY section "Operator gate at every free→cost cascade transition (issue #105, F10)"
+- `plugins/jack-tar-deckhand/skills/imagegen-bridge/SKILL.md` — new Step H.1 enforcing the gate at the cascade boundary; cost-to-cost transitions exempt; bypass conditions explicit and narrow
+- `plugins/jack-tar-deckhand/agents/prompt-reviewer.md` — paired enhancement (see F11)
+
+After the gate was reinstated, the cascade caught three consecutive structural prompt failures at the free tier before any cloud spend: one-room fusion (attempt 11), 9-panel-grid (attempt 12), and finally the operator-driven simplification breakthrough (attempt 13). Those three free Ollama renders saved ~$0.40 of cloud spend that would have demonstrated the same failures at higher resolution.
+
+#### F11 — Prompt simplification when fighting model bias (NEW — methodology insight closed in this PR)
+
+After 10+ prompt iterations from me (each more elaborate than the last, growing to ~1,100 words for the montage attempt, with stacking negative directives like "NO panels", "NO grid", "NOT a storyboard"), the operator rewrote the prompt as a six-line description that simply embraced the 5-panel structure rather than fighting it:
+
+```
+A 16:9 ultra-widescreen 5-panel image, 1980s Wall Street cinematic style, 35mm film grain. Top neon chyrons read: SALES, FINANCE, CUSTOMER STATUS, DISTRIBUTION, FULFILLMENT FAILURE.
+Panel 1: Neon bar, older customer drinking, young rep writing on napkin.
+Panel 2: Cyan office, rep handing napkin to female worker.
+Panel 3: Amber office, customer looking confused at invoice.
+Panel 4: Night loading dock, lost truck driver pointing at blank signpost.
+Panel 5: Dusk office, customer furious on phone, crumpling invoice.
+```
+
+This prompt landed what my 1,100-word elaboration could not.
+
+**The methodology insight**: when prompt iteration N has elaborated to address Critic feedback and composition is still failing, the right move can be to *shorten and simplify* the prompt, not add more directives. The Prompt Reviewer currently only checks "does the prompt have enough?" — entity coverage, style cues, density. It does NOT check "does the prompt have too much?" or "is the prompt fighting a model bias by stacking negative directives?"
+
+The methodology fix is landed in this PR:
+- `plugins/jack-tar-deckhand/agents/prompt-reviewer.md` — new check 5 "Over-elaboration / fighting-the-model bias check (F11)" with concrete signals: >400 words AND same failing axis as two iterations ago; stacking negative directives; internal contradictions; word-count growing without verdict change.
+- `plugins/jack-tar-deckhand/skills/imagegen-bridge/SKILL.md` Step H.1 paragraph 4 — at every operator gate, when the elaborated prompt has hit the over-elaboration heuristic, offer the operator a simplified prompt as an alternative.
+- `CLAUDE.md` — new MANDATORY section "Prompt simplification check on stalled cascades (issue #105, F11)" — heuristic + counter-move documented.
+
+This is paired with F10: the operator gate is where simplification offers naturally surface, because the operator is the one with the visual taste to choose between elaborated and simplified.
+
+### Other narrative observations from this addendum
+
+- **Chyron rename**: the operator's six-line prompt used `SALES` / `FINANCE` / `CUSTOMER STATUS` / `DISTRIBUTION` / `FULFILLMENT FAILURE` as the chyron labels — describing the *data state* at each panel rather than just the organisational function. This was sharper than my `SALES` / `FINANCE` / `CUSTOMER` / `SUPPLY CHAIN` and is worth carrying forward in future supply-chain visualisations.
+- **The customer emotional arc** (relaxed at bar → confused with invoice → furious on phone) makes the failure feel *earned*. The middle "a bit confused" beat was operator-introduced and is what gives the narrative its hinge. Useful for similar 5-step narrative compositions.
+- **Cinematic montage vs split-screen vs panorama vs grid** — the operator's final-accepted framing was a 5-panel image (effectively a stylised grid) that they explicitly endorsed because the photoreal Wall Street treatment and the data-product traceability across panels did the cinematic work that "single panorama" couldn't. Sometimes the model's natural framing IS the right framing — fighting it is the failure mode.
+
+### Methodology artefacts shipped in this PR
+
+| Artefact | Purpose | Tied to |
+|---|---|---|
+| `CLAUDE.md` — Operator gate MANDATORY section | Bind orchestrator behaviour at free→cost boundary | F10 |
+| `CLAUDE.md` — Prompt simplification MANDATORY section | Heuristic for over-elaboration; pair with operator gate | F11 |
+| `plugins/jack-tar-deckhand/skills/imagegen-bridge/SKILL.md` — Step H.1 | Concrete enforcement of operator gate + simplification offer | F10 + F11 |
+| `plugins/jack-tar-deckhand/agents/prompt-reviewer.md` — Check 5 | Prompt Reviewer raises `over_elaboration` issue when signals fire | F11 |
+| `tmp/creative-vision-dogfood/deck/creative-vision/2/manifest.json` | Full audit trail of 14 attempts, finalised on Pro 1K montage | All |
+| This addendum | Methodology learning | F6 / F8 / F9 / F10 / F11 |
+
+### Status
+
+**Slide deliverable**: `runs/21-montage-simplified-pro-1k.png` accepted by operator 2026-05-23.
+**Total slide spend**: $1.016 of $1.50 envelope ($0.484 remaining).
+**Tests**: 300/300 passing (1 skipped) — unchanged from pre-addendum baseline; the F10 + F11 fixes are in CLAUDE.md / SKILL.md / agent definitions (no new code tests required).
+**PR**: #107 — methodology fixes land alongside the manifest finalisation.

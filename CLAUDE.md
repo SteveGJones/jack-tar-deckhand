@@ -50,6 +50,51 @@ The `PreToolUse` hook governs the **orchestration session only**. It does **not*
 
 `image-reviewer` and `general-purpose` agents are themselves exempt — giving them the image IS the dispatch's purpose. Orchestrators reviewing PRs should verify that delegated implementation prompts include the inline rule when image handling is in scope.
 
+## MANDATORY: Operator gate at every free→cost cascade transition (issue #105, F10)
+
+**Whenever a cascade is about to cross from a free tier (Ollama, $0) to any paid cloud tier (Flash/Pro/Recraft, cost > $0), the orchestrator MUST surface the latest free-tier render to the operator AND pause for explicit go-ahead before invoking any cloud generation.**
+
+This is independent of how the Critic agent voted. The Critic evaluates against the prose; it cannot know whether the result matches the operator's intent. Only the operator can. The Critic returning `escalate_tier` is advisory — not authorisation to spend.
+
+**What the gate looks like:**
+
+1. After every Ollama (or other zero-cost) render, open the resulting image for the operator (`open <path>` on macOS, equivalent elsewhere)
+2. State the prospective cloud spend ("rendering at Pro 1K will cost $0.134", or similar)
+3. **Wait for explicit operator go-ahead** ("go", "yes", "proceed", "render", "render at Pro 1K" — affirmative signal)
+4. Only after explicit affirmation, dispatch the cloud render
+
+**The gate is the load-bearing checkpoint of the cascade economic model.** Skipping it turns a human-in-the-loop pipeline with a free preview into an agent loop that bills the operator. During the 2026-05-22 creative-vision dogfood (issue #105), this gate was skipped THREE times across the v2 / v3 / diptych rounds, leading to $0.480 of un-gated Pro 4K spend that the operator later identified as both methodologically wrong (gate skipped) and tier-inappropriate (Pro 1K would have sufficed — F9).
+
+**The gate also catches prompt failures cheaply.** During the same dogfood, three consecutive Ollama drafts at the gate caught structural prompt failures (one room not three scenes, customer dropping, 9-panel grid) BEFORE any cloud spend, saving ~$0.40 of cloud renders that would have demonstrated the same failures at higher resolution. The free renders are the cheapest possible learning instrument.
+
+**Bypass conditions — narrow:**
+- The cascade is wholly within free tiers (no cost transition).
+- The operator has set explicit budget pre-authorisation in writing for the current session AND the cost is below that authorisation. In all other cases the gate stands.
+
+The orchestration layer that owns this rule is the creative_vision SKILL.md and the imagegen-bridge SKILL.md — see those for the concrete enforcement steps. This CLAUDE.md rule binds the agent's behaviour at the orchestration level regardless of which SKILL.md is driving.
+
+## MANDATORY: Prompt simplification check on stalled cascades (issue #105, F11)
+
+**When prompt iteration N has elaborated the prompt to address Critic feedback and composition is still failing, consider RADICAL SIMPLIFICATION before adding more directives.**
+
+The Prompt Reviewer currently checks "does the prompt have enough?" — entity coverage, style cues, density. It does NOT check "does the prompt have too much?" During the 2026-05-22 dogfood, an elaborated ~1,100-word prompt (camera-as-unifier framing, four-figure roster, fax-machine bridge, atmospheric montage layering) failed to render the intended five-scene composition. The operator rewrote it as a six-line prompt that embraced the model's natural grid bias instead of fighting it — and the simpler prompt landed the deliverable.
+
+**Heuristic — when to suspect over-specification:**
+- Prompt is >400 words AND composition keeps failing
+- Multiple consecutive Critic verdicts cite the same composition axis (the model isn't responding to elaboration)
+- Negative directives are stacking ("NO panels", "NO grid", "NO fused room") — fighting a model bias rather than working with it
+- Each iteration adds words without changing the verdict
+
+**Counter-move:** propose a shortened prompt (≤200 words, ideally ≤100) that:
+- Drops contradictory unifiers (e.g., "shared back wall" + "three rooms")
+- Embraces the model's natural framing (if the model wants to render N panels, name N panels positively)
+- States the scene list as one line each
+- Carries only the most load-bearing entity and style cues
+
+Then surface the simplified prompt to the operator as an alternative before rendering. The reviewer should consider both prompts and the operator decides which to run.
+
+This rule pairs with the operator-gate rule above — at the free→cost boundary, the operator can also be asked "do you want to try a simplified prompt before paying for cloud?"
+
 ## MANDATORY: Model routing for delegated agents
 
 **Spawn `claude-haiku-4-5` for lightweight tasks**: mechanical transforms, quick format checks, simple lookups, boilerplate fills, command line calls and MCP server calls.

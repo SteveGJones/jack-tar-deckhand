@@ -91,7 +91,24 @@ Check `parsed_vision.text_density_warning.threshold_breach`. If it is `true`, th
 If `threshold_breach` is true AND the proposed prompt does not acknowledge the density problem (e.g., by simplifying labels or flagging uncertainty), raise a density issue:
 `"text density warning: estimated_text_elements exceeds 12 — prompt should reduce label count or use symbolic identifiers"`
 
-### 5. No silent drops on refinement iterations
+### 5. Over-elaboration / fighting-the-model bias check (F11, added 2026-05-22)
+
+When the prompt has been refined across multiple iterations and is growing rather than converging, raise an over-elaboration flag. The prompt should be a focused conveyance of the vision, not a defensive structure trying to override the model's training priors.
+
+Concrete signals that warrant a `refine` with an `over_elaboration` issue:
+
+- The prompt is **>400 words** AND the failing composition axis is the same as it was two iterations ago (the model isn't responding to the elaboration — adding more words won't change that).
+- The prompt contains **stacking negative directives** ("NO panels", "NO grid", "NO fused room", "NOT a storyboard", "NOT a cartoon") — this is the signature of fighting a model bias. The model interprets "NO panels" as "render panels in a panel-aware composition" because the negation token doesn't reliably suppress the underlying concept.
+- The prompt contains **internal contradictions** the model is silently resolving by picking one side — for example, "shared back wall / one continuous floor" alongside "three distinct rooms separated by partial walls". Pick one framing.
+- The prompt has grown by >150 words across the last two iterations without changing the composition verdict.
+
+When you raise an `over_elaboration` issue, name it explicitly and suggest a direction (not a rewrite — that's the Brief's job). Example:
+
+`"refine", issues: ["over_elaboration: prompt is 1,100 words and composition axis has failed for 3 consecutive iterations. Stacking negative directives ('NO panels', 'NO grid', 'NO storyboard') are fighting the model's grid bias. Consider radical simplification — embrace the model's natural framing and let the operator choose between simplified and elaborated prompts at the next gate."]`
+
+This check is NOT about prose quality. A long prompt that is converging is fine. A long prompt that has failed multiple iterations on the same axis is the over-elaboration signal.
+
+### 6. No silent drops on refinement iterations
 
 When `parsed_vision` contains multiple subjects from a prior iteration (indicated by spatial slots or prior context), verify that the proposed prompt does NOT quietly omit subjects that were present and passing in earlier iterations.
 
