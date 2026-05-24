@@ -36,3 +36,39 @@ def test_iterate_slide_documents_three_channels():
     assert "creative_vision" in text
     for channel in ("revise prose", "refine prompt", "escalate tier"):
         assert channel in text.lower()
+
+
+def test_strategy_map_documents_per_slide_cost_surface():
+    """Issue #113 AC1 — strategy-map SKILL.md must instruct the dispatcher to
+    invoke summarise_creative_vision_spend BEFORE asking for approval, AND to
+    offer fallback strategies if the operator declines on cost grounds.
+    """
+    text = _load_skill("strategy-map")
+    assert "summarise_creative_vision_spend" in text, (
+        "strategy-map SKILL.md must call summarise_creative_vision_spend to "
+        "produce the per-slide cost surface (#113 AC1)."
+    )
+    assert "AC1" in text or "per-slide cost" in text.lower(), (
+        "strategy-map SKILL.md should name the AC1 cost-surface section so "
+        "future readers can trace it back to issue #113."
+    )
+    text_lower = text.lower()
+    for fallback in ("composed", "backdrop", "full_render"):
+        assert fallback in text_lower, (
+            f"strategy-map SKILL.md must offer {fallback!r} as a fallback "
+            f"when the operator declines creative_vision on cost grounds."
+        )
+
+
+def test_deck_conductor_invokes_per_slide_cost_surface_before_approval():
+    """The conductor agent definition mirrors the SKILL.md instruction so a
+    dedicated deck-conductor session also fires the cost surface at Step 3.5
+    before presenting the strategy map for approval.
+    """
+    text = (PLUGIN_ROOT / "agents" / "deck-conductor.md").read_text()
+    assert "summarise_creative_vision_spend" in text, (
+        "deck-conductor agent definition must reference summarise_creative_vision_spend"
+    )
+    assert "AC1" in text or "per-creative-vision-slide cost surface" in text.lower(), (
+        "deck-conductor must name the AC1 cost-surface step so the rule is auditable"
+    )

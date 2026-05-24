@@ -161,7 +161,24 @@ save_strategy_map('./tmp/deck', strategy_map)
 print(json.dumps(strategy_map, indent=2))
 "
 ```
-2. **ESCALATE:** Present the strategy map to the Speaker. For each slide, show the recommended strategy (full_render, backdrop_render, or composed) with rationale. The Speaker can override any slide's strategy.
+2. **Per-creative-vision-slide cost surface (issue #113 AC1):** before presenting the strategy map to the Speaker, run the creative-vision spend summariser. If the deck contains any `creative_vision` slides, surface a markdown table of per-slide cost bands plus a deck-level totals row:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.creative_vision.cost_estimator import summarise_creative_vision_spend
+from src.slide_prompt_composer import load_strategy_map
+smap = load_strategy_map('./tmp/deck')
+summary = summarise_creative_vision_spend(smap)
+print(summary['summary_markdown'])
+print()
+print(f\"DECK SUMMARY: {summary['slide_count']} creative_vision slide(s); \"
+      f\"projected spend \${summary['total_min_cost_usd']:.2f} - \${summary['total_max_cost_usd']:.2f}; \"
+      f\"expected {summary['total_gate_band'][0]}-{summary['total_gate_band'][1]} operator gates.\")
+"
+```
+
+If the Speaker declines on cost grounds, the strategy-map SKILL.md offers fallback strategies (composed / backdrop / full_render) — rebuild with overrides and re-surface the cost summary. Continue until the Speaker confirms.
+3. **ESCALATE:** Present the strategy map to the Speaker. For each slide, show the recommended strategy (full_render, backdrop_render, or composed) with rationale. The Speaker can override any slide's strategy.
 3. If the Speaker provides overrides, rebuild:
 ```bash
 PYTHONPATH="$PLUGIN_ROOT" python3 -c "

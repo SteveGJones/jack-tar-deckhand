@@ -76,9 +76,44 @@ Present the strategy map as a table:
 | 4 | diagram | composed | Precise labels require programmatic rendering |
 | 5 | content | backdrop | Rich scene with vision-detected text placement |
 
+### Creative vision spend surface (#113 AC1) — MANDATORY before asking for approval
+
+If the strategy map contains ANY slide with `strategy: creative_vision`, run the per-slide cost summariser BEFORE presenting the approval table. The operator sees explicit per-slide cost bands plus a deck-level totals row:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.creative_vision.cost_estimator import summarise_creative_vision_spend
+from src.slide_prompt_composer import load_strategy_map
+import json
+smap = load_strategy_map('./tmp/deck')
+summary = summarise_creative_vision_spend(smap)
+print(summary['summary_markdown'])
+print()
+print(f\"DECK SUMMARY: {summary['slide_count']} creative_vision slide(s); \"
+      f\"projected spend \${summary['total_min_cost_usd']:.2f} - \${summary['total_max_cost_usd']:.2f}; \"
+      f\"expected {summary['total_gate_band'][0]}-{summary['total_gate_band'][1]} operator gates.\")
+"
+```
+
+Render the markdown table to the operator, then ask explicitly:
+
+> "These N creative_vision slides will absorb approximately `total_gate_band` operator gates and `$total_min – $total_max` of cloud spend. Confirm or change strategy?"
+
+**If the operator declines on cost grounds**, offer fallback strategies for the over-budget slides:
+
+- **composed** — no AI image cost; standard PptxGenJS assembly. Use when the slide content is genuinely about diagrams/charts/code.
+- **backdrop** — AI background + structured text in template zones. Costs ~$0.067-$0.20 per slide via the standard render funnel (no per-iteration gate).
+- **full_render** — single AI hero image with programmatic title overlay. Costs ~$0.067-$0.24 per slide.
+
+Re-run `build_strategy_map` with the operator's per-slide overrides; the cost summary is recomputed against the new map. Continue until the operator approves.
+
+Cost summary is also informative when the operator wants to validate the proposed `allowed_ceiling` for each slide — lowering a slide from `pro_4k` to `pro_1k` typically drops the worst-case spend from ~$1.50 to ~$0.40 per slide without meaningfully reducing the typical operator-gate count.
+
+### General overrides
+
 Ask: "Would you like to override any slide strategies?"
 
-If overrides are provided, rebuild with the overrides dict and save again.
+If overrides are provided, rebuild with the overrides dict and save again. If any creative_vision slides were added, removed, or rebased to a different ceiling by the overrides, RE-RUN the creative vision spend surface above before final approval.
 
 ## Strategy Selection Guidance
 
