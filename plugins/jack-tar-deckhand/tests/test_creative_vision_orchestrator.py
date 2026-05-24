@@ -344,3 +344,55 @@ def test_gate_raises_keyerror_for_unknown_tier():
             next_tier="ollama",
             tier_costs=_TEST_TIER_COSTS,
         )
+
+
+# --- defensive edge cases on strategy argument ---
+
+
+@pytest.mark.parametrize("bad_strategy", [None, "", "creativ_vision", "CREATIVE_VISION"])
+def test_gate_unknown_or_misspelled_strategy_falls_through_to_f10(bad_strategy):
+    """A strategy value that isn't the exact literal "creative_vision" gets
+    the F10 default cadence (free→cost only). The strategy-map schema
+    rejects misspelled / case-wrong strategy values at save time, so this
+    code path is only reachable when the helper is called outside the
+    normal flow — but the defensive behaviour is to fall through to F10
+    rather than silently break gate firing or apply F12.
+
+    Cost-to-cost transition with unknown strategy → False (F10 doesn't fire).
+    Free→cost transition with unknown strategy → True (F10 fires; budget
+    protection is the conservative default).
+    """
+    assert should_fire_operator_gate(
+        strategy=bad_strategy,
+        current_tier="flash_1k",
+        next_tier="pro_1k",
+        tier_costs=_TEST_TIER_COSTS,
+    ) is False
+    assert should_fire_operator_gate(
+        strategy=bad_strategy,
+        current_tier="ollama",
+        next_tier="flash_1k",
+        tier_costs=_TEST_TIER_COSTS,
+    ) is True
+
+
+def test_gate_strategy_match_is_case_sensitive():
+    """``"creative_vision"`` matches F12 cadence. ``"Creative_Vision"`` does
+    not. This is intentional — the schema enum is lowercase only and
+    forgiving casing here would mask schema violations elsewhere.
+
+    The cost-to-cost transition is the discriminator: F12 fires it, F10
+    does not.
+    """
+    assert should_fire_operator_gate(
+        strategy="creative_vision",
+        current_tier="flash_1k",
+        next_tier="pro_1k",
+        tier_costs=_TEST_TIER_COSTS,
+    ) is True
+    assert should_fire_operator_gate(
+        strategy="Creative_Vision",
+        current_tier="flash_1k",
+        next_tier="pro_1k",
+        tier_costs=_TEST_TIER_COSTS,
+    ) is False
