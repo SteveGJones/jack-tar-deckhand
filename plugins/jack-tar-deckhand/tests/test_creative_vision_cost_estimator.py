@@ -283,3 +283,114 @@ def test_format_spend_summary_markdown_empty_entries():
         total_gate_band=(0, 0),
     )
     assert "No creative_vision slides" in md
+
+
+def test_summarise_honours_per_slide_iteration_caps_override():
+    """The strategy_map schema allows ``creative_vision.iteration_caps_override``
+    per slide — slides may e.g. cap flash_1k to 1 iteration to keep the budget
+    envelope tight. The summariser must reflect that or the operator sees an
+    inflated worst-case at strategy approval.
+
+    Pin the behaviour on the simplest ladder (flash_1k ceiling = ollama +
+    flash_1k only). Default caps would give max = 5*0 + 3*0.067 = 0.201;
+    override flash_1k to 1 iteration → max = 5*0 + 1*0.067 = 0.067.
+    """
+    smap = _strategy_map_with_slides([
+        {
+            "slide_number": 1,
+            "strategy": "creative_vision",
+            "creative_vision": {
+                "vision_prose": "x",
+                "allowed_ceiling": "flash_1k",
+                "iteration_caps_override": {"flash_1k": 1},
+            },
+        },
+    ])
+    summary = summarise_creative_vision_spend(smap)
+    band = summary["entries"][0]
+    # Override binds: max = 5*0 (ollama) + 1*0.067 (flash_1k) = 0.067
+    assert band["max_cost_usd"] == pytest.approx(0.067, abs=0.001)
+    # Without override the same ladder would cost 3*0.067 = 0.201.
+    # Confirms the override actually reduced the bound.
+    assert band["max_cost_usd"] < 0.100
+
+
+def test_summarise_partial_override_keeps_unspecified_tier_caps():
+    """A partial override (only some tiers specified) must leave the
+    unspecified tiers at their defaults. The cost estimator's iteration_caps
+    is the union of deck defaults + slide override, with slide override
+    winning on collision.
+
+    Pin: ceiling pro_1k, override only flash_1k=1. Other tiers (flash_2k=3,
+    flash_4k=3, pro_1k=2) keep defaults.
+
+    max = 5*0 + 1*0.067 + 3*0.101 + 3*0.151 + 2*0.134
+        = 0.067 + 0.303 + 0.453 + 0.268 = 1.091
+    """
+    smap = _strategy_map_with_slides([
+        {
+            "slide_number": 1,
+            "strategy": "creative_vision",
+            "creative_vision": {
+                "vision_prose": "x",
+                "allowed_ceiling": "pro_1k",
+                "iteration_caps_override": {"flash_1k": 1},
+            },
+        },
+    ])
+    summary = summarise_creative_vision_spend(smap)
+    expected_max = 1 * 0.067 + 3 * 0.101 + 3 * 0.151 + 2 * 0.134
+    assert summary["entries"][0]["max_cost_usd"] == pytest.approx(
+        round(expected_max, 3), abs=0.002
+    )
+
+
+def test_summarise_per_slide_override_does_not_leak_between_slides():
+    """A slide's iteration_caps_override must NOT affect other slides in the
+    deck. Slide A sets a tight override; slide B uses the deck defaults.
+    """
+    smap = _strategy_map_with_slides([
+        {
+            "slide_number": 1,
+            "strategy": "creative_vision",
+            "creative_vision": {
+                "vision_prose": "x",
+                "allowed_ceiling": "flash_1k",
+                "iteration_caps_override": {"flash_1k": 1},
+            },
+        },
+        {
+            "slide_number": 2,
+            "strategy": "creative_vision",
+            "creative_vision": {
+                "vision_prose": "y",
+                "allowed_ceiling": "flash_1k",
+            },
+        },
+    ])
+    summary = summarise_creative_vision_spend(smap)
+    slide_1_max = next(e for e in summary["entries"] if e["slide_number"] == 1)["max_cost_usd"]
+    slide_2_max = next(e for e in summary["entries"] if e["slide_number"] == 2)["max_cost_usd"]
+    # Slide 1: flash_1k capped to 1 iteration → max 0.067
+    assert slide_1_max == pytest.approx(0.067, abs=0.001)
+    # Slide 2: deck default 3 iterations → max 0.201
+    assert slide_2_max == pytest.approx(0.201, abs=0.001)
+
+
+def test_summarise_null_iteration_caps_override_treated_as_empty():
+    """Schema permits ``iteration_caps_override: null``. Must be treated
+    identically to omitting the field — slides degenerate to deck defaults."""
+    smap = _strategy_map_with_slides([
+        {
+            "slide_number": 1,
+            "strategy": "creative_vision",
+            "creative_vision": {
+                "vision_prose": "x",
+                "allowed_ceiling": "flash_1k",
+                "iteration_caps_override": None,
+            },
+        },
+    ])
+    summary = summarise_creative_vision_spend(smap)
+    # Behaves identically to a slide with no override field at all
+    assert summary["entries"][0]["max_cost_usd"] == pytest.approx(0.201, abs=0.001)

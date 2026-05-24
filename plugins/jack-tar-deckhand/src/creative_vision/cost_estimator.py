@@ -170,11 +170,19 @@ def summarise_creative_vision_spend(
         cv_config = slide.get("creative_vision", {})
         allowed_ceiling = cv_config.get("allowed_ceiling", "pro_4k")
         slide_brand_fidelity = slide.get("brand_fidelity", default_brand_fidelity)
+
+        # Per-slide iteration_caps_override (strategy_map.schema.json) layers
+        # on top of the deck-level caps. Slides may e.g. cap pro_1k to 1
+        # iteration to keep the budget envelope tight, and the cost surface
+        # must reflect that or the operator sees an overestimate at approval.
+        slide_caps_override = cv_config.get("iteration_caps_override") or {}
+        slide_caps = {**caps, **slide_caps_override}
+
         band = estimate_creative_vision_slide_cost(
             allowed_ceiling=allowed_ceiling,
             brand_fidelity=slide_brand_fidelity,
             cost_table=costs,
-            iteration_caps=caps,
+            iteration_caps=slide_caps,
         )
         entries.append({"slide_number": slide["slide_number"], **band})
         total_min += band["min_cost_usd"]
