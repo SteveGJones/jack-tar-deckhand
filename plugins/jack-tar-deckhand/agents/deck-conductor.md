@@ -194,6 +194,13 @@ Invoke the imagegen-bridge skill. In **draft phase**, it uses Ollama (free) or c
 
 For slides with strategy `full_render` or `backdrop_render` in the strategy map, the imagegen-bridge uses the three-stage render funnel (Ollama draft → cloud low-tier 720p → cloud full-tier 2K+). For `composed` slides, it uses the standard routing matrix.
 
+**Operator gate rule (issue #105 F10 + issue #113 AC3 / F12):** the imagegen-bridge MUST pause for explicit operator authorisation at the appropriate cadence per slide strategy. Two cadences apply:
+
+- **Non-creative_vision strategies (composed, backdrop, full_render, background, pragmatic_composition, academic_figure):** the **free→cost** gate from F10 — fire only when the next render crosses from a zero-cost tier (Ollama) to a paid cloud tier. Cost-to-cost transitions proceed without pausing.
+- **creative_vision strategy:** the **elevated F12 cadence** — fire on EVERY iteration regardless of tier or cost, including same-tier refinement and same-cost cloud transitions. The image IS the slide's deliverable; only operator acceptance closes a creative_vision slide. The image-reviewer and Director's Critic verdicts are advisory.
+
+This rule is enforced inside imagegen-bridge (SKILL.md Step H.1 for the creative_vision branch; Step 7 review-and-refine loop for other strategies). The orchestrator helper `src.creative_vision.orchestrator.should_fire_operator_gate(strategy=, current_tier=, next_tier=)` is the single canonical predicate — both human reviewers and tests should look there, not at the SKILL.md prose, when asking "should this iteration pause?"
+
 Before invoking, check budget state:
 ```bash
 PYTHONPATH="$PLUGIN_ROOT" python3 -c "
@@ -402,3 +409,5 @@ print(tracker.cost_summary_markdown())
 - **Never** act on Presentation Reviewer feedback without Speaker decision
 - **Never** exceed 2 QA correction cycles without escalating
 - **Never** regenerate an image for a `backdrop` or `pragmatic_composition` slide without re-running vision alignment (imagegen-bridge Step 9.5)
+- **Never** auto-render a `creative_vision` slide at any tier — every iteration must fire the operator gate per F12 elevated cadence (see `should_fire_operator_gate` in `src/creative_vision/orchestrator.py`)
+- **Never** treat the Director's Critic `escalate_tier` verdict as authorisation to spend — the verdict is advisory; the operator's `go` at the gate is authorisation

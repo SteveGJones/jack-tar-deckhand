@@ -56,3 +56,24 @@ def test_directors_critic_agent_exists_and_has_required_sections():
         assert axis in content
     for verdict in ("pass", "refine_at_tier", "escalate_tier", "abort"):
         assert verdict in content
+
+
+def test_deck_conductor_references_creative_vision_operator_gate():
+    """Issue #113 AC3 — the deck-conductor agent definition must reference the
+    F12 elevated cadence so a fresh orchestrator session knows that
+    creative_vision slides fire the gate at EVERY iteration, not just at
+    free→cost.
+    """
+    content = _load_agent("deck-conductor")
+    assert "creative_vision" in content, (
+        "deck-conductor should name the creative_vision strategy where its gate cadence differs"
+    )
+    assert "F12" in content or "elevated cadence" in content.lower() or "every iteration" in content.lower(), (
+        "deck-conductor should describe the F12 elevated-cadence rule for creative_vision"
+    )
+    assert "should_fire_operator_gate" in content, (
+        "deck-conductor should cite the canonical predicate helper rather than rely on prose"
+    )
+    assert "advisory" in content.lower() or "not authorisation" in content.lower(), (
+        "deck-conductor should remind that Critic verdicts are advisory, not spend authorisation"
+    )
