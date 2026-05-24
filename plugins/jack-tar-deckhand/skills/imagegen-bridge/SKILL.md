@@ -521,6 +521,10 @@ This step is the load-bearing economic checkpoint of the cascade. When `action.k
 
 **Why this step exists**: during the 2026-05-22 dogfood (issue #105), this gate was skipped three times across the v2/v3/diptych rounds, leading to $0.480 of un-gated Pro 4K spend that was both methodologically wrong (gate-skipping) AND tier-inappropriate (Pro 1K would have sufficed — F9). The gate is the only checkpoint where the operator can apply their own visual judgement before money is spent. The Critic's `escalate_tier` verdict is advisory — it evaluates against the prose, not against operator intent. Skipping the gate turns the cascade from "human-in-the-loop with a free preview" into "agent loop that bills the operator."
 
+**Creative_vision elevated gate cadence (F12, issue #113 GA-blocker)**: when the slide's strategy is `creative_vision`, the gate fires at EVERY iteration regardless of cost transition — not just at free→cost. The operator MUST see every render of a creative_vision image, including iterations at the same cost tier (e.g., Flash 1K → Flash 1K, Pro 1K → Pro 1K), because the image IS the slide's deliverable and only the operator can judge whether each render matches the creative intent. The image-reviewer + Director's Critic verdicts are advisory; only operator acceptance closes a creative_vision slide. This elevated cadence does NOT apply to standard composed / backdrop / full_render strategies — for those, the standard free→cost gate is sufficient.
+
+The deck-conductor will further refine this in issue #113 by introducing a pre-deck creative_vision sprint phase, per-slide cost estimates surfaced at strategy approval, and deck-level creative anchors for cross-slide character/style consistency. Until that ships, creative_vision is not GA — but the per-iteration gate is in force now as the minimum interim methodology guard.
+
 **Bypass conditions — narrow:**
 - The cascade is wholly within free tiers (no cost transition — gate does not apply).
 - The operator has explicitly pre-authorised cost up to a stated cap for the session AND `cumulative_cost + tier_cost <= cap`.
