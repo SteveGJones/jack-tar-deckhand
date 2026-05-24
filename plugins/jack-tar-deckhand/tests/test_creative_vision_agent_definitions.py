@@ -77,3 +77,35 @@ def test_deck_conductor_references_creative_vision_operator_gate():
     assert "advisory" in content.lower() or "not authorisation" in content.lower(), (
         "deck-conductor should remind that Critic verdicts are advisory, not spend authorisation"
     )
+
+
+def test_deck_conductor_has_creative_sprint_phase():
+    """Issue #113 AC2 — the deck-conductor flow must introduce a Creative
+    Sprint phase that runs ALL creative_vision slides to operator acceptance
+    BEFORE composed-slide assembly. The prose must reference the sprint
+    helpers, the resumability property, and the AC2 issue."""
+    content = _load_agent("deck-conductor")
+    assert "Creative Sprint" in content, (
+        "deck-conductor must name the 'Creative Sprint' phase explicitly"
+    )
+    assert "is_sprint_complete" in content, (
+        "deck-conductor must cite the is_sprint_complete guard"
+    )
+    assert "creative_sprint_progress" in content, (
+        "deck-conductor must cite creative_sprint_progress for the operator surface"
+    )
+    assert "AC2" in content or "issue #113" in content, (
+        "deck-conductor should anchor the sprint phase to issue #113 / AC2"
+    )
+    # Phase ordering rule must be explicit
+    content_lower = content.lower()
+    assert "before" in content_lower and (
+        "composed" in content_lower or "standard-slide" in content_lower
+    ), (
+        "deck-conductor must state that the sprint completes BEFORE composed/standard-slide work"
+    )
+    # Prohibited-Actions guard
+    assert "never" in content_lower and "interleave" in content_lower, (
+        "deck-conductor Prohibited Actions must forbid interleaving creative_vision "
+        "and standard slides"
+    )

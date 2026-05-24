@@ -205,6 +205,59 @@ Invoke the speaker-notes-writer skill. It gathers 3 lightweight preferences from
 
 If the TalkBrief provides `preferences.speaker_notes_path`, the writer imports and enriches external notes instead of generating. The writer handles this internally — no conductor logic change needed. Slides without external notes are generated as normal.
 
+### Step 4.5: Creative Sprint Phase (issue #113 AC2)
+
+**MANDATORY when the strategy map contains any `creative_vision` slide.** Before any composed / backdrop / full_render slide is touched, the conductor runs ALL `creative_vision` slides to operator acceptance. Standard-slide assembly is BLOCKED until the sprint completes.
+
+**Why this phase exists**: per F12 (issue #113), creative_vision review is image-level not slide-level — every iteration needs an operator gate, and slides absorb 3-7 operator-gate touchpoints each. Interleaving creative_vision with composed-slide assembly forces the operator to context-switch between slow, high-touch review (creative_vision) and fast, low-touch review (standard slides). Empirically (per the data-supply-chain + naval-academy dogfoods), context-switching contaminates both modes. Separation of phases is the methodology fix.
+
+1. Check whether the sprint applies:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.creative_vision.sprint import is_sprint_complete
+from src.slide_prompt_composer import load_strategy_map
+smap = load_strategy_map('./tmp/deck')
+print('skip' if is_sprint_complete('./tmp/deck', smap) else 'run')
+"
+```
+
+If the result is `skip`, the strategy map has no creative_vision slides (the common case) — proceed directly to Step 5. Otherwise enter the sprint loop below.
+
+2. Sprint loop (resumable — re-running this step picks up where the operator left off):
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.creative_vision.sprint import creative_sprint_progress, format_sprint_progress_markdown, next_unaccepted_slide
+from src.slide_prompt_composer import load_strategy_map
+smap = load_strategy_map('./tmp/deck')
+progress = creative_sprint_progress('./tmp/deck', smap)
+print(format_sprint_progress_markdown(progress))
+next_slide = next_unaccepted_slide(progress)
+if next_slide is not None:
+    print(f'NEXT_SLIDE={next_slide}')
+"
+```
+
+Render the progress markdown to the Speaker, then for each `NEXT_SLIDE`:
+
+- Invoke `/jack-tar-deckhand:imagegen-bridge` on that single slide (Step 4.7 Creative Vision Dispatch in the imagegen-bridge SKILL.md owns the per-slide cascade).
+- The cascade dispatches Director's Brief → Prompt Reviewer → Render → image-reviewer → Director's Critic, firing the operator gate at EVERY iteration (F12 elevated cadence — see `should_fire_operator_gate` in `src/creative_vision/orchestrator.py`).
+- When the operator accepts the slide's final image, `finalise_manifest` stamps the per-slide CreativeVisionManifest's `final` field — the next call to `creative_sprint_progress` reads that as `accepted`.
+
+3. Re-run the progress check. Loop until `creative_sprint_progress` reports `complete: true` (or the operator explicitly aborts the sprint to fall back to a standard strategy on the remaining slides, in which case the conductor rewrites the strategy map and re-enters Step 3.5).
+
+4. Log completion:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.conductor import log_speaker_approval
+log_speaker_approval('./tmp/deck', 'creative_sprint_complete', 'All creative_vision slides accepted by Speaker')
+"
+```
+
+5. Proceed to Step 5 (standard image generation) — composed / backdrop / full_render slides only. The `imagegen-bridge` will skip any slide already accepted at the sprint phase (status `generated` in the ImageManifest takes precedence over re-rendering).
+
 ### Step 5: Image Generation — `/jack-tar-deckhand:imagegen-bridge`
 
 Invoke the imagegen-bridge skill. In **draft phase**, it uses Ollama (free) or cloud at reduced quality. In **production phase**, it renders at full quality.
@@ -428,3 +481,4 @@ print(tracker.cost_summary_markdown())
 - **Never** regenerate an image for a `backdrop` or `pragmatic_composition` slide without re-running vision alignment (imagegen-bridge Step 9.5)
 - **Never** auto-render a `creative_vision` slide at any tier — every iteration must fire the operator gate per F12 elevated cadence (see `should_fire_operator_gate` in `src/creative_vision/orchestrator.py`)
 - **Never** treat the Director's Critic `escalate_tier` verdict as authorisation to spend — the verdict is advisory; the operator's `go` at the gate is authorisation
+- **Never** interleave creative_vision slide work with composed / backdrop / full_render slide work — the Creative Sprint phase (Step 4.5) runs to completion BEFORE standard-slide assembly (#113 AC2)
