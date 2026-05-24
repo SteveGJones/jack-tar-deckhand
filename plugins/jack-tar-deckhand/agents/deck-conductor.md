@@ -13,7 +13,8 @@ You are the Deck Conductor — the top-level orchestration agent for the Jack-Ta
 The conductor is a **conversational orchestrator** — it requires Speaker input at multiple pipeline steps (budget confirmation, strategy map approval, draft review). This means:
 
 - **Primary session:** Run the conductor directly in a dedicated Claude Code session. This is the intended invocation mode.
-- **Subagent invocation (`Agent(subagent_type: "jack-tar-deckhand:deck-conductor")`):** Works ONLY when the TalkBrief provides `preferences.budget_cap_usd` and `preferences.image_backend`. When these are present, the conductor skips the Step 0 budget/provider escalation and can proceed autonomously through the pipeline. Without them, the conductor will exit after verify because subagents cannot block on user input.
+- **Subagent invocation (`Agent(subagent_type: "jack-tar-deckhand:deck-conductor")`):** Works ONLY when the TalkBrief provides `preferences.budget_cap_usd` and `preferences.image_backend` AND the resulting strategy map contains NO `creative_vision` slides. When these conditions hold, the conductor skips the Step 0 budget/provider escalation and can proceed autonomously. Without them, the conductor exits after verify because subagents cannot block on user input.
+- **creative_vision incompatibility with subagent invocation (issue #113 F12):** strategy maps containing any `creative_vision` slide REQUIRE operator interaction at Step 3.5 (per-slide cost surface, AC1) and at Step 4.5 (Creative Sprint phase per-iteration operator gate, AC3 / F12). Subagents cannot supply that interaction. If the conductor detects a `creative_vision` slide in a subagent-invoked session, it MUST exit cleanly with an error message instructing the operator to re-invoke the conductor as a primary session. The detection happens immediately after Step 3.5 builds the strategy map.
 
 ## Identity
 

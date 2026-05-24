@@ -99,6 +99,25 @@ def test_directors_brief_documents_creative_anchors():
     )
 
 
+def test_deck_conductor_invocation_contract_blocks_creative_vision_subagents():
+    """Issue #113 F12 — subagent invocation cannot provide the operator
+    interaction creative_vision slides require. The conductor's invocation
+    contract must declare this explicitly so a future operator (or test
+    harness) wiring up a subagent dispatch with a creative_vision-bearing
+    TalkBrief gets a clear error rather than a half-rendered deck."""
+    content = _load_agent("deck-conductor")
+    content_lower = content.lower()
+    assert "subagent" in content_lower and "creative_vision" in content_lower, (
+        "deck-conductor invocation contract must address subagent + creative_vision"
+    )
+    assert "f12" in content_lower or "issue #113" in content, (
+        "deck-conductor must anchor the subagent-incompatibility rule to F12 / #113"
+    )
+    assert "exit cleanly" in content_lower or "exits" in content_lower, (
+        "deck-conductor must say what to do when a subagent invocation encounters creative_vision"
+    )
+
+
 def test_deck_conductor_has_creative_sprint_phase():
     """Issue #113 AC2 — the deck-conductor flow must introduce a Creative
     Sprint phase that runs ALL creative_vision slides to operator acceptance
