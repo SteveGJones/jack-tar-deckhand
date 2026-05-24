@@ -237,3 +237,85 @@ def test_strategy_map_vision_prose_required_inside_block():
     del bad["slides"][0]["creative_vision"]["vision_prose"]
     with pytest.raises(ValidationError):
         validate(instance=bad, schema=_load("strategy_map.schema.json"))
+
+
+# --- iteration_caps_override schema constraints (#113 polish) ----------------
+
+
+def test_strategy_map_iteration_caps_override_accepts_valid_tier_keys():
+    """Valid cascade tier names as keys + positive ints as values pass."""
+    m = _valid_strategy_map_entry_creative_vision()
+    m["slides"][0]["creative_vision"]["iteration_caps_override"] = {
+        "flash_1k": 1,
+        "pro_1k": 2,
+    }
+    validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_iteration_caps_override_accepts_null():
+    """Null is explicitly permitted — schema-level "no override"."""
+    m = _valid_strategy_map_entry_creative_vision()
+    m["slides"][0]["creative_vision"]["iteration_caps_override"] = None
+    validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_iteration_caps_override_accepts_empty_object():
+    """Empty object is permitted — degenerate case, same as null."""
+    m = _valid_strategy_map_entry_creative_vision()
+    m["slides"][0]["creative_vision"]["iteration_caps_override"] = {}
+    validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_iteration_caps_override_rejects_typoed_tier_name():
+    """A typo on a tier name (e.g. 'flsh_1k') is the exact footgun this
+    schema constraint exists to catch — silently ignored, would leave the
+    cap inactive.
+
+    Before this constraint landed, 'flsh_1k' passed schema validation and
+    was silently dropped by the cost estimator (which only reads canonical
+    tier names from the cascade ladder). The propertyNames enum catches it.
+    """
+    m = _valid_strategy_map_entry_creative_vision()
+    m["slides"][0]["creative_vision"]["iteration_caps_override"] = {"flsh_1k": 1}
+    with pytest.raises(ValidationError):
+        validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_iteration_caps_override_rejects_unknown_tier_name():
+    """Any string that isn't a canonical cascade tier name is rejected."""
+    m = _valid_strategy_map_entry_creative_vision()
+    m["slides"][0]["creative_vision"]["iteration_caps_override"] = {
+        "ultra_premium_8k": 1
+    }
+    with pytest.raises(ValidationError):
+        validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_iteration_caps_override_rejects_non_integer_value():
+    """Tier names map to iteration counts — strings, floats, negatives are out."""
+    m = _valid_strategy_map_entry_creative_vision()
+    m["slides"][0]["creative_vision"]["iteration_caps_override"] = {"flash_1k": "3"}
+    with pytest.raises(ValidationError):
+        validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_iteration_caps_override_rejects_zero_iterations():
+    """Iteration cap must be positive — zero means 'never iterate', which
+    is what allowed_ceiling already expresses by ladder truncation."""
+    m = _valid_strategy_map_entry_creative_vision()
+    m["slides"][0]["creative_vision"]["iteration_caps_override"] = {"flash_1k": 0}
+    with pytest.raises(ValidationError):
+        validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_iteration_caps_override_accepts_all_canonical_tiers():
+    """Pin the complete tier name list — if a new tier lands on the cascade
+    (e.g. a hypothetical ultra-pro), the schema must be updated in lockstep."""
+    m = _valid_strategy_map_entry_creative_vision()
+    m["slides"][0]["creative_vision"]["iteration_caps_override"] = {
+        "ollama": 5,
+        "flash_1k": 3, "flash_2k": 3, "flash_4k": 3,
+        "pro_1k": 2, "pro_2k": 2, "pro_4k": 1,
+        "recraft_standard_1k": 3, "recraft_pro_2k": 2, "recraft_pro_4k": 1,
+    }
+    validate(instance=m, schema=_load("strategy_map.schema.json"))
