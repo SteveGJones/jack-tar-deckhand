@@ -146,6 +146,22 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
   - **Sun-phases dogfood COMPLETE**: $0.067 total spend, 3 iters (Ollama ×2 + Flash 1K ×1). Entity 78, spatial 85, style 88, comp 80. Final: `tmp/creative-vision-dogfood/deck/creative-vision/1/runs/03-flash-1k.png`. Log: [`docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer.md`](docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer.md).
   - **F1** (Brief returns non-canonical parsed_vision shape — subjects as plain strings, wrong field names) and **F2** (prompt outside JSON fence at Flash tier) must be fixed before opening the PR. See dogfood log §Findings.
 
+### Current Status (2026-05-23 — creative_vision v1.5.0 tested-but-not-GA in PR #107)
+
+- **PR #107** (`feat/creative-page-renderer`, base `main`) — OPEN, 4 commits, 300/300 tests passing (1 skipped).
+  - `30bbbd5` — F1 (brief schema validation) + F2 (Output Contract anti-patterns)
+  - `b618830` — F10 (operator gate at free→cost) + F11 (prompt simplification heuristic)
+  - `dc3e52c` — Prompt Simplifier architectural decision capture (#112)
+  - `3998273` — Agentic Naval Academy dogfood + F12 (image-level review) + creative_vision per-iteration gate
+- **Three dogfoods complete**:
+  - Sun-phases (slide 1) — $0.067
+  - Data supply chain (slide 2) — $1.016 — multi-scene narrative; F10/F11 surfaced + landed; F1/F2 fixed
+  - Agentic Naval Academy (slide 3) — $0.268 — single-scene composition; F12 surfaced
+- **creative_vision shipped as tested-but-not-GA**. Per operator: NOT GA until the deck-conductor enhancements land.
+- **GA-blocking work**: issue **#113** captures six acceptance criteria — strategy-map per-slide cost surfacing, pre-deck creative_vision sprint phase, per-iteration gate validation tests, deck-level creative anchors file, CLAUDE.md updates, cost-table reconciliation (cloud module vs cascade.py TIER_COSTS disagreed on Pro 2K — $0.134 actual vs $0.193 in table).
+- **Related follow-up**: issue **#112** — Prompt Simplifier agent (F11 implementation). Separate scope; should land before or alongside #113.
+- **Branch strategy for GA work**: new branch `feat/creative-vision-ga` off `feat/creative-page-renderer`. New PR's base is `feat/creative-page-renderer` (not main) so it merges INTO PR #107. Once both PRs merge to main, the combined diff is the full creative_vision v1.5.0 GA release.
+
 ### Data supply chain dogfood (2026-05-22 — COMPLETE)
 
 4-panel 1980s Wall Street-aesthetic storyboard: sales team scrawling orders on cocktail napkin → finance cleaning the napkin into typed paper → customer reading the invoice → supply chain confused at missing delivery address (truck driver peering at signpost). Budget $0.50, ceiling `pro_1k`.
