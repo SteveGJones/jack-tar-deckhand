@@ -72,3 +72,26 @@ def test_deck_conductor_invokes_per_slide_cost_surface_before_approval():
     assert "AC1" in text or "per-creative-vision-slide cost surface" in text.lower(), (
         "deck-conductor must name the AC1 cost-surface step so the rule is auditable"
     )
+
+
+def test_imagegen_bridge_loads_creative_anchors_before_brief():
+    """Issue #113 AC4 — the imagegen-bridge SKILL.md must instruct the
+    dispatcher to load creative anchors and inline them into the Brief
+    input. Without this, the Brief never sees the anchors section even
+    when the deck has one."""
+    text = _load_skill("imagegen-bridge")
+    assert "load_anchors" in text, (
+        "imagegen-bridge must call load_anchors before building the Brief input"
+    )
+    assert "anchors_for_slide" in text, (
+        "imagegen-bridge must filter anchors per slide via anchors_for_slide"
+    )
+    assert "format_anchors_for_brief" in text, (
+        "imagegen-bridge must render the anchors section via format_anchors_for_brief"
+    )
+    assert "anchors_section=" in text, (
+        "imagegen-bridge must pass anchors_section= into build_brief_input"
+    )
+    assert "AC4" in text or "creative_anchors" in text, (
+        "imagegen-bridge should anchor the anchors step to issue #113 / AC4"
+    )

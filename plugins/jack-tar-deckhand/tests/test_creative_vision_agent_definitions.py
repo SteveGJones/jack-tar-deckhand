@@ -79,6 +79,26 @@ def test_deck_conductor_references_creative_vision_operator_gate():
     )
 
 
+def test_directors_brief_documents_creative_anchors():
+    """Issue #113 AC4 — the directors-brief agent definition must document
+    how to consume the optional creative anchors section. Without this, the
+    Brief sees the section but doesn't know what to do with it."""
+    content = _load_agent("directors-brief")
+    assert "creative anchors" in content.lower() or "creative_anchors" in content, (
+        "directors-brief must document the creative anchors input section"
+    )
+    assert "AC4" in content or "issue #113" in content, (
+        "directors-brief should anchor the anchors section to issue #113 / AC4"
+    )
+    content_lower = content.lower()
+    assert "verbatim" in content_lower, (
+        "directors-brief should require anchor descriptions used verbatim"
+    )
+    assert "must not have" in content_lower or "negative_traits" in content, (
+        "directors-brief should describe the negative-traits exclusion mechanism"
+    )
+
+
 def test_deck_conductor_has_creative_sprint_phase():
     """Issue #113 AC2 — the deck-conductor flow must introduce a Creative
     Sprint phase that runs ALL creative_vision slides to operator acceptance

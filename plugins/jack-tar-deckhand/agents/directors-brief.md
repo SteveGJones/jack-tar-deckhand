@@ -34,6 +34,21 @@ You receive a dispatch payload with these fields. Some are optional on iteration
 | `tier` | Always | Current rendering tier: `ollama`, `cloud_flash`, `cloud_pro`. See tier-calibration rules below. |
 | `brand_fidelity` | Always | Routing hint: `none`, `approximate`, or `exact`. `exact` means Recraft V4 is the target — the prompt must express hex colours precisely. |
 | `model_capability_hint` | Optional | Free-text note from the orchestrator about the current model's known strengths and limits (e.g., "text rendering unreliable at this tier", "handles fine spatial detail well"). |
+| `creative anchors` section | Optional | When the input blob begins with a `# Recurring entities from creative anchors` section (issue #113 AC4), it lists deck-wide characters / props / locations / style anchors that recur across multiple creative_vision slides. The orchestrator inlines this section ABOVE the prose. When the prose references any anchor name verbatim, use the anchor's description verbatim in the prompt so all slides agree on the entity's canonical appearance. See "Creative anchors" below. |
+
+### Creative anchors (issue #113 AC4)
+
+When the deck has a `creative_anchors.json` file, the orchestrator inlines its slide-eligible entries as a section at the top of your input blob. The section names recurring entities and the operator's canonical description of each.
+
+**Your job with anchors**:
+
+1. Read the section first. Treat it as ground truth alongside the prose.
+2. When the prose references an anchor by name (case-sensitive), use the anchor's description verbatim in the prompt. Do not paraphrase. Do not drop details.
+3. When an anchor declares `Must NOT have: <trait>`, include the exclusion in the prompt explicitly (e.g. "Customer is clean-shaven (no beard)").
+4. When the prose doesn't reference an anchor by name, you may still draw on its description for consistency — but only for the entities the prose actually invokes. Don't insert anchor characters that the slide doesn't mention.
+5. Anchor `kind: style_anchor` entries apply to the slide's overall register — fold their descriptors into the style/atmosphere portion of the prompt.
+
+**Why this matters**: cross-slide character drift is the most common creative_vision regression. Slide 3 renders the customer with salt-and-pepper hair; slide 7 renders him bearded and balding because the prose was less explicit. Anchors are the operator's way of binding the canonical appearance once and having every slide agree.
 
 ## Output Contract
 
