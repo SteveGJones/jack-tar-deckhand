@@ -42,6 +42,54 @@ Recommended shape for the operator-run dogfood (small, deliberate, exercises the
 }
 ```
 
+## How to run this dogfood (operator-actionable steps)
+
+The flow mirrors the three prior creative_vision dogfoods (sun-phases, data-supply-chain, naval-academy). The new surface this run exercises is multi-slide with shared anchors — the cascade per slide is unchanged from PR #107.
+
+1. **Set up the deck working directory.** Create a fresh deck dir, e.g. `tmp/ga-dogfood-2026-05-24/deck/`. Save the four-slide outline plus the `creative_anchors.json` shown above at the deck root.
+
+2. **Build and approve the strategy map (AC1).** Run the strategy-map step; it builds the map and emits the four-slide table. Then invoke the per-slide cost summariser:
+
+   ```bash
+   PYTHONPATH=plugins/jack-tar-deckhand .venv/bin/python -c "
+   from src.creative_vision.cost_estimator import summarise_creative_vision_spend
+   from src.slide_prompt_composer import load_strategy_map
+   smap = load_strategy_map('tmp/ga-dogfood-2026-05-24/deck')
+   summary = summarise_creative_vision_spend(smap)
+   print(summary['summary_markdown'])
+   print()
+   print(f'DECK: {summary[\"slide_count\"]} creative_vision slides, '
+         f'\${summary[\"total_min_cost_usd\"]:.2f}-\${summary[\"total_max_cost_usd\"]:.2f} '
+         f'projected; {summary[\"total_gate_band\"]} gates expected.')
+   "
+   ```
+
+   Confirm: three creative_vision rows (1, 3, 4); composed slide 2 absent from the table; deck totals row at the bottom. If the surface looks wrong, **stop and flag** — that's an AC1 finding.
+
+3. **Run the Creative Sprint (AC2 + AC3 + AC4).** Per the deck-conductor agent definition Step 4.5, the conductor walks each creative_vision slide in turn. For each slide:
+
+   - The Director's Brief receives the anchors section AT THE TOP of its input blob (AC4) — verify this by inspecting the dispatched prompt before render.
+   - Every iteration of the per-slide cascade fires the operator gate (AC3 / F12) — including same-tier and same-cost transitions. If the gate ever skips, that's an AC3 finding.
+   - Accept each slide when the render matches the operator's vision. Acceptance writes the `final` field on the per-slide CreativeVisionManifest.
+
+4. **Verify composed-slide block (AC2).** Before all three creative_vision slides accept, attempt to render slide 2 (composed). The conductor must refuse — the sprint progress markdown surface must report `BLOCKED`. Once all three accept, the conductor proceeds to slide 2.
+
+5. **Cross-slide anchor verification (AC4).** Open the three accepted images side by side. The Customer's appearance (hair, glasses, blazer) should be plausibly consistent across slides 1, 3, 4. Cinematic register (Period Palette) should hold across all of them. If The Customer wears a beard in any slide, that's an AC4 finding (negative_traits exclusion didn't reach the prompt).
+
+6. **Fill in this log.** Update the Results table with cost / iterations / gates per slide; capture any findings (incl. operator decisions to override defaults — see "Decision points" below).
+
+7. **Approve PR #114.** Once results + findings are filled in, mark the PR as approved.
+
+## Decision points for operator review
+
+These were chosen autonomously during PR construction. Flag any you'd change:
+
+- **AC6 pro_2k cost dropped from $0.193 to $0.134.** Based on the naval-academy dogfood return value. If Google pricing has since shifted, update `_NANO_BANANA_COSTS` in cloud and re-run the reconciliation test.
+- **AC4 anchors schema shape.** `kind` enum is `{character, prop, location, style_anchor}`. `negative_traits` is a flat string array. `appears_in_slides` defaults to deck-wide when absent. If a different shape (e.g., a tree of anchor groups, or a different kind taxonomy) would suit your workflow better, flag it — the schema is fresh and breakage is cheap.
+- **AC2 sprint partitioning is by `strategy: creative_vision` only.** Slides flagged `pending_vision_prose: true` are NOT excluded from the partition — they enter the sprint and the imagegen-bridge skips them with a clear message. Confirm or change.
+- **Plugin version bump.** Per Ralph task spec: "1.5.1 or 1.6.0 (operator decides)". My recommendation: **1.5.1** — this PR is the operational-correctness companion to PR #107's tested-but-not-GA shipment, not a new feature. 1.6.0 would imply a wider semver bump than the change set warrants.
+- **Dogfood validation deck composition.** Three creative_vision + one composed slide with a shared "The Customer" character. If you'd prefer a different validation (e.g., a deck with TWO recurring characters interacting across slides, or one without any composed slide so the sprint is the whole deck), flag it before running.
+
 ## What the operator validates
 
 1. **AC1 cost surface fires BEFORE approval.** Running `/strategy-map` or the deck-conductor's Step 3.5 surfaces the per-slide table with three creative_vision lines + composed slide excluded + deck-level totals. The operator sees the projected `~$0.20-$0.80` envelope and either approves or steps down a slide.
