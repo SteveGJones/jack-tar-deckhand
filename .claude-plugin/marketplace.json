@@ -31,9 +31,9 @@
     },
     {
       "name": "jack-tar-deckhand",
-      "description": "Full presentation pipeline \u2014 brand, style, narrative, images, SmartArt, assembly, QA + academic-figure rendering (optional paperbanana CLI) + /iterate-slide single-slide critique-driven refinement + full_bleed image-is-the-slide strategy + creative vision renderer (#105)",
+      "description": "Full presentation pipeline \u2014 brand, style, narrative, images, SmartArt, assembly, QA + academic-figure rendering (optional paperbanana CLI) + /iterate-slide single-slide critique-driven refinement + full_bleed image-is-the-slide strategy + creative vision renderer (#105) + creative_vision GA: per-slide cost surface, Creative Sprint phase, per-iteration operator gate, deck-level creative anchors (#113)",
       "source": "./plugins/jack-tar-deckhand",
-      "version": "1.5.0"
+      "version": "1.5.1"
     },
     {
       "name": "jack-tar-superpower-bridge",
