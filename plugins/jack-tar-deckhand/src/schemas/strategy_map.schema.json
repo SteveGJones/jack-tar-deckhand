@@ -116,7 +116,19 @@
                 "enum": ["ollama", "flash_1k", "flash_2k", "flash_4k", "pro_1k", "pro_2k", "pro_4k", "recraft_standard_1k", "recraft_pro_2k", "recraft_pro_4k"],
                 "default": "pro_4k"
               },
-              "iteration_caps_override": {"type": ["object", "null"]}
+              "iteration_caps_override": {
+                "type": ["object", "null"],
+                "description": "Optional per-tier iteration cap override for this slide. Keys must be valid cascade tier names; values are positive integers (max iterations at that tier). A typo on the key (e.g. 'flsh_1k') is rejected at schema validation time so the operator can't silently fail to cap a tier.",
+                "propertyNames": {
+                  "enum": [
+                    "ollama",
+                    "flash_1k", "flash_2k", "flash_4k",
+                    "pro_1k", "pro_2k", "pro_4k",
+                    "recraft_standard_1k", "recraft_pro_2k", "recraft_pro_4k"
+                  ]
+                },
+                "additionalProperties": {"type": "integer", "minimum": 1}
+              }
             }
           }
         },

@@ -393,9 +393,33 @@ For each tier, run the following per-tier loop:
 
 **Step A — Director's Brief (generate approved prompt)**
 
-1. Build the brief input via `brief.build_brief_input(...)`.
-2. Dispatch the `directors-brief` agent (Sonnet) with that input.
-3. Parse via `brief.parse_brief_output(response)` → `(parsed_vision, prompt)`.
+1. **Load deck-level creative anchors (issue #113 AC4).** Before building
+   the brief input, check whether the deck has a ``creative_anchors.json``
+   file at the deck root and, if so, pull the eligible anchors for this
+   slide number:
+
+   ```python
+   from src.creative_vision.anchors import (
+       load_anchors,
+       anchors_for_slide,
+       format_anchors_for_brief,
+   )
+   anchors_doc = load_anchors(req.deck_dir)  # None if no file
+   anchors_section = ""
+   if anchors_doc is not None:
+       eligible = anchors_for_slide(anchors_doc, req.slide_number)
+       anchors_section = format_anchors_for_brief(
+           eligible, deck_brief=anchors_doc.get("deck_brief")
+       )
+   ```
+
+   When ``creative_anchors.json`` is absent (the common case for single-slide
+   decks), ``anchors_section`` stays empty and the Brief input is shaped
+   exactly as it was pre-AC4.
+
+2. Build the brief input via ``brief.build_brief_input(..., anchors_section=anchors_section)``.
+3. Dispatch the `directors-brief` agent (Sonnet) with that input.
+4. Parse via `brief.parse_brief_output(response)` → `(parsed_vision, prompt)`.
 
 **Step B — Text-side gate (Brief ↔ Prompt Reviewer)**
 

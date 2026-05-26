@@ -78,7 +78,68 @@ def advance_text_loop(
     )
 
 
-from src.creative_vision.cascade import can_afford, next_tier  # noqa: E402
+from src.creative_vision.cascade import TIER_COSTS, can_afford, next_tier  # noqa: E402
+
+
+def should_fire_operator_gate(
+    *,
+    strategy: str,
+    current_tier: str,
+    next_tier: str,
+    tier_costs: dict[str, float] | None = None,
+) -> bool:
+    """Return True when the operator gate must fire before the next render.
+
+    The gate rule has two cadences (issue #113 AC3):
+
+    1. **Non-creative_vision strategies** — the standard F10 rule from PR #107:
+       the gate fires only on a free→cost transition (i.e. ``current_tier``
+       costs zero AND ``next_tier`` costs > 0). Cost-to-cost transitions
+       (e.g. Flash 1K → Pro 1K) do NOT fire the gate — the operator already
+       committed to spending at the first free→cost gate.
+
+    2. **creative_vision strategy (F12 elevated cadence)** — the gate fires on
+       EVERY transition, including cost-to-cost and same-tier refinement
+       iterations. Rationale: for creative_vision slides the image IS the
+       slide's deliverable, and only the operator can judge whether each
+       render matches the creative intent. The image-reviewer + Director's
+       Critic verdicts are advisory; only operator acceptance closes a
+       creative_vision slide.
+
+    Args:
+        strategy: The slide's rendering strategy from the strategy map
+            (``creative_vision`` | ``composed`` | ``backdrop`` | ``full_render``
+            | ``background`` | ``pragmatic_composition`` | ``academic_figure``
+            | etc.).
+        current_tier: The cascade tier of the render that just completed.
+        next_tier: The cascade tier of the prospective next render.
+        tier_costs: Optional override for the tier-cost table. Defaults to
+            ``cascade.TIER_COSTS`` — tests pass an explicit dict to exercise
+            edge cases without monkey-patching module-level constants.
+
+    Returns:
+        True iff the orchestrator must pause for explicit operator
+        authorisation before invoking the next render; False if the next
+        render proceeds automatically.
+
+    Raises:
+        KeyError: If ``current_tier`` or ``next_tier`` is absent from the
+            tier-cost table — the cascade ladder should never produce an
+            unknown tier; surface that as a hard error rather than silently
+            assuming "free".
+    """
+    costs = tier_costs if tier_costs is not None else TIER_COSTS
+
+    # Reads costs eagerly so unknown tiers raise KeyError (see docstring).
+    current_cost = costs[current_tier]
+    next_cost = costs[next_tier]
+
+    if strategy == "creative_vision":
+        # F12 elevated cadence — every iteration is image-level operator review.
+        return True
+
+    # Standard F10 rule — fire only at the free→cost crossing.
+    return current_cost == 0.0 and next_cost > 0.0
 
 
 @dataclass

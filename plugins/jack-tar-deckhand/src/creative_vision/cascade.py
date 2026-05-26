@@ -1,6 +1,16 @@
 """Cascade state machine — tier ladders, plateau detection, budget enforcement.
 
 Implements §5 of the spec. Issue #105.
+
+Cost-table reconciliation (issue #113 AC6): the canonical pricing source is
+``plugins/jack-tar-cloud/src/generate_cloud_image.py``'s ``estimate_google_cost``
+and ``estimate_recraft_cost``. ``TIER_COSTS`` below is the cascade-tier-keyed
+projection of that pricing, and ``TIER_TO_PROVIDER_MODEL_RESOLUTION`` maps each
+cascade tier to the (provider, model, resolution) tuple that the cloud module
+uses. The cross-plugin reconciliation test in
+``plugins/integration_tests/test_cost_reconciliation.py`` asserts the two stay
+in sync — if the cloud table moves (Google drops pricing, Recraft changes a
+tier), the integration test fails and ``TIER_COSTS`` here is updated to match.
 """
 from __future__ import annotations
 
@@ -13,13 +23,38 @@ LADDER_RECRAFT: list[str] = [
     "ollama", "recraft_standard_1k", "recraft_pro_2k", "recraft_pro_4k",
 ]
 
+# Canonical mapping from cascade tier name to (provider, model, resolution).
+# ``ollama`` maps to ``(None, None, None)`` — local, no cloud call. The cloud
+# module's ``estimate_google_cost`` / ``estimate_recraft_cost`` are keyed by
+# (model, resolution); this mapping is what lets the reconciliation test bridge
+# the two namespaces without coupling the modules at import time.
+TIER_TO_PROVIDER_MODEL_RESOLUTION: dict[str, tuple[str | None, str | None, str | None]] = {
+    "ollama": (None, None, None),
+    "flash_1k": ("google", "gemini-3.1-flash-image-preview", "1K"),
+    "flash_2k": ("google", "gemini-3.1-flash-image-preview", "2K"),
+    "flash_4k": ("google", "gemini-3.1-flash-image-preview", "4K"),
+    "pro_1k": ("google", "gemini-3-pro-image-preview", "1K"),
+    "pro_2k": ("google", "gemini-3-pro-image-preview", "2K"),
+    "pro_4k": ("google", "gemini-3-pro-image-preview", "4K"),
+    "recraft_standard_1k": ("recraft", "recraft-v4-standard", "1K"),
+    "recraft_pro_2k": ("recraft", "recraft-v4-pro", "2K"),
+    "recraft_pro_4k": ("recraft", "recraft-v4-pro", "4K"),
+}
+
+# Per-tier cost in USD. Mirrors the cloud module's pricing tables; the
+# reconciliation test pins them together. When updating, also update the
+# integration test's expected values OR update the cloud module if that is the
+# moved source of truth.
 TIER_COSTS: dict[str, float] = {
     "ollama": 0.0,
     "flash_1k": 0.067,
     "flash_2k": 0.101,
     "flash_4k": 0.151,
     "pro_1k": 0.134,
-    "pro_2k": 0.193,
+    # Issue #113 AC6: reconciled 2026-05-24. Google Nano Banana Pro 2K is
+    # priced identically to Pro 1K ($0.134); cascade previously had $0.193
+    # which produced inflated cost estimates at strategy approval.
+    "pro_2k": 0.134,
     "pro_4k": 0.240,
     "recraft_standard_1k": 0.04,
     "recraft_pro_2k": 0.25,

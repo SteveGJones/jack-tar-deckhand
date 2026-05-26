@@ -95,6 +95,23 @@ Then surface the simplified prompt to the operator as an alternative before rend
 
 This rule pairs with the operator-gate rule above — at the free→cost boundary, the operator can also be asked "do you want to try a simplified prompt before paying for cloud?"
 
+## MANDATORY: Creative_vision review is image-level, not slide-level (issue #113, F12)
+
+**When a slide's strategy is `creative_vision`, the operator gate fires on EVERY iteration — including same-cost-tier refinements and same-resolution renders. The image IS the slide; only operator acceptance closes the slide.**
+
+Standard composed / backdrop / full_render slides treat the image as an illustration on a slide — review is slide-level, gates fire only at free→cost transitions (F10). For creative_vision the asymmetry is fundamental: the image carries the entire conceptual weight, slides absorb 3-7 operator-gate touchpoints, and the image-reviewer + Director's Critic verdicts are advisory only. The Critic evaluates against the prose; only the operator can judge whether each render matches the creative intent.
+
+**What this means in practice:**
+
+1. **Every iteration fires the gate.** Flash 1K → Flash 1K iteration fires. Pro 1K → Pro 2K fires. Ollama → Ollama refinement fires. The single canonical predicate is `src/creative_vision/orchestrator.should_fire_operator_gate(strategy=, current_tier=, next_tier=)`. Both human reviewers and tests look there, not at SKILL.md prose.
+2. **Pre-deck Creative Sprint phase.** The deck-conductor runs ALL creative_vision slides to operator acceptance BEFORE composed-slide assembly. Standard-slide work is BLOCKED until the sprint completes — context-switching between slow-high-touch and fast-low-touch review contaminates both modes. See `src/creative_vision/sprint.py`.
+3. **Per-slide cost surface at strategy approval.** Before the operator approves the strategy map, every creative_vision slide shows an explicit cost band and operator-gate count. If declined on cost grounds, fallback strategies (composed / backdrop / full_render) are offered for the over-budget slides. See `src/creative_vision/cost_estimator.py::summarise_creative_vision_spend`.
+4. **Deck-level creative anchors.** When a deck has multiple creative_vision slides sharing a recurring character / prop / location / style, capture them once in `<deck_dir>/creative_anchors.json` (schema: `src/schemas/creative_anchors.schema.json`). The Director's Brief reads the anchors and weaves them in by name so all slides agree on canonical appearance — closes the cross-slide character-drift gap.
+
+**Why this rule exists.** The 2026-05-23 Agentic Naval Academy dogfood surfaced F12 after the operator observed: *"It feels like these images need a human review/insight on the generation OF THE IMAGE not the slide in a way that is different to our standard process."* Slide 2 of the data-supply-chain dogfood needed 14 attempts × ~10 gate touchpoints; slide 3 (Naval Academy) needed 7 attempts × 6 gates. Standard composed slides absorb 1-2 renders with 0-1 gates. The cost and time economics differ by an order of magnitude — interleaving the two cadences is methodology malpractice.
+
+**Bypass conditions — none.** Unlike F10, this rule has no narrow bypass conditions. The Critic's `pass` verdict does not authorise closure of a creative_vision slide; only the operator's explicit acceptance at the gate does. If the cascade exhausts its budget cap and the Critic flags `abort`, the slide finalises with the best-so-far image AND the operator is surfaced the result for explicit accept/reject before the conductor proceeds to the next slide.
+
 ## MANDATORY: Model routing for delegated agents
 
 **Spawn `claude-haiku-4-5` for lightweight tasks**: mechanical transforms, quick format checks, simple lookups, boilerplate fills, command line calls and MCP server calls.

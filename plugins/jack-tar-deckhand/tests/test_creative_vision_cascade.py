@@ -13,6 +13,7 @@ from src.creative_vision.cascade import (  # noqa: E402
     LADDER_DEFAULT,
     LADDER_RECRAFT,
     TIER_COSTS,
+    TIER_TO_PROVIDER_MODEL_RESOLUTION,
     ladder_for,
 )
 
@@ -45,11 +46,60 @@ def test_tier_costs_match_spec():
     assert TIER_COSTS["flash_2k"] == 0.101
     assert TIER_COSTS["flash_4k"] == 0.151
     assert TIER_COSTS["pro_1k"] == 0.134
-    assert TIER_COSTS["pro_2k"] == 0.193
+    # Issue #113 AC6: reconciled with cloud module 2026-05-24.
+    # Google Nano Banana Pro 2K is priced same as Pro 1K ($0.134),
+    # not $0.193 as the prior cascade table claimed.
+    assert TIER_COSTS["pro_2k"] == 0.134
     assert TIER_COSTS["pro_4k"] == 0.240
     assert TIER_COSTS["recraft_standard_1k"] == 0.04
     assert TIER_COSTS["recraft_pro_2k"] == 0.25
     assert TIER_COSTS["recraft_pro_4k"] == 0.50
+
+
+def test_tier_to_provider_model_resolution_covers_all_ladder_tiers():
+    """Every tier in either ladder must have a (provider, model, resolution) tuple."""
+    all_tiers = set(LADDER_DEFAULT) | set(LADDER_RECRAFT)
+    assert set(TIER_TO_PROVIDER_MODEL_RESOLUTION) == all_tiers
+
+
+def test_tier_to_provider_model_resolution_ollama_is_local():
+    """ollama is the local free tier — no cloud (provider, model, resolution)."""
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["ollama"] == (None, None, None)
+
+
+def test_tier_to_provider_model_resolution_google_tiers():
+    """All flash_* and pro_* tiers route through Google's two image models."""
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["flash_1k"] == (
+        "google", "gemini-3.1-flash-image-preview", "1K"
+    )
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["flash_2k"] == (
+        "google", "gemini-3.1-flash-image-preview", "2K"
+    )
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["flash_4k"] == (
+        "google", "gemini-3.1-flash-image-preview", "4K"
+    )
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["pro_1k"] == (
+        "google", "gemini-3-pro-image-preview", "1K"
+    )
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["pro_2k"] == (
+        "google", "gemini-3-pro-image-preview", "2K"
+    )
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["pro_4k"] == (
+        "google", "gemini-3-pro-image-preview", "4K"
+    )
+
+
+def test_tier_to_provider_model_resolution_recraft_tiers():
+    """Recraft tiers route to recraft-v4-standard / recraft-v4-pro."""
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["recraft_standard_1k"] == (
+        "recraft", "recraft-v4-standard", "1K"
+    )
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["recraft_pro_2k"] == (
+        "recraft", "recraft-v4-pro", "2K"
+    )
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["recraft_pro_4k"] == (
+        "recraft", "recraft-v4-pro", "4K"
+    )
 
 
 def test_default_iteration_caps_match_spec():

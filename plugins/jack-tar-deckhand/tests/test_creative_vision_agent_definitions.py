@@ -56,3 +56,95 @@ def test_directors_critic_agent_exists_and_has_required_sections():
         assert axis in content
     for verdict in ("pass", "refine_at_tier", "escalate_tier", "abort"):
         assert verdict in content
+
+
+def test_deck_conductor_references_creative_vision_operator_gate():
+    """Issue #113 AC3 — the deck-conductor agent definition must reference the
+    F12 elevated cadence so a fresh orchestrator session knows that
+    creative_vision slides fire the gate at EVERY iteration, not just at
+    free→cost.
+    """
+    content = _load_agent("deck-conductor")
+    assert "creative_vision" in content, (
+        "deck-conductor should name the creative_vision strategy where its gate cadence differs"
+    )
+    assert "F12" in content or "elevated cadence" in content.lower() or "every iteration" in content.lower(), (
+        "deck-conductor should describe the F12 elevated-cadence rule for creative_vision"
+    )
+    assert "should_fire_operator_gate" in content, (
+        "deck-conductor should cite the canonical predicate helper rather than rely on prose"
+    )
+    assert "advisory" in content.lower() or "not authorisation" in content.lower(), (
+        "deck-conductor should remind that Critic verdicts are advisory, not spend authorisation"
+    )
+
+
+def test_directors_brief_documents_creative_anchors():
+    """Issue #113 AC4 — the directors-brief agent definition must document
+    how to consume the optional creative anchors section. Without this, the
+    Brief sees the section but doesn't know what to do with it."""
+    content = _load_agent("directors-brief")
+    assert "creative anchors" in content.lower() or "creative_anchors" in content, (
+        "directors-brief must document the creative anchors input section"
+    )
+    assert "AC4" in content or "issue #113" in content, (
+        "directors-brief should anchor the anchors section to issue #113 / AC4"
+    )
+    content_lower = content.lower()
+    assert "verbatim" in content_lower, (
+        "directors-brief should require anchor descriptions used verbatim"
+    )
+    assert "must not have" in content_lower or "negative_traits" in content, (
+        "directors-brief should describe the negative-traits exclusion mechanism"
+    )
+
+
+def test_deck_conductor_invocation_contract_blocks_creative_vision_subagents():
+    """Issue #113 F12 — subagent invocation cannot provide the operator
+    interaction creative_vision slides require. The conductor's invocation
+    contract must declare this explicitly so a future operator (or test
+    harness) wiring up a subagent dispatch with a creative_vision-bearing
+    TalkBrief gets a clear error rather than a half-rendered deck."""
+    content = _load_agent("deck-conductor")
+    content_lower = content.lower()
+    assert "subagent" in content_lower and "creative_vision" in content_lower, (
+        "deck-conductor invocation contract must address subagent + creative_vision"
+    )
+    assert "f12" in content_lower or "issue #113" in content, (
+        "deck-conductor must anchor the subagent-incompatibility rule to F12 / #113"
+    )
+    assert "exit cleanly" in content_lower or "exits" in content_lower, (
+        "deck-conductor must say what to do when a subagent invocation encounters creative_vision"
+    )
+
+
+def test_deck_conductor_has_creative_sprint_phase():
+    """Issue #113 AC2 — the deck-conductor flow must introduce a Creative
+    Sprint phase that runs ALL creative_vision slides to operator acceptance
+    BEFORE composed-slide assembly. The prose must reference the sprint
+    helpers, the resumability property, and the AC2 issue."""
+    content = _load_agent("deck-conductor")
+    assert "Creative Sprint" in content, (
+        "deck-conductor must name the 'Creative Sprint' phase explicitly"
+    )
+    assert "is_sprint_complete" in content, (
+        "deck-conductor must cite the is_sprint_complete guard"
+    )
+    assert "creative_sprint_progress" in content, (
+        "deck-conductor must cite creative_sprint_progress for the operator surface"
+    )
+    assert "AC2" in content or "issue #113" in content, (
+        "deck-conductor should anchor the sprint phase to issue #113 / AC2"
+    )
+    # Phase ordering rule must be explicit
+    content_lower = content.lower()
+    assert "before" in content_lower and (
+        "composed" in content_lower or "standard-slide" in content_lower
+    ), (
+        "deck-conductor must state that the sprint completes BEFORE composed/standard-slide work"
+    )
+    # Prohibited-Actions guard
+    assert "never" in content_lower and "interleave" in content_lower, (
+        "deck-conductor Prohibited Actions must forbid interleaving creative_vision "
+        "and standard slides"
+    )
