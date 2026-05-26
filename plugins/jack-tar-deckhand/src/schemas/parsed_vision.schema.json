@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/parsed-vision.json",
+  "title": "ParsedVision",
+  "description": "Structured intermediate produced by Director's Brief from an operator's prose vision. Issue #105.",
+  "type": "object",
+  "required": [
+    "schema_version", "original_prose", "prose_version",
+    "subjects", "spatial_directives", "style", "composition",
+    "delivery", "text_density_warning"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "original_prose": {"type": "string"},
+    "prose_version": {"type": "integer", "minimum": 1},
+    "subjects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "role", "spatial_slot"],
+        "properties": {
+          "name": {"type": "string"},
+          "role": {"type": "string", "enum": ["named_entity", "abstract_motif", "setting_element"]},
+          "spatial_slot": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "spatial_directives": {
+      "type": "object",
+      "required": ["setting", "layout", "containment", "named_relationships"],
+      "properties": {
+        "setting": {"type": ["string", "null"]},
+        "layout": {"type": ["string", "null"]},
+        "containment": {"type": ["string", "null"]},
+        "named_relationships": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "style": {
+      "type": "object",
+      "required": ["explicit", "implied", "register_inherited_from"],
+      "properties": {
+        "explicit": {"type": ["string", "null"]},
+        "implied": {"type": ["string", "null"]},
+        "register_inherited_from": {"type": ["string", "null"]}
+      }
+    },
+    "composition": {
+      "type": "object",
+      "required": ["progression_axis", "primary_focus", "compositional_rules"],
+      "properties": {
+        "progression_axis": {
+          "type": ["string", "null"],
+          "enum": [null, "spatial_horizontal", "spatial_vertical", "size_escalation", "radial", "diagonal"]
+        },
+        "primary_focus": {"type": ["string", "null"]},
+        "compositional_rules": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "required": ["scale", "aspect", "viewing_context"],
+      "properties": {
+        "scale": {"type": "string"},
+        "aspect": {"type": "string"},
+        "viewing_context": {"type": "string"}
+      }
+    },
+    "text_density_warning": {
+      "type": "object",
+      "required": ["estimated_text_elements", "threshold_breach"],
+      "properties": {
+        "estimated_text_elements": {"type": "integer", "minimum": 0},
+        "threshold_breach": {"type": "boolean"}
+      }
+    }
+  }
+}

@@ -76,9 +76,44 @@ Present the strategy map as a table:
 | 4 | diagram | composed | Precise labels require programmatic rendering |
 | 5 | content | backdrop | Rich scene with vision-detected text placement |
 
+### Creative vision spend surface (#113 AC1) — MANDATORY before asking for approval
+
+If the strategy map contains ANY slide with `strategy: creative_vision`, run the per-slide cost summariser BEFORE presenting the approval table. The operator sees explicit per-slide cost bands plus a deck-level totals row:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.creative_vision.cost_estimator import summarise_creative_vision_spend
+from src.slide_prompt_composer import load_strategy_map
+import json
+smap = load_strategy_map('./tmp/deck')
+summary = summarise_creative_vision_spend(smap)
+print(summary['summary_markdown'])
+print()
+print(f\"DECK SUMMARY: {summary['slide_count']} creative_vision slide(s); \"
+      f\"projected spend \${summary['total_min_cost_usd']:.2f} - \${summary['total_max_cost_usd']:.2f}; \"
+      f\"expected {summary['total_gate_band'][0]}-{summary['total_gate_band'][1]} operator gates.\")
+"
+```
+
+Render the markdown table to the operator, then ask explicitly:
+
+> "These N creative_vision slides will absorb approximately `total_gate_band` operator gates and `$total_min – $total_max` of cloud spend. Confirm or change strategy?"
+
+**If the operator declines on cost grounds**, offer fallback strategies for the over-budget slides:
+
+- **composed** — no AI image cost; standard PptxGenJS assembly. Use when the slide content is genuinely about diagrams/charts/code.
+- **backdrop** — AI background + structured text in template zones. Costs ~$0.067-$0.20 per slide via the standard render funnel (no per-iteration gate).
+- **full_render** — single AI hero image with programmatic title overlay. Costs ~$0.067-$0.24 per slide.
+
+Re-run `build_strategy_map` with the operator's per-slide overrides; the cost summary is recomputed against the new map. Continue until the operator approves.
+
+Cost summary is also informative when the operator wants to validate the proposed `allowed_ceiling` for each slide — lowering a slide from `pro_4k` to `pro_1k` typically drops the worst-case spend from ~$1.50 to ~$0.40 per slide without meaningfully reducing the typical operator-gate count.
+
+### General overrides
+
 Ask: "Would you like to override any slide strategies?"
 
-If overrides are provided, rebuild with the overrides dict and save again.
+If overrides are provided, rebuild with the overrides dict and save again. If any creative_vision slides were added, removed, or rebased to a different ceiling by the overrides, RE-RUN the creative vision spend surface above before final approval.
 
 ## Strategy Selection Guidance
 
@@ -166,6 +201,89 @@ Most slides don't need exact brand-color compliance — Nano Banana Pro and FLUX
 **Cost implications:**
 - 2K Recraft Pro: $0.25 (matches FAL FLUX 2 Pro 2K)
 - 4K Recraft (chain: 2K + Creative Upscale): $0.50 — vs Nano Banana Pro 4K $0.24. Confirm with the speaker before marking 4K hero slides for `brand_fidelity: "exact"` — three such slides represent ~$1.50 vs ~$0.72 of generation spend.
+
+## Creative vision authoring (#105)
+
+### When to assign `creative_vision`
+
+Assign `creative_vision` when the operator describes a specific, rich vision with one or more of:
+
+- **Named entities** (e.g., "SAP", "Databricks" — specific labelled things that must appear in the image)
+- **Extended metaphor with explicit mapping** (e.g., framework components as cabins inside a man-o-war)
+- **Particular composition** (left-to-right progression, four-way arrangement, contained-within hierarchy)
+- **Specific style direction** ("1950s cartoon", "oil painting", "infographic plate")
+
+Concrete examples (founding examples from issue #105):
+
+- "Four warships SAP/Databricks/OpenAI/Anthropic engaged in a four-way naval battle on a lake. Dramatic, churning waters."
+- "Frameworks shown as cabins inside an old man-o-war, Jack-Tar as Captain, 1950s cartoon style."
+- "Horizontal left-to-right progression showing sun phases: protostar, main sequence, red giant, supernova, neutron star."
+
+The renderer's job is to bring THAT exact vision to life faithfully — not to interpret it artistically.
+
+### Pairing with full_bleed assembly
+
+The `creative_vision` strategy ALWAYS pairs with `full_bleed` assembly. The rendered image IS the slide — no chrome, no title overlay, no body bullets. This is a property of the strategy, not a choice. The producer/consumer boundary is explicit: `creative_vision` produces a vision-faithful image; `full_bleed` assembly delivers it edge-to-edge.
+
+### Operator-opt-in only
+
+Neither the rule-based classifier nor the outline-driven classifier emits `creative_vision`. It must be assigned explicitly by the operator (or by Claude on the operator's behalf, with operator confirmation). The risk of cascade-spending without intent is too high to leave to heuristics.
+
+### Required block on the strategy-map entry
+
+```json
+{
+  "slide_number": 3,
+  "strategy": "creative_vision",
+  "rationale": "operator-directed: four ships sea-battle metaphor",
+  "render_funnel": ["ollama", "cloud_low", "cloud_full"],
+  "speaker_override": null,
+  "brand_fidelity": "none",
+  "creative_vision": {
+    "vision_prose": "<free-form prose describing the vision>",
+    "budget_usd": 1.00,
+    "allowed_ceiling": "pro_4k",
+    "iteration_caps_override": null
+  }
+}
+```
+
+Schema rule: the `creative_vision` block is **required when `strategy: creative_vision`** and **forbidden otherwise**. Only `vision_prose` is required inside the block; the other fields take cascade defaults.
+
+### Cost banner the skill MUST surface before recording the choice
+
+When a slide is being assigned `creative_vision`, surface a cost banner before confirming:
+
+```
+Slide N marked creative_vision. Worst-case spend ~$X.YY per slide.
+Deck currently has K creative_vision slides; deck worst-case ~$Z.ZZ.
+Provide vision prose (free-form prose; describe named entities, spatial
+directives, style, and any compositional progression):
+```
+
+The worst-case per slide is computed from `budget_usd` × 1.0 (the budget is the cap, so worst-case ≈ budget). For a default `$1.00` budget at the default `pro_4k` ceiling, worst-case ≈ $1.00 per slide.
+
+### Defer-prose pattern
+
+If the operator wants to mark a slide as `creative_vision` but isn't yet ready to write the prose, the skill can record the strategy with `pending_vision_prose: true` (a flag adjacent to the `creative_vision` block) and leave `vision_prose` empty. The pipeline halts at that slide until the prose is provided — imagegen-bridge skips it with a clear message and resumes when prose is added.
+
+### Decision tree — when to pick `creative_vision` vs alternatives
+
+| Operator's intent | Strategy to pick |
+|---|---|
+| Specific rich vision with named entities / extended metaphor / particular composition | `creative_vision` |
+| Edge-to-edge image with whatever the generic imagegen-bridge produces (no specific vision) | `full_bleed` |
+| AI background image + programmatic title/body overlay | `backdrop_render` or `background` |
+| Standard chrome (title + bullets + small hero image) | `composed` |
+| Academic figure (Figure-N caption, equations, architecture diagram) | `academic_figure` |
+| Editable SmartArt graphic | `smartart` |
+
+### Cross-references
+
+- Spec: `docs/superpowers/specs/2026-05-21-creative-vision-renderer-design.md`
+- Schema: `plugins/jack-tar-deckhand/src/schemas/strategy_map.schema.json`
+- Pipeline implementation: imagegen-bridge SKILL.md section "Creative vision strategy (#105)"
+- Founding examples: the four-ships, man-o-war, and sun-phases examples from issue #105
 
 ## Output
 

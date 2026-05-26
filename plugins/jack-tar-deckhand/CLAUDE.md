@@ -62,6 +62,29 @@ Both subagents read the image into their own context and return text — the orc
 
 **Related:** issue [#76](https://github.com/SteveGJones/jack-tar-deckhand/issues/76), retrospective at `docs/superpowers/dogfooding/2026-05-07-blog-post-asset-run.md` (failure #1), plan at `docs/superpowers/plans/2026-05-08-discipline-hook.md`.
 
+## Creative vision pipeline (issue #113 — GA flow)
+
+The `creative_vision` rendering strategy treats the image as the slide's deliverable, not an illustration on it. Operator-driven prose → vision-faithful full-slide image via a multi-agent cascade (Director's Brief → Prompt Reviewer → Render → image-reviewer → Director's Critic). The GA flow has four mandatory load-bearing parts — every deck-conductor session passes through them in this order:
+
+1. **Strategy-map cost surface** — when the strategy map flags any slide as `creative_vision`, the strategy-map skill runs `src.creative_vision.cost_estimator.summarise_creative_vision_spend` BEFORE asking for approval. Operator sees per-slide cost band + operator-gate count, plus a deck-level totals row. If declined on cost grounds, fallback strategies (composed / backdrop / full_render) are offered.
+2. **Pre-deck Creative Sprint phase** — deck-conductor runs ALL creative_vision slides to operator acceptance BEFORE any composed / backdrop / full_render assembly. Standard-slide work is BLOCKED until the sprint completes. Resumable via `src.creative_vision.sprint.creative_sprint_progress`.
+3. **Per-iteration operator gate (F12)** — for creative_vision slides, the gate fires at EVERY iteration regardless of cost transition (Flash 1K → Flash 1K, Ollama → Ollama, all fire). Canonical predicate: `src.creative_vision.orchestrator.should_fire_operator_gate`. Non-creative_vision strategies retain the F10 free→cost-only cadence.
+4. **Deck-level creative anchors** — optional `<deck_dir>/creative_anchors.json` captures recurring characters / props / locations / style anchors. Director's Brief inlines them so all slides agree on canonical appearance. Schema: `src/schemas/creative_anchors.schema.json`. Module: `src/creative_vision/anchors.py`.
+
+**Cost discipline.** Three dogfood spends to calibrate against:
+- Sun-phases (single-moment scene): $0.067, 3 attempts, ~3 gates — the easy case
+- Naval Academy (single-moment ceremonial scene): $0.268, 7 attempts, 6 gates — the model-friendly case
+- Data supply chain (multi-scene narrative): $1.016, 14 attempts, ~10 gates — the model-hostile case
+
+**Single-moment scenes are creative_vision-friendly. Multi-scene narratives are not** — the model has strong priors toward collapse-to-fused-room OR grid-to-N-panels. When the operator's vision fits the model's natural composition territory, the cascade flies; otherwise expect 2-3× the iteration count and recommend a fallback strategy at strategy-map approval.
+
+**See also.**
+- Issue #113 (this PR's GA-blocking work)
+- Issue #105 (parent — creative_vision v1.5.0)
+- Issue #112 (Prompt Simplifier follow-up — pairs with F11)
+- CLAUDE.md root MANDATORY sections F10 (operator gate), F11 (prompt simplification), F12 (image-level review)
+- Dogfood logs in `docs/superpowers/dogfooding/` named `2026-05-2*-creative-vision-*`
+
 ## See also — Superpower Bridge route
 
 If you'd rather start from `/pptx` (the upstream skill in the

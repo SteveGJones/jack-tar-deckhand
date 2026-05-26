@@ -50,6 +50,68 @@ The `PreToolUse` hook governs the **orchestration session only**. It does **not*
 
 `image-reviewer` and `general-purpose` agents are themselves exempt — giving them the image IS the dispatch's purpose. Orchestrators reviewing PRs should verify that delegated implementation prompts include the inline rule when image handling is in scope.
 
+## MANDATORY: Operator gate at every free→cost cascade transition (issue #105, F10)
+
+**Whenever a cascade is about to cross from a free tier (Ollama, $0) to any paid cloud tier (Flash/Pro/Recraft, cost > $0), the orchestrator MUST surface the latest free-tier render to the operator AND pause for explicit go-ahead before invoking any cloud generation.**
+
+This is independent of how the Critic agent voted. The Critic evaluates against the prose; it cannot know whether the result matches the operator's intent. Only the operator can. The Critic returning `escalate_tier` is advisory — not authorisation to spend.
+
+**What the gate looks like:**
+
+1. After every Ollama (or other zero-cost) render, open the resulting image for the operator (`open <path>` on macOS, equivalent elsewhere)
+2. State the prospective cloud spend ("rendering at Pro 1K will cost $0.134", or similar)
+3. **Wait for explicit operator go-ahead** ("go", "yes", "proceed", "render", "render at Pro 1K" — affirmative signal)
+4. Only after explicit affirmation, dispatch the cloud render
+
+**The gate is the load-bearing checkpoint of the cascade economic model.** Skipping it turns a human-in-the-loop pipeline with a free preview into an agent loop that bills the operator. During the 2026-05-22 creative-vision dogfood (issue #105), this gate was skipped THREE times across the v2 / v3 / diptych rounds, leading to $0.480 of un-gated Pro 4K spend that the operator later identified as both methodologically wrong (gate skipped) and tier-inappropriate (Pro 1K would have sufficed — F9).
+
+**The gate also catches prompt failures cheaply.** During the same dogfood, three consecutive Ollama drafts at the gate caught structural prompt failures (one room not three scenes, customer dropping, 9-panel grid) BEFORE any cloud spend, saving ~$0.40 of cloud renders that would have demonstrated the same failures at higher resolution. The free renders are the cheapest possible learning instrument.
+
+**Bypass conditions — narrow:**
+- The cascade is wholly within free tiers (no cost transition).
+- The operator has set explicit budget pre-authorisation in writing for the current session AND the cost is below that authorisation. In all other cases the gate stands.
+
+The orchestration layer that owns this rule is the creative_vision SKILL.md and the imagegen-bridge SKILL.md — see those for the concrete enforcement steps. This CLAUDE.md rule binds the agent's behaviour at the orchestration level regardless of which SKILL.md is driving.
+
+## MANDATORY: Prompt simplification check on stalled cascades (issue #105, F11)
+
+**When prompt iteration N has elaborated the prompt to address Critic feedback and composition is still failing, consider RADICAL SIMPLIFICATION before adding more directives.**
+
+The Prompt Reviewer currently checks "does the prompt have enough?" — entity coverage, style cues, density. It does NOT check "does the prompt have too much?" During the 2026-05-22 dogfood, an elaborated ~1,100-word prompt (camera-as-unifier framing, four-figure roster, fax-machine bridge, atmospheric montage layering) failed to render the intended five-scene composition. The operator rewrote it as a six-line prompt that embraced the model's natural grid bias instead of fighting it — and the simpler prompt landed the deliverable.
+
+**Heuristic — when to suspect over-specification:**
+- Prompt is >400 words AND composition keeps failing
+- Multiple consecutive Critic verdicts cite the same composition axis (the model isn't responding to elaboration)
+- Negative directives are stacking ("NO panels", "NO grid", "NO fused room") — fighting a model bias rather than working with it
+- Each iteration adds words without changing the verdict
+
+**Counter-move:** propose a shortened prompt (≤200 words, ideally ≤100) that:
+- Drops contradictory unifiers (e.g., "shared back wall" + "three rooms")
+- Embraces the model's natural framing (if the model wants to render N panels, name N panels positively)
+- States the scene list as one line each
+- Carries only the most load-bearing entity and style cues
+
+Then surface the simplified prompt to the operator as an alternative before rendering. The reviewer should consider both prompts and the operator decides which to run.
+
+This rule pairs with the operator-gate rule above — at the free→cost boundary, the operator can also be asked "do you want to try a simplified prompt before paying for cloud?"
+
+## MANDATORY: Creative_vision review is image-level, not slide-level (issue #113, F12)
+
+**When a slide's strategy is `creative_vision`, the operator gate fires on EVERY iteration — including same-cost-tier refinements and same-resolution renders. The image IS the slide; only operator acceptance closes the slide.**
+
+Standard composed / backdrop / full_render slides treat the image as an illustration on a slide — review is slide-level, gates fire only at free→cost transitions (F10). For creative_vision the asymmetry is fundamental: the image carries the entire conceptual weight, slides absorb 3-7 operator-gate touchpoints, and the image-reviewer + Director's Critic verdicts are advisory only. The Critic evaluates against the prose; only the operator can judge whether each render matches the creative intent.
+
+**What this means in practice:**
+
+1. **Every iteration fires the gate.** Flash 1K → Flash 1K iteration fires. Pro 1K → Pro 2K fires. Ollama → Ollama refinement fires. The single canonical predicate is `src/creative_vision/orchestrator.should_fire_operator_gate(strategy=, current_tier=, next_tier=)`. Both human reviewers and tests look there, not at SKILL.md prose.
+2. **Pre-deck Creative Sprint phase.** The deck-conductor runs ALL creative_vision slides to operator acceptance BEFORE composed-slide assembly. Standard-slide work is BLOCKED until the sprint completes — context-switching between slow-high-touch and fast-low-touch review contaminates both modes. See `src/creative_vision/sprint.py`.
+3. **Per-slide cost surface at strategy approval.** Before the operator approves the strategy map, every creative_vision slide shows an explicit cost band and operator-gate count. If declined on cost grounds, fallback strategies (composed / backdrop / full_render) are offered for the over-budget slides. See `src/creative_vision/cost_estimator.py::summarise_creative_vision_spend`.
+4. **Deck-level creative anchors.** When a deck has multiple creative_vision slides sharing a recurring character / prop / location / style, capture them once in `<deck_dir>/creative_anchors.json` (schema: `src/schemas/creative_anchors.schema.json`). The Director's Brief reads the anchors and weaves them in by name so all slides agree on canonical appearance — closes the cross-slide character-drift gap.
+
+**Why this rule exists.** The 2026-05-23 Agentic Naval Academy dogfood surfaced F12 after the operator observed: *"It feels like these images need a human review/insight on the generation OF THE IMAGE not the slide in a way that is different to our standard process."* Slide 2 of the data-supply-chain dogfood needed 14 attempts × ~10 gate touchpoints; slide 3 (Naval Academy) needed 7 attempts × 6 gates. Standard composed slides absorb 1-2 renders with 0-1 gates. The cost and time economics differ by an order of magnitude — interleaving the two cadences is methodology malpractice.
+
+**Bypass conditions — none.** Unlike F10, this rule has no narrow bypass conditions. The Critic's `pass` verdict does not authorise closure of a creative_vision slide; only the operator's explicit acceptance at the gate does. If the cascade exhausts its budget cap and the Critic flags `abort`, the slide finalises with the best-so-far image AND the operator is surfaced the result for explicit accept/reject before the conductor proceeds to the next slide.
+
 ## MANDATORY: Model routing for delegated agents
 
 **Spawn `claude-haiku-4-5` for lightweight tasks**: mechanical transforms, quick format checks, simple lookups, boilerplate fills, command line calls and MCP server calls.
@@ -84,6 +146,53 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
+### Current Status (2026-05-21 — v1.4.2 shipped + v1.5.0 creative vision IN PROGRESS)
+
+- **v1.4.2 full_bleed strategy shipped** via [PR #104](https://github.com/SteveGJones/jack-tar-deckhand/pull/104) (merge commit `d2253ad`). Plugin bumped `1.4.1 → 1.4.2`. Closes issue #88.
+  - `full_bleed` rendering strategy: image IS the slide, zero chrome (no title overlay, no body text, no footer logo). `strategy_map.schema.json` extended with `full_bleed` enum value. `build_deck.js` + `build_deck_template.py` handle full-bleed assembly.
+
+- **v1.5.0 creative vision renderer — IN PROGRESS on branch `feat/creative-page-renderer`** (28+ commits, 296 tests, issue #105).
+  - **What it is**: paperbanana-shaped multi-agent cascade for operator prose → vision-faithful full-slide images. Abstract, conceptual images driven by a language-to-image pipeline.
+  - **Pipeline**: operator prose → Director's Brief (Sonnet) → ParsedVision + prompt → Prompt Reviewer (Haiku) → render → image-reviewer (Haiku) → Director's Critic (Sonnet) → verdict → loop or escalate
+  - **New agents**: `directors-brief.md` (Sonnet), `prompt-reviewer.md` (Haiku), `directors-critic.md` (Sonnet). In `plugins/jack-tar-deckhand/agents/`.
+  - **New schemas**: `parsed_vision.schema.json`, `directors_critic_verdict.schema.json`, `creative_vision_manifest.schema.json` in `plugins/jack-tar-deckhand/src/schemas/`
+  - **New strategy**: `creative_vision` enum in strategy_map (always pairs with `full_bleed` assembly; `allOf` conditional enforces bidirectional)
+  - **New modules**: `src/creative_vision/{manifest,cascade,brief,prompt_reviewer,critic,orchestrator}.py`, `src/creative_vision_dispatch.py`
+  - **iterate_slide extended**: 3 channels for creative_vision slides: `revise_prose`, `refine_prompt`, `escalate_tier`
+  - **Cascade tiers**: Ollama (free) → Flash 1K ($0.067) → Flash 4K ($0.151) → Pro 1K ($0.134) → Pro 4K ($0.240); `allowed_ceiling` budget cap
+  - **Sun-phases dogfood COMPLETE**: $0.067 total spend, 3 iters (Ollama ×2 + Flash 1K ×1). Entity 78, spatial 85, style 88, comp 80. Final: `tmp/creative-vision-dogfood/deck/creative-vision/1/runs/03-flash-1k.png`. Log: [`docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer.md`](docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer.md).
+  - **F1** (Brief returns non-canonical parsed_vision shape — subjects as plain strings, wrong field names) and **F2** (prompt outside JSON fence at Flash tier) must be fixed before opening the PR. See dogfood log §Findings.
+
+### Current Status (2026-05-23 — creative_vision v1.5.0 tested-but-not-GA in PR #107)
+
+- **PR #107** (`feat/creative-page-renderer`, base `main`) — OPEN, 4 commits, 300/300 tests passing (1 skipped).
+  - `30bbbd5` — F1 (brief schema validation) + F2 (Output Contract anti-patterns)
+  - `b618830` — F10 (operator gate at free→cost) + F11 (prompt simplification heuristic)
+  - `dc3e52c` — Prompt Simplifier architectural decision capture (#112)
+  - `3998273` — Agentic Naval Academy dogfood + F12 (image-level review) + creative_vision per-iteration gate
+- **Three dogfoods complete**:
+  - Sun-phases (slide 1) — $0.067
+  - Data supply chain (slide 2) — $1.016 — multi-scene narrative; F10/F11 surfaced + landed; F1/F2 fixed
+  - Agentic Naval Academy (slide 3) — $0.268 — single-scene composition; F12 surfaced
+- **creative_vision shipped as tested-but-not-GA**. Per operator: NOT GA until the deck-conductor enhancements land.
+- **GA-blocking work**: issue **#113** captures six acceptance criteria — strategy-map per-slide cost surfacing, pre-deck creative_vision sprint phase, per-iteration gate validation tests, deck-level creative anchors file, CLAUDE.md updates, cost-table reconciliation (cloud module vs cascade.py TIER_COSTS disagreed on Pro 2K — $0.134 actual vs $0.193 in table).
+- **Related follow-up**: issue **#112** — Prompt Simplifier agent (F11 implementation). Separate scope; should land before or alongside #113.
+- **Branch strategy for GA work**: new branch `feat/creative-vision-ga` off `feat/creative-page-renderer`. New PR's base is `feat/creative-page-renderer` (not main) so it merges INTO PR #107. Once both PRs merge to main, the combined diff is the full creative_vision v1.5.0 GA release.
+
+### Data supply chain dogfood (2026-05-22 — COMPLETE)
+
+4-panel 1980s Wall Street-aesthetic storyboard: sales team scrawling orders on cocktail napkin → finance cleaning the napkin into typed paper → customer reading the invoice → supply chain confused at missing delivery address (truck driver peering at signpost). Budget $0.50, ceiling `pro_1k`.
+
+- **Final image**: `tmp/creative-vision-dogfood/deck/creative-vision/2/runs/03-flash-1k.png` (all four callouts crisp, sports cars + signpost rendered, blank-signpost punchline lands)
+- **Total spend**: $0.067 (Ollama×2 + Flash 1K×1; same envelope as sun-phases despite a more complex multi-entity vision)
+- **Final scores at Flash 1K**: entity 82, spatial 85, style 72, quality 84, comp 88. Verdict `pass` (see F3 below — Critic violated its own ≥80 rule on style; documented).
+- **Findings**:
+  - **F1** (Brief returns non-canonical parsed_vision shape) — **FIXED in this PR**: `brief.parse_brief_output` now validates parsed_vision against the schema + rejects empty prompts. 3 new tests cover the failure paths.
+  - **F2** (prompt outside JSON fence) — **FIXED in this PR**: directors-brief.md Output Contract now shows labelled CORRECT shape next to WRONG shape anti-pattern block with 4 concrete failures + self-check. 1 new agent-definition test pins the labels.
+  - **F3** (Critic returned pass with style_fidelity 72 — verdict-coherence violation) — **NEW, deferred follow-up patch**: add semantic validation to `critic.parse_critic_output` so pass-with-any-axis-below-80 raises like the schema check.
+- **Log**: [`docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer-data-supply-chain.md`](docs/superpowers/dogfooding/2026-05-21-creative-vision-renderer-data-supply-chain.md)
+- **Tests**: 296 → 300 passing (1 skipped). PR open for issue #105.
+
 ### Current Status (2026-05-20 — v1.4.1 shipped + v1.4 plan part-done)
 
 - **v1.4.1 merged on main** via [PR #102](https://github.com/SteveGJones/jack-tar-deckhand/pull/102) (merge commit `4f8fc2b`). Plugin bumped `1.3.3 → 1.4.0 → 1.4.1`. CI 9/9 green.
@@ -96,23 +205,20 @@ Claude Code skills and agents for conference-quality PowerPoint presentations. T
 - **Architecture figure** at [`docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png`](docs/architecture/diagrams/jack-tar-deckhand-architecture-paperbanana.png) — produced by paperbanana documenting jack-tar's own architecture (meta-dogfood); also embedded in ADR v2 §1.
 - **Upstream issues filed at llmsresearch/paperbanana** (parallel work): #213 (pricing table), #214 (deprecated defaults), #215 (version inconsistency), #216 (PyPI staleness), #217 (`--continue-run` cwd resolution).
 
-### v1.4 plan — remaining work (deferred to follow-up PRs)
+### v1.4 plan — remaining work (updated 2026-05-21)
 
-Three feature issues from the original v1.4 plan did NOT land in PR #102 and are queued for follow-up:
+Original v1.4 plan had 3 deferred issues. #88 shipped in PR #104. Remaining:
 
 | # | Title | Cluster | Effort | Notes |
 |---|---|---|---|---|
-| #88 | Deck-assembler `full-bleed image is the slide` scale | C (deck-assembler) | ~3–4 hr | **DO ALONE next.** Independent code surface (build_deck.js + build_deck_template.py + strategy_map schema). Reference implementation exists at `tmp/agentic-sdlc-keynote-deck/bridge-run-v2/fullbleed_deck.py` in the consuming repo. |
-| #90 | Prompt-engineer composition-primitives library | A (prompt-engineer) | ~4–5 hr | **Pair with #91.** Both touch the prompt-engineer agent. 5 primitives from the 2026-05-13 keynote: two-port-fixture, asymmetric-towers, multi-craft-hub, instrument-grid, three-tier-chain. |
-| #91 | Prompt-engineer pre-render text-density warning | A (prompt-engineer) | ~2–3 hr | **Pair with #90.** Threshold-warning when prompt asks for >12–15 quoted strings (Nanobanana Flash garbles above that). Acts as safety net for #90's primitive templates. |
+| ~~#88~~ | ~~Deck-assembler `full-bleed` scale~~ | — | — | **DONE** — PR #104 (`d2253ad`), deckhand 1.4.2. |
+| #90 | Prompt-engineer composition-primitives library | A (prompt-engineer) | ~4–5 hr | **Pair with #91.** 5 primitives from the 2026-05-13 keynote. |
+| #91 | Prompt-engineer pre-render text-density warning | A (prompt-engineer) | ~2–3 hr | **Pair with #90.** Safety net for #90's primitive templates. |
 
-Also pending: final v1.4 end-to-end dogfood combining all features.
+Sequencing:
 
-Recommended sequencing for the remaining work:
-
-1. **PR #103 candidate: #88 alone** on branch `feat/v1.4.2-full-bleed-scale` — bumps deckhand to 1.4.2
-2. **PR #104 candidate: #90 + #91 together** on branch `feat/v1.4.3-prompt-engineer-primitives` — coupled prompt-engineer scope; #91 is the safety net for #90; bumps deckhand to 1.4.3
-3. **PR #105 candidate: final v1.4 end-to-end dogfood** — combine all v1.4 features in one deck render, log results
+1. **Next: finish issue #105** on branch `feat/creative-page-renderer` — complete data supply chain dogfood → fix F1+F2 → open PR → deckhand 1.4.2 → 1.5.0
+2. **Then: #90 + #91 together** — coupled prompt-engineer scope; bumps deckhand to 1.5.1
 
 Still-open issues NOT in the v1.4 scope: #86 (discipline-hook propagation — investigation-only commit landed; actual fix still open), #95 (Ralph false-completion — documented in dogfood log, cross-check rule applies meanwhile).
 

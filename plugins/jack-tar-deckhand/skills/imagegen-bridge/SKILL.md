@@ -342,6 +342,272 @@ print(json.dumps(entry))
 > the `general-purpose` subagent (Sonnet, higher accuracy). Both
 > subagents pull the image into THEIR context and return text.
 
+### Step 4.7: Creative Vision Dispatch (multi-agent cascade loop)
+
+For slides whose strategy is `creative_vision` (set by the strategy classifier or
+operator override in `strategy-map.json`), the bridge drives a **multi-agent
+orchestration loop** — not a single render call. The loop runs Director's Brief →
+Prompt Reviewer → Render → image-reviewer → Director's Critic in sequence for each
+cascade tier, escalating tiers until the Critic accepts or the budget is exhausted.
+
+#### When to enter this branch
+
+A slide has `strategy: creative_vision` in `strategy-map.json` AND a populated
+`creative_vision.vision_prose` field. Skip slides flagged
+`pending_vision_prose: true` — they are waiting for operator-provided prose and
+must not enter the loop.
+
+#### Pre-flight: initialise the dispatch manifest
+
+```python
+from src.creative_vision_dispatch import DispatchRequest, initialise_dispatch
+
+req = DispatchRequest(
+    deck_dir=deck_dir,
+    slide_number=entry["slide_number"],
+    vision_prose=entry["creative_vision"]["vision_prose"],
+    budget_usd=entry["creative_vision"].get("budget_usd", 1.00),
+    allowed_ceiling=entry["creative_vision"].get("allowed_ceiling", "pro_4k"),
+    brand_fidelity=entry.get("brand_fidelity", "none"),
+)
+manifest = initialise_dispatch(req)
+```
+
+This creates `<deck_dir>/creative-vision/<slide_number>/manifest.json` and returns
+the manifest dict. The manifest records every attempt, cost, and verdict so the
+session can be resumed if interrupted.
+
+#### The orchestration loop
+
+Pull the cascade ladder and start at index 0 (`ollama`):
+
+```python
+from src.creative_vision.cascade import ladder_for, DEFAULT_ITERATION_CAPS
+ladder = ladder_for(req.brand_fidelity)
+current_tier_index = 0
+per_tier_iteration_count = 0
+cumulative_cost = 0.0
+```
+
+For each tier, run the following per-tier loop:
+
+**Step A — Director's Brief (generate approved prompt)**
+
+1. **Load deck-level creative anchors (issue #113 AC4).** Before building
+   the brief input, check whether the deck has a ``creative_anchors.json``
+   file at the deck root and, if so, pull the eligible anchors for this
+   slide number:
+
+   ```python
+   from src.creative_vision.anchors import (
+       load_anchors,
+       anchors_for_slide,
+       format_anchors_for_brief,
+   )
+   anchors_doc = load_anchors(req.deck_dir)  # None if no file
+   anchors_section = ""
+   if anchors_doc is not None:
+       eligible = anchors_for_slide(anchors_doc, req.slide_number)
+       anchors_section = format_anchors_for_brief(
+           eligible, deck_brief=anchors_doc.get("deck_brief")
+       )
+   ```
+
+   When ``creative_anchors.json`` is absent (the common case for single-slide
+   decks), ``anchors_section`` stays empty and the Brief input is shaped
+   exactly as it was pre-AC4.
+
+2. Build the brief input via ``brief.build_brief_input(..., anchors_section=anchors_section)``.
+3. Dispatch the `directors-brief` agent (Sonnet) with that input.
+4. Parse via `brief.parse_brief_output(response)` → `(parsed_vision, prompt)`.
+
+**Step B — Text-side gate (Brief ↔ Prompt Reviewer)**
+
+Track loop state with `TextLoopState`:
+
+```python
+from src.creative_vision.orchestrator import TextLoopState, advance_text_loop
+text_state = TextLoopState()
+```
+
+Loop:
+- Build reviewer input via
+  `prompt_reviewer.build_reviewer_input(original_prose, prompt, parsed_vision)`.
+- Dispatch the `prompt-reviewer` agent (Haiku).
+- Parse via `prompt_reviewer.parse_reviewer_output(response)` → `(verdict, issues)`.
+- Advance state: `text_state = advance_text_loop(text_state, reviewer_verdict=verdict, reviewer_issues=issues, current_prompt=prompt)`.
+- If `text_state.terminal` is False: re-dispatch `directors-brief` with
+  `accumulated_feedback` extended by the reviewer's issues. Get a new prompt. Loop back.
+- When `text_state.terminal` is True, the prompt is approved
+  (`text_state.approved_prompt`). If `text_state.forced_pass` is True, log a
+  warning but proceed — the gate reached its cap and the best available prompt
+  advances.
+
+**Step C — Render at the current tier**
+
+Pick the render skill based on the cascade tier:
+
+- `ollama` tier → dispatch `/jack-tar-ollama:image` with the approved prompt.
+- `flash_1k` / `flash_2k` / `flash_4k` tiers → dispatch `/jack-tar-cloud:image`
+  with `--provider google --model gemini-3.1-flash-image-preview` and the
+  matching `--resolution` flag.
+- `pro_1k` / `pro_2k` / `pro_4k` tiers → dispatch `/jack-tar-cloud:image` with
+  `--provider google --model gemini-3-pro-image-preview` at the matching
+  `--resolution`.
+- `recraft_*` tiers → dispatch `/jack-tar-cloud:recraft-image` with the matching
+  `--tier` and `--resolution` flags.
+
+Save the output PNG path. Cost: `TIER_COSTS[current_tier]` USD (zero for Ollama).
+Accumulate into `cumulative_cost`.
+
+**Step D — image-reviewer verdict**
+
+Dispatch the `image-reviewer` agent (Haiku) on the rendered PNG. If verdict is
+`refine`, build new accumulated feedback (visual-quality issues) and return to
+Step A — the Director's Brief regenerates the prompt incorporating the visual
+feedback. Do NOT re-render with the same prompt; the text gate (Step B) fires
+again before any retry render.
+
+**Step E — Director's Critic**
+
+Dispatch the `directors-critic` agent (Sonnet) via
+`critic.build_critic_input(...)`. Parse via
+`critic.parse_critic_output(response)` (which schema-validates the JSON response).
+
+**Step F — Append attempt to manifest**
+
+```python
+from src.creative_vision.manifest import append_attempt, save_manifest
+attempt = {
+    "attempt_index": len(manifest["attempts"]) + 1,
+    "prose_version": manifest["prose_history"][-1]["version"],
+    "tier": current_tier,
+    "text_iterations": text_state.iterations,
+    "render": {
+        "output_path": render_output_path,
+        "model": tier_model,
+    },
+    "image_reviewer_verdict": ir_verdict,
+    "directors_critic_verdict": critic_verdict,
+    "cumulative_cost_usd": cumulative_cost,
+}
+append_attempt(manifest, attempt, ladder)
+save_manifest(req.deck_dir, manifest)
+```
+
+**Step G — Decide next action**
+
+```python
+from src.creative_vision.orchestrator import decide_next_action
+action = decide_next_action(
+    critic_verdict=critic_verdict,
+    current_tier=current_tier,
+    ladder=ladder,
+    remaining_budget_usd=manifest["iterate_slide_hooks"]["remaining_budget_usd"],
+    per_tier_iteration_count=per_tier_iteration_count,
+    per_tier_cap=DEFAULT_ITERATION_CAPS[current_tier],
+    allowed_ceiling=req.allowed_ceiling,
+)
+```
+
+**Step H — Branch on action.kind**
+
+- `accept` → call `finalise_manifest(...)`. Loop ends. Use this image as the final.
+- `refine_at_tier` → increment `per_tier_iteration_count`; loop back to Step A at
+  the SAME tier. Carry over any accumulated feedback.
+- `escalate_tier` → **OPERATOR GATE REQUIRED if and only if** the current tier
+  has `TIER_COSTS[current_tier] == 0` AND `TIER_COSTS[action.next_tier] > 0`
+  (i.e., the escalation crosses the free→cost boundary). See Step H.1 below
+  before proceeding. If the gate passes, set `current_tier = action.next_tier`;
+  reset `per_tier_iteration_count = 0`; loop back to Step A at the new tier.
+- `abort` → call `finalise_manifest(...)` with the best-so-far image. Log the
+  reason. Pipeline continues with whatever image was last accepted (or a
+  placeholder if no image was accepted).
+
+**Step H.1 — Operator gate at free→cost transition (MANDATORY, issue #105 F10)**
+
+This step is the load-bearing economic checkpoint of the cascade. When `action.kind == "escalate_tier"` AND the boundary being crossed is free→cost (current is Ollama, next is any cloud tier), the loop MUST:
+
+1. Open the most recent free-tier render for the operator:
+   ```bash
+   open <render_output_path>
+   ```
+   (Use `open` on macOS, `xdg-open` on Linux, `start` on Windows. The native viewer pulls the image into the operator's eye, NOT into orchestration context — no `Read` of the PNG inside the orchestrator.)
+
+2. State the prospective cloud spend to the operator. Format:
+   > Free→cost gate. The Ollama draft is at `<path>`. Rendering at `<next_tier>` will cost `$<TIER_COSTS[next_tier]>`. Cumulative slide spend after this render will be `$<cumulative + tier_cost>` of the `$<budget>` envelope. Say "go" to render, or describe what's wrong with the draft and I'll iterate the prompt instead.
+
+3. **Pause the loop.** Do not invoke the cloud render. Wait for an explicit affirmative signal from the operator ("go", "yes", "render", "proceed", "render at <tier>"). Negative or descriptive feedback ("no", "still wrong", "the customer is missing") means the operator wants prompt iteration at the free tier — return to Step A WITH the operator's feedback added to `accumulated_feedback`.
+
+4. **F11 — Simplification offer.** When the cascade has accumulated ≥3 refinement iterations at the same prose version AND the prompt has grown >400 words, ALSO offer the operator a simplified prompt as an alternative at the gate. Heuristic: drop contradictory unifiers, embrace the model's natural framing, ≤200 words. Let the operator pick between the elaborated prompt and the simplified one.
+
+5. Only after explicit operator affirmation do you proceed to set `current_tier = action.next_tier` and dispatch the cloud render in Step C.
+
+**Why this step exists**: during the 2026-05-22 dogfood (issue #105), this gate was skipped three times across the v2/v3/diptych rounds, leading to $0.480 of un-gated Pro 4K spend that was both methodologically wrong (gate-skipping) AND tier-inappropriate (Pro 1K would have sufficed — F9). The gate is the only checkpoint where the operator can apply their own visual judgement before money is spent. The Critic's `escalate_tier` verdict is advisory — it evaluates against the prose, not against operator intent. Skipping the gate turns the cascade from "human-in-the-loop with a free preview" into "agent loop that bills the operator."
+
+**Creative_vision elevated gate cadence (F12, issue #113 GA-blocker)**: when the slide's strategy is `creative_vision`, the gate fires at EVERY iteration regardless of cost transition — not just at free→cost. The operator MUST see every render of a creative_vision image, including iterations at the same cost tier (e.g., Flash 1K → Flash 1K, Pro 1K → Pro 1K), because the image IS the slide's deliverable and only the operator can judge whether each render matches the creative intent. The image-reviewer + Director's Critic verdicts are advisory; only operator acceptance closes a creative_vision slide. This elevated cadence does NOT apply to standard composed / backdrop / full_render strategies — for those, the standard free→cost gate is sufficient.
+
+The deck-conductor will further refine this in issue #113 by introducing a pre-deck creative_vision sprint phase, per-slide cost estimates surfaced at strategy approval, and deck-level creative anchors for cross-slide character/style consistency. Until that ships, creative_vision is not GA — but the per-iteration gate is in force now as the minimum interim methodology guard.
+
+**Bypass conditions — narrow:**
+- The cascade is wholly within free tiers (no cost transition — gate does not apply).
+- The operator has explicitly pre-authorised cost up to a stated cap for the session AND `cumulative_cost + tier_cost <= cap`.
+
+Cost-to-cost transitions (e.g., Flash 1K → Pro 1K) do not require this gate — the operator already committed to spending at the first free→cost transition. They MAY still be surfaced as informational ("rendering at Pro 1K will cost an additional $0.067"), but no pause is required.
+
+#### Post-loop integration
+
+When the loop terminates, fold the final image into the standard ImageManifest
+entry for this slide so deck-assembler (Step 8 of the conductor pipeline) treats
+it as a normal image bound for full-bleed assembly:
+
+```python
+image_manifest["images"].append({
+    "image_id": f"slide-{slide_number}-creative-vision",
+    "slide_number": slide_number,
+    "file_path": manifest["final"]["image_path"],
+    "placement_zone": "full_bleed",  # always full_bleed for creative_vision
+    "status": (
+        "generated"
+        if manifest["final"]["final_verdict"]["verdict"] == "pass"
+        else "accepted_with_issues"
+    ),
+    "source_prompt": manifest["final"]["approved_prompt"],
+    "model_used": manifest["final"]["tier"],
+    "creative_vision_manifest_path": str(
+        Path(req.deck_dir) / "creative-vision" / str(slide_number) / "manifest.json"
+    ),
+})
+```
+
+Skip Step 5 (cache lookup) and Step 6 (prompt translation) for `creative_vision`
+slides — the Director's Brief owns prompt authorship and the manifest owns
+iteration history.
+
+#### Discipline-hook rule (in force — do not bypass)
+
+Never `Read` a generated PNG in this orchestration session. Always dispatch the
+`jack-tar-deckhand:image-reviewer` subagent or the `general-purpose` subagent to
+evaluate the image — they read the PNG into THEIR context and return text. The
+`ALLOW_PNG_READ=1` bypass is for cases where the image IS the user-facing answer;
+the cascade loop never satisfies that condition.
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly.
+> If you need to verify an image, dispatch the
+> `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or
+> the `general-purpose` subagent (Sonnet, higher accuracy). Both
+> subagents pull the image into THEIR context and return text.
+
+#### Reference
+
+- Spec: `docs/superpowers/specs/2026-05-21-creative-vision-renderer-design.md`
+- Manifest module: `plugins/jack-tar-deckhand/src/creative_vision/manifest.py`
+- Cascade module: `plugins/jack-tar-deckhand/src/creative_vision/cascade.py`
+- Orchestrator module: `plugins/jack-tar-deckhand/src/creative_vision/orchestrator.py`
+- Director's Brief agent: `plugins/jack-tar-deckhand/agents/directors-brief.md`
+- Prompt Reviewer agent: `plugins/jack-tar-deckhand/agents/prompt-reviewer.md`
+- Director's Critic agent: `plugins/jack-tar-deckhand/agents/directors-critic.md`
+
 ## Step 5: Check Cache for Each Image
 
 **Production mode:** If `production-upgrade-plan.json` exists in the deck directory, skip this step and use Step 9A instead. The upgrade plan takes precedence over the routing matrix for production renders.
