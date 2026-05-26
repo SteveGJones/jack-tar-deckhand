@@ -2,7 +2,15 @@
 
 ## Status
 
-**Operator-validation pending.** Replaces the prior `2026-05-24-creative-vision-ga-flow-multi-slide.md` scaffold (Wall Street + The Customer narrative) with a meta-dogfood: the deck **explains the new GA features by being built through them**. The Director character recurs across three creative_vision slides; a composed slide between sprint slides forces serialisation; the deck-level Director + Studio + Palette anchors test cross-slide consistency.
+**COMPLETE — operator-validated 2026-05-25.** Replaces the prior `2026-05-24-creative-vision-ga-flow-multi-slide.md` scaffold (Wall Street + The Customer narrative) with a meta-dogfood: the deck **explains the new GA features by being built through them**. The Director character recurs across three creative_vision slides; a composed slide between sprint slides forces serialisation; the deck-level Director + Studio + Palette anchors test cross-slide consistency.
+
+**Headline outcomes**:
+
+- Total spend: **$0.000** — every creative_vision slide accepted at Ollama. Zero cloud renders required.
+- Operator gates fired: **3** (one per slide, all at the Ollama-tier free→? boundary). Zero gates skipped.
+- Cross-slide Director consistency: **TRUE across all three slides** — image-reviewer confirmed `same_director_as_slides_1_and_3: true`. AC4 anchor mechanism validated end-to-end in production.
+- AC2 sprint serialisation: **VERIFIED** — `is_sprint_complete()` returned True after the third creative_vision slide finalised; composed slide 2 was correctly blocked throughout.
+- F1 schema validation: **FIRED ONCE** (slide 3 iter 1) — Brief's first response had wrong nested-object shapes; `parse_brief_output` rejected it with a clear error message; retry succeeded. The F1 fix from PR #107 caught a real Brief-shape regression on a fresh slide, with zero render waste.
 
 ## The deck — 4 slides, 3 creative_vision + 1 composed
 
@@ -229,25 +237,99 @@ Use a fresh deck dir like `tmp/ga-methodology-2026-05-25/deck/`. Drop these thre
 
 8. **Approve PR #114.**
 
-## Results (operator to fill in)
+## Results (operator-validated 2026-05-25)
 
-| Slide | Subject | Cost | Iterations | Gates fired | Anchor consistency |
-|---|---|---|---|---|---|
-| 1 | The Director introduces the methodology | _$X.YY_ | _N_ | _N_ | _The Director hair/glasses/jacket consistent? yes/no_ |
-| 3 | The Director at the gate decision | _$X.YY_ | _N_ | _N_ | _Same Director as slide 1? yes/no_ |
-| 4 | The Director with continuity binder | _$X.YY_ | _N_ | _N_ | _Same Director as slides 1+3? yes/no_ |
-| **Total** | — | **$X.YY** | — | **N** | — |
+| Slide | Subject | Cost | Brief retries | Render iterations | Gates fired | Anchor consistency |
+|---|---|---|---|---|---|---|
+| 1 | The Director introduces the methodology | $0.000 | 0 | 1 | 1 | ✓ established (baseline) |
+| 3 | The Director at the gate decision | $0.000 | 1 (F1 schema-rejected iter 1) | 1 | 1 | ✓ same person as slide 1 |
+| 4 | The Director with continuity binder | $0.000 | 0 | 1 | 1 | ✓ same person as slides 1 + 3 |
+| **Total** | — | **$0.000** | 1 | 3 | **3** | **3/3 consistent** |
 
-## Findings (operator to fill in)
+## Findings
 
-_Capture deviations from the GA-flow design. Specifically:_
+### AC1 cost surface — fired correctly before approval
 
-- _Did the AC1 cost surface fire BEFORE strategy approval?_
-- _Was AC2 sprint serialisation enforced (composed slide 2 blocked until creative_vision slides finalised)?_
-- _Did the AC3 per-iteration gate fire on every iteration including cost-to-cost transitions?_
-- _Did AC4 anchors actually reach the Director's Brief input? Inspect the dispatched prompt to confirm the anchor description was inlined verbatim._
-- _Did the negative_traits exclusion ("no beard / moustache / suit / athleisure") survive into the rendered prompt?_
-- _Cross-slide character drift: same Director or visibly different person across 1 / 3 / 4? If drifted, where did the description get lost?_
+`summarise_creative_vision_spend` produced the per-slide cost table BEFORE the sprint started:
+
+```
+| Slide | Ceiling | Cost band | Operator gates |
+| ----- | ------- | --------- | -------------- |
+| 1 | `flash_1k` | $0.07 - $0.20 | 3-7 |
+| 3 | `flash_1k` | $0.07 - $0.20 | 3-7 |
+| 4 | `flash_1k` | $0.07 - $0.20 | 3-7 |
+| **Total (3 slides)** | — | **$0.20 - $0.60** | **9-21** |
+```
+
+Composed slide 2 was correctly excluded from the cost table. Actual spend ($0.000) was below the projected minimum because all three slides accepted at Ollama — the structural lower bound assumes one cloud render per slide. **The cost surface over-projected, which is the safe direction**: operators see worst-case at approval and discover real spend is lower, not higher.
+
+### AC2 sprint serialisation — verified end-to-end
+
+`is_sprint_complete()` returned False after slide 1 finalised (slides 3, 4 still not_started), False after slide 3 finalised (slide 4 still not_started), True after slide 4 finalised. Composed slide 2 was held throughout. The deck-conductor logic that gates standard-slide assembly behind `is_sprint_complete` works as designed.
+
+The sprint-progress markdown surface rendered correctly at each step, showing the operator which slides remained.
+
+### AC3 per-iteration gate — fired on every render
+
+Three Ollama renders, three operator gates. Each gate surfaced the image (`open <path>`) and the image-reviewer verdict, then paused for explicit operator go-ahead before any next action. No render proceeded without operator approval. The fact that all three slides ended on a single Ollama render meant we never crossed the free→cost boundary in this dogfood — the F12 elevated cadence (gate fires at every iteration regardless of cost) wasn't strictly under test because every iteration *was* the free→cost boundary candidate. The methodology held: even at zero cost, the operator saw every image before any next action.
+
+### AC4 anchors — verified end-to-end + cross-slide
+
+The `load_anchors` + `anchors_for_slide` + `format_anchors_for_brief` chain inlined the canonical Director description ("mid-40s woman, shoulder-length salt-and-pepper hair, tortoiseshell glasses, navy turtleneck under a tan canvas director's jacket") into all three slide Brief inputs. The negative_traits exclusion ("beard, moustache, suit and tie, modern athleisure") survived into every prompt as explicit "must NOT have" language.
+
+**Cross-slide consistency**: image-reviewer confirmed on slide 4 that The Director was recognisably the same character across all three slides:
+
+> "Hair length and salt-and-pepper colouring consistent; tortoiseshell glasses present in all three; navy turtleneck + tan canvas director's jacket worn identically across slides; bearing/age read identical. AC4 anchor mechanism is working — a viewer would identify this as the same Director across all three appearances."
+
+Minor variance noted (klieg light positioning varies by scene-blocking; slide 1 jacket reads slightly more structured than slides 3 and 4) — within acceptable generative variance, not character drift.
+
+### AC5 / AC6 — covered by code review
+
+AC5 docs and AC6 cost-table reconciliation didn't have dogfood signals to capture — they're code/doc work validated in CI.
+
+### F1 schema-validation retry — surfaced once on slide 3
+
+Slide 3's first Brief response had wrong nested-object shapes:
+- `subjects[].role` was free-text ("primary figure, comparing two prints in decision moment") instead of the `named_entity` | `abstract_motif` | `setting_element` enum
+- `spatial_directives` was a flat array of strings instead of `{setting, layout, containment, named_relationships[]}`
+- `style`, `composition`, `delivery`, `text_density_warning` were all strings instead of objects
+- `schema_version` was "1.0.0" instead of "1.0"
+
+`parse_brief_output` rejected the response with a clear error pointing at the failing path:
+
+> `directors-brief parsed_vision failed schema: "..." is not of type 'object' at ['text_density_warning']`
+
+The retry dispatch carried the concrete schema-shape feedback (which fields need what types) and the second response parsed clean. **The F1 fix from PR #107 caught a real Brief-shape regression on a fresh slide, with zero render waste.** This is the cascade self-correcting at the boundary it was designed to self-correct at.
+
+Slides 1 and 4 did NOT trigger this — slide 1 because the Brief got the shape right on iter 1, slide 4 because the slide 3 feedback the orchestrator carried into slide 4's dispatch primed the agent on the strict shape requirements. So the cascade also learns within a deck.
+
+### Why the cascade didn't escalate to cloud
+
+All three slides accepted at Ollama because:
+
+1. The methodology subjects (a director in a 1970s studio) sit squarely in the model's training distribution — high prior on this composition.
+2. The Director anchor description is concrete and visual (hair colour, glasses style, specific garments) — easy for the model to render.
+3. The slide compositions are single-figure single-moment scenes — the model handles these natively (per the naval-academy dogfood evidence).
+4. Text rendering on the props (CLAPPERBOARD, GATE: GO/NO-GO, CONTINUITY) was illegible or partial at Ollama tier — but the methodology slides are about the *visual concept*, not the text. The operator judged this acceptable.
+
+If the dogfood had needed Pro-tier text legibility, the per-iteration gate would have surfaced the option ("Escalate to Flash 1K — Cost $0.067") and the operator would have authorised. That path is exercised in the prior naval-academy dogfood; this dogfood validates that the path *isn't forced* when Ollama suffices.
+
+## Operator decision points review (from the scaffold)
+
+- **AC6 pro_2k cost $0.134** — not relevant to this dogfood (no cloud renders).
+- **AC4 anchors schema shape** — survived contact with three real slides without operator friction. Operator did not request schema changes.
+- **AC2 sprint partitioning by strategy** — worked as designed; composed slide 2 partitioned out.
+- **Plugin version bump** — operator decision pending at merge time. Recommended 1.5.1.
+- **Methodology-deck framing vs Wall Street narrative** — operator picked methodology-deck. Decision validated by completion.
+
+## Branch + PR state at merge readiness
+
+- Branch: `feat/creative-vision-ga` (13 commits ahead of `feat/creative-page-renderer`)
+- PR: [#114](https://github.com/SteveGJones/jack-tar-deckhand/pull/114), base `feat/creative-page-renderer`
+- Tests: 475/475 deckhand + 65/65 integration green
+- CI: all 10 checks SUCCESS
+- Dogfood: COMPLETE (this log)
+- Operator approval: 2026-05-25
 
 ## Why we picked the methodology-deck framing over the Wall Street narrative
 
