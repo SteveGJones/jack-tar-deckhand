@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/figure-critic-verdict.json",
+  "title": "FigureCriticVerdict",
+  "description": "Verdict returned by Figure Critic after evaluating a rendered academic figure against its methodology source + caption. Drives the academic_figure iteration loop on the Claude-critic path (issue #113 follow-up, Path B).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "per_axis_scores",
+    "issues",
+    "refinement_feedback",
+    "iteration_index",
+    "plateau_signal",
+    "agrees_with_paperbanana_verdict"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "refine", "escalate", "abort"],
+      "description": "Decision the orchestrator acts on. `pass` requires every per_axis_score >= 80."
+    },
+    "per_axis_scores": {
+      "type": "object",
+      "required": [
+        "methodology_fidelity",
+        "caption_alignment",
+        "legibility",
+        "figure_type_correctness",
+        "aesthetic_quality"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "methodology_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+        "caption_alignment": {"type": "integer", "minimum": 0, "maximum": 100},
+        "legibility": {"type": "integer", "minimum": 0, "maximum": 100},
+        "figure_type_correctness": {"type": "integer", "minimum": 0, "maximum": 100},
+        "aesthetic_quality": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["axis", "detail"],
+        "additionalProperties": false,
+        "properties": {
+          "axis": {"type": "string"},
+          "detail": {"type": "string"}
+        }
+      },
+      "description": "Empty array iff verdict == 'pass'. Otherwise at least one item naming the failing axis + the specific gap."
+    },
+    "refinement_feedback": {
+      "type": "string",
+      "description": "Concrete imperative feedback passed verbatim to `paperbanana generate --continue-run --feedback`. Empty string when verdict != 'refine'."
+    },
+    "iteration_index": {"type": "integer", "minimum": 1},
+    "plateau_signal": {
+      "type": "boolean",
+      "description": "True when no axis has improved >=5 points in 2+ consecutive prior iterations. Signal for the orchestrator to consider escalation or abort."
+    },
+    "agrees_with_paperbanana_verdict": {
+      "type": ["boolean", "null"],
+      "description": "When a paperbanana side-by-side verdict was provided in the dispatch input, true iff this verdict's accept/reject polarity matches. Null when no side-by-side was provided. Used during the equivalence-testing phase."
+    }
+  }
+}

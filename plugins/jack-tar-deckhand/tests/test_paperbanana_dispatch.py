@@ -513,5 +513,161 @@ def test_dispatch_dataclass_default_fallback_values():
     assert dispatch.fallback_reason == ""
 
 
+# --- Claude-critic path helpers (#113 Path B) -----------------------------
+
+import pytest  # noqa: E402
+
+from src.paperbanana_dispatch import (  # noqa: E402
+    build_continue_run_dispatch_args,
+    build_initial_dispatch_args_for_claude_critic,
+    get_figure_type,
+    get_iteration_cap,
+    is_claude_critic_path,
+    should_log_paperbanana_verdict,
+)
+
+
+def test_is_claude_critic_path_default_false_when_no_academic_figure_block():
+    """Legacy slide without academic_figure block → paperbanana-critic path."""
+    slide = {"slide_number": 5, "strategy": "academic_figure"}
+    assert is_claude_critic_path(slide) is False
+
+
+def test_is_claude_critic_path_default_false_when_critic_field_omitted():
+    """academic_figure block present but no critic field → defaults to paperbanana."""
+    slide = {
+        "slide_number": 5,
+        "strategy": "academic_figure",
+        "academic_figure": {"figure_type": "plot"},
+    }
+    assert is_claude_critic_path(slide) is False
+
+
+def test_is_claude_critic_path_true_when_critic_claude():
+    """Explicit opt-in via critic: claude."""
+    slide = {
+        "slide_number": 5,
+        "strategy": "academic_figure",
+        "academic_figure": {"critic": "claude"},
+    }
+    assert is_claude_critic_path(slide) is True
+
+
+def test_is_claude_critic_path_false_for_non_academic_figure_strategies():
+    """Even with academic_figure block, wrong strategy → False (schema would also reject)."""
+    slide = {
+        "slide_number": 5,
+        "strategy": "composed",
+        "academic_figure": {"critic": "claude"},
+    }
+    assert is_claude_critic_path(slide) is False
+
+
+def test_build_initial_dispatch_args_for_claude_critic_forces_iterations_1():
+    """Iterations MUST be 1 — jack-tar owns the loop, paperbanana does one render per call."""
+    slide = {
+        "slide_number": 5,
+        "strategy": "academic_figure",
+        "headline": "Figure 3",
+        "visual_direction": "three-block encoder architecture",
+        "body_points": ["encoder", "attention", "decoder"],
+        "academic_figure": {
+            "critic": "claude",
+            "iteration_cap": 6,
+        },
+        # Even if the slide had paperbanana_iterations set high, claude-critic
+        # forces 1 — the operator-tunable cap lives in jack-tar's loop, not in
+        # paperbanana's internal loop.
+        "paperbanana_iterations": 9,
+    }
+    args = build_initial_dispatch_args_for_claude_critic(slide)
+    assert args["iterations"] == 1
+    assert "source_context" in args
+    assert args["caption"] == "Figure 3"
+    assert args["aspect_ratio"] == "16:9"
+
+
+def test_build_continue_run_dispatch_args_happy_path():
+    args = build_continue_run_dispatch_args(
+        paperbanana_run_id="run_20260527_120000_abc123",
+        feedback="Make the encoder block 30% taller. Add a labelled arrow.",
+    )
+    assert args["continue_run"] == "run_20260527_120000_abc123"
+    assert "encoder block 30% taller" in args["feedback"]
+    assert args["iterations"] == 1
+
+
+def test_build_continue_run_dispatch_args_rejects_empty_run_id():
+    with pytest.raises(ValueError, match="paperbanana_run_id"):
+        build_continue_run_dispatch_args(paperbanana_run_id="", feedback="x")
+
+
+def test_build_continue_run_dispatch_args_rejects_whitespace_run_id():
+    with pytest.raises(ValueError, match="paperbanana_run_id"):
+        build_continue_run_dispatch_args(paperbanana_run_id="   ", feedback="x")
+
+
+def test_build_continue_run_dispatch_args_rejects_empty_feedback():
+    """figure-critic is contractually required to provide non-empty refinement
+    feedback on a refine verdict. Empty feedback would mean a corrupt critic
+    verdict slipped through; this catch is a belt-and-braces."""
+    with pytest.raises(ValueError, match="feedback must be non-empty"):
+        build_continue_run_dispatch_args(paperbanana_run_id="run_x", feedback="")
+
+
+def test_get_iteration_cap_default_4():
+    """Default cap matches schema default."""
+    assert get_iteration_cap({"academic_figure": {}}) == 4
+    assert get_iteration_cap({}) == 4
+
+
+def test_get_iteration_cap_honours_per_slide_override():
+    assert get_iteration_cap({"academic_figure": {"iteration_cap": 7}}) == 7
+
+
+def test_get_figure_type_default_other():
+    assert get_figure_type({"academic_figure": {}}) == "other"
+    assert get_figure_type({}) == "other"
+
+
+def test_get_figure_type_returns_specified_type():
+    assert get_figure_type({"academic_figure": {"figure_type": "plot"}}) == "plot"
+
+
+def test_should_log_paperbanana_verdict_false_when_not_claude_critic():
+    """Side-by-side logging only meaningful in claude-critic path."""
+    slide = {
+        "slide_number": 5,
+        "strategy": "academic_figure",
+        "academic_figure": {
+            "critic": "paperbanana",
+            "log_paperbanana_verdict_for_comparison": True,
+        },
+    }
+    assert should_log_paperbanana_verdict(slide) is False
+
+
+def test_should_log_paperbanana_verdict_true_when_claude_critic_and_opted_in():
+    slide = {
+        "slide_number": 5,
+        "strategy": "academic_figure",
+        "academic_figure": {
+            "critic": "claude",
+            "log_paperbanana_verdict_for_comparison": True,
+        },
+    }
+    assert should_log_paperbanana_verdict(slide) is True
+
+
+def test_should_log_paperbanana_verdict_default_false_under_claude_critic():
+    """Equivalence-testing is opt-in even on the claude-critic path."""
+    slide = {
+        "slide_number": 5,
+        "strategy": "academic_figure",
+        "academic_figure": {"critic": "claude"},
+    }
+    assert should_log_paperbanana_verdict(slide) is False
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
