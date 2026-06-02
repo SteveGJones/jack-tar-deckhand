@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/directors-critic-verdict.json",
+  "title": "DirectorsCriticVerdict",
+  "description": "Verdict returned by Director's Critic after evaluating a rendered image against the ParsedVision. Issue #105.",
+  "type": "object",
+  "required": [
+    "verdict", "per_axis_scores", "issues", "gap_location",
+    "recommended_action", "tier", "iteration_index", "plateau_signal"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "refine_at_tier", "escalate_tier", "abort"]
+    },
+    "per_axis_scores": {
+      "type": "object",
+      "required": ["entity_fidelity", "spatial_fidelity", "style_fidelity", "quality", "composition"],
+      "properties": {
+        "entity_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+        "spatial_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+        "style_fidelity": {"type": "integer", "minimum": 0, "maximum": 100},
+        "quality": {"type": "integer", "minimum": 0, "maximum": 100},
+        "composition": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["axis", "detail"],
+        "properties": {
+          "axis": {"type": "string"},
+          "detail": {"type": "string"}
+        }
+      }
+    },
+    "gap_location": {
+      "type": "string",
+      "enum": ["prose", "prompt", "tier", "unknown"]
+    },
+    "recommended_action": {"type": "string"},
+    "tier": {"type": "string"},
+    "iteration_index": {"type": "integer", "minimum": 1},
+    "plateau_signal": {"type": "boolean"}
+  }
+}

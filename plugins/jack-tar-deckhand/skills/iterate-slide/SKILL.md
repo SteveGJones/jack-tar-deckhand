@@ -319,4 +319,136 @@ Next:
 - **Auto-mode regret:** `--auto` can produce a figure that's qualitatively different from what the operator wanted (the dogfood F10 finding). When the operator's feedback names specific items to add, `--mode enumerate` is the right choice; `--mode auto` is for "make it look better" feedback.
 - **Cost discipline:** check the cost ledger after a refinement. If cumulative-spend is approaching the deck's budget envelope, escalate to the operator before launching another refinement.
 
+## Creative vision feedback (#105)
+
+The three modes above (`auto` / `enumerate` / `draft`) apply to `academic_figure` slides rendered via paperbanana. For `creative_vision` slides — slides whose image was produced by the CreativeVision orchestrator — a different feedback model applies: the **three-channel branch**.
+
+### Detect creative_vision
+
+Before entering the standard paperbanana flow, call `is_creative_vision_slide`:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import sys
+from src.iterate_slide_dispatch import is_creative_vision_slide
+result = is_creative_vision_slide('$DECK_DIR', $SLIDE_NUMBER)
+print('yes' if result else 'no')
+"
+```
+
+If the result is `yes`, the slide has a manifest at `<deck_dir>/creative-vision/<slide_number>/manifest.json` and the three-channel branch applies. Do NOT invoke the paperbanana `--continue-run` path for creative_vision slides.
+
+### Determine available channels
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.iterate_slide_dispatch import available_channels_for_creative_vision
+channels = available_channels_for_creative_vision('$DECK_DIR', $SLIDE_NUMBER)
+print(json.dumps(channels))
+"
+```
+
+`available_channels_for_creative_vision` reads `iterate_slide_hooks` from the manifest. The three channels are:
+
+| Channel | When available |
+|---|---|
+| `revise_prose` | Always (`can_revise_prose` — always True in v1, reserved for future deprecation) |
+| `refine_prompt` | When `can_refine_prompt` is True |
+| `escalate_tier` | When `can_escalate_tier` is True — flipped to False when `remaining_budget_usd` ≤ 0 or the cascade ceiling has been reached |
+
+### Channel semantics
+
+#### Channel 1 — revise prose
+
+Use when the operator believes the **root vision is wrong or under-specified** — the image rendered faithfully to the prose, but the prose itself didn't capture the intent.
+
+1. Read `manifest["prose_history"][-1]["prose"]` and display it to the operator.
+2. If the most recent attempt has a Director's Critic verdict, show the `gap_location` field (especially when it equals `"prose"`).
+3. Prompt: _"The current vision is: [prose]. The rendered image showed [recent critic diagnosis]. Update the prose to be more specific or correct any misunderstanding:"_
+4. Collect `new_prose` and `reason` from the operator.
+5. Call `revise_prose_action`:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.iterate_slide_dispatch import revise_prose_action
+m = revise_prose_action(
+    '$DECK_DIR',
+    slide_number=$SLIDE_NUMBER,
+    new_prose='''$NEW_PROSE''',
+    reason='''$REASON''',
+)
+print(json.dumps({'prose_history_len': len(m['prose_history'])}))
+"
+```
+
+6. After the manifest is updated, re-invoke `creative_vision_dispatch.initialise_dispatch(...)` and run the full orchestration loop with the new prose. The manifest preserves the full prose history for audit.
+
+#### Channel 2 — refine prompt
+
+Use when the **prose is correct** but the Director's Brief missed a specific element or the Visualizer produced an off-target composition. Same tier, same prose; adds one more text-side iteration.
+
+1. Read the most recent attempt's Director's Critic verdict. Extract `issues` and `recommended_action`.
+2. Prompt: _"The renderer's interpretation missed [specific gap from issues]. Add a note for the Director's Brief to address:"_
+3. Collect the operator's note.
+4. Pass the note as an entry in the Brief's `accumulated_feedback` list on the next dispatch. The Brief's feedback list grows by one entry each time this channel is used; the accumulation is the mechanism that drives convergence without resetting tier.
+
+The implementation is entirely in the `creative_vision_dispatch` layer — this channel does NOT call any helper in `iterate_slide_dispatch.py`. The SKILL.md orchestrator adds the note to the dispatch call and re-runs the loop.
+
+#### Channel 3 — escalate tier
+
+Use when the current tier has **plateaued** (multiple iterations, no score gain) and the operator wants to pay for a higher-fidelity model tier.
+
+1. Read `iterate_slide_hooks`:
+   - `current_tier` — where we are now
+   - `next_tier_available` — next step up the cascade (None if at ceiling)
+   - `remaining_budget_usd` — what's left
+
+2. Look up the cost from `cascade.TIER_COSTS`:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.creative_vision.cascade import TIER_COSTS
+import json, sys
+tier = '$NEXT_TIER'
+cost = TIER_COSTS.get(tier, 0)
+print(json.dumps({'tier': tier, 'cost_usd': cost}))
+"
+```
+
+3. Confirm with the operator: _"Current tier `[current_tier]` plateaued. Escalate to `[next_tier]` (cost ~\$[cost])? Remaining budget: \$[remaining]."_
+
+4. On operator confirmation: bump `iterate_slide_hooks.current_tier` to `next_tier`, reset the per-tier iteration counter, and resume the orchestration loop at the new tier. The manifest's `can_escalate_tier` will be flipped to False by the next `append_attempt` call when budget hits zero.
+
+### Mode mapping
+
+The existing iterate-slide modes map onto the three channels:
+
+| Mode | Behaviour for creative_vision slides |
+|---|---|
+| `enumerate` | Read manifest, call `available_channels_for_creative_vision`, annotate each channel with the Director's Critic's `recommended_action`. Present to operator; operator selects. |
+| `auto` | Read `directors_critic_verdict.gap_location`. If `gap_location: "prose"` AND Critic's `recommended_action` explicitly suggests prose revision → prompt operator to revise prose (channel 1 ALWAYS requires explicit operator confirmation — auto never autonomously rewrites prose). If `gap_location: "prompt"` → route to refine_prompt automatically. If `gap_location: "tier"` → route to escalate_tier if budget allows; otherwise present to operator. |
+| `draft` | Operator writes a free-form note. Classify heuristically: if the note is a substantial rewrite of the vision → route to revise_prose; if it is a targeted correction naming a specific element → route to refine_prompt. **Confirm routing with operator before taking action.** |
+
+### Manifest hooks read here
+
+The SKILL.md reads these specific fields from `manifest["iterate_slide_hooks"]`:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `can_revise_prose` | boolean | Always True in v1; reserved for future |
+| `can_refine_prompt` | boolean | Whether channel 2 is open |
+| `can_escalate_tier` | boolean | Flipped False when budget ≤ 0 or ceiling reached |
+| `current_tier` | string | Current cascade tier (e.g. `"flash_1k"`) |
+| `next_tier_available` | string \| null | Next tier up, or null at ceiling |
+| `remaining_budget_usd` | float | Budget remaining after all attempts so far |
+
+### Cross-references
+
+- Manifest module: `plugins/jack-tar-deckhand/src/creative_vision/manifest.py`
+- Dispatch entry: `plugins/jack-tar-deckhand/src/creative_vision_dispatch.py`
+- Cascade costs: `plugins/jack-tar-deckhand/src/creative_vision/cascade.py` (`TIER_COSTS`)
+- Spec: `docs/superpowers/specs/2026-05-21-creative-vision-renderer-design.md`
+
 > Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly. If you need to verify an image, dispatch the `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or the `general-purpose` subagent (Sonnet, higher accuracy). Both subagents pull the image into THEIR context and return text.

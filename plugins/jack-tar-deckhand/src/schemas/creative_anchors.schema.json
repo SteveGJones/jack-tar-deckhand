@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/creative-anchors.json",
+  "title": "CreativeAnchors",
+  "description": "Deck-level recurring characters, props, locations, and style anchors for cross-slide consistency in creative_vision renders. Issue #113 AC4. When a deck has multiple creative_vision slides sharing a recurring entity (e.g. 'the customer' character in slides 3 and 7), capture the canonical description here; the Director's Brief reads the anchors when authoring each slide's prompt and weaves them in by name so all renders agree.",
+  "type": "object",
+  "required": ["schema_version", "anchors"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Anchors schema version. Increment for backwards-incompatible changes."
+    },
+    "deck_brief": {
+      "type": "string",
+      "description": "Optional one-paragraph creative-direction summary for the deck — the high-level register (e.g. '1980s Wall Street cinematic style'). Applies to every creative_vision slide. The Brief inlines this verbatim when present."
+    },
+    "anchors": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["name", "kind", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Operator-chosen name. Brief references this verbatim (case-sensitive)."
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["character", "prop", "location", "style_anchor"],
+            "description": "Anchor category. character / prop / location are scene entities; style_anchor is a register/medium/palette directive."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Canonical description used in every slide's prompt. Include physical traits for characters (e.g. 'mid-50s, salt-and-pepper hair, tortoiseshell glasses, navy blazer'), distinguishing features for props, and specific palette/period/cinematography cues for style_anchors."
+          },
+          "appears_in_slides": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "integer", "minimum": 1},
+            "description": "Optional list of slide numbers where this anchor explicitly appears. When omitted or empty, the anchor is treated as deck-wide (eligible for every creative_vision slide). The Brief uses this to decide whether to inline the anchor for a given slide."
+          },
+          "negative_traits": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Optional traits the anchor must NOT have. Useful for character_recognition continuity when the model has a strong default appearance bias (e.g. always rendering a 'customer' as bearded — list 'beard' here)."
+          }
+        }
+      }
+    }
+  }
+}

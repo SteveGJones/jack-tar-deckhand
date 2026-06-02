@@ -20,7 +20,7 @@
           "slide_number": {"type": "integer", "minimum": 1},
           "strategy": {
             "type": "string",
-            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", "academic_figure", "full_bleed"]
+            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", "academic_figure", "full_bleed", "creative_vision"]
           },
           "rationale": {"type": "string"},
           "render_funnel": {
@@ -32,7 +32,7 @@
           },
           "speaker_override": {
             "type": ["string", "null"],
-            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", "academic_figure", "full_bleed", null]
+            "enum": ["full_render", "backdrop_render", "composed", "background", "backdrop", "pragmatic_composition", "smartart", "academic_figure", "full_bleed", "creative_vision", null]
           },
           "backdrop_variant": {
             "type": "string",
@@ -104,8 +104,41 @@
                 }
               }
             }
+          },
+          "creative_vision": {
+            "type": "object",
+            "required": ["vision_prose"],
+            "properties": {
+              "vision_prose": {"type": "string", "minLength": 1},
+              "budget_usd": {"type": "number", "minimum": 0, "default": 1.0},
+              "allowed_ceiling": {
+                "type": "string",
+                "enum": ["ollama", "flash_1k", "flash_2k", "flash_4k", "pro_1k", "pro_2k", "pro_4k", "recraft_standard_1k", "recraft_pro_2k", "recraft_pro_4k"],
+                "default": "pro_4k"
+              },
+              "iteration_caps_override": {
+                "type": ["object", "null"],
+                "description": "Optional per-tier iteration cap override for this slide. Keys must be valid cascade tier names; values are positive integers (max iterations at that tier). A typo on the key (e.g. 'flsh_1k') is rejected at schema validation time so the operator can't silently fail to cap a tier.",
+                "propertyNames": {
+                  "enum": [
+                    "ollama",
+                    "flash_1k", "flash_2k", "flash_4k",
+                    "pro_1k", "pro_2k", "pro_4k",
+                    "recraft_standard_1k", "recraft_pro_2k", "recraft_pro_4k"
+                  ]
+                },
+                "additionalProperties": {"type": "integer", "minimum": 1}
+              }
+            }
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"strategy": {"const": "creative_vision"}}},
+            "then": {"required": ["creative_vision"]},
+            "else": {"not": {"required": ["creative_vision"]}}
+          }
+        ]
       }
     }
   }
