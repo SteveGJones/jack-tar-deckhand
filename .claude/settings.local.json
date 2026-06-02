@@ -342,20 +342,7 @@
       "Bash(chmod +x plugins/jack-tar-deckhand/hooks/block-png-read.sh)",
       "Bash(xargs -I{} echo \"Open issues remaining: {}\")",
       "Bash(pytest tests/test_chart_marker.py -v)",
-      "Bash(pytest -q)",
-      "Skill(superpowers:brainstorming)",
-      "Bash(ln -s ../../../.venv .venv)",
-      "Bash(pytest *)",
-      "Bash(venv/bin/pytest tests/test_actual_cost_calculator.py -v)",
-      "Bash(python -m pytest tests/test_actual_cost_calculator.py -v)",
-      "Bash(/Users/stevejones/Documents/Development/jack-tar-deckhand/.claude/worktrees/spike-actual-token-pricing/.venv/bin/pytest tests/test_spike_pricing_calibration.py tests/test_actual_cost_calculator.py tests/test_pricing_freshness.py -v --tb=short)",
-      "Bash(.venv/bin/flake8 tools/spike_pricing_calibration.py --max-line-length=100)",
-      "Bash(.venv/bin/flake8 *)",
-      "Bash(tee docs/spikes/2026-05-21-actual-token-pricing/live-run.log)",
-      "Bash(tee -a docs/spikes/2026-05-21-actual-token-pricing/live-run.log)",
-      "Bash(python /tmp/verify_math.py)",
-      "Bash(python /tmp/verify_verdict.py)",
-      "Bash(python /tmp/validate_aggregator_output.py)"
+      "Bash(pytest -q)"
     ],
     "deny": [
       "Bash(git push --force:*)",
