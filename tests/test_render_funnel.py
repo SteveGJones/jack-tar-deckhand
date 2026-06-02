@@ -114,18 +114,21 @@ def test_execute_ollama_stage(deck_dir):
 
 def test_execute_cloud_stage(deck_dir):
     from src.render_funnel import init_render_log, execute_funnel_stage
+    from src.cloud_results import GenerationResult
     init_render_log(deck_dir)
     output_path = os.path.join(deck_dir, 'images', 'slide-01-hero.png')
 
     with patch('src.render_funnel._generate_cloud') as mock_cloud:
         _create_test_image(output_path, 1280, 720)
-        mock_cloud.return_value = {
-            'file_path': output_path,
-            'provider': 'google',
-            'model_used': 'imagen-4-fast',
-            'cost_usd': 0.02,
-            'status': 'generated',
-        }
+        mock_cloud.return_value = GenerationResult(
+            path=output_path,
+            cost_estimated=0.02,
+            cost_actual=0.02,
+            usage_metadata=None,
+            provider='google',
+            model='imagen-4-fast',
+            resolution='1K',
+        )
 
         result = execute_funnel_stage(
             deck_dir=deck_dir,

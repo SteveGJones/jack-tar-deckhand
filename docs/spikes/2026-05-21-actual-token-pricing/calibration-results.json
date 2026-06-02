@@ -1,0 +1,299 @@
+[
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "1K",
+    "prompt_key": "short_a",
+    "prompt_chars": 428,
+    "prompt_words": 60,
+    "catalog_estimate_usd": 0.067,
+    "raw_usage": {
+      "prompt_token_count": 83,
+      "candidates_token_count": 1578,
+      "total_token_count": 1661
+    },
+    "computed_actual_usd": 0.0947215,
+    "delta_usd": -0.027721499999999996,
+    "delta_pct": -41.375373134328356,
+    "timestamp": "2026-05-22T03:40:32.281435+00:00"
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "1K",
+    "prompt_key": "medium_a",
+    "prompt_chars": 1437,
+    "prompt_words": 197,
+    "catalog_estimate_usd": 0.067,
+    "raw_usage": {
+      "prompt_token_count": 277,
+      "candidates_token_count": 1470,
+      "total_token_count": 1747
+    },
+    "computed_actual_usd": 0.0883385,
+    "delta_usd": -0.021338499999999996,
+    "delta_pct": -31.84850746268656,
+    "timestamp": "2026-05-22T03:40:46.224335+00:00"
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "1K",
+    "prompt_key": "long_a",
+    "prompt_chars": 3580,
+    "prompt_words": 491,
+    "catalog_estimate_usd": 0.067,
+    "raw_usage": {
+      "prompt_token_count": 818,
+      "candidates_token_count": 1994,
+      "total_token_count": 2812
+    },
+    "computed_actual_usd": 0.12004900000000002,
+    "delta_usd": -0.05304900000000001,
+    "delta_pct": -79.17761194029852,
+    "timestamp": "2026-05-22T03:41:07.143626+00:00"
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "2K",
+    "prompt_key": "short_a",
+    "prompt_chars": 428,
+    "prompt_words": 60,
+    "catalog_estimate_usd": 0.101,
+    "raw_usage": {
+      "prompt_token_count": 83,
+      "candidates_token_count": 2058,
+      "total_token_count": 2141
+    },
+    "computed_actual_usd": 0.12352149999999999,
+    "delta_usd": -0.022521499999999986,
+    "delta_pct": -22.298514851485134,
+    "timestamp": "2026-05-22T03:41:39.358313+00:00"
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "2K",
+    "prompt_key": "medium_a",
+    "prompt_chars": 1437,
+    "prompt_words": 197,
+    "catalog_estimate_usd": 0.101,
+    "raw_usage": {
+      "prompt_token_count": 277,
+      "candidates_token_count": 2041,
+      "total_token_count": 2318
+    },
+    "computed_actual_usd": 0.12259849999999999,
+    "delta_usd": -0.02159849999999998,
+    "delta_pct": -21.384653465346513,
+    "timestamp": "2026-05-22T03:42:14.384288+00:00"
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "2K",
+    "prompt_key": "long_a",
+    "prompt_chars": 3580,
+    "prompt_words": 491,
+    "catalog_estimate_usd": 0.101,
+    "raw_usage": {
+      "prompt_token_count": 818,
+      "candidates_token_count": 2564,
+      "total_token_count": 3382
+    },
+    "computed_actual_usd": 0.154249,
+    "delta_usd": -0.05324899999999999,
+    "delta_pct": -52.721782178217815,
+    "timestamp": "2026-05-22T03:42:46.419528+00:00"
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "4K",
+    "prompt_key": "short_a",
+    "prompt_chars": 428,
+    "prompt_words": 60,
+    "catalog_estimate_usd": 0.151,
+    "raw_usage": {
+      "prompt_token_count": 83,
+      "candidates_token_count": 2855,
+      "total_token_count": 2938
+    },
+    "computed_actual_usd": 0.1713415,
+    "delta_usd": -0.020341500000000012,
+    "delta_pct": -13.471192052980141,
+    "timestamp": "2026-05-22T03:43:24.192208+00:00"
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "4K",
+    "prompt_key": "medium_a",
+    "prompt_chars": 1437,
+    "prompt_words": 197,
+    "catalog_estimate_usd": 0.151,
+    "timestamp": "2026-05-22T03:53:32.313347+00:00",
+    "raw_usage": {
+      "prompt_token_count": 277,
+      "candidates_token_count": 2830,
+      "total_token_count": 3107
+    },
+    "computed_actual_usd": 0.16993850000000002,
+    "delta_usd": -0.018938500000000025,
+    "delta_pct": -12.542052980132468,
+    "error": null
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3.1-flash-image-preview",
+    "resolution": "4K",
+    "prompt_key": "long_a",
+    "prompt_chars": 3580,
+    "prompt_words": 491,
+    "catalog_estimate_usd": 0.151,
+    "timestamp": "2026-05-22T03:54:10.598149+00:00",
+    "raw_usage": {
+      "prompt_token_count": 818,
+      "candidates_token_count": 3456,
+      "total_token_count": 4274
+    },
+    "computed_actual_usd": 0.20776899999999998,
+    "delta_usd": -0.056768999999999986,
+    "delta_pct": -37.59536423841059,
+    "error": null
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3-pro-image-preview",
+    "resolution": "1K",
+    "prompt_key": "short_a",
+    "prompt_chars": 428,
+    "prompt_words": 60,
+    "catalog_estimate_usd": 0.134,
+    "timestamp": "2026-05-22T03:54:47.687721+00:00",
+    "raw_usage": {
+      "prompt_token_count": 83,
+      "candidates_token_count": 1268,
+      "total_token_count": 1578
+    },
+    "computed_actual_usd": 0.15232600000000002,
+    "delta_usd": -0.01832600000000001,
+    "delta_pct": -13.67611940298508,
+    "error": null
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3-pro-image-preview",
+    "resolution": "1K",
+    "prompt_key": "medium_a",
+    "prompt_chars": 1437,
+    "prompt_words": 197,
+    "catalog_estimate_usd": 0.134,
+    "timestamp": "2026-05-22T03:55:05.656729+00:00",
+    "raw_usage": {
+      "prompt_token_count": 277,
+      "candidates_token_count": 1331,
+      "total_token_count": 1863
+    },
+    "computed_actual_usd": 0.160274,
+    "delta_usd": -0.026273999999999992,
+    "delta_pct": -19.607462686567157,
+    "error": null
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3-pro-image-preview",
+    "resolution": "1K",
+    "prompt_key": "long_a",
+    "prompt_chars": 3580,
+    "prompt_words": 491,
+    "catalog_estimate_usd": 0.134,
+    "timestamp": "2026-05-22T03:55:32.678862+00:00",
+    "raw_usage": {
+      "prompt_token_count": 818,
+      "candidates_token_count": 1780,
+      "total_token_count": 2948
+    },
+    "computed_actual_usd": 0.21523599999999998,
+    "delta_usd": -0.08123599999999997,
+    "delta_pct": -60.6238805970149,
+    "error": null
+  },
+  {
+    "provider": "google_nano_banana",
+    "model": "gemini-3-pro-image-preview",
+    "resolution": "4K",
+    "prompt_key": "long_a",
+    "prompt_chars": 3580,
+    "prompt_words": 491,
+    "catalog_estimate_usd": 0.24,
+    "timestamp": "2026-05-22T03:56:00.206501+00:00",
+    "raw_usage": {
+      "prompt_token_count": 818,
+      "candidates_token_count": 2824,
+      "total_token_count": 4023
+    },
+    "computed_actual_usd": 0.34051600000000004,
+    "delta_usd": -0.10051600000000005,
+    "delta_pct": -41.88166666666669,
+    "error": null
+  },
+  {
+    "provider": "openai",
+    "model": "gpt-image-1",
+    "resolution": "1K",
+    "prompt_key": "short_a",
+    "prompt_chars": 428,
+    "prompt_words": 60,
+    "catalog_estimate_usd": 0.034,
+    "timestamp": "2026-05-22T04:00:20.616977+00:00",
+    "raw_usage": {
+      "input_tokens": 93,
+      "output_tokens": 1056,
+      "total_tokens": 1149
+    },
+    "computed_actual_usd": 0.042705,
+    "delta_usd": -0.008704999999999997,
+    "delta_pct": -25.60294117647058,
+    "error": null
+  },
+  {
+    "provider": "openai",
+    "model": "gpt-image-1",
+    "resolution": "1K",
+    "prompt_key": "medium_a",
+    "prompt_chars": 1437,
+    "prompt_words": 197,
+    "catalog_estimate_usd": 0.034,
+    "timestamp": "2026-05-22T04:00:38.869628+00:00",
+    "raw_usage": {
+      "input_tokens": 271,
+      "output_tokens": 1056,
+      "total_tokens": 1327
+    },
+    "computed_actual_usd": 0.043595,
+    "delta_usd": -0.009595,
+    "delta_pct": -28.220588235294112,
+    "error": null
+  },
+  {
+    "provider": "openai",
+    "model": "gpt-image-1",
+    "resolution": "1K",
+    "prompt_key": "long_a",
+    "prompt_chars": 3580,
+    "prompt_words": 491,
+    "catalog_estimate_usd": 0.034,
+    "timestamp": "2026-05-22T04:00:59.328858+00:00",
+    "raw_usage": {
+      "input_tokens": 840,
+      "output_tokens": 1056,
+      "total_tokens": 1896
+    },
+    "computed_actual_usd": 0.04644,
+    "delta_usd": -0.01244,
+    "delta_pct": -36.588235294117645,
+    "error": null
+  }
+]

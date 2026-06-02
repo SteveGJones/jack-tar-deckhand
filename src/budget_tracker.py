@@ -11,6 +11,7 @@ Budget state is persisted to pipeline-state.json via deckcontext.
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 
 # Cost constants per model and quality tier (USD)
 MODEL_COSTS = {
@@ -54,6 +55,16 @@ class BudgetTracker:
         return self._spent
 
     @property
+    def spent_usd(self) -> float:
+        """Total USD spent so far (alias for spent)."""
+        return self._spent
+
+    @property
+    def ledger(self) -> list:
+        """Read-only copy of all recorded API call entries."""
+        return list(self._api_calls)
+
+    @property
     def remaining(self) -> float:
         """USD remaining, clamped to zero."""
         return max(0.0, self._total_budget_usd - self._spent)
@@ -84,14 +95,43 @@ class BudgetTracker:
         """Return True if spending this amount stays within budget."""
         return self._spent + amount_usd <= self._total_budget_usd
 
-    def log_api_call(self, model_key: str, cost_usd: float, image_id: str) -> None:
-        """Record a cloud API call and its cost."""
-        self._spent += cost_usd
+    def log_api_call(
+        self,
+        model_key: str,
+        cost_estimated: Optional[float] = None,
+        image_id: Optional[str] = None,
+        cost_actual: Optional[float] = None,
+        usage_metadata: Optional[dict] = None,
+        *,
+        cost_usd: Optional[float] = None,  # DEPRECATED alias for cost_estimated
+    ) -> None:
+        """Record a cloud API call and its cost.
+
+        Args:
+            model_key: provider+model+resolution identifier.
+            cost_estimated: pre-flight catalog estimate (used for cap check and
+                as the spend amount when cost_actual is not provided).
+            image_id: stable identifier for this call.
+            cost_actual: actual cost computed from API-returned usage metadata.
+                When None, the ledger uses cost_estimated as the spent amount.
+            usage_metadata: verbatim usage dict from the API for audit.
+            cost_usd: DEPRECATED alias for cost_estimated. Will be removed in a
+                future release. Legacy positional callers remain supported.
+        """
+        if cost_estimated is None and cost_usd is not None:
+            cost_estimated = cost_usd
+        if cost_estimated is None:
+            raise TypeError("cost_estimated (or legacy cost_usd) is required")
+        spent_amount = cost_actual if cost_actual is not None else cost_estimated
+        self._spent += spent_amount
         self._api_calls.append({
             'model': model_key,
-            'cost_usd': cost_usd,
+            'cost_usd': cost_estimated,       # legacy key — preserved for existing callers
+            'cost_estimated': cost_estimated,
+            'cost_actual': cost_actual,
             'cumulative_usd': self._spent,
             'image_id': image_id,
+            'usage_metadata': usage_metadata,
             'timestamp': datetime.now(timezone.utc).isoformat(),
         })
 
@@ -134,5 +174,16 @@ class BudgetTracker:
             f'| API Calls | {len(self._api_calls)} |',
             f'| Cache Hits | {self._cache_hits} |',
             f'| Cache Savings | ${self._cache_savings:.2f} |',
+            '',
+            '### API Call Detail',
+            '',
+            '| Model | Image | Estimated $ | Actual $ |',
+            '|-------|-------|-------------|----------|',
         ]
+        for row in self._api_calls:
+            estimated = f"${row['cost_estimated']:.4f}" if row.get('cost_estimated') is not None else '—'
+            actual = f"${row['cost_actual']:.4f}" if row.get('cost_actual') is not None else '—'
+            lines.append(
+                f"| {row['model']} | {row.get('image_id', '')} | {estimated} | {actual} |"
+            )
         return '\n'.join(lines)

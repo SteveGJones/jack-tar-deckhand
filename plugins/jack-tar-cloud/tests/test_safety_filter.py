@@ -165,7 +165,7 @@ def test_nano_banana_raises_safety_filter_on_empty_candidates():
 def test_nano_banana_succeeds_on_normal_response():
     client = MagicMock()
     client.models.generate_content.return_value = _build_response_with_image()
-    data = _generate_via_nano_banana(client, "gemini-3.1-flash-image-preview", "fine prompt", "1K")
+    data, usage_dict = _generate_via_nano_banana(client, "gemini-3.1-flash-image-preview", "fine prompt", "1K")
     assert data == b"\x89PNG\r\n\x1a\nfake"
 
 
