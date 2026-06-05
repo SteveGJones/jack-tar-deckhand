@@ -1,0 +1,19 @@
+{
+  "graphic_type": "org_chart",
+  "layout_id": "orgChart1",
+  "data": {
+    "tree": {
+      "title": "CEO",
+      "children": [
+        {"title": "Executive Assistant", "asst": true},
+        {"title": "CTO", "children": [
+          {"title": "VP Engineering"},
+          {"title": "VP Platform"}
+        ]},
+        {"title": "CFO", "children": [
+          {"title": "Controller"}
+        ]}
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "slide_number": 1,
+  "graphic_type": "venn",
+  "engine": "custom_svg",
+  "enrichment_tier": "pure_programmatic",
+  "data": {
+    "sets": [
+      {"label": "Fast"},
+      {"label": "Cheap"},
+      {"label": "Good"}
+    ],
+    "intersection": {"label": "Pick 2"}
+  },
+  "dimensions": {"width": 1920, "height": 1080},
+  "alt_text": "Fast-Cheap-Good trade-off Venn diagram"
+}

@@ -78,7 +78,9 @@ def render_timeline(data, container, tokens):
 
     elements = [spine]
 
-    date_font_size = max(9, min(11, int(label_font_size * 0.75)))
+    # Floor at 12px to satisfy PA-03 (minimum legible source font size); the
+    # date badge previously capped at 11px and failed the plugin's own check.
+    date_font_size = max(12, min(14, int(label_font_size * 0.85)))
     date_badge_y = label_top_y - 2 * (label_font_size + 2) - 4   # above the label area
 
     for i, (stage, col) in enumerate(zip(stages, cols)):
