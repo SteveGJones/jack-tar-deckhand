@@ -1,0 +1,16 @@
+{
+  "slide_number": 1,
+  "graphic_type": "timeline",
+  "engine": "custom_svg",
+  "enrichment_tier": "pure_programmatic",
+  "data": {
+    "stages": [
+      {"date": "Q1", "label": "Discover"},
+      {"date": "Q2", "label": "Design"},
+      {"date": "Q3", "label": "Build"},
+      {"date": "Q4", "label": "Ship"}
+    ]
+  },
+  "dimensions": {"width": 1920, "height": 1080},
+  "alt_text": "Quarterly delivery timeline from discovery to ship"
+}

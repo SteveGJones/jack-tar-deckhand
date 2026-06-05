@@ -1,0 +1,7 @@
+{
+  "graphic_type": "flowchart",
+  "layout_id": "process1",
+  "data": {
+    "items": ["Research", "Design", "Build", "Test", "Ship"]
+  }
+}

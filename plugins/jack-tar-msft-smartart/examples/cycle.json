@@ -1,0 +1,7 @@
+{
+  "graphic_type": "cycle",
+  "layout_id": "cycle2",
+  "data": {
+    "items": ["Plan", "Do", "Check", "Act"]
+  }
+}
