@@ -12,7 +12,7 @@ Transform a TalkBrief into a structured SlideOutline. Works in two stages: colla
 ## Prerequisites
 
 - `./tmp/deck/talk-brief.json` must exist
-- `./tmp/deck/style-guide.json` must exist (produced by slide-stylist)
+- `./tmp/deck/style-guide.json` is **optional**. When present (produced by slide-stylist), its layout and pacing cues are used. When absent, narrative-architect runs in **standalone mode** (see below), synthesising a tone-keyed default style.
 
 ## Usage
 
@@ -22,6 +22,20 @@ Invoked by the Deck Conductor after slide-stylist. Can also be invoked directly:
 /narrative-architect
 /narrative-architect --deck-dir ./tmp/deck
 ```
+
+### Standalone mode (no style-guide)
+
+The generators (narrative-architect → speaker-notes-writer) can run from a TalkBrief alone, skipping brand-manager and slide-stylist — useful for outline-only drafts and self-presenting, visual-light decks.
+
+```python
+from src.narrative_standalone import generate_outline_from_brief_only
+from src.content_validation import generate_speaker_notes_from_outline
+
+outline = generate_outline_from_brief_only(deck_dir)          # reads talk-brief.json
+notes = generate_speaker_notes_from_outline(outline, tone="technical")
+```
+
+When `style-guide.json` is absent, `generate_outline_from_brief_only` synthesises a tone-keyed default before building the outline (technical → dense/90s, executive → spacious/120s, narrative → moderate/75s; other tones fall back to `narrative`).
 
 ## What It Does
 
