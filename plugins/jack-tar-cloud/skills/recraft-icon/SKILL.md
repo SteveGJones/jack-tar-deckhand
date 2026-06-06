@@ -1,6 +1,6 @@
 ---
 name: recraft-icon
-description: Generate vector icons (SVG) using Recraft V4 API (direct or via FAL.ai). Accepts a text prompt with optional brand colors, generates native SVG output, and saves to a path. Requires OPENAI_API_KEY (Recraft direct) or FAL_KEY (FAL.ai route).
+description: Generate vector icons (SVG) using Recraft V4 API (direct or via FAL.ai). Accepts a text prompt with optional brand colors, generates native SVG output, and saves to a path. Requires RECRAFT_API_KEY (Recraft direct) or FAL_KEY (FAL.ai route).
 argument-hint: "icon description" [--provider recraft|fal] [--output PATH] [--colors HEX,HEX,...] [--format svg|png] [--tier standard|pro]
 allowed-tools: Bash(python *), Read, Glob
 ---
@@ -73,7 +73,7 @@ providers = discover_providers()
 provider = '$PROVIDER'
 if provider == 'recraft':
     p = providers.get('recraft', {})
-    env_var = 'RECRAFT_API'
+    env_var = 'RECRAFT_API_KEY'
 else:
     p = providers.get('fal', {})
     env_var = 'FAL_KEY'
@@ -82,7 +82,7 @@ print('available' if p.get('available') else f'not_configured: set {env_var}')
 ```
 
 If not configured, tell the user which environment variable to set:
-- `recraft` needs `RECRAFT_API` (see research/04-cloud-api-setup-licensing.md section D)
+- `recraft` needs `RECRAFT_API_KEY` (see research/04-cloud-api-setup-licensing.md section D)
 - `fal` needs `FAL_KEY` (see research/04-cloud-api-setup-licensing.md section C)
 
 ## Generate the Icon
