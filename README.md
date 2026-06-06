@@ -66,7 +66,7 @@ Speaker invokes `/bridge-brief` first; uses the brief to drive `/pptx`; then `/e
 Speaker has already run `/pptx` and isn't satisfied with the deck. The bridge takes a **review-first approach**: assesses what's there, identifies what's salvageable vs what needs redoing, and collaborates with the speaker on whether to enrich in place or rebuild the brief and start over. This is how the bridge handles "rescue" workflows.
 
 ### 3. Jack-Tar direct route
-Speaker invokes `/jack-tar-deckhand:deck-conductor` for the full Jack-Tar pipeline — brand profile, narrative architect, strategy map, full QA, no `/pptx` involvement at all. Best for speakers who want the full Jack-Tar treatment from a brief, not retrofitting onto an existing deck.
+Speaker dispatches the **deck-conductor** agent for the full Jack-Tar pipeline — brand profile, narrative architect, strategy map, full QA, no `/pptx` involvement at all. Best for speakers who want the full Jack-Tar treatment from a brief, not retrofitting onto an existing deck.
 
 ---
 
@@ -82,9 +82,9 @@ Speaker invokes `/jack-tar-deckhand:deck-conductor` for the full Jack-Tar pipeli
 
 ### Direct route
 
-```
-/jack-tar-deckhand:deck-conductor "your topic"
-```
+Dispatch the **deck-conductor** agent with your topic to orchestrate a full deck build (it is a conversational agent, not a slash command):
+
+> Use the deck-conductor agent to build a deck on "your topic"
 
 ---
 

@@ -295,7 +295,7 @@ Still-open issues NOT in the v1.4 scope: #86 (discipline-hook propagation — in
   - Create `research/synthesis-[skill-name].md` before implementing any skill
   - `research/report-1-landscape-and-spec.md` and `report-2-implementation-and-validation.md` are the pptx_native SmartArt research Phase 1/2
 
-- **Test suite: 1070 monorepo + 33 cross-plugin integration tests**
+- **Test suite: comprehensive coverage across all plugins (run `pytest` per plugin for current counts)**
   - Phases 1-6: Foundation through Orchestration (518 tests)
   - SmartArt Intelligent Graphics (PR #21, merged 2026-04-07): 132 tests
   - pptx_native SmartArt engine (PR #39, merged 2026-04-10): ~300 tests across 17 test files — 28 layouts, picture embedding, multi-slide integration

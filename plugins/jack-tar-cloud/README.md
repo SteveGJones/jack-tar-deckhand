@@ -17,9 +17,9 @@ At least one API key configured as an environment variable:
 | Variable | Provider | Used for |
 |----------|----------|----------|
 | `OPENAI_API_KEY` | OpenAI | GPT Image generation |
-| `GOOGLE_CLOUD_PROJECT` | Google | Gemini / Nanobanana image generation |
+| `GOOGLE_API_KEY` / `GOOGLE_APPLICATION_CREDENTIALS` | Google | Gemini / Nanobanana image generation (Developer API key or Vertex credentials) |
 | `FAL_KEY` | FAL.ai | FLUX Pro, Klein, Ideogram |
-| `OPENAI_API_KEY` | Recraft | SVG vector icons via Recraft V4 |
+| `RECRAFT_API_KEY` | Recraft | SVG vector icons via Recraft V4 |
 
 Run `/jack-tar-cloud:verify` to see which providers are reachable with your current keys.
 

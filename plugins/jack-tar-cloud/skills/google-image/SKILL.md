@@ -1,6 +1,6 @@
 ---
 name: google-image
-description: Generate images using Google Gemini/Imagen API. Requires GOOGLE_CLOUD_PROJECT environment variable.
+description: Generate images using Google Gemini/Imagen API. Requires GOOGLE_API_KEY (Gemini Developer API) or GOOGLE_APPLICATION_CREDENTIALS (Vertex).
 argument-hint: "a description of the image" [--output PATH] [--aspect-ratio 16:9|1:1|4:3|9:16|3:4] [--model MODEL] [--tier draft|standard|premium] [--resolution 1K|2K|4K]
 allowed-tools: Bash(python *)
 ---
@@ -56,12 +56,12 @@ If neither is provided, defaults to `standard` tier (Nanobanana Flash).
 ```bash
 PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import os
-configured = bool(os.environ.get('GOOGLE_CLOUD_PROJECT') or os.environ.get('GOOGLE_API_KEY'))
+configured = bool(os.environ.get('GOOGLE_API_KEY') or os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'))
 print('available' if configured else 'not_configured')
 "
 ```
 
-If `not_configured`, tell the user to set `GOOGLE_API_KEY` (or `GOOGLE_CLOUD_PROJECT`) and stop.
+If `not_configured`, tell the user to set `GOOGLE_API_KEY` (Gemini Developer API) or `GOOGLE_APPLICATION_CREDENTIALS` (Vertex) and stop.
 
 ## Generate
 

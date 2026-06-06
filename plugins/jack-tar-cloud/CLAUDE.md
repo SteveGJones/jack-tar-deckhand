@@ -5,8 +5,9 @@ Cloud AI image generation using OpenAI, Google, FAL.ai, and Recraft APIs. Per-pr
 ## Prerequisites
 
 At least one API key configured:
-- `OPENAI_API_KEY` — for OpenAI GPT Image and Recraft V4 icons
-- `GOOGLE_CLOUD_PROJECT` — for Google Gemini/Imagen
+- `OPENAI_API_KEY` — for OpenAI GPT Image
+- `RECRAFT_API_KEY` — for Recraft V4 icons (or `FAL_KEY` via the FAL.ai route)
+- `GOOGLE_API_KEY` (Gemini Developer API) or `GOOGLE_APPLICATION_CREDENTIALS` (Vertex) — for Google Gemini/Imagen
 - `FAL_KEY` — for FAL.ai FLUX Pro/Klein/Ideogram
 
 ## Skills
