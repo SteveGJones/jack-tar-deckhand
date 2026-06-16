@@ -212,6 +212,22 @@ not a Claude Code plugin or a cross-skill dispatch target. See
 `docs/architecture/paperbanana-integration-v2.md` for the framing
 rationale.
 
+**Two critic paths exist for academic_figure** (issue #113 Path B —
+equivalence-testing phase):
+
+- **paperbanana-critic (default)** — paperbanana owns the iteration loop;
+  its internal Gemini VLM critic decides accept/refine. The v1.4.1
+  behaviour. This is Step 4.6 below.
+- **claude-critic (opt-in)** — jack-tar owns the loop; paperbanana
+  renders one image per iteration (`--iterations 1`); the `figure-critic`
+  agent (Sonnet) decides accept/refine; refine path uses
+  `--continue-run --feedback`. Operator gates fire at every iteration
+  (F12 cadence). See **Step 4.6.1** below.
+
+Branch on the slide's `academic_figure.critic` field
+(`is_claude_critic_path(slide)` in `paperbanana_dispatch.py`). Default
+is `paperbanana` so existing decks are unchanged.
+
 The dispatch decision is built by `src/paperbanana_dispatch.py`. Use
 it from the bridge as the single source of truth — do NOT duplicate
 the availability check inline.
@@ -341,6 +357,196 @@ print(json.dumps(entry))
 > `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or
 > the `general-purpose` subagent (Sonnet, higher accuracy). Both
 > subagents pull the image into THEIR context and return text.
+
+### Step 4.6.1: Academic Figure Dispatch — Claude-critic path (issue #113 Path B)
+
+When the slide's `academic_figure.critic` field is `"claude"` (opt-in
+during the equivalence-testing phase), jack-tar takes the iteration loop
+back from paperbanana:
+
+- **paperbanana** still renders one image per cascade step (via
+  `--iterations 1`). Paperbanana's academic-figure-aware prompting is
+  exactly what we want to keep.
+- **figure-critic** (Sonnet) decides whether to accept, refine,
+  escalate, or abort.
+- **operator gate** fires at every iteration regardless of cost (F12
+  elevated cadence, same as creative_vision slides).
+- **refine path** dispatches paperbanana again with `--continue-run
+  <run_id> --feedback "<figure-critic's refinement_feedback>"`.
+- **iteration cap** is the slide's `academic_figure.iteration_cap`
+  (default 4) — counted in jack-tar's loop, NOT paperbanana's.
+
+Branch into this path BEFORE invoking the v1.4.1 paperbanana-critic
+path:
+
+```python
+from src.paperbanana_dispatch import is_claude_critic_path
+if is_claude_critic_path(slide):
+    # run Step 4.6.1 loop
+else:
+    # run Step 4.6 (legacy paperbanana-critic) — unchanged
+```
+
+#### The loop
+
+For each `academic_figure` slide with `critic: claude`:
+
+**Step A — initial render**
+
+```python
+from src.paperbanana_dispatch import (
+    build_initial_dispatch_args_for_claude_critic,
+    get_iteration_cap,
+    get_figure_type,
+    should_log_paperbanana_verdict,
+)
+args = build_initial_dispatch_args_for_claude_critic(slide)
+iteration_cap = get_iteration_cap(slide)
+figure_type = get_figure_type(slide)
+log_paperbanana_verdict = should_log_paperbanana_verdict(slide)
+```
+
+Invoke `paperbanana generate` with these args (writing methodology to a
+tmp file, passing it via `--input <file>`, the rest via the CLI flags
+in Step 4.6). Parse the output path from paperbanana's stdout:
+
+```bash
+PB_FILE=$(echo "$PB_OUTPUT" | grep -oE 'Output: [^ ]+' | head -1 | cut -d' ' -f2)
+```
+
+The `--iterations 1` flag means paperbanana renders ONE image and
+returns. Paperbanana's VLM critic will still run once internally (we
+pay one VLM call) but we ignore its verdict; jack-tar makes the
+decision.
+
+**Step B — operator gate (F12 cadence — MANDATORY every iteration)**
+
+Open the rendered image for the operator (`open $PB_FILE` on macOS).
+State the current iteration index, cumulative slide spend, and what
+the figure-critic will be asked to assess. **Wait for explicit
+operator go-ahead** before invoking the figure-critic dispatch.
+
+This gate is the load-bearing economic AND quality checkpoint of the
+claude-critic loop. Per F12, the operator MUST see every render
+regardless of cost transition. Same rationale as creative_vision Step
+H.1.
+
+**Step C — figure-critic dispatch**
+
+```python
+from src.academic_figure_critic import build_critic_input, parse_critic_output, decide_next_action
+
+# Optional: capture paperbanana's verdict from its stdout for side-by-side
+# logging during the equivalence-testing phase
+pb_verdict = parse_paperbanana_verdict_from_stdout(PB_OUTPUT) if log_paperbanana_verdict else None
+
+blob = build_critic_input(
+    methodology_text=slide_methodology_text,
+    caption=slide_caption,
+    figure_type=figure_type,
+    image_path=PB_FILE,
+    prior_scores_history=manifest["iterations"],  # chronological score dicts
+    iteration_index=current_iter,
+    iteration_cap=iteration_cap,
+    paperbanana_side_by_side_verdict=pb_verdict,
+)
+```
+
+Dispatch the `figure-critic` agent (Sonnet) with that input. Parse the
+response via `parse_critic_output` — this performs:
+
+- JSON parse + schema validation (FigureCriticVerdict schema)
+- Semantic checks: `pass` requires every axis ≥ 80; `refine` requires
+  non-empty `refinement_feedback`; `pass`/`refine` polarity rules
+
+Schema or semantic failures raise `ValueError` with a concrete error
+message. Re-dispatch the agent with the error in feedback (the F1
+schema-validation retry pattern).
+
+**Step D — decide next action**
+
+```python
+action = decide_next_action(verdict, iteration_index=current_iter, iteration_cap=iteration_cap)
+```
+
+The state machine returns one of:
+
+- `accept` — finalise the slide. Use this image as the final output.
+- `refine` — call paperbanana again with `--continue-run --feedback`.
+  Increment iteration counter. Loop back to Step A (well, Step B —
+  paperbanana renders the refinement and we gate again).
+- `escalate` — the figure-critic judged that prompt refinement can't
+  fix this slide. Surface to operator; they may switch image provider
+  or accept the best-so-far.
+- `abort` — iteration cap reached without convergence OR critic
+  returned `abort` (methodology malformed). Surface to operator.
+
+**Step E — refine path (when action == refine)**
+
+```python
+from src.paperbanana_dispatch import build_continue_run_dispatch_args
+continue_args = build_continue_run_dispatch_args(
+    paperbanana_run_id=manifest["latest_run_id"],
+    feedback=action["refinement_feedback"],
+)
+```
+
+Invoke `paperbanana generate --continue-run <run_id> --feedback
+"<feedback>"` with these args. The feedback string flows in verbatim;
+the run_id ties the refinement to paperbanana's existing run directory.
+
+Loop back to Step B (operator gate fires for the refinement render
+too).
+
+**Step F — manifest**
+
+Each iteration appends to the slide's manifest:
+
+```python
+manifest["iterations"].append({
+    "iteration_index": current_iter,
+    "image_path": PB_FILE,
+    "paperbanana_run_id": run_id,
+    "figure_critic_verdict": verdict,
+    "paperbanana_side_by_side_verdict": pb_verdict,  # null when not logging
+    "operator_decision": "accept" | "refine" | "escalate" | "abort",
+    "cumulative_cost_usd": cumulative,
+})
+```
+
+The side-by-side paperbanana verdict (when logged) is the input to the
+equivalence-testing analysis — see
+`docs/architecture/academic-figure-critic-equivalence.md`.
+
+#### Bypass conditions
+
+- Slide has no `academic_figure` block, or `critic: paperbanana`. Run
+  Step 4.6 (legacy path) unchanged.
+- `paperbanana_available` is False. Fall back to the cloud-image path
+  (Step 4.6 already handles this — the claude-critic loop also depends
+  on paperbanana for the render step).
+
+#### Discipline-hook rule (in force)
+
+Never `Read` a generated PNG in the orchestration session. Always
+dispatch a subagent (figure-critic itself, image-reviewer, or
+general-purpose) to evaluate. The bypass `ALLOW_PNG_READ=1` does not
+apply here — the figure-critic IS the dispatch that reads the image.
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly.
+> If you need to verify an image, dispatch the
+> `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or
+> the `general-purpose` subagent (Sonnet, higher accuracy). Both
+> subagents pull the image into THEIR context and return text.
+
+#### Cross-references
+
+- Schema: `plugins/jack-tar-deckhand/src/schemas/figure_critic_verdict.schema.json`
+- Dispatch helpers: `plugins/jack-tar-deckhand/src/academic_figure_critic.py`
+- Paperbanana CLI helpers (claude-critic block): `plugins/jack-tar-deckhand/src/paperbanana_dispatch.py`
+- Agent definition: `plugins/jack-tar-deckhand/agents/figure-critic.md`
+- Equivalence-testing methodology: `docs/architecture/academic-figure-critic-equivalence.md`
+- Sibling cascade: Step 4.7 (creative_vision) — same operator-gate cadence; same critic-as-Claude pattern
 
 ### Step 4.7: Creative Vision Dispatch (multi-agent cascade loop)
 

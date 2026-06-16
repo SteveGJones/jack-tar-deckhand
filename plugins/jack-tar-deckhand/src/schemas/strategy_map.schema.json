@@ -105,6 +105,37 @@
               }
             }
           },
+          "academic_figure": {
+            "type": "object",
+            "description": "Optional block for slides with strategy='academic_figure'. When omitted, the legacy paperbanana-owned-loop path runs unchanged. When `critic: claude` is set, jack-tar's Claude-critic loop runs instead — paperbanana renders one image, figure-critic decides next action, operator gates every iteration (issue #113 follow-up, Path B).",
+            "additionalProperties": false,
+            "properties": {
+              "critic": {
+                "type": "string",
+                "enum": ["paperbanana", "claude"],
+                "default": "paperbanana",
+                "description": "Which critic decides whether the rendered figure is acceptable. `paperbanana` keeps the v1.4.1 behaviour (paperbanana's internal VLM critic owns the loop). `claude` invokes the figure-critic agent and runs the loop in jack-tar — paperbanana renders one image per iteration via --iterations 1, claude decides, refine path uses --continue-run --feedback. During the equivalence-testing phase the operator may toggle this per-slide to compare critics side by side."
+              },
+              "figure_type": {
+                "type": "string",
+                "enum": ["architecture_diagram", "equation", "plot", "table", "algorithm_pseudocode", "flowchart", "other"],
+                "default": "other",
+                "description": "Figure type hint passed to figure-critic. Tunes which scoring axes weigh most. Optional; defaults to 'other' which scores against a sensible interpretation of the methodology."
+              },
+              "iteration_cap": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10,
+                "default": 4,
+                "description": "Max iterations the orchestrator runs before aborting. Counted across paperbanana renders. Operator-tunable per slide; defaults to 4 (matches paperbanana's --iterations default in v1.4.1)."
+              },
+              "log_paperbanana_verdict_for_comparison": {
+                "type": "boolean",
+                "default": false,
+                "description": "When true AND `critic: claude`, jack-tar additionally captures paperbanana's own VLM verdict on each iteration (running paperbanana's critic in inspect-only mode, no decision authority) so the manifest carries both critics' verdicts side-by-side for equivalence analysis. Costs one extra VLM call per iteration; only enable for the equivalence-testing phase."
+              }
+            }
+          },
           "creative_vision": {
             "type": "object",
             "required": ["vision_prose"],
@@ -137,6 +168,11 @@
             "if": {"properties": {"strategy": {"const": "creative_vision"}}},
             "then": {"required": ["creative_vision"]},
             "else": {"not": {"required": ["creative_vision"]}}
+          },
+          {
+            "if": {"properties": {"strategy": {"const": "academic_figure"}}},
+            "then": {},
+            "else": {"not": {"required": ["academic_figure"]}}
           }
         ]
       }

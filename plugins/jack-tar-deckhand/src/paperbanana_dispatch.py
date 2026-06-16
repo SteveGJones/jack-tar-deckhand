@@ -354,3 +354,128 @@ def build_manifest_entry(
     if error is not None:
         entry["error"] = error
     return entry
+
+
+# ---------------------------------------------------------------------------
+# Claude-critic path helpers (issue #113 follow-up, Path B)
+#
+# When a slide is marked ``strategy: academic_figure`` AND
+# ``academic_figure.critic: "claude"``, jack-tar drives the iteration loop
+# instead of paperbanana's internal VLM critic. Paperbanana renders one
+# image per iteration (--iterations 1) and jack-tar dispatches the
+# ``figure-critic`` agent for the verdict + decides next action.
+#
+# The helpers below construct the paperbanana CLI args for each phase:
+# - is_claude_critic_path: predicate on the slide entry
+# - build_initial_dispatch_args_for_claude_critic: first render args
+# - build_continue_run_dispatch_args: --continue-run --feedback args
+# ---------------------------------------------------------------------------
+
+
+def is_claude_critic_path(slide: Mapping) -> bool:
+    """Return True when the slide opts into the Claude-critic academic_figure path.
+
+    The opt-in is via the slide's ``academic_figure.critic`` field. Defaults to
+    False (paperbanana-critic path — v1.4.1 behaviour) unless explicitly set
+    to ``"claude"``. Slides without an ``academic_figure`` block at all also
+    return False — they get the legacy default path.
+    """
+    if slide.get("strategy") != "academic_figure":
+        return False
+    cfg = slide.get("academic_figure")
+    if not isinstance(cfg, Mapping):
+        return False
+    return cfg.get("critic") == "claude"
+
+
+def build_initial_dispatch_args_for_claude_critic(slide: Mapping) -> dict:
+    """Build paperbanana CLI args for the first render in the Claude-critic loop.
+
+    Forces ``iterations=1`` regardless of any per-slide override so paperbanana
+    renders exactly one image per cascade step. Jack-tar's loop then dispatches
+    the figure-critic and (on refine) calls back with ``--continue-run``.
+
+    Note: paperbanana will still invoke its own VLM critic ONCE per render
+    (paperbanana has no render-only mode in 0.1.2 / current main). Jack-tar
+    ignores paperbanana's verdict; figure-critic owns the decision. When the
+    operator has enabled ``log_paperbanana_verdict_for_comparison``, the
+    bridge captures paperbanana's verdict from stdout for side-by-side
+    logging.
+    """
+    args = {
+        "source_context": _build_source_context_from_slide(slide),
+        "caption": _build_caption_from_slide(slide),
+        "aspect_ratio": "16:9",
+        "iterations": 1,
+    }
+    return args
+
+
+def build_continue_run_dispatch_args(
+    *,
+    paperbanana_run_id: str,
+    feedback: str,
+) -> dict:
+    """Build paperbanana CLI args for a continue-run refinement step.
+
+    Called by the orchestrator after figure-critic returns ``verdict: refine``
+    with ``refinement_feedback``. The feedback string flows into paperbanana
+    verbatim via ``--feedback``; the run_id ties the refinement to the
+    previously written run directory.
+
+    Always sets ``iterations: 1`` so paperbanana renders exactly one new image
+    per refinement step (loop control stays in jack-tar).
+
+    Raises:
+        ValueError: When ``paperbanana_run_id`` is empty or ``feedback`` is
+            blank. Both are required for a meaningful continue-run.
+    """
+    if not paperbanana_run_id.strip():
+        raise ValueError("paperbanana_run_id must be non-empty for --continue-run")
+    if not feedback.strip():
+        raise ValueError(
+            "feedback must be non-empty for --continue-run; figure-critic "
+            "is contractually required to provide refinement_feedback on a "
+            "refine verdict."
+        )
+    return {
+        "continue_run": paperbanana_run_id.strip(),
+        "feedback": feedback.strip(),
+        "iterations": 1,
+    }
+
+
+def get_iteration_cap(slide: Mapping) -> int:
+    """Return the iteration cap for the slide's Claude-critic loop.
+
+    Reads ``academic_figure.iteration_cap`` (default 4 per the schema). Used
+    by the orchestrator + figure-critic to decide when to abort.
+    """
+    cfg = slide.get("academic_figure")
+    if isinstance(cfg, Mapping) and isinstance(cfg.get("iteration_cap"), int):
+        return cfg["iteration_cap"]
+    return 4  # mirrors schema default
+
+
+def get_figure_type(slide: Mapping) -> str:
+    """Return the figure type hint for the slide. Defaults to 'other'."""
+    cfg = slide.get("academic_figure")
+    if isinstance(cfg, Mapping) and isinstance(cfg.get("figure_type"), str):
+        return cfg["figure_type"]
+    return "other"
+
+
+def should_log_paperbanana_verdict(slide: Mapping) -> bool:
+    """Return True when the slide opts into side-by-side critic comparison.
+
+    Only meaningful when ``critic: claude``. When True, the orchestrator
+    captures paperbanana's own VLM verdict from stdout (or runs paperbanana's
+    critic in inspect-only mode) so the manifest carries both critics'
+    verdicts. Used during the equivalence-testing phase.
+    """
+    if not is_claude_critic_path(slide):
+        return False
+    cfg = slide.get("academic_figure")
+    if isinstance(cfg, Mapping):
+        return bool(cfg.get("log_paperbanana_verdict_for_comparison", False))
+    return False

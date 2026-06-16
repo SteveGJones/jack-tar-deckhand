@@ -319,3 +319,148 @@ def test_strategy_map_iteration_caps_override_accepts_all_canonical_tiers():
         "recraft_standard_1k": 3, "recraft_pro_2k": 2, "recraft_pro_4k": 1,
     }
     validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+# --- academic_figure block schema (#113 Path B) -----------------------------
+
+
+def _valid_strategy_map_entry_academic_figure(*, with_block=False, block=None):
+    """Build a minimal valid strategy map with one academic_figure slide.
+
+    When ``with_block`` is False, the slide omits the academic_figure block
+    (legacy paperbanana-loop default). When True, attaches ``block`` (or
+    the canonical claude-critic example).
+    """
+    slide = {
+        "slide_number": 1,
+        "strategy": "academic_figure",
+        "rationale": "operator-directed",
+        "render_funnel": ["ollama"],
+    }
+    if with_block:
+        slide["academic_figure"] = block if block is not None else {
+            "critic": "claude",
+            "figure_type": "architecture_diagram",
+            "iteration_cap": 4,
+            "log_paperbanana_verdict_for_comparison": False,
+        }
+    return {"approval_mode": "review", "slides": [slide]}
+
+
+def test_strategy_map_accepts_academic_figure_without_block():
+    """Legacy behaviour: academic_figure slide with no academic_figure block
+    is valid (paperbanana-loop default)."""
+    validate(
+        instance=_valid_strategy_map_entry_academic_figure(with_block=False),
+        schema=_load("strategy_map.schema.json"),
+    )
+
+
+def test_strategy_map_accepts_academic_figure_with_claude_critic_block():
+    """Opt-in claude-critic block is valid."""
+    validate(
+        instance=_valid_strategy_map_entry_academic_figure(with_block=True),
+        schema=_load("strategy_map.schema.json"),
+    )
+
+
+def test_strategy_map_rejects_academic_figure_block_on_non_academic_figure_slide():
+    """Conditional: academic_figure block forbidden when strategy is something else."""
+    bad = _valid_strategy_map_entry_academic_figure(with_block=True)
+    bad["slides"][0]["strategy"] = "composed"
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_academic_figure_block_critic_enum():
+    """critic must be paperbanana or claude — typo rejected."""
+    bad = _valid_strategy_map_entry_academic_figure(with_block=True)
+    bad["slides"][0]["academic_figure"]["critic"] = "anthropic"
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_academic_figure_block_figure_type_enum():
+    """figure_type must be a canonical value."""
+    bad = _valid_strategy_map_entry_academic_figure(with_block=True)
+    bad["slides"][0]["academic_figure"]["figure_type"] = "schematic_blueprint"
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_academic_figure_iteration_cap_bounds():
+    """iteration_cap must be in [1, 10]."""
+    m = _valid_strategy_map_entry_academic_figure(with_block=True)
+    m["slides"][0]["academic_figure"]["iteration_cap"] = 0
+    with pytest.raises(ValidationError):
+        validate(instance=m, schema=_load("strategy_map.schema.json"))
+    m["slides"][0]["academic_figure"]["iteration_cap"] = 11
+    with pytest.raises(ValidationError):
+        validate(instance=m, schema=_load("strategy_map.schema.json"))
+    m["slides"][0]["academic_figure"]["iteration_cap"] = 5
+    validate(instance=m, schema=_load("strategy_map.schema.json"))
+
+
+def test_strategy_map_academic_figure_additional_properties_rejected():
+    """additionalProperties: false — typoed fields fail loud."""
+    bad = _valid_strategy_map_entry_academic_figure(with_block=True)
+    bad["slides"][0]["academic_figure"]["critique_mode"] = "claude"  # typo
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("strategy_map.schema.json"))
+
+
+# --- figure_critic_verdict schema -------------------------------------------
+
+
+def _valid_figure_critic_verdict():
+    return {
+        "verdict": "pass",
+        "per_axis_scores": {
+            "methodology_fidelity": 85,
+            "caption_alignment": 88,
+            "legibility": 82,
+            "figure_type_correctness": 90,
+            "aesthetic_quality": 84,
+        },
+        "issues": [],
+        "refinement_feedback": "",
+        "iteration_index": 1,
+        "plateau_signal": False,
+        "agrees_with_paperbanana_verdict": True,
+    }
+
+
+def test_figure_critic_verdict_happy_path():
+    validate(
+        instance=_valid_figure_critic_verdict(),
+        schema=_load("figure_critic_verdict.schema.json"),
+    )
+
+
+def test_figure_critic_verdict_rejects_unknown_verdict():
+    bad = _valid_figure_critic_verdict()
+    bad["verdict"] = "needs_work"
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("figure_critic_verdict.schema.json"))
+
+
+def test_figure_critic_verdict_rejects_out_of_range_score():
+    bad = _valid_figure_critic_verdict()
+    bad["per_axis_scores"]["legibility"] = 150
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("figure_critic_verdict.schema.json"))
+
+
+def test_figure_critic_verdict_rejects_extra_axis():
+    """additionalProperties: false on per_axis_scores."""
+    bad = _valid_figure_critic_verdict()
+    bad["per_axis_scores"]["narrative_arc"] = 80  # not a real axis
+    with pytest.raises(ValidationError):
+        validate(instance=bad, schema=_load("figure_critic_verdict.schema.json"))
+
+
+def test_figure_critic_verdict_accepts_null_agreement():
+    """agrees_with_paperbanana_verdict is nullable when no side-by-side was provided."""
+    payload = _valid_figure_critic_verdict()
+    payload["agrees_with_paperbanana_verdict"] = None
+    validate(instance=payload, schema=_load("figure_critic_verdict.schema.json"))
