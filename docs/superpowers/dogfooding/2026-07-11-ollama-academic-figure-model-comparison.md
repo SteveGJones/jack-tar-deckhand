@@ -80,7 +80,7 @@ on all three models. Renders in `tmp/paperbanana-local-test/schema-*.png`.
 
 | Model | Loop history (score /9 per iteration) | Final | Renders used |
 |---|---|---|---|
-| `x/flux2-klein:9b` | 6/9 (label list) → **8/9**¹ (annotation demotion) → iter3 with spellings lock in flight | `schema-9b-iter3.png` (pending) | 3/5 |
+| `x/flux2-klein:9b` | 6/9 → 8/9¹ ("Figture") → 8/9 ("Acaademic Figture" — negative directive backfired) → 7/9 (label fixed, Slide dropped, "Blsen" stray) → **8/9 best-so-far** (all 9 strings letter-perfect; ghost duplicate line + 1 reversed arrowhead) | `schema-9b-iter5.png` (budget exhausted, operator gate: accept / loop again / hand-edit) | 5/5 |
 | `x/flux2-klein:4b` | 5/9 (8 steps) → 7/9 (20 steps + 2×3 rows) → 2/9 (**30-step regression**) → 7/9 (annotation, 20 steps) → **9/9 PASS** (exact-spellings lock) | `schema-4b-iter5.png` | 5/5 |
 | `x/z-image-turbo:fp8` | 2/9 → 1/9 — **plateau called, retired for schemas** | best-so-far `schema-zimage-iter1.png` | 2/5 |
 
@@ -125,6 +125,26 @@ Findings (continue numbering from round 1):
   #19/#20, and character-level checks deserve a second reviewer at
   higher visual accuracy (general-purpose Sonnet) when a render is
   about to be certified PASS. Tracked in issue #119.
+- **F13 — negative directives seed the failure token.** Iter3's prompt
+  said the label is "Academic Figure", NOT "Figture" — and the render
+  produced "Figture" again (plus a new "Acaademic"). Diffusion models
+  don't process negation; naming the misspelling hands it the token.
+  Prompt rule: corrections must be stated positively only. (Same
+  mechanism as the F11 note on stacking negative directives.)
+- **F14 — letter-by-letter spell-outs can transcribe literally.**
+  Iter5's "spelled A-c-a-d-e-m-i-c F-i-g-u-r-e" fixed the target label
+  but leaked a ghost duplicate line "Acade-mic Figure" into the box.
+  Prefer "the box contains exactly the two words 'Academic Figure' and
+  nothing else" — the per-box exact-text constraint alone (which also
+  eliminated iter4's "Blsen" stray).
+- **F15 — Haiku vs Sonnet review protocol for certification.** After
+  the operator caught the Haiku miss (F12), iterations 3–5 were
+  reviewed by a general-purpose Sonnet agent under an explicit
+  skeptical letter-by-letter protocol; it caught every defect the
+  loop then chased ("Acaademic", "Blsen", the leak, a reversed
+  arrowhead). Cadence recommendation: Haiku for in-loop refine
+  verdicts, Sonnet char-level pass before any PASS certification,
+  operator gate as final certification always.
 
 ## Baseline for future model evaluations
 
