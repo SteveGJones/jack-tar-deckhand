@@ -202,10 +202,14 @@ import json; print(json.dumps(result, indent=2))
 ### Step 4.6: Academic Figure Dispatch (paperbanana CLI subprocess route)
 
 For slides whose strategy is `academic_figure` (set by the strategy
-classifier — see `src/strategy_classifier.py`), the bridge shells out
-to the **paperbanana CLI via subprocess** when paperbanana is
-installed, and falls back to a cloud render with academic-figure-aware
-prompting when it is not.
+classifier — see `src/strategy_classifier.py`), the bridge renders a
+**free local draft via Ollama first** whenever a local image model is
+detected (`x/flux2-klein`, `x/z-image-turbo`), then holds at the F10
+operator gate before any paid tier. Paid escalation goes to the
+**paperbanana CLI via subprocess** when paperbanana is installed, and
+falls back to a cloud render with academic-figure-aware prompting when
+it is not. With no local model, the ladder starts at paperbanana/cloud
+exactly as before.
 
 Paperbanana is treated as an external CLI tool (sibling orchestrator),
 not a Claude Code plugin or a cross-skill dispatch target. See
@@ -227,13 +231,41 @@ with open('./tmp/deck/outline.json') as f:
     outline = json.load(f)
 
 slide = next(s for s in outline['slides'] if s['slide_number'] == $SLIDE_NUMBER)
+
+# Honour the operator's model override from local-config.json when present.
+preferred = None
+try:
+    with open('local-config.json') as f:
+        preferred = json.load(f).get('ollama', {}).get('academic_figure_model')
+except FileNotFoundError:
+    pass
+
+from src.paperbanana_dispatch import detect_local_backend
+# local_only: slide-level key wins; otherwise the machine-wide config
+# value (ollama.academic_figure_local_only) applies.
+machine_local_only = False
+try:
+    with open('local-config.json') as f:
+        machine_local_only = bool(
+            json.load(f).get('ollama', {}).get('academic_figure_local_only', False)
+        )
+except FileNotFoundError:
+    pass
+
 dispatch = build_dispatch_payload(
     slide,
     output_dir='./tmp/deck/images',
+    local_backend=detect_local_backend(preferred_model=preferred),
+    local_only=bool(slide.get('local_only', machine_local_only)),
 )
 print(json.dumps({
+    'backend': dispatch.backend,
+    'local_only': dispatch.local_only,
     'available': dispatch.available,
     'args': dispatch.args,
+    'local_provider': dispatch.local_provider,
+    'local_model': dispatch.local_model,
+    'local_args': dispatch.local_args,
     'output_dir': dispatch.output_dir,
     'slide_number': dispatch.slide_number,
     'fallback_provider': dispatch.fallback_provider,
@@ -243,7 +275,95 @@ print(json.dumps({
 "
 ```
 
-2. **If `dispatch.available` is true** — dispatch paperbanana via
+2. **If `dispatch.backend` is `"ollama"`** — render the free local
+   draft first. `local_args` carries the composed academic-figure
+   prompt and dimensions; `local_model` is the exact installed tag
+   (never hardcode one):
+
+```bash
+OLLAMA_PLUGIN_ROOT=$(dirname "$PLUGIN_ROOT")/jack-tar-ollama
+LOCAL_PROMPT=$(echo "$DISPATCH_JSON" | jq -r '.local_args.prompt')
+LOCAL_MODEL=$(echo "$DISPATCH_JSON" | jq -r '.local_model')
+OUT_PNG=$(echo "$DISPATCH_JSON" | jq -r '.output_dir')/slide-$(printf '%02d' $SLIDE_NUMBER)-academic-figure-ollama.png
+
+python3 "$OLLAMA_PLUGIN_ROOT/src/generate_image.py" \
+  --prompt "$LOCAL_PROMPT" \
+  --model "$LOCAL_MODEL" \
+  --width $(echo "$DISPATCH_JSON" | jq -r '.local_args.width') \
+  --height $(echo "$DISPATCH_JSON" | jq -r '.local_args.height') \
+  --output "$OUT_PNG"
+```
+
+   Then dispatch the `image-reviewer` agent on `$OUT_PNG` and run the
+   **free critique loop**. The render budget per gate visit comes from
+   `dispatch.local_args.iterations` — **3 in ladder mode, 5 in
+   local_only mode** (validated 2026-07-11, see
+   `docs/superpowers/dogfooding/2026-07-11-ollama-academic-figure-model-comparison.md`):
+
+   - If the reviewer's verdict is `refine` or `fail` with **text
+     corruption or structure drift** as the cause, rebuild the prompt
+     as a **simplified label list** (F11 radical simplification):
+     distil the caption + source_context into **≤8 short quoted
+     labels** plus a one-line structure directive (e.g. five flow
+     boxes labelled exactly "Conductor", "Narrative", …; three tier
+     boxes under "Images"; "Critic" return arrow), keep the flat
+     vector / white background / no-people style block, drop ALL
+     prose. Re-render with the same model and re-review. The
+     2026-07-11 loop took Klein 9b from REFINE (dense prose, ~85%
+     label fidelity) to PASS (9/9 labels correct) in one iteration.
+   - Stop early on a `pass` verdict, or when two consecutive renders
+     show no reviewer-scored improvement (plateau — mirrors
+     `creative_vision.cascade.detect_plateau`).
+
+   **local_only mode** (`dispatch.local_only` true — set per-slide via
+   `slide.local_only` or machine-wide via `local-config.json` →
+   `ollama.academic_figure_local_only`): paid tiers DO NOT EXIST for
+   this slide. Exhausting the budget surfaces best-so-far at the
+   operator gate with exactly three choices: **accept**, **loop again**
+   (another free budget — it costs nothing but time), or **hand-edit**.
+   Never offer or dispatch paperbanana/cloud. If the dispatch came back
+   `backend: "local_only_blocked"` (Ollama down), surface
+   `fallback_reason` to the operator and mark the slide skipped — do
+   NOT fall through to cloud.
+
+   In **ladder mode**, apply the **F10 operator gate** on the best
+   render — this is a free→cost boundary, so the gate is MANDATORY
+   (see CLAUDE.md root):
+
+   1. Open the draft for the operator (`open "$OUT_PNG"` on macOS).
+   2. State the prospective paid escalation and its cost: paperbanana
+      (~$0.14, when `dispatch.available` is true) or Nano Banana Flash
+      1K ($0.067, `fallback_model`).
+   3. WAIT for explicit operator go-ahead before ANY paid render. The
+      image-reviewer's verdict is advisory — it does not authorise
+      spend.
+
+   If the operator **accepts the local draft**, write the manifest
+   entry and stop here for this slide:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.paperbanana_dispatch import build_manifest_entry
+# dispatch reconstructed from \$DISPATCH_JSON as in the other branches
+entry = build_manifest_entry(
+    dispatch,
+    dispatch_succeeded=True,
+    output_path='$OUT_PNG',
+    content_hash='$SHA',
+)  # backend_used defaults to the dispatch's own backend → 'ollama_local'
+print(json.dumps(entry))
+" >> ./tmp/deck/image-manifest.json
+```
+
+   If the operator **escalates**, continue to step 3 (paperbanana,
+   when `dispatch.available` is true) or step 4 (cloud fallback) and
+   pass `backend_used='paperbanana'` / `backend_used='cloud_fallback'`
+   to `build_manifest_entry` so the manifest records the tier that
+   actually produced the accepted image.
+
+3. **If `dispatch.available` is true** (and there was no local draft,
+   or the operator escalated past it) — dispatch paperbanana via
    subprocess. Write the `source_context` to a tmp file (paperbanana's
    CLI takes `--input <file>`, not inline text), then invoke the CLI:
 
@@ -309,7 +429,8 @@ print(json.dumps(entry))
    parsed `$PB_FILE` to verify quality (single pass — paperbanana does
    its own internal Critic-driven iteration up to `--iterations`).
 
-3. **If `dispatch.available` is false** — log a warning containing
+4. **If `dispatch.available` is false** (and any local draft was
+   escalated past) — log a warning containing
    `dispatch.fallback_reason` and fall back to the cloud path with
    `--provider $FALLBACK_PROVIDER --model $FALLBACK_MODEL`. Generate
    the image, run it through the standard `image-reviewer` cycle
@@ -322,12 +443,12 @@ print(json.dumps(entry))
    commands; we just take the fallback path silently in pipeline
    terms.
 
-4. **Skip Step 5 (cache) and Step 6 (prompt translation)** for
+5. **Skip Step 5 (cache) and Step 6 (prompt translation)** for
    academic_figure slides. The cache key composition is paperbanana-
    specific and the prompt translation is owned by paperbanana itself
    (or by the cloud-fallback path's own prompt assembly).
 
-5. **The `source_prompt` field carries the methodology text** (paperbanana's
+6. **The `source_prompt` field carries the methodology text** (paperbanana's
    `source_context` arg) and the `caption` field carries the
    communicative intent — `build_manifest_entry` populates both
    automatically from `dispatch.args`. The iterate-slide skill (#89)

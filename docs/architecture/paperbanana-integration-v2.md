@@ -310,6 +310,61 @@ Operators can force the label by annotating the strategy directly in the strateg
 
 ---
 
+## 8.5 Addendum — local-first Ollama tier (2026-07-10)
+
+**Decision:** the academic_figure ladder gained a **free local tier that always
+renders first** when a local Ollama instance carries an image-capable model.
+Ladder: **Ollama draft ($0) → F10 operator gate → paperbanana CLI (when
+installed) or Nano Banana Flash 1K cloud fallback.** This aligns the
+academic_figure route with the F10 rule (operator gate at every free→cost
+transition) that the creative_vision cascade already enforces — previously an
+academic_figure slide with paperbanana absent went **straight to paid cloud**
+with no free preview.
+
+Mechanics (all in `paperbanana_dispatch.py`):
+
+- `detect_local_backend()` probes Ollama's `/api/tags` (2 s budget; any
+  failure degrades to None and the pre-addendum ladder applies unchanged).
+  Model priority: `x/flux2-klein` (FLUX.2 Klein — better labelled-diagram
+  rendering) over `x/z-image-turbo`; within a family the largest
+  parameter variant wins (klein **9b renders figure titles correctly
+  where 4b garbles them** — 2026-07-11 three-way visual review, same
+  prompt/steps/resolution). The operator can override via
+  `local-config.json` → `ollama.academic_figure_model`. The exact installed
+  tag comes back from Ollama — never hardcoded.
+- `LocalBackend` is a provider-shaped seam (`provider` + `model`): an **MLX
+  backend is the planned second provider** behind the same dataclass, needing
+  only its own detect function and a render branch in the bridge.
+- `PaperbananaDispatch` gained `backend` / `local_provider` / `local_model` /
+  `local_args`. Paperbanana args and cloud-fallback fields ride along on the
+  same struct so post-gate escalation needs no payload rebuild.
+- Local models don't run paperbanana's multi-agent pipeline, so
+  `_build_local_prompt()` folds source_context + caption into one single-shot
+  prompt with an explicit paper-figure style block (context capped at 800
+  chars so the style directives keep encoder weight).
+- Manifest: local renders write `backend: "ollama_local"`, `model_used:
+  "<installed tag>"`, `local_provider`, `local_args` (re-render contract for
+  iterate-slide). Escalated renders pass `backend_used=` to
+  `build_manifest_entry` so the manifest records the tier that actually
+  produced the accepted image.
+
+**local_only mode (2026-07-11):** the operator can forbid paid tiers
+entirely — per-slide (`slide.local_only`) or machine-wide
+(`local-config.json` → `ollama.academic_figure_local_only`). In this mode
+the dispatch never assembles paperbanana/cloud escalation args, the free
+critique-loop budget rises from 3 to **5 renders per gate visit**
+(`LOCAL_ONLY_ITERATIONS`, parity with the creative_vision ollama cap), and
+exhausting it surfaces best-so-far at the operator gate (accept / loop
+again free / hand-edit) — the cap is a checkpoint against unattended
+runaway loops, not a forced escalation. If local_only is set but no local
+backend is detected, the dispatch returns `backend: "local_only_blocked"`
+and the bridge must skip the slide rather than fall through to cloud.
+
+The v1.4 contract surface (§4) is unchanged for installs with no local
+backend; all pre-addendum tests pass with `local_backend=False`.
+
+---
+
 ## 9. Related decisions
 
 - [paperbanana-integration.md](paperbanana-integration.md) — v1 ADR, superseded by this file
