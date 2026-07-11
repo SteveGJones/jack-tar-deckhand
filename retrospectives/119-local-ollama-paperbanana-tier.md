@@ -19,10 +19,14 @@
 
 - **The Haiku image-reviewer certified "Academic Figture" as correctly
   spelled "Academic Figure" (9b schema iter2)** — caught by the
-  operator at the gate. Reviewer verdicts must stay advisory; an
-  expected_text_content-style verbatim-transcription contract (as done
-  for superpower-bridge Findings #19/#20) should be applied to
-  academic-figure reviews.
+  operator at the gate. A subsequent Sonnet letter-by-letter audit of
+  every Haiku certification in the batch found ALL of them over-scored
+  (4b "9/9" → 5/9; both 4b "7/9"s → 5/9 and 3/9; a missing structural
+  box twice certified present). Reviewer verdicts must stay advisory;
+  an expected_text_content-style verbatim-transcription contract (as
+  done for superpower-bridge Findings #19/#20) should be applied to
+  academic-figure reviews, with a Sonnet-class char-level pass before
+  any PASS certification (dogfood F15/F16).
 - The long-lived reviewer agent's transcript expired mid-exercise after
   many resumes; per-review fresh dispatch with inlined history is the
   more robust pattern.

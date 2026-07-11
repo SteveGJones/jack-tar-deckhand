@@ -81,7 +81,7 @@ on all three models. Renders in `tmp/paperbanana-local-test/schema-*.png`.
 | Model | Loop history (score /9 per iteration) | Final | Renders used |
 |---|---|---|---|
 | `x/flux2-klein:9b` | 6/9 → 8/9¹ ("Figture") → 8/9 ("Acaademic Figture" — negative directive backfired) → 7/9 (label fixed, Slide dropped, "Blsen" stray) → **8/9 best-so-far** (all 9 strings letter-perfect; ghost duplicate line + 1 reversed arrowhead) | `schema-9b-iter5.png` (budget exhausted, operator gate: accept / loop again / hand-edit) | 5/5 |
-| `x/flux2-klein:4b` | 5/9 (8 steps) → 7/9 (20 steps + 2×3 rows) → 2/9 (**30-step regression**) → 7/9 (annotation, 20 steps) → **9/9 PASS** (exact-spellings lock) | `schema-4b-iter5.png` | 5/5 |
+| `x/flux2-klein:4b` | Haiku in-loop scores 5/9 → 7/9 → 2/9 → 7/9 → "9/9 PASS"; **Sonnet char-level audit corrected the certified renders to iter2 5/9, iter4 3/9, iter5 5/9** — no PASS. True best: iter5 (only 4b render with correct 3-level topology) | `schema-4b-iter5.png` (5/9, NOT certified) | 5/5 |
 | `x/z-image-turbo:fp8` | 2/9 → 1/9 — **plateau called, retired for schemas** | best-so-far `schema-zimage-iter1.png` | 2/5 |
 
 ¹ The image-reviewer certified 9b iter2 as 9/9; **the operator caught
@@ -145,6 +145,22 @@ Findings (continue numbering from round 1):
   arrowhead). Cadence recommendation: Haiku for in-loop refine
   verdicts, Sonnet char-level pass before any PASS certification,
   operator gate as final certification always.
+- **F16 — full audit: every Haiku certification in this batch
+  over-scored, in the same direction.** Audited: 4b-iter5 "9/9" →
+  actual 5/9 ("Dedk", "Backgroond", "Acadiric", annotation missing a
+  paren and under the wrong box, reversed arrow); 4b-iter2 "7/9" →
+  5/9 (Slide box MISSING though certified "all 9 present"; annotation
+  rendered as a bogus tree node); 4b-iter4 "7/9" → 3/9 (five corrupted
+  labels certified "clean": "Deek", "Backgnound", "Rended", "Bleeed",
+  "Acadimic"); plus the original 9b "Figture" miss. Failure mode is
+  consistent: word-shaped tokens with 1–3 corrupted characters pass a
+  shape-level read, and missing structural elements get counted as
+  present. **Corrected cross-loop ranking: 9b-iter5 (8/9, structure
+  correct) ≫ 4b best (iter5, 5/9).** Haiku review is usable for gross
+  layout/composition verdicts only; character fidelity and element
+  inventory require letter-by-letter transcription against an explicit
+  checklist (Sonnet-class), and round-1 scores in this log that were
+  not re-audited should be read as shape-level, not character-level.
 
 ## Baseline for future model evaluations
 
