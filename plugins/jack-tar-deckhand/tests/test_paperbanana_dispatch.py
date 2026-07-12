@@ -22,12 +22,15 @@ sys.path.insert(0, str(PLUGIN_ROOT))
 import pytest
 
 from src.paperbanana_dispatch import (  # noqa: E402
+    LocalBackend,
     PaperbananaDispatch,
     _build_caption_from_slide,
+    _build_local_prompt,
     _build_source_context_from_slide,
     _extract_run_id,
     build_dispatch_payload,
     build_manifest_entry,
+    detect_local_backend,
     is_paperbanana_available,
 )
 
@@ -244,6 +247,7 @@ def test_dispatch_payload_when_available_has_four_key_args():
         slide,
         output_dir="/tmp/deck/images",
         paperbanana_available=True,
+        local_backend=False,
     )
     assert dispatch.available is True
     assert sorted(dispatch.args.keys()) == [
@@ -264,6 +268,7 @@ def test_dispatch_payload_carries_synthesised_source_context_and_caption():
         slide,
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     assert dispatch.args["caption"] == "Loss curve"
     assert "Training loss decreases" in dispatch.args["source_context"]
@@ -275,6 +280,7 @@ def test_dispatch_payload_hard_codes_aspect_ratio_16_9():
         {"slide_number": 1, "headline": "x"},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     assert dispatch.args["aspect_ratio"] == "16:9"
 
@@ -285,6 +291,7 @@ def test_dispatch_payload_iterations_defaults_to_1():
         {"slide_number": 1, "headline": "x"},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     assert dispatch.args["iterations"] == 1
 
@@ -295,6 +302,7 @@ def test_dispatch_payload_iterations_honours_slide_override():
         {"slide_number": 1, "headline": "x", "paperbanana_iterations": 3},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     assert dispatch.args["iterations"] == 3
 
@@ -305,6 +313,7 @@ def test_dispatch_payload_records_output_dir():
         {"slide_number": 1, "headline": "x"},
         output_dir="/tmp/deck/images",
         paperbanana_available=True,
+        local_backend=False,
     )
     assert dispatch.output_dir == "/tmp/deck/images"
 
@@ -315,6 +324,7 @@ def test_dispatch_payload_records_slide_number_on_struct():
         {"slide_number": 42, "headline": "x"},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     assert dispatch.slide_number == 42
     assert "slide_number" not in dispatch.args
@@ -329,6 +339,7 @@ def test_dispatch_payload_when_unavailable_populates_fallback():
         slide,
         output_dir="/tmp/deck/images",
         paperbanana_available=False,
+        local_backend=False,
     )
     assert dispatch.available is False
     assert dispatch.args == {}
@@ -349,6 +360,7 @@ def test_dispatch_payload_detects_availability_when_not_provided(monkeypatch):
     dispatch = build_dispatch_payload(
         {"slide_number": 2, "headline": "x"},
         output_dir="/tmp/x",
+        local_backend=False,
     )
     assert dispatch.available is False
 
@@ -375,6 +387,7 @@ def test_dispatch_payload_short_circuits_when_available_provided(monkeypatch):
         {"slide_number": 1, "headline": "x"},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     assert called == {"find_spec": 0, "which": 0}
 
@@ -391,6 +404,7 @@ def test_manifest_entry_for_successful_paperbanana_render():
         },
         output_dir="/tmp/deck/images",
         paperbanana_available=True,
+        local_backend=False,
     )
     real_path = "/tmp/deck/images/run_20260518_120000_def95c/final_output.png"
     entry = build_manifest_entry(
@@ -420,6 +434,7 @@ def test_manifest_entry_accepts_mcp_jpg_path():
         {"slide_number": 5, "headline": "x", "methodology_context": "y"},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     mcp_path = "/tmp/x/run_20260518_120000_def95c/final_output.mcp.jpg"
     entry = build_manifest_entry(
@@ -438,6 +453,7 @@ def test_manifest_entry_no_run_id_when_path_lacks_pattern():
         {"slide_number": 5, "headline": "x", "methodology_context": "y"},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     entry = build_manifest_entry(
         dispatch,
@@ -452,6 +468,7 @@ def test_manifest_entry_for_fallback_cloud_render():
         {"slide_number": 6, "headline": "Training loss curves"},
         output_dir="/tmp/deck/images",
         paperbanana_available=False,
+        local_backend=False,
     )
     entry = build_manifest_entry(
         dispatch,
@@ -471,6 +488,7 @@ def test_manifest_entry_failed_dispatch_records_error():
         {"slide_number": 8, "headline": "Edge case", "methodology_context": "y"},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     entry = build_manifest_entry(
         dispatch,
@@ -488,6 +506,7 @@ def test_manifest_entry_omits_content_hash_when_none():
         {"slide_number": 1, "headline": "x", "methodology_context": "y"},
         output_dir="/tmp/x",
         paperbanana_available=True,
+        local_backend=False,
     )
     entry = build_manifest_entry(
         dispatch,
@@ -511,6 +530,408 @@ def test_dispatch_dataclass_default_fallback_values():
     assert dispatch.fallback_model == "gemini-3.1-flash-image-preview"
     assert dispatch.args == {}
     assert dispatch.fallback_reason == ""
+
+
+# --- detect_local_backend (local Ollama tier, 2026-07-10) ----------------
+
+
+class _FakeTagsResponse:
+    """Minimal context-manager stand-in for urllib's response object."""
+
+    def __init__(self, payload: bytes):
+        self._payload = payload
+        self._pos = 0
+
+    def read(self, size=-1):
+        if size is None or size < 0:
+            chunk = self._payload[self._pos:]
+            self._pos = len(self._payload)
+            return chunk
+        chunk = self._payload[self._pos:self._pos + size]
+        self._pos += len(chunk)
+        return chunk
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+
+def _patch_ollama_tags(monkeypatch, models):
+    import json as _json
+    import urllib.request as _ur
+
+    payload = _json.dumps({"models": [{"name": n} for n in models]}).encode()
+    monkeypatch.setattr(
+        _ur, "urlopen", lambda *_a, **_k: _FakeTagsResponse(payload)
+    )
+
+
+def test_detect_local_backend_prefers_flux2_klein(monkeypatch):
+    """flux2-klein wins over z-image-turbo when both are installed."""
+    _patch_ollama_tags(
+        monkeypatch, ["x/z-image-turbo:latest", "x/flux2-klein:4b", "gemma4:12b"]
+    )
+    backend = detect_local_backend()
+    assert backend == LocalBackend(provider="ollama", model="x/flux2-klein:4b")
+
+
+def test_detect_local_backend_returns_exact_installed_tag(monkeypatch):
+    """The installed tag (e.g. :4b) is returned verbatim — never a bare name."""
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:4b"])
+    assert detect_local_backend().model == "x/flux2-klein:4b"
+
+
+def test_detect_local_backend_prefers_largest_variant_in_family(monkeypatch):
+    """klein 9b beats 4b regardless of Ollama listing order (2026-07-11 review)."""
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:4b", "x/flux2-klein:9b"])
+    assert detect_local_backend().model == "x/flux2-klein:9b"
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:9b", "x/flux2-klein:4b"])
+    assert detect_local_backend().model == "x/flux2-klein:9b"
+
+
+def test_detect_local_backend_sized_variant_beats_unsized(monkeypatch):
+    """A parameter-sized tag outranks 'latest'/quant tags within a family."""
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:latest", "x/flux2-klein:4b"])
+    assert detect_local_backend().model == "x/flux2-klein:4b"
+
+
+def test_detect_local_backend_family_priority_beats_size(monkeypatch):
+    """A small klein still beats a big z-image-turbo — family first, size second."""
+    _patch_ollama_tags(monkeypatch, ["x/z-image-turbo:12b", "x/flux2-klein:4b"])
+    assert detect_local_backend().model == "x/flux2-klein:4b"
+
+
+def test_detect_local_backend_falls_back_to_z_image_turbo(monkeypatch):
+    _patch_ollama_tags(monkeypatch, ["x/z-image-turbo:fp8", "nomic-embed-text:latest"])
+    assert detect_local_backend().model == "x/z-image-turbo:fp8"
+
+
+def test_detect_local_backend_none_when_no_image_models(monkeypatch):
+    """Text/embedding-only Ollama installs are not an image backend."""
+    _patch_ollama_tags(monkeypatch, ["gemma4:12b", "nomic-embed-text:latest"])
+    assert detect_local_backend() is None
+
+
+def test_detect_local_backend_none_when_server_down(monkeypatch):
+    """Probe failures degrade to None — never raise into the bridge."""
+    import urllib.error as _ue
+    import urllib.request as _ur
+
+    def boom(*_a, **_k):
+        raise _ue.URLError("connection refused")
+
+    monkeypatch.setattr(_ur, "urlopen", boom)
+    assert detect_local_backend() is None
+
+
+def test_detect_local_backend_honours_preferred_model(monkeypatch):
+    """local-config.json's academic_figure_model override wins over priority."""
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:4b", "x/z-image-turbo:latest"])
+    backend = detect_local_backend(preferred_model="x/z-image-turbo")
+    assert backend.model == "x/z-image-turbo:latest"
+
+
+def test_detect_local_backend_preferred_model_matches_exact_tag(monkeypatch):
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:4b"])
+    backend = detect_local_backend(preferred_model="x/flux2-klein:4b")
+    assert backend.model == "x/flux2-klein:4b"
+
+
+def test_detect_local_backend_uninstalled_preference_falls_through(monkeypatch):
+    """A preferred model that isn't installed falls back to the priority list."""
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:4b"])
+    backend = detect_local_backend(preferred_model="x/qwen-image")
+    assert backend.model == "x/flux2-klein:4b"
+
+
+# --- _build_local_prompt ---------------------------------------------------
+
+
+def test_local_prompt_carries_caption_context_and_style():
+    prompt = _build_local_prompt(
+        "We propose a 6-layer Transformer encoder.", "Transformer architecture"
+    )
+    assert "Transformer architecture" in prompt
+    assert "6-layer Transformer encoder" in prompt
+    assert "publication-quality academic paper figure" in prompt
+    assert "16:9" in prompt
+
+
+def test_local_prompt_truncates_long_source_context():
+    long_ctx = "word " * 400  # ≈2000 chars
+    prompt = _build_local_prompt(long_ctx, "Caption")
+    # Style block must survive truncation intact at the tail.
+    assert prompt.endswith("no watermark.")
+    # 800-char context cap + caption sentence + fixed style block ≈ 1.2k.
+    assert len(prompt) < 1300
+    assert "…" in prompt
+
+
+def test_local_prompt_skips_context_when_identical_to_caption():
+    """Headline-only slides: don't repeat the same sentence twice."""
+    prompt = _build_local_prompt("Loss curve", "Loss curve")
+    assert prompt.count("Loss curve") == 1
+
+
+# --- build_dispatch_payload (local-first ladder) ---------------------------
+
+
+_KLEIN = LocalBackend(provider="ollama", model="x/flux2-klein:4b")
+
+
+def test_dispatch_local_first_when_backend_detected():
+    """Ollama first, always — even when paperbanana is installed (F10)."""
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "Ablation results", "methodology_context": "We ablate."},
+        output_dir="/tmp/deck/images",
+        paperbanana_available=True,
+        local_backend=_KLEIN,
+    )
+    assert dispatch.backend == "ollama"
+    assert dispatch.local_provider == "ollama"
+    assert dispatch.local_model == "x/flux2-klein:4b"
+    assert sorted(dispatch.local_args.keys()) == [
+        "caption", "height", "iterations", "prompt", "width",
+    ]
+    assert dispatch.local_args["width"] == 1024
+    assert dispatch.local_args["height"] == 576
+    assert dispatch.local_args["iterations"] == 3  # ladder mode budget
+    # Paperbanana escalation args ride along for the post-gate tier.
+    assert dispatch.available is True
+    assert dispatch.args["source_context"] == "We ablate."
+
+
+def test_dispatch_local_first_without_paperbanana_keeps_cloud_escalation():
+    """Local draft + cloud escalation info when paperbanana is absent."""
+    dispatch = build_dispatch_payload(
+        {"slide_number": 4, "headline": "ROC curve"},
+        output_dir="/tmp/x",
+        paperbanana_available=False,
+        local_backend=_KLEIN,
+    )
+    assert dispatch.backend == "ollama"
+    assert dispatch.available is False
+    assert dispatch.args == {}
+    assert dispatch.fallback_model == "gemini-3.1-flash-image-preview"
+    assert "paperbanana CLI not on PATH" in dispatch.fallback_reason
+
+
+def test_dispatch_backend_paperbanana_when_no_local():
+    dispatch = build_dispatch_payload(
+        {"slide_number": 1, "headline": "x"},
+        output_dir="/tmp/x",
+        paperbanana_available=True,
+        local_backend=False,
+    )
+    assert dispatch.backend == "paperbanana"
+    assert dispatch.local_model == ""
+    assert dispatch.local_args == {}
+
+
+def test_dispatch_backend_cloud_fallback_when_nothing_local():
+    dispatch = build_dispatch_payload(
+        {"slide_number": 1, "headline": "x"},
+        output_dir="/tmp/x",
+        paperbanana_available=False,
+        local_backend=False,
+    )
+    assert dispatch.backend == "cloud_fallback"
+
+
+def test_dispatch_local_backend_none_triggers_autodetect(monkeypatch):
+    """local_backend=None probes Ollama; a hit routes local-first."""
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:4b"])
+    dispatch = build_dispatch_payload(
+        {"slide_number": 2, "headline": "x"},
+        output_dir="/tmp/x",
+        paperbanana_available=False,
+    )
+    assert dispatch.backend == "ollama"
+    assert dispatch.local_model == "x/flux2-klein:4b"
+
+
+# --- build_dispatch_payload (local_only mode) ------------------------------
+
+
+def test_local_only_never_assembles_paid_escalation():
+    """local_only strips paperbanana args even when paperbanana is installed."""
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "x", "local_only": True},
+        output_dir="/tmp/x",
+        paperbanana_available=True,
+        local_backend=_KLEIN,
+    )
+    assert dispatch.local_only is True
+    assert dispatch.backend == "ollama"
+    assert dispatch.available is False  # paid tier does not exist for this slide
+    assert dispatch.args == {}
+    assert dispatch.fallback_reason == ""  # no install nag — cloud is opted out
+
+
+def test_local_only_iteration_budget_is_5():
+    """Baseline 5 free loops in local_only (creative_vision ollama cap parity)."""
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "x", "local_only": True},
+        output_dir="/tmp/x",
+        paperbanana_available=False,
+        local_backend=_KLEIN,
+    )
+    assert dispatch.local_args["iterations"] == 5
+
+
+def test_local_iterations_slide_override():
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "x", "local_only": True, "local_iterations": 8},
+        output_dir="/tmp/x",
+        paperbanana_available=False,
+        local_backend=_KLEIN,
+    )
+    assert dispatch.local_args["iterations"] == 8
+
+
+def test_local_only_param_overrides_slide_absence():
+    """Bridge passes the machine-wide local-config value via the param."""
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "x"},
+        output_dir="/tmp/x",
+        paperbanana_available=True,
+        local_backend=_KLEIN,
+        local_only=True,
+    )
+    assert dispatch.local_only is True
+    assert dispatch.args == {}
+
+
+def test_local_only_blocked_when_no_local_backend():
+    """local_only + Ollama down → hard stop, NEVER cloud fallback."""
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "x", "local_only": True},
+        output_dir="/tmp/x",
+        paperbanana_available=True,
+        local_backend=False,
+    )
+    assert dispatch.backend == "local_only_blocked"
+    assert dispatch.local_only is True
+    assert "Cloud dispatch is FORBIDDEN" in dispatch.fallback_reason
+
+
+def test_local_only_false_keeps_ladder_defaults():
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "x"},
+        output_dir="/tmp/x",
+        paperbanana_available=True,
+        local_backend=_KLEIN,
+    )
+    assert dispatch.local_only is False
+    assert dispatch.local_args["iterations"] == 3
+    assert dispatch.available is True
+    assert dispatch.args != {}
+
+
+def test_manifest_entry_carries_local_only_flag():
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "x", "local_only": True},
+        output_dir="/tmp/x",
+        paperbanana_available=False,
+        local_backend=_KLEIN,
+    )
+    entry = build_manifest_entry(
+        dispatch,
+        dispatch_succeeded=True,
+        output_path="/tmp/x/slide-03-academic-figure-ollama.png",
+    )
+    assert entry["local_only"] is True
+    assert entry["backend"] == "ollama_local"
+
+
+# --- build_manifest_entry (local tier) -------------------------------------
+
+
+def _local_dispatch(slide_number=7):
+    return build_dispatch_payload(
+        {
+            "slide_number": slide_number,
+            "headline": "Encoder stack",
+            "methodology_context": "Six identical layers with residual connections.",
+        },
+        output_dir="/tmp/deck/images",
+        paperbanana_available=True,
+        local_backend=_KLEIN,
+    )
+
+
+def test_manifest_entry_for_local_ollama_render():
+    dispatch = _local_dispatch()
+    entry = build_manifest_entry(
+        dispatch,
+        dispatch_succeeded=True,
+        output_path="/tmp/deck/images/slide-07-academic-figure-ollama.png",
+        content_hash="abc",
+    )
+    assert entry["backend"] == "ollama_local"
+    assert entry["model_used"] == "x/flux2-klein:4b"
+    assert entry["local_provider"] == "ollama"
+    assert entry["source_prompt"] == dispatch.local_args["prompt"]
+    assert entry["caption"] == "Encoder stack"
+    assert entry["local_args"]["width"] == 1024
+    assert "paperbanana_run_id" not in entry
+    assert "paperbanana_args" not in entry
+    assert "fallback_reason" not in entry
+
+
+def test_manifest_entry_escalated_to_paperbanana_after_gate():
+    """backend_used override: operator escalated past the local draft."""
+    dispatch = _local_dispatch()
+    real_path = "/tmp/deck/images/run_20260710_120000_abc123/final_output.png"
+    entry = build_manifest_entry(
+        dispatch,
+        dispatch_succeeded=True,
+        output_path=real_path,
+        backend_used="paperbanana",
+    )
+    assert entry["backend"] == "paperbanana"
+    assert entry["model_used"] == "paperbanana"
+    assert entry["paperbanana_run_id"] == "run_20260710_120000_abc123"
+    assert entry["paperbanana_args"]["source_context"] == (
+        "Six identical layers with residual connections."
+    )
+
+
+def test_manifest_entry_escalated_to_cloud_after_gate():
+    dispatch = build_dispatch_payload(
+        {"slide_number": 9, "headline": "PR curves"},
+        output_dir="/tmp/x",
+        paperbanana_available=False,
+        local_backend=_KLEIN,
+    )
+    entry = build_manifest_entry(
+        dispatch,
+        dispatch_succeeded=True,
+        output_path="/tmp/x/slide-09-academic-figure.png",
+        backend_used="cloud_fallback",
+    )
+    assert entry["backend"] == "cloud_fallback"
+    assert entry["model_used"] == "gemini-3.1-flash-image-preview"
+    assert "fallback_reason" in entry
+
+
+def test_manifest_entry_legacy_dispatch_without_backend_field():
+    """Direct PaperbananaDispatch constructions (SKILL.md step 2) keep working."""
+    dispatch = PaperbananaDispatch(
+        available=True,
+        slide_number=5,
+        output_dir="/tmp/x",
+        args={"source_context": "y", "caption": "z", "aspect_ratio": "16:9", "iterations": 1},
+    )
+    entry = build_manifest_entry(
+        dispatch,
+        dispatch_succeeded=True,
+        output_path="/tmp/x/run_20260518_120000_def95c/final_output.png",
+    )
+    assert entry["backend"] == "paperbanana"
+    assert entry["model_used"] == "paperbanana"
 
 
 if __name__ == "__main__":
