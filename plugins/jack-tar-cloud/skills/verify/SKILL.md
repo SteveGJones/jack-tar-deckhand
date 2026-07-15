@@ -121,3 +121,35 @@ PYEOF
 This never blocks verification — model ids and prices move faster than
 plugin releases (EPIC #125), so the hint just tells the operator when a
 refresh is worth running.
+
+## Step 5 (optional, on request): live model probe
+
+When the operator asks to "check the models", "find the latest models", or
+after any 404/NOT_FOUND from a provider, run the live discovery probe. It
+asks each probeable provider (Google, OpenAI, Ollama) what it serves RIGHT
+NOW and classifies every catalog entry:
+
+```bash
+python3 - << 'PYEOF'
+import json, sys
+sys.path.insert(0, "PLUGIN_ROOT")  # replace with the plugin root path
+from src.model_probe import probe_report
+report = probe_report()
+print(json.dumps(report, indent=2))
+PYEOF
+```
+
+Present the results as:
+
+- **suspect_retired** entries — lead with these: the catalog thinks the
+  model is active but the provider no longer lists it. Recommend
+  `/jack-tar-cloud:refresh-models` (a corrected catalog may already be
+  published) or a local-config override.
+- **new_candidates** — upstream models no catalog entry covers. These are
+  NOT routable: existence is provable, price is not, and the budget
+  tracker cannot cost an uncataloged model. Offer them as candidates the
+  operator can add via a `model_catalog` override in `local-config.json`
+  (explicit opt-in) or propose for the canonical catalog.
+- **unprobed** — FAL/Recraft have no list API; entries with no configured
+  credentials are skipped with the reason shown. Never treat unprobed as
+  a failure.

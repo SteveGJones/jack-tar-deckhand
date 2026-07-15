@@ -9,10 +9,10 @@ Three guarantees:
 2. **Schema validity** — the catalog validates against
    model-catalog/model-catalog.schema.json (full JSON-Schema, not just the
    loader's structural check).
-3. **Price agreement** — while the legacy hardcoded tables still exist
-   (until issue #127 deletes them), the catalog and the cloud module's
-   estimators must agree. The catalog's alias resolution bridges the old
-   '-preview' ids the cloud module still uses.
+3. **Price agreement** — the cloud module's tables are DERIVED from the
+   catalog since #127; these tests now guard the derivation logic (a
+   derivation bug would desynchronise them). The alias assertions also
+   prove the retired '-preview' ids still resolve.
 """
 import json
 import subprocess
@@ -45,6 +45,11 @@ VENDORED_REFRESH = [
     CLOUD_ROOT / "src" / "model_catalog_refresh.py",
 ]
 
+CANONICAL_PROBE = WORKTREE / "src" / "model_probe.py"
+VENDORED_PROBE = [
+    CLOUD_ROOT / "src" / "model_probe.py",
+]
+
 PLUGIN_ROOT = CLOUD_ROOT  # for the conftest src-namespace isolation fixture
 
 
@@ -68,6 +73,13 @@ class TestCopyIdentity:
         assert vendored.read_bytes() == CANONICAL_REFRESH.read_bytes(), (
             f"{vendored} has drifted from {CANONICAL_REFRESH} — edit the "
             f"canonical file and re-copy: cp {CANONICAL_REFRESH} {vendored}"
+        )
+
+    @pytest.mark.parametrize("vendored", VENDORED_PROBE, ids=lambda p: p.parts[-3])
+    def test_probe_copies_identical(self, vendored):
+        assert vendored.read_bytes() == CANONICAL_PROBE.read_bytes(), (
+            f"{vendored} has drifted from {CANONICAL_PROBE} — edit the "
+            f"canonical file and re-copy: cp {CANONICAL_PROBE} {vendored}"
         )
 
 
@@ -131,12 +143,10 @@ class TestSchemaValidity:
 
 
 class TestPriceAgreementWithLegacyTables:
-    """Until #127 deletes the hardcoded tables, catalog and code must agree.
-
-    The cloud module still keys its tables by the retired '-preview' ids;
-    the catalog resolves those via aliases — asserting through the alias
-    proves both the price AND the alias mapping.
-    """
+    """The cloud module's tables derive from the catalog (#127); these
+    assertions guard the derivation — a bug in the derivation loops would
+    desynchronise catalog.cost() from the module tables. Alias-keyed
+    assertions also prove retired '-preview' ids still resolve."""
 
     @pytest.fixture
     def catalog(self, tmp_path):

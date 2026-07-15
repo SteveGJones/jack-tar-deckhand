@@ -488,7 +488,10 @@ def build_dispatch_payload(
                 "" if (paperbanana_available or local_only)
                 else _PAPERBANANA_ABSENT_REASON
             ),
-            backend="ollama",
+            # Issue #124: the backend is whatever local provider was
+            # detected ("ollama" today, "mlx" behind the same seam) —
+            # never a hardcoded literal.
+            backend=local_backend.provider,
             local_provider=local_backend.provider,
             local_model=local_backend.model,
             local_args={
@@ -607,12 +610,15 @@ def build_manifest_entry(
         backend_used = dispatch.backend or (
             "paperbanana" if dispatch.available else "cloud_fallback"
         )
-    if backend_used == "ollama":
-        backend_used = "ollama_local"
+    # Issue #124: any local provider family maps to "<provider>_local"
+    # ("ollama" -> "ollama_local", "mlx" -> "mlx_local") — the seam is
+    # provider-shaped, not ollama-shaped.
+    if dispatch.local_provider and backend_used == dispatch.local_provider:
+        backend_used = f"{backend_used}_local"
 
     if backend_used == "paperbanana":
         model_used = "paperbanana"
-    elif backend_used == "ollama_local":
+    elif dispatch.local_provider and backend_used == f"{dispatch.local_provider}_local":
         model_used = dispatch.local_model
     else:
         model_used = dispatch.fallback_model
