@@ -26,7 +26,8 @@
         "verified": "2026-05-24",
         "estimate": false,
         "per_resolution": {"512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151},
-        "notes": "EPIC #58 pricing table; reconciled issue #113 AC6."
+        "token_rates": {"text_input_per_mtok": 0.5, "image_output_per_mtok": 60.0},
+        "notes": "EPIC #58 pricing table; reconciled issue #113 AC6. Token rates from ai.google.dev/gemini-api/docs/pricing (captured 2026-05-21)."
       },
       "sdk": {"api": "generate_content", "config_field": "image_size"},
       "notes": "Nano Banana Flash. The '-preview' suffixed id was deprecated upstream (issue #123, verified 2026-07-15); alias retained so existing manifests and callers resolve."
@@ -48,7 +49,8 @@
         "verified": "2026-05-24",
         "estimate": false,
         "per_resolution": {"1K": 0.134, "2K": 0.134, "4K": 0.24},
-        "notes": "Pro 2K priced identically to Pro 1K (issue #113 AC6 reconciliation)."
+        "token_rates": {"text_input_per_mtok": 2.0, "image_output_per_mtok": 120.0},
+        "notes": "Pro 2K priced identically to Pro 1K (issue #113 AC6 reconciliation). Token rates from ai.google.dev/gemini-api/docs/pricing (captured 2026-05-21)."
       },
       "sdk": {"api": "generate_content", "config_field": "image_size"},
       "notes": "Nano Banana Pro — best in-image text rendering. '-preview' id deprecated upstream (issue #123)."
@@ -149,7 +151,9 @@
           "1024x1536|low": 0.013,
           "1024x1536|medium": 0.051,
           "1024x1536|high": 0.2
-        }
+        },
+        "token_rates": {"input_per_mtok": 5.0, "output_per_mtok": 40.0},
+        "notes": "token_rates are UNVERIFIED_ESTIMATE — all OpenAI pricing URLs 403/404'd during the 2026-05-21 spike; community-cited placeholders pending dashboard verification (see docs/spikes/2026-05-21-actual-token-pricing/)."
       },
       "sdk": {"api": "openai_images"}
     },

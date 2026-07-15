@@ -15,6 +15,7 @@ Three guarantees:
    '-preview' ids the cloud module still uses.
 """
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -55,6 +56,54 @@ class TestCopyIdentity:
         assert vendored.read_bytes() == CANONICAL_LOADER.read_bytes(), (
             f"{vendored} has drifted from {CANONICAL_LOADER} — edit the "
             f"canonical file and re-copy: cp {CANONICAL_LOADER} {vendored}"
+        )
+
+
+class TestGeneratedDoc:
+    def test_docs_model_catalog_md_is_current(self):
+        """docs/model-catalog.md is a build artifact of the catalog — it must
+        be regenerated in the same commit that edits model-catalog.json
+        (same pattern as the SmartArt catalog markdown drift check)."""
+        result = subprocess.run(
+            [sys.executable, str(CANONICAL_DIR / "catalog_markdown.py"), "--check"],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+
+
+class TestNoStaleModelIds:
+    """Retired model ids must not reappear in source or operational docs.
+
+    The retired '-preview' Gemini ids and the thinking-model VLM config
+    (issues #121/#122/#123) live ONLY as catalog aliases/entries now. This
+    guard walks every plugin's src and skills tree so a stale id cannot
+    silently return in a future edit.
+    """
+
+    FORBIDDEN = (
+        "gemini-3.1-flash-image-preview",
+        "gemini-3-pro-image-preview",
+        "--vlm-model gemini-2.5-flash",
+        "--vlm-model gemini-2.0-flash",
+    )
+
+    # The catalog itself legitimately carries retired names as aliases.
+    EXEMPT_NAMES = {"model-catalog.json"}
+
+    def test_no_stale_ids_in_plugin_sources_or_skills(self):
+        offenders = []
+        for pattern in ("plugins/*/src/**/*.py", "plugins/*/skills/**/*.md",
+                        "plugins/*/agents/*.md", "plugins/*/CLAUDE.md"):
+            for path in WORKTREE.glob(pattern):
+                if path.name in self.EXEMPT_NAMES:
+                    continue
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                for needle in self.FORBIDDEN:
+                    if needle in text:
+                        offenders.append(f"{path.relative_to(WORKTREE)}: {needle}")
+        assert not offenders, (
+            "Stale model ids found — the catalog is the only place retired "
+            "names may live (as aliases):\n" + "\n".join(offenders)
         )
 
 

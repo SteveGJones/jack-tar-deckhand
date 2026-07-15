@@ -12,23 +12,33 @@ Budget state is persisted to pipeline-state.json via deckcontext.
 
 from datetime import datetime, timezone
 
-# Cost constants per model and quality tier (USD)
+try:
+    from .model_catalog import get_catalog as _get_model_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from model_catalog import get_catalog as _get_model_catalog
+
+_catalog = _get_model_catalog()
+
+# Cost per router-facing model key (USD), derived from the model catalog
+# (EPIC #125). This table previously drifted from the cloud plugin's
+# pricing — it carried a fourth divergent FLUX-2-Pro figure ($0.050 flat)
+# and retired gpt-image-1-mini ids. Deriving from the catalog makes that
+# drift structurally impossible; the short keys stay because the router
+# and manifests use them.
 MODEL_COSTS = {
-    # OpenAI
-    'gpt-image-1-mini-low': 0.005,
-    'gpt-image-1-mini-medium': 0.007,
-    'gpt-image-1.5-low': 0.009,
-    'gpt-image-1.5-medium': 0.040,
-    'gpt-image-1.5-high': 0.133,
-    # Google
-    'imagen-4-fast': 0.020,
-    'imagen-4-standard': 0.040,
-    # FAL.ai
-    'flux-2-pro': 0.050,
-    'ideogram-3': 0.080,
-    # Recraft
-    'recraft-v4-svg': 0.040,
-    'recraft-v4-png': 0.080,
+    # OpenAI (1024x1024 reference size per quality tier)
+    'gpt-image-1.5-low': _catalog.cost('gpt-image-1.5', size='1024x1024', quality='low'),
+    'gpt-image-1.5-medium': _catalog.cost('gpt-image-1.5', size='1024x1024', quality='medium'),
+    'gpt-image-1.5-high': _catalog.cost('gpt-image-1.5', size='1024x1024', quality='high'),
+    # Google Imagen (1K; Developer-API backend as the conservative rate)
+    'imagen-4-fast': _catalog.cost('imagen-4-fast', resolution='1K', backend='developer'),
+    'imagen-4-standard': _catalog.cost('imagen-4-standard', resolution='1K', backend='developer'),
+    # FAL.ai — typical deck slide is 1920x1080 (~2.07 MP) on tiered pricing
+    'flux-2-pro': round(_catalog.cost('flux-2-pro', megapixels=2.0736), 3),
+    'ideogram-3': _catalog.cost('ideogram-3'),
+    # Recraft: svg = icon tier rate; png = raster standard 1K
+    'recraft-v4-svg': _catalog.cost('recraft-v4-svg', tier='standard'),
+    'recraft-v4-png': _catalog.cost('recraft-v4-standard', resolution='1K'),
 }
 
 # State thresholds

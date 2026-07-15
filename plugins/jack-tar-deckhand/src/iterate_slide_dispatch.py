@@ -47,11 +47,19 @@ _RUN_DIR_PATTERN = re.compile(r"^run_\d{8}_\d{6}_[a-f0-9]+$")
 # the end of a successful run. We grep stdout for that.
 _OUTPUT_PATH_PATTERN = re.compile(r"Output(?:\s+saved)?(?:\s+to)?:\s+(\S+)")
 
-# Defaults tuned from the 2026-05-18 dogfood. Reviewable in one place.
+try:
+    from .model_catalog import get_catalog as _get_model_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from src.model_catalog import get_catalog as _get_model_catalog
+
+# Model defaults come from the catalog (EPIC #125). The vlm_json role
+# default is a NON-thinking model — gemini-2.5-flash's reasoning tokens
+# broke paperbanana's strict-JSON retriever with a ~17-minute timeout
+# (issues #122/#123); the catalog's role eligibility encodes that.
 _DEFAULT_VLM_PROVIDER = "gemini"
-_DEFAULT_VLM_MODEL = "gemini-2.5-flash"
+_DEFAULT_VLM_MODEL = _get_model_catalog().default_model("vlm_json")["id"]
 _DEFAULT_IMAGE_PROVIDER = "google_imagen"
-_DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+_DEFAULT_IMAGE_MODEL = _get_model_catalog().default_model("image_gen")["id"]
 _DEFAULT_BUDGET_USD = 0.25
 _DEFAULT_AUTO_MAX_ITERATIONS = 4
 _DEFAULT_ENUMERATE_ITERATIONS = 2

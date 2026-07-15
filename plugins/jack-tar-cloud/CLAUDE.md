@@ -46,7 +46,7 @@ Per-model resolution capability is also surfaced via `discover_providers()`:
 ```python
 from src.provider_discovery import discover_providers
 providers = discover_providers()
-providers["google"]["models"]["gemini-3-pro-image-preview"]["supported_resolutions"]
+providers["google"]["models"]["gemini-3-pro-image"]["supported_resolutions"]
 # ['1K', '2K', '4K']
 ```
 

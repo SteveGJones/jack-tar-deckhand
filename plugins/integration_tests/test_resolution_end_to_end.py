@@ -34,7 +34,7 @@ def _ensure_generate_cloud_image_stub():
 
 
 def test_4k_hero_slide_routes_to_nano_banana_pro():
-    """A hero slide marked resolution='4K' must route to gemini-3-pro-image-preview."""
+    """A hero slide marked resolution='4K' must route to gemini-3-pro-image."""
     from src import image_router
 
     slide = {
@@ -53,7 +53,7 @@ def test_4k_hero_slide_routes_to_nano_banana_pro():
         budget_state='allow',
     )
     assert decision.provider == 'google'
-    assert decision.model == 'gemini-3-pro-image-preview'
+    assert decision.model == 'gemini-3-pro-image'
     assert decision.resolution == '4K'
 
 
@@ -96,7 +96,7 @@ def test_4k_funnel_stage_threads_resolution_to_generate_cloud_image():
                 strategy='full_render',
                 prompt='a lighthouse at sunset',
                 funnel_stage='cloud_4k',
-                model='gemini-3-pro-image-preview',
+                model='gemini-3-pro-image',
                 output_path='/tmp/x.png',
                 provider='google',
             )
@@ -104,4 +104,4 @@ def test_4k_funnel_stage_threads_resolution_to_generate_cloud_image():
     call_kwargs = fake.call_args.kwargs
     assert call_kwargs['resolution'] == '4K'
     assert call_kwargs['provider'] == 'google'
-    assert call_kwargs['model'] == 'gemini-3-pro-image-preview'
+    assert call_kwargs['model'] == 'gemini-3-pro-image'

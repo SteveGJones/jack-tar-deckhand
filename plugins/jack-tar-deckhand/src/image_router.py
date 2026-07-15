@@ -60,6 +60,64 @@ UpgradeDecision = namedtuple(
 )
 
 
+# --- Model catalog (EPIC #125) ---
+# Model facts (pricing, capability) come from the shipped model catalog;
+# the matrices below keep only the routing PREFERENCES (which model to try
+# first for which visual type) while every cost figure is derived.
+try:
+    from .model_catalog import get_catalog as _get_model_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from model_catalog import get_catalog as _get_model_catalog
+
+_MODEL_CATALOG = _get_model_catalog()
+
+# Approximate megapixels per resolution tier for FAL tiered pricing
+# (1K -> ~1MP preset; 2K -> 2048x2048).
+_RESOLUTION_MEGAPIXELS = {'1K': 1.0, '2K': 4.194304}
+
+# Router quality-tier suffixes on the OpenAI model alias -> API quality.
+_OPENAI_QUALITY_SUFFIXES = {'low': 'low', 'med': 'medium', 'high': 'high'}
+
+
+def _route_cost(skill, provider, model, resolution):
+    """Estimated USD cost for one generation by this routing target.
+
+    Derived from the model catalog so the matrices carry no price
+    literals. Local providers are free; icon-skill targets price at the
+    icon model's standard tier; OpenAI router aliases carry a quality
+    suffix; FAL tiered pricing converts the resolution tier to megapixels.
+    """
+    if provider in ('ollama', 'local'):
+        return 0.0
+    if skill == 'cloud-generate-icon':
+        return _MODEL_CATALOG.cost(
+            _MODEL_CATALOG.default_model('icon')['id'], tier='standard'
+        )
+    if provider == 'openai':
+        base, _, suffix = model.rpartition('-')
+        quality = _OPENAI_QUALITY_SUFFIXES.get(suffix)
+        if quality is None:
+            base, quality = model, 'medium'
+        return _MODEL_CATALOG.cost(base, size='1024x1024', quality=quality)
+    if provider == 'fal':
+        return round(
+            _MODEL_CATALOG.cost(
+                model, megapixels=_RESOLUTION_MEGAPIXELS.get(resolution, 1.0)
+            ),
+            3,
+        )
+    return _MODEL_CATALOG.cost(model, resolution=resolution)
+
+
+def _T(skill, provider, model, resolution='1K'):
+    """RoutingTarget with its cost derived from the model catalog."""
+    return RoutingTarget(
+        skill, provider, model,
+        _route_cost(skill, provider, model, resolution),
+        resolution,
+    )
+
+
 # --- Routing Matrix ---
 # Maps (visual_type, mode) -> list of RoutingTargets in priority order.
 # The first target whose provider is available is selected.
@@ -72,24 +130,24 @@ UpgradeDecision = namedtuple(
 # then Imagen Standard (budget fallback).
 ROUTING_MATRIX = {
     ('hero_image', 'draft'): [
-        RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
-        RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
-        RoutingTarget('cloud-generate-image', 'openai', 'gpt-image-1.5-low', 0.009),
+        _T('ollama-image', 'ollama', 'x/z-image-turbo'),
+        _T('cloud-generate-image', 'fal', 'flux-2-pro'),
+        _T('cloud-generate-image', 'openai', 'gpt-image-1.5-low'),
     ],
     ('hero_image', 'production'): [
-        RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
-        RoutingTarget('cloud-generate-image', 'openai', 'gpt-image-1.5-med', 0.034),
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4-standard', 0.04),
-        RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
+        _T('cloud-generate-image', 'fal', 'flux-2-pro'),
+        _T('cloud-generate-image', 'openai', 'gpt-image-1.5-med'),
+        _T('cloud-generate-image', 'google', 'imagen-4-standard'),
+        _T('ollama-image', 'ollama', 'x/z-image-turbo'),
     ],
     ('hero_image', 'production_2k'): [
-        RoutingTarget('cloud-generate-image', 'google', 'gemini-3.1-flash-image-preview', 0.101, '2K'),
-        RoutingTarget('cloud-generate-image', 'fal', 'fal-ai/flux-2-pro', 0.075, '2K'),
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4.0-generate-001', 0.04, '2K'),
+        _T('cloud-generate-image', 'google', 'gemini-3.1-flash-image', '2K'),
+        _T('cloud-generate-image', 'fal', 'fal-ai/flux-2-pro', '2K'),
+        _T('cloud-generate-image', 'google', 'imagen-4.0-generate-001', '2K'),
     ],
     ('hero_image', 'production_4k'): [
-        RoutingTarget('cloud-generate-image', 'google', 'gemini-3-pro-image-preview', 0.24, '4K'),
-        RoutingTarget('cloud-generate-image', 'google', 'gemini-3.1-flash-image-preview', 0.151, '4K'),
+        _T('cloud-generate-image', 'google', 'gemini-3-pro-image', '4K'),
+        _T('cloud-generate-image', 'google', 'gemini-3.1-flash-image', '4K'),
     ],
     # Brand-fidelity-exact rows — added by issue #61. The router upgrades
     # mode to 'production_brand_exact' / 'production_brand_exact_4k' when
@@ -97,43 +155,43 @@ ROUTING_MATRIX = {
     # compliance); fallbacks preserve existing photorealistic providers
     # when Recraft is unavailable.
     ('hero_image', 'production_brand_exact'): [
-        RoutingTarget('cloud-generate-image', 'recraft', 'recraft-v4-pro', 0.25, '2K'),
-        RoutingTarget('cloud-generate-image', 'fal', 'fal-ai/flux-2-pro', 0.075, '2K'),
+        _T('cloud-generate-image', 'recraft', 'recraft-v4-pro', '2K'),
+        _T('cloud-generate-image', 'fal', 'fal-ai/flux-2-pro', '2K'),
     ],
     ('hero_image', 'production_brand_exact_4k'): [
-        RoutingTarget('cloud-generate-image', 'recraft', 'recraft-v4-pro', 0.50, '4K'),
-        RoutingTarget('cloud-generate-image', 'google', 'gemini-3-pro-image-preview', 0.24, '4K'),
+        _T('cloud-generate-image', 'recraft', 'recraft-v4-pro', '4K'),
+        _T('cloud-generate-image', 'google', 'gemini-3-pro-image', '4K'),
     ],
     ('icon_set', 'draft'): [
-        RoutingTarget('cloud-generate-icon', 'recraft', 'recraft-v4-svg', 0.08),
-        RoutingTarget('cloud-generate-icon', 'fal', 'recraft-v4', 0.08),
+        _T('cloud-generate-icon', 'recraft', 'recraft-v4-svg'),
+        _T('cloud-generate-icon', 'fal', 'recraft-v4'),
     ],
     ('icon_set', 'production'): [
-        RoutingTarget('cloud-generate-icon', 'recraft', 'recraft-v4-svg', 0.08),
-        RoutingTarget('cloud-generate-icon', 'fal', 'recraft-v4', 0.08),
+        _T('cloud-generate-icon', 'recraft', 'recraft-v4-svg'),
+        _T('cloud-generate-icon', 'fal', 'recraft-v4'),
     ],
     ('pattern_background', 'draft'): [
-        RoutingTarget('ollama-pattern', 'ollama', 'x/z-image-turbo', 0.00),
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4-fast', 0.02),
-        RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
+        _T('ollama-pattern', 'ollama', 'x/z-image-turbo'),
+        _T('cloud-generate-image', 'google', 'imagen-4-fast'),
+        _T('cloud-generate-image', 'fal', 'flux-2-pro'),
     ],
     ('pattern_background', 'production'): [
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4-fast', 0.02),
-        RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
-        RoutingTarget('ollama-pattern', 'ollama', 'x/z-image-turbo', 0.00),
+        _T('cloud-generate-image', 'google', 'imagen-4-fast'),
+        _T('cloud-generate-image', 'fal', 'flux-2-pro'),
+        _T('ollama-pattern', 'ollama', 'x/z-image-turbo'),
     ],
     ('diagram', 'draft'): [
-        RoutingTarget('ollama-diagram', 'ollama', 'x/flux2-klein', 0.00),
+        _T('ollama-diagram', 'ollama', 'x/flux2-klein'),
     ],
     ('diagram', 'production'): [
-        RoutingTarget('cloud-generate-icon', 'recraft', 'recraft-v4-svg', 0.08),
-        RoutingTarget('ollama-diagram', 'ollama', 'x/flux2-klein', 0.00),
+        _T('cloud-generate-icon', 'recraft', 'recraft-v4-svg'),
+        _T('ollama-diagram', 'ollama', 'x/flux2-klein'),
     ],
     ('chart', 'draft'): [
-        RoutingTarget('render_chart', 'local', 'matplotlib', 0.00),
+        _T('render_chart', 'local', 'matplotlib'),
     ],
     ('chart', 'production'): [
-        RoutingTarget('render_chart', 'local', 'matplotlib', 0.00),
+        _T('render_chart', 'local', 'matplotlib'),
     ],
     ('none', 'draft'): [],
     ('none', 'production'): [],
@@ -142,28 +200,28 @@ ROUTING_MATRIX = {
 # Budget-degraded routing overrides
 BUDGET_DEGRADED_MATRIX = {
     ('hero_image', 'allow_with_caps'): [
-        RoutingTarget('cloud-generate-image', 'google', 'imagen-4-fast', 0.02),
-        RoutingTarget('cloud-generate-image', 'fal', 'flux-2-pro', 0.03),
-        RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
+        _T('cloud-generate-image', 'google', 'imagen-4-fast'),
+        _T('cloud-generate-image', 'fal', 'flux-2-pro'),
+        _T('ollama-image', 'ollama', 'x/z-image-turbo'),
     ],
     ('hero_image', 'degrade'): [
-        RoutingTarget('ollama-image', 'ollama', 'x/z-image-turbo', 0.00),
+        _T('ollama-image', 'ollama', 'x/z-image-turbo'),
     ],
     ('icon_set', 'allow_with_caps'): [
-        RoutingTarget('cloud-generate-icon', 'recraft', 'recraft-v4-svg', 0.08),
+        _T('cloud-generate-icon', 'recraft', 'recraft-v4-svg'),
     ],
     ('icon_set', 'degrade'): [],  # No local alternative for SVG icons
     ('pattern_background', 'allow_with_caps'): [
-        RoutingTarget('ollama-pattern', 'ollama', 'x/z-image-turbo', 0.00),
+        _T('ollama-pattern', 'ollama', 'x/z-image-turbo'),
     ],
     ('pattern_background', 'degrade'): [
-        RoutingTarget('ollama-pattern', 'ollama', 'x/z-image-turbo', 0.00),
+        _T('ollama-pattern', 'ollama', 'x/z-image-turbo'),
     ],
     ('diagram', 'allow_with_caps'): [
-        RoutingTarget('ollama-diagram', 'ollama', 'x/flux2-klein', 0.00),
+        _T('ollama-diagram', 'ollama', 'x/flux2-klein'),
     ],
     ('diagram', 'degrade'): [
-        RoutingTarget('ollama-diagram', 'ollama', 'x/flux2-klein', 0.00),
+        _T('ollama-diagram', 'ollama', 'x/flux2-klein'),
     ],
 }
 
@@ -196,42 +254,25 @@ OPENAI_SUPPORTED_SIZES = {'1024x1024', '1536x1024', '1024x1536'}
 
 # Per-provider/model resolution capability for in-process pre-validation.
 #
-# Two kinds of entries:
-#   1. Canonical model IDs — must stay byte-identical to the cloud plugin's
-#      authoritative source. Cross-plugin drift detection in
-#      plugins/integration_tests/test_router_capability_drift.py asserts
-#      these match plugins/jack-tar-cloud/src/provider_discovery.py's
-#      _PROVIDER_MODEL_RESOLUTIONS for every model that appears in both.
-#   2. Router-internal aliases (gpt-image-1.5-low, imagen-4-fast,
-#      imagen-4-standard, flux-2-pro) used in ROUTING_MATRIX rows for
-#      readability. These translate to canonical IDs at dispatch time
-#      (see imagegen-bridge SKILL.md). Aliases have no cloud-plugin
-#      counterpart and are not subject to drift checking.
-#
-# Single source of truth at runtime is provider_discovery.discover_providers(),
-# which exposes the canonical capability via available_providers[provider]
-# ['models'][model]['supported_resolutions']. This static table is for
-# router-time decisions where reaching across plugin boundaries would
-# require a live cloud-plugin import.
-_PROVIDER_MODEL_RESOLUTIONS = {
-    ('openai', 'gpt-image-1.5'): ['1K'],
-    ('openai', 'gpt-image-1.5-low'): ['1K'],
-    ('openai', 'gpt-image-1.5-med'): ['1K'],
-    ('google', 'imagen-4-fast'): ['1K'],
-    ('google', 'imagen-4.0-fast-generate-001'): ['1K'],
-    ('google', 'imagen-4-standard'): ['1K', '2K'],
-    ('google', 'imagen-4.0-generate-001'): ['1K', '2K'],
-    ('google', 'imagen-4.0-ultra-generate-001'): ['1K', '2K'],
-    ('google', 'gemini-3.1-flash-image-preview'): ['512', '1K', '2K', '4K'],
-    ('google', 'gemini-3-pro-image-preview'): ['1K', '2K', '4K'],
-    ('fal', 'fal-ai/flux-2-pro'): ['1K', '2K'],
-    ('fal', 'flux-2-pro'): ['1K', '2K'],
-    ('fal', 'fal-ai/flux-2-klein'): ['1K'],
-    ('fal', 'fal-ai/ideogram/v3'): ['1K'],
-    # Recraft V4 raster (issue #61)
-    ('recraft', 'recraft-v4-standard'): ['1K'],
-    ('recraft', 'recraft-v4-pro'): ['2K', '4K'],
-}
+# Single source of truth is the model catalog (EPIC #125): canonical ids
+# AND aliases (retired '-preview' Gemini ids, router short names) key the
+# same capability, so this table can no longer drift from the cloud
+# plugin's — both derive from the same shipped model-catalog.json.
+_PROVIDER_MODEL_RESOLUTIONS = {}
+for _entry in _MODEL_CATALOG.entries(role='image_gen'):
+    _resolutions = list((_entry.get('capabilities') or {}).get('resolutions', []))
+    if not _resolutions or _entry['provider'] == 'ollama':
+        continue
+    for _name in [_entry['id'], *_entry.get('aliases', [])]:
+        _PROVIDER_MODEL_RESOLUTIONS[(_entry['provider'], _name)] = _resolutions
+
+# Router-internal quality-tier aliases (gpt-image-1.5-low/-med) have no
+# catalog counterpart — they translate to the canonical OpenAI id at
+# dispatch time (see imagegen-bridge SKILL.md) and share its capability.
+for _alias in ('gpt-image-1.5-low', 'gpt-image-1.5-med'):
+    _PROVIDER_MODEL_RESOLUTIONS[('openai', _alias)] = (
+        _PROVIDER_MODEL_RESOLUTIONS[('openai', 'gpt-image-1.5')]
+    )
 
 
 def _check_resolution_compatibility(provider, model, resolution):

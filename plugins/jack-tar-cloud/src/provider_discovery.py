@@ -23,33 +23,39 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Known FAL.ai image generation models
-_FAL_IMAGE_MODELS = ['flux-2-pro', 'recraft-v4', 'ideogram-3']
+try:
+    from .model_catalog import get_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from model_catalog import get_catalog
+
+_CATALOG = get_catalog()
+
+# Known FAL.ai image generation models (short display names). 'recraft-v4'
+# rides along because FAL hosts Recraft V4 as a fallback route.
+_FAL_IMAGE_MODELS = sorted(
+    alias
+    for entry in _CATALOG.entries(role='image_gen', provider='fal')
+    for alias in entry.get('aliases', [])
+) + ['recraft-v4']
 
 # Per-model supported resolutions — exposed via discover_providers().
-# Matches _MODEL_RESOLUTIONS in generate_cloud_image.py for Google models;
-# mirrors the FAL/OpenAI capability per model.
-_PROVIDER_MODEL_RESOLUTIONS = {
-    'openai': {
-        'gpt-image-1.5': ['1K'],
-    },
-    'google': {
-        'imagen-4.0-fast-generate-001': ['1K'],
-        'imagen-4.0-generate-001': ['1K', '2K'],
-        'imagen-4.0-ultra-generate-001': ['1K', '2K'],
-        'gemini-3.1-flash-image-preview': ['512', '1K', '2K', '4K'],
-        'gemini-3-pro-image-preview': ['1K', '2K', '4K'],
-    },
-    'fal': {
-        'fal-ai/flux-2-pro': ['1K', '2K'],
-        'fal-ai/flux-2-klein': ['1K'],
-        'fal-ai/ideogram/v3': ['1K'],
-    },
-    'recraft': {
-        'recraft-v4-standard': ['1K'],
-        'recraft-v4-pro': ['2K', '4K'],
-    },
-}
+# Derived from the model catalog (EPIC #125): canonical ids AND their
+# aliases (including retired '-preview' Gemini ids, issue #123) both
+# resolve, so callers holding either name see the same capability.
+# Local backends (ollama/mlx) are excluded: their 'models' surface is the
+# live install list from probe_ollama, not a static capability table.
+_CLOUD_PROVIDERS = frozenset({'openai', 'google', 'fal', 'recraft'})
+
+_PROVIDER_MODEL_RESOLUTIONS = {}
+for _entry in _CATALOG.entries(role='image_gen'):
+    if _entry['provider'] not in _CLOUD_PROVIDERS:
+        continue
+    _resolutions = list((_entry.get('capabilities') or {}).get('resolutions', []))
+    if not _resolutions:
+        continue
+    _per_provider = _PROVIDER_MODEL_RESOLUTIONS.setdefault(_entry['provider'], {})
+    for _name in [_entry['id'], *_entry.get('aliases', [])]:
+        _per_provider[_name] = _resolutions
 
 # Default env vars per provider (matches official SDK conventions)
 _PROVIDER_DEFAULTS = {
@@ -215,8 +221,8 @@ def discover_providers(config_path='provider_config.json'):
                         'imagen-4.0-fast-generate-001': {'supported_resolutions': ['1K']},
                         'imagen-4.0-generate-001': {'supported_resolutions': ['1K', '2K']},
                         'imagen-4.0-ultra-generate-001': {'supported_resolutions': ['1K', '2K']},
-                        'gemini-3.1-flash-image-preview': {'supported_resolutions': ['512', '1K', '2K', '4K']},
-                        'gemini-3-pro-image-preview': {'supported_resolutions': ['1K', '2K', '4K']},
+                        'gemini-3.1-flash-image': {'supported_resolutions': ['512', '1K', '2K', '4K']},
+                        'gemini-3-pro-image': {'supported_resolutions': ['1K', '2K', '4K']},
                     },
                 },
                 'fal': {

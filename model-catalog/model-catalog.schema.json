@@ -150,6 +150,11 @@
               "additionalProperties": {"type": "number", "minimum": 0},
               "description": "USD per image keyed by provider tier name (icon generation: 'standard'|'pro')."
             },
+            "token_rates": {
+              "type": "object",
+              "additionalProperties": {"type": "number", "minimum": 0},
+              "description": "Per-MTok token rates for actual-cost computation from API usage metadata (e.g. text_input_per_mtok, image_output_per_mtok). Component names follow the provider's usage surface."
+            },
             "tiered_megapixel": {
               "type": "object",
               "additionalProperties": false,

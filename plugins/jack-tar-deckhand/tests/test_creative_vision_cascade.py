@@ -70,22 +70,22 @@ def test_tier_to_provider_model_resolution_ollama_is_local():
 def test_tier_to_provider_model_resolution_google_tiers():
     """All flash_* and pro_* tiers route through Google's two image models."""
     assert TIER_TO_PROVIDER_MODEL_RESOLUTION["flash_1k"] == (
-        "google", "gemini-3.1-flash-image-preview", "1K"
+        "google", "gemini-3.1-flash-image", "1K"
     )
     assert TIER_TO_PROVIDER_MODEL_RESOLUTION["flash_2k"] == (
-        "google", "gemini-3.1-flash-image-preview", "2K"
+        "google", "gemini-3.1-flash-image", "2K"
     )
     assert TIER_TO_PROVIDER_MODEL_RESOLUTION["flash_4k"] == (
-        "google", "gemini-3.1-flash-image-preview", "4K"
+        "google", "gemini-3.1-flash-image", "4K"
     )
     assert TIER_TO_PROVIDER_MODEL_RESOLUTION["pro_1k"] == (
-        "google", "gemini-3-pro-image-preview", "1K"
+        "google", "gemini-3-pro-image", "1K"
     )
     assert TIER_TO_PROVIDER_MODEL_RESOLUTION["pro_2k"] == (
-        "google", "gemini-3-pro-image-preview", "2K"
+        "google", "gemini-3-pro-image", "2K"
     )
     assert TIER_TO_PROVIDER_MODEL_RESOLUTION["pro_4k"] == (
-        "google", "gemini-3-pro-image-preview", "4K"
+        "google", "gemini-3-pro-image", "4K"
     )
 
 

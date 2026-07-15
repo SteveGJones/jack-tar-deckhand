@@ -245,19 +245,42 @@ def _normalise_resolution(resolution):
     )
 
 
-# --- Cost tables (from research/04-cloud-api-setup-licensing.md) ---
+# --- Cost + capability tables (derived from the model catalog) --------------
+#
+# EPIC #125 / issue #127: model identities, capabilities, and pricing live in
+# model-catalog.json (single source of truth), loaded via model_catalog.py
+# with shipped -> cached-remote -> local-config precedence. The module-level
+# tables below are DERIVED from the catalog at import time so the rest of
+# this module keeps its historical shape; the literal values now exist in
+# exactly one place. Aliases (including the retired '-preview' Gemini ids,
+# issue #123) key into the same entries, and generate_google canonicalises
+# to the current API id before any network call.
 
-_OPENAI_COSTS = {
-    ('1024x1024', 'low'): 0.009,
-    ('1024x1024', 'medium'): 0.034,
-    ('1024x1024', 'high'): 0.133,
-    ('1536x1024', 'low'): 0.013,
-    ('1536x1024', 'medium'): 0.051,
-    ('1536x1024', 'high'): 0.200,
-    ('1024x1536', 'low'): 0.013,
-    ('1024x1536', 'medium'): 0.051,
-    ('1024x1536', 'high'): 0.200,
-}
+try:
+    from .model_catalog import UnknownModelError, get_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from model_catalog import UnknownModelError, get_catalog
+
+_CATALOG = get_catalog()
+
+
+def _catalog_names(entry):
+    """All names that should resolve to this entry: id + aliases."""
+    return [entry['id'], *entry.get('aliases', [])]
+
+
+def _google_image_entries(api):
+    return [
+        e for e in _CATALOG.entries(role='image_gen', provider='google')
+        if (e.get('sdk') or {}).get('api') == api
+    ]
+
+
+_OPENAI_COSTS = {}
+for _entry in _CATALOG.entries(role='image_gen', provider='openai'):
+    for _key, _cost in (_entry.get('pricing') or {}).get('per_size_quality', {}).items():
+        _size, _quality = _key.split('|', 1)
+        _OPENAI_COSTS[(_size, _quality)] = _cost
 
 
 def estimate_openai_cost(size='1536x1024', quality='medium'):
@@ -286,74 +309,49 @@ def estimate_openai_cost(size='1536x1024', quality='medium'):
 #   - Vertex AI (GOOGLE_APPLICATION_CREDENTIALS): flat per-image pricing
 #   - Gemini Developer API (GOOGLE_API_KEY only): token-based, 2K is dearer
 # Nano Banana Pro/Flash bill identically on both backends (per-image).
+# Nano Banana = generate_content API; Imagen 4 = generate_images API.
 
-# Per-resolution costs (provider-agnostic, used for Nano Banana too).
-# Sourced from research May 2026; see EPIC #58 pricing table.
-_NANO_BANANA_COSTS = {
-    ('gemini-3-pro-image-preview', '1K'): 0.134,
-    ('gemini-3-pro-image-preview', '2K'): 0.134,
-    ('gemini-3-pro-image-preview', '4K'): 0.24,
-    ('gemini-3.1-flash-image-preview', '512'): 0.045,
-    ('gemini-3.1-flash-image-preview', '1K'): 0.067,
-    ('gemini-3.1-flash-image-preview', '2K'): 0.101,
-    ('gemini-3.1-flash-image-preview', '4K'): 0.151,
-}
+_NANO_BANANA_MODELS = set()
+_NANO_BANANA_COSTS = {}
+for _entry in _google_image_entries('generate_content'):
+    _per_res = (_entry.get('pricing') or {}).get('per_resolution', {})
+    for _name in _catalog_names(_entry):
+        _NANO_BANANA_MODELS.add(_name)
+        for _res, _cost in _per_res.items():
+            _NANO_BANANA_COSTS[(_name, _res)] = _cost
 
-# Imagen Vertex AI flat pricing (per-tier, uniform within tier).
-_IMAGEN_VERTEX_COSTS = {
-    ('imagen-4.0-fast-generate-001', '1K'): 0.020,
-    ('imagen-4.0-generate-001', '1K'): 0.040,
-    ('imagen-4.0-generate-001', '2K'): 0.040,
-    ('imagen-4.0-ultra-generate-001', '1K'): 0.060,
-    ('imagen-4.0-ultra-generate-001', '2K'): 0.060,
-}
-
-# Imagen Gemini Developer API token-based pricing.
-# 1K matches Vertex flat; 2K is dearer (1680 tokens at the Imagen rate).
-_IMAGEN_DEVELOPER_COSTS = {
-    ('imagen-4.0-fast-generate-001', '1K'): 0.020,
-    ('imagen-4.0-generate-001', '1K'): 0.040,
-    ('imagen-4.0-generate-001', '2K'): 0.101,
-    ('imagen-4.0-ultra-generate-001', '1K'): 0.060,
-    ('imagen-4.0-ultra-generate-001', '2K'): 0.101,  # treat as token-based too
-}
-
-# Issue #74 — Imagen models that render at a fixed native resolution and
-# reject the image_size / sampleImageSize parameter (400 INVALID_ARGUMENT).
-# These models render at 1K only; the parameter is meaningless and must be
-# omitted from the request body.
-_IMAGEN_FIXED_RESOLUTION_MODELS = frozenset({
-    'imagen-4.0-fast-generate-001',
-})
-
-
-# Models that use generate_content API (Nano Banana) vs generate_images API (Imagen 4)
-_NANO_BANANA_MODELS = {
-    'gemini-3.1-flash-image-preview',
-    'gemini-3-pro-image-preview',
-}
-
-_IMAGEN_MODELS = {
-    'imagen-4.0-generate-001',
-    'imagen-4.0-fast-generate-001',
-    'imagen-4.0-ultra-generate-001',
-}
+_IMAGEN_MODELS = set()
+_IMAGEN_VERTEX_COSTS = {}
+_IMAGEN_DEVELOPER_COSTS = {}
+# Issue #74 — models with the fixed_resolution quirk render at a fixed
+# native resolution and reject the image_size / sampleImageSize parameter
+# (400 INVALID_ARGUMENT); the parameter must be omitted from the request.
+_IMAGEN_FIXED_RESOLUTION_MODELS = set()
+for _entry in _google_image_entries('generate_images'):
+    _backends = (_entry.get('pricing') or {}).get('backends', {})
+    for _name in _catalog_names(_entry):
+        _IMAGEN_MODELS.add(_name)
+        for _res, _cost in _backends.get('vertex', {}).items():
+            _IMAGEN_VERTEX_COSTS[(_name, _res)] = _cost
+        for _res, _cost in _backends.get('developer', {}).items():
+            _IMAGEN_DEVELOPER_COSTS[(_name, _res)] = _cost
+        if 'fixed_resolution' in _entry.get('quirks', []):
+            _IMAGEN_FIXED_RESOLUTION_MODELS.add(_name)
+_IMAGEN_FIXED_RESOLUTION_MODELS = frozenset(_IMAGEN_FIXED_RESOLUTION_MODELS)
 
 # Per-model supported resolutions (used by validation and discovery).
-_MODEL_RESOLUTIONS = {
-    'imagen-4.0-fast-generate-001': ['1K'],
-    'imagen-4.0-generate-001': ['1K', '2K'],
-    'imagen-4.0-ultra-generate-001': ['1K', '2K'],
-    'gemini-3.1-flash-image-preview': ['512', '1K', '2K', '4K'],
-    'gemini-3-pro-image-preview': ['1K', '2K', '4K'],
-    # Recraft V4 raster (issue #61). 'recraft-v4-*' identifiers are router-side;
-    # internal dispatch picks the actual endpoint by tier+resolution.
-    'recraft-v4-standard': ['1K'],
-    'recraft-v4-pro': ['2K', '4K'],
-}
+# Google models plus the router-side 'recraft-v4-*' identifiers (issue #61);
+# internal Recraft dispatch picks the actual endpoint by tier+resolution.
+_MODEL_RESOLUTIONS = {}
+for _entry in _CATALOG.entries(role='image_gen'):
+    if _entry['provider'] not in ('google', 'recraft'):
+        continue
+    _resolutions = list((_entry.get('capabilities') or {}).get('resolutions', []))
+    for _name in _catalog_names(_entry):
+        _MODEL_RESOLUTIONS[_name] = _resolutions
 
 
-def estimate_google_cost(model='gemini-3.1-flash-image-preview', resolution='1K'):
+def estimate_google_cost(model='gemini-3.1-flash-image', resolution='1K'):
     """Return estimated USD cost for a Google image generation call.
 
     For Imagen models, billing depends on which Google backend the SDK uses:
@@ -405,20 +403,20 @@ def estimate_google_cost(model='gemini-3.1-flash-image-preview', resolution='1K'
     )
 
 
-# FAL.ai cost data (from research/04-cloud-api-setup-licensing.md)
-# FLUX.2 Pro: $0.030 for 1st MP + $0.015 per extra MP (~$0.045 for 1920x1080)
-# FLUX.2 Klein: $0.014 flat per image
-# Ideogram 3.0: ~$0.030-$0.090 per image (use midpoint $0.060)
-
-_FAL_FLAT_COSTS = {
-    'fal-ai/flux-2-klein': 0.014,
-    'fal-ai/ideogram/v3': 0.060,
-}
-
-# Tiered megapixel models: (base_cost_first_mp, cost_per_extra_mp)
-_FAL_TIERED_COSTS = {
-    'fal-ai/flux-2-pro': (0.030, 0.015),
-}
+# FAL.ai pricing: flat-rate models vs tiered megapixel models
+# (first-MP base cost + per-extra-MP), derived from the catalog.
+_FAL_FLAT_COSTS = {}
+_FAL_TIERED_COSTS = {}
+for _entry in _CATALOG.entries(role='image_gen', provider='fal'):
+    _pricing = _entry.get('pricing') or {}
+    for _name in _catalog_names(_entry):
+        if 'flat' in _pricing:
+            _FAL_FLAT_COSTS[_name] = _pricing['flat']
+        if 'tiered_megapixel' in _pricing:
+            _FAL_TIERED_COSTS[_name] = (
+                _pricing['tiered_megapixel']['first_mp'],
+                _pricing['tiered_megapixel']['per_extra_mp'],
+            )
 
 # Approximate megapixel counts for FAL image_size presets
 _FAL_SIZE_MEGAPIXELS = {
@@ -453,41 +451,16 @@ _FAL_SUPPORTED_RESOLUTIONS = {
 }
 
 
-# --- Recraft V4 raster pricing (FAL.ai parity assumption for upscale) ---
-# Generation costs verified 2026-05-07 via fal.ai/models/fal-ai/recraft/v4/*.
-# Upscale cost on direct API not surfaced in public docs; assume FAL parity
-# ($0.25). RECRAFT_UPSCALE_COST_USD env var overrides if discovered to differ.
-
-_RECRAFT_GENERATION_COSTS = {
-    ('standard', '1K'): 0.04,
-    ('pro', '2K'): 0.25,
-    # 4K is generate-at-2K then upscale chain — see estimate_recraft_cost
-}
-
-_RECRAFT_UPSCALE_COST_DEFAULT = 0.25  # FAL parity; override via env
-
-# Recraft V4 raster supported resolutions per tier
+# --- Recraft V4 raster (issue #61) ---
+# Pricing and per-tier resolution capability come from the catalog's
+# 'recraft-v4-standard' / 'recraft-v4-pro' entries. The 4K price is the
+# 2K-generation + Creative-Upscale chain; the catalog applies the
+# RECRAFT_UPSCALE_COST_USD env override to the upscale component
+# (upscale_chain_4k quirk).
 _RECRAFT_TIER_RESOLUTIONS = {
-    'standard': ['1K'],
-    'pro': ['2K', '4K'],  # 4K is upscale-chained on top of 2K Pro
+    tier: _CATALOG.resolutions(f'recraft-v4-{tier}')
+    for tier in ('standard', 'pro')
 }
-
-
-def _recraft_upscale_cost():
-    """Return the assumed upscale cost; env override allowed for hot-fix.
-
-    Override is only honoured if it parses to a positive float — guards
-    against a speaker accidentally pricing a paid API at $0 or negative.
-    """
-    override = os.environ.get('RECRAFT_UPSCALE_COST_USD')
-    if override:
-        try:
-            value = float(override)
-            if value > 0:
-                return value
-        except ValueError:
-            pass
-    return _RECRAFT_UPSCALE_COST_DEFAULT
 
 
 def estimate_recraft_cost(tier='pro', resolution='2K'):
@@ -521,11 +494,9 @@ def estimate_recraft_cost(tier='pro', resolution='2K'):
             f"For 4K use tier='pro' (chains 2K + Creative Upscale)."
         )
 
-    if resolution == '4K':
-        # Chain: 2K Pro generation + Creative Upscale
-        return _RECRAFT_GENERATION_COSTS[('pro', '2K')] + _recraft_upscale_cost()
-
-    return _RECRAFT_GENERATION_COSTS[(tier, resolution)]
+    # The catalog prices the 4K chain (2K Pro generation + Creative Upscale,
+    # RECRAFT_UPSCALE_COST_USD override honoured) alongside the plain tiers.
+    return _CATALOG.cost(f'recraft-v4-{tier}', resolution=resolution)
 
 
 def estimate_fal_cost(model='fal-ai/flux-2-pro', image_size='landscape_16_9'):
@@ -667,7 +638,9 @@ def generate_google(prompt, output_path, **kwargs):
         prompt: Text prompt for image generation.
         output_path: Where to save the generated PNG.
         **kwargs: Optional arguments:
-            model: Model name (default: 'gemini-3.1-flash-image-preview').
+            model: Model name (default: the catalog's image_gen role
+                default — Nano Banana Flash). Aliases and retired ids
+                are canonicalised via the model catalog.
             aspect_ratio: Aspect ratio for Imagen 4 (e.g. '16:9', '1:1').
             resolution: '512' | '1K' | '2K' | '4K'. Default '1K'.
                 Per-model support varies; see _MODEL_RESOLUTIONS.
@@ -688,7 +661,15 @@ def generate_google(prompt, output_path, **kwargs):
             'See research/04-cloud-api-setup-licensing.md section B for setup.'
         )
 
-    model = kwargs.get('model', 'gemini-3.1-flash-image-preview')
+    model = kwargs.get('model') or _CATALOG.default_model('image_gen')['id']
+    # Canonicalise via the catalog: aliases (including the retired '-preview'
+    # ids, issue #123) resolve to the id the live API accepts today, and
+    # retired models substitute their replacement. Unknown names fall through
+    # to the legacy unknown-model error below.
+    try:
+        model = _CATALOG.get(model)['id']
+    except UnknownModelError:
+        pass
     aspect_ratio = kwargs.get('aspect_ratio', '16:9')
     resolution = _normalise_resolution(kwargs.get('resolution', '1K'))
 
@@ -758,7 +739,7 @@ def _generate_via_nano_banana(client, model, prompt, resolution='1K'):
 
     Args:
         client: google.genai.Client instance.
-        model: 'gemini-3-pro-image-preview' or 'gemini-3.1-flash-image-preview'.
+        model: 'gemini-3-pro-image' or 'gemini-3.1-flash-image' (aliases resolve).
         prompt: text prompt.
         resolution: '512' | '1K' | '2K' | '4K' (must be supported by model).
 

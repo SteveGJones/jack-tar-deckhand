@@ -342,7 +342,10 @@
       "Bash(chmod +x plugins/jack-tar-deckhand/hooks/block-png-read.sh)",
       "Bash(xargs -I{} echo \"Open issues remaining: {}\")",
       "Bash(pytest tests/test_chart_marker.py -v)",
-      "Bash(pytest -q)"
+      "Bash(pytest -q)",
+      "Bash(uv venv *)",
+      "Bash(uv pip *)",
+      "Bash(sdkcheck/bin/python -c ' *)"
     ],
     "deny": [
       "Bash(git push --force:*)",

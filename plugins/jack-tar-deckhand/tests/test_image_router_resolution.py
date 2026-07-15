@@ -13,7 +13,7 @@ def test_routing_target_has_resolution_field():
     t = image_router.RoutingTarget(
         skill='cloud-generate-image',
         provider='google',
-        model='gemini-3-pro-image-preview',
+        model='gemini-3-pro-image',
         cost_per_image=0.24,
         resolution='4K',
     )
@@ -40,7 +40,7 @@ def test_upgrade_decision_has_target_resolution_field():
         reason='hero benefits from 4K',
         draft_prompt='a lighthouse',
         target_provider='google',
-        target_model='gemini-3-pro-image-preview',
+        target_model='gemini-3-pro-image',
         target_size='4096x4096',
         target_resolution='4K',
         estimated_cost_usd=0.24,
@@ -61,7 +61,7 @@ def test_check_resolution_compatibility_warns_for_unsupported_tier():
 
 def test_check_resolution_compatibility_silent_for_supported_tier():
     warning = image_router._check_resolution_compatibility(
-        provider='google', model='gemini-3-pro-image-preview', resolution='4K',
+        provider='google', model='gemini-3-pro-image', resolution='4K',
     )
     assert warning is None
 
@@ -88,7 +88,7 @@ def test_router_prefers_nano_banana_pro_for_4k_hero():
         budget_state='allow',
     )
     assert decision.provider == 'google'
-    assert decision.model == 'gemini-3-pro-image-preview'
+    assert decision.model == 'gemini-3-pro-image'
     assert decision.resolution == '4K'
 
 

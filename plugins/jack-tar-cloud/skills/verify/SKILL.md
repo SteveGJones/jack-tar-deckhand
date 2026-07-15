@@ -83,8 +83,8 @@ PROVIDERS:
   recraft:             READY (uses OPENAI_API_KEY)
 
 GOOGLE TIERS:
-  Nanobanana Flash:    gemini-3.1-flash-image-preview     $0.067/image  (best text rendering)
-  Nanobanana Pro:      gemini-3-pro-image-preview          $0.134/image  (premium quality)
+  Nanobanana Flash:    gemini-3.1-flash-image     $0.067/image  (best text rendering)
+  Nanobanana Pro:      gemini-3-pro-image          $0.134/image  (premium quality)
   Imagen Fast:         imagen-4.0-fast-generate-001        $0.020/image  (budget bulk)
   Imagen Standard:     imagen-4.0-generate-001             $0.040/image  (standard quality)
 

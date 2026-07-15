@@ -28,13 +28,23 @@ class ProviderNotImplementedError(NotImplementedError):
     """Raised when a provider is configured but implementation is pending."""
 
 
-# --- Cost tables (from research/04-cloud-api-setup-licensing.md) ---
+# --- Cost table (derived from the model catalog, EPIC #125) ---
+# The icon model bills the same per-tier rate on the direct Recraft API
+# and the FAL.ai route, so both provider keys map to the catalog's
+# per_tier pricing on the icon-role default entry.
+
+try:
+    from .model_catalog import get_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from model_catalog import get_catalog
 
 _ICON_COSTS = {
-    ('recraft', 'standard'): 0.08,
-    ('recraft', 'pro'): 0.30,
-    ('fal', 'standard'): 0.08,
-    ('fal', 'pro'): 0.30,
+    (_provider, _tier): _cost
+    for _provider in ('recraft', 'fal')
+    for _tier, _cost in (
+        get_catalog().default_model('icon').get('pricing', {})
+        .get('per_tier', {}).items()
+    )
 }
 
 
