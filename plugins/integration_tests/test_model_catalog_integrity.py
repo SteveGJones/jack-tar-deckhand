@@ -40,6 +40,11 @@ VENDORED_LOADERS = [
     DECKHAND_ROOT / "src" / "model_catalog.py",
 ]
 
+CANONICAL_REFRESH = WORKTREE / "src" / "model_catalog_refresh.py"
+VENDORED_REFRESH = [
+    CLOUD_ROOT / "src" / "model_catalog_refresh.py",
+]
+
 PLUGIN_ROOT = CLOUD_ROOT  # for the conftest src-namespace isolation fixture
 
 
@@ -56,6 +61,13 @@ class TestCopyIdentity:
         assert vendored.read_bytes() == CANONICAL_LOADER.read_bytes(), (
             f"{vendored} has drifted from {CANONICAL_LOADER} — edit the "
             f"canonical file and re-copy: cp {CANONICAL_LOADER} {vendored}"
+        )
+
+    @pytest.mark.parametrize("vendored", VENDORED_REFRESH, ids=lambda p: p.parts[-3])
+    def test_refresh_copies_identical(self, vendored):
+        assert vendored.read_bytes() == CANONICAL_REFRESH.read_bytes(), (
+            f"{vendored} has drifted from {CANONICAL_REFRESH} — edit the "
+            f"canonical file and re-copy: cp {CANONICAL_REFRESH} {vendored}"
         )
 
 

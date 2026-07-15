@@ -242,6 +242,11 @@ class ModelCatalog:
                 self._by_name[alias] = entry
 
     @property
+    def doc(self):
+        """The raw validated catalog document (read-only by convention)."""
+        return self._doc
+
+    @property
     def version(self):
         return self._doc["catalog_version"]
 

@@ -95,3 +95,29 @@ CAPABILITIES:
 STATUS: PARTIALLY_AVAILABLE
 REASON: All providers configured
 ```
+
+## Step 4: Model catalog staleness hint (non-blocking)
+
+Report which model catalog is in effect and how old the local cache is:
+
+```bash
+python3 - << 'PYEOF'
+import sys
+sys.path.insert(0, "PLUGIN_ROOT")  # replace with the plugin root path
+from src.model_catalog_refresh import staleness_report
+report = staleness_report()
+print("MODEL CATALOG:")
+print(f"  version:  {report['version']} (data updated {report['updated']})")
+print(f"  source:   {report['source']}")
+if "cache_age_days" in report:
+    print(f"  cache age: {report['cache_age_days']} days")
+    if report["cache_age_days"] > 30:
+        print("  hint: cache is over a month old — run /jack-tar-cloud:refresh-models")
+else:
+    print("  hint: running on the shipped baseline — /jack-tar-cloud:refresh-models fetches the latest")
+PYEOF
+```
+
+This never blocks verification — model ids and prices move faster than
+plugin releases (EPIC #125), so the hint just tells the operator when a
+refresh is worth running.
