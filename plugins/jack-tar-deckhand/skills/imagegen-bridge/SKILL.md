@@ -384,14 +384,21 @@ OUTPUT_DIR=$(echo "$DISPATCH_JSON" | jq -r '.output_dir')
 # CLI-side budget guard ($0.25 cap per slide; jack-tar's own accounting
 # is the authoritative gate since paperbanana's pricing table is
 # incomplete — upstream #213).
+#
+# Model ids below come from the model catalog (EPIC #125,
+# docs/model-catalog.md): the VLM must hold the catalog's vlm_json role
+# (a NON-thinking model — thinking models break paperbanana's JSON
+# retriever, issues #122/#123), and the image model is the catalog's
+# image_gen default. If these ever fail with 404/timeout, run the
+# refresh-models skill and re-read the catalog rather than guessing ids.
 PB_OUTPUT=$(paperbanana generate \
   --input "$SRC_TMP" \
   --caption "$CAPTION" \
   --aspect-ratio "$ASPECT" \
   --iterations "$ITERS" \
-  --vlm-provider gemini --vlm-model gemini-2.5-flash \
+  --vlm-provider gemini --vlm-model gemini-3.5-flash \
   --image-provider google_imagen \
-  --image-model gemini-3.1-flash-image-preview \
+  --image-model gemini-3.1-flash-image \
   --output "$OUTPUT_DIR" \
   --budget 0.25 2>&1)
 
@@ -570,10 +577,10 @@ Pick the render skill based on the cascade tier:
 
 - `ollama` tier → dispatch `/jack-tar-ollama:image` with the approved prompt.
 - `flash_1k` / `flash_2k` / `flash_4k` tiers → dispatch `/jack-tar-cloud:image`
-  with `--provider google --model gemini-3.1-flash-image-preview` and the
+  with `--provider google --model gemini-3.1-flash-image` and the
   matching `--resolution` flag.
 - `pro_1k` / `pro_2k` / `pro_4k` tiers → dispatch `/jack-tar-cloud:image` with
-  `--provider google --model gemini-3-pro-image-preview` at the matching
+  `--provider google --model gemini-3-pro-image` at the matching
   `--resolution`.
 - `recraft_*` tiers → dispatch `/jack-tar-cloud:recraft-image` with the matching
   `--tier` and `--resolution` flags.
@@ -852,8 +859,8 @@ For `pragmatic_composition` slides, calculate the target aspect ratio from the s
 
 When provider is `google`, the `--model` parameter selects the tier:
 - Draft/budget: `--model imagen-4.0-fast-generate-001` ($0.02)
-- Standard production: `--model gemini-3.1-flash-image-preview` ($0.067)
-- Premium (text-heavy, complex): `--model gemini-3-pro-image-preview` ($0.134)
+- Standard production: `--model gemini-3.1-flash-image` ($0.067)
+- Premium (text-heavy, complex): `--model gemini-3-pro-image` ($0.134)
 
 The routing matrix and production-upgrade-plan already specify the correct model. Use the model from the plan entry directly — do NOT hardcode model names in the bridge.
 
@@ -950,9 +957,9 @@ For all other `raster_upscale` entries, execute the cross-tier refinement loop:
 
 **Phase 1 — Flash draft and refinement (up to 3 iterations)**
 
-1. Generate a Flash draft using `gemini-3.1-flash-image-preview` with the plan's `draft_prompt`:
+1. Generate a Flash draft using `gemini-3.1-flash-image` with the plan's `draft_prompt`:
    ```
-   /jack-tar-cloud:image "DRAFT_PROMPT" --provider google --model gemini-3.1-flash-image-preview --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero-flash-v1.png
+   /jack-tar-cloud:image "DRAFT_PROMPT" --provider google --model gemini-3.1-flash-image --width WIDTH --height HEIGHT --output ./tmp/deck/images/slide-NN-hero-flash-v1.png
    ```
 
 2. Dispatch the `image-reviewer` agent on the Flash output. If verdict is `pass`, skip Phase 2 entirely — Flash quality is sufficient and no Pro spend is needed. Store the Flash image as the final output.
@@ -988,13 +995,13 @@ For all other `raster_upscale` entries, execute the cross-tier refinement loop:
 
 8. **Optional Flash 4K pre-test** (only when `slide.resolution == "4K"`) — before paying for Pro 4K ($0.240), do a Flash 4K validation render at $0.151:
    ```
-   /jack-tar-cloud:google-image "REFINED_PROMPT" --model gemini-3.1-flash-image-preview --resolution 4K --output ./tmp/deck/images/slide-NN-hero-flash4k.png
+   /jack-tar-cloud:google-image "REFINED_PROMPT" --model gemini-3.1-flash-image --resolution 4K --output ./tmp/deck/images/slide-NN-hero-flash4k.png
    ```
    Dispatch `image-reviewer`. If pass: stop, use Flash 4K as final. If refine: proceed to Pro 4K. (This pattern was validated by the resolution smoke test in #59 — Flash 4K caught prompt issues that 1K Flash missed because text rendering scales differently at 4K.)
 
 9. If Flash passes (on any iteration in Phase 1) and the slide opted into `"2K"` or `"4K"`, take the prompt that produced the passing Flash result and generate once with Pro at the requested tier:
    ```
-   /jack-tar-cloud:google-image "REFINED_PROMPT" --model gemini-3-pro-image-preview --resolution {slide.resolution} --output ./tmp/deck/images/slide-NN-hero.png
+   /jack-tar-cloud:google-image "REFINED_PROMPT" --model gemini-3-pro-image --resolution {slide.resolution} --output ./tmp/deck/images/slide-NN-hero.png
    ```
    For 1K slides (the default), keep the existing single-shot Pro 1K behaviour with `--resolution 1K`.
 

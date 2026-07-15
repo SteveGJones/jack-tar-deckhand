@@ -112,10 +112,11 @@ _CLOUD_STAGE_RESOLUTION = {
 
 # Per-stage default provider+model when the caller doesn't specify.
 # 2K/4K force Google because Nano Banana Pro/Flash are the only models
-# that support those tiers across the matrix.
+# that support those tiers across the matrix. Canonical ids per the
+# model catalog (EPIC #125 — the retired '-preview' ids are aliases).
 _CLOUD_STAGE_DEFAULT_PROVIDER_MODEL = {
-    'cloud_2k': ('google', 'gemini-3.1-flash-image-preview'),
-    'cloud_4k': ('google', 'gemini-3-pro-image-preview'),
+    'cloud_2k': ('google', 'gemini-3.1-flash-image'),
+    'cloud_4k': ('google', 'gemini-3-pro-image'),
 }
 
 

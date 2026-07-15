@@ -36,8 +36,8 @@ Both models are distilled and use natural language prompts only. Neither support
 |-------|----------|-----------|----------|------|-------|
 | GPT Image 1.5 | OpenAI | `gpt-image-1.5` | Illustrations, text-in-image, reasoning | $0.009-$0.133 | Low/Med/High quality. Natural language paragraphs. |
 | FLUX.2 Pro | BFL via FAL.ai | `flux-2-pro` | Hero images, photorealism | $0.03/MP | 30-80 word sweet spot. Photography prompts. |
-| Nano Banana Flash | Google | `gemini-3.1-flash-image-preview` | Speed, high volume | ~$0.067 | Efficient. Uses generate_content API. |
-| Nano Banana Pro | Google | `gemini-3-pro-image-preview` | Fidelity, complex prompts | ~$0.134 | Professional quality. Uses generate_content API. |
+| Nano Banana Flash | Google | `gemini-3.1-flash-image` | Speed, high volume | ~$0.067 | Efficient. Uses generate_content API. |
+| Nano Banana Pro | Google | `gemini-3-pro-image` | Fidelity, complex prompts | ~$0.134 | Professional quality. Uses generate_content API. |
 | Imagen 4 | Google | `imagen-4.0-generate-001` | Backgrounds, textures, people | $0.02-$0.06 | Fast/Standard/Ultra. Deprecated June 2026. |
 | Recraft V4 | Recraft | `recraft-v4` | Icons, SVG vector output | $0.08-$0.30 | ONLY native SVG model. Design-centric prompts. |
 | Ideogram 3.0 | Ideogram | `ideogram-3` | Typography, text in images | $0.03-$0.09 | 90%+ text accuracy. But prefer overlay pattern. |
@@ -122,9 +122,9 @@ FLUX.2 Pro is a 32B-parameter model. Photography-specific prompts work best.
 
 Nano Banana models use the generate_content API with natural language prompts.
 
-**Flash (gemini-3.1-flash-image-preview):** Optimised for speed. Keep prompts concise (50-100 words). Good for high-volume batch generation.
+**Flash (gemini-3.1-flash-image):** Optimised for speed. Keep prompts concise (50-100 words). Good for high-volume batch generation.
 
-**Pro (gemini-3-pro-image-preview):** Designed for professional asset production. Handles complex instructions well. Use for hero images when high fidelity is needed.
+**Pro (gemini-3-pro-image):** Designed for professional asset production. Handles complex instructions well. Use for hero images when high fidelity is needed.
 
 **Dimension control:** Nanobanana has NO explicit width/height or aspect_ratio API parameter. Output dimensions are model-determined. For full-slide images (16:9), prefix the prompt with "Slide:" — this guides the model to generate at presentation slide dimensions. For non-standard aspect ratios, use FLUX Pro instead (supports arbitrary dimensions).
 

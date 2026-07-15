@@ -16,16 +16,25 @@ The translator also injects palette colours and image_style_tokens
 from the StyleGuide for visual consistency.
 """
 
-# Token/word budget per model
-MODEL_BUDGETS = {
-    'x/z-image-turbo': {'max_words': 50, 'style': 'concise_camera'},
-    'x/flux2-klein': {'max_words': 200, 'style': 'detailed_spatial'},
-    'gpt-image-1.5': {'max_words': 500, 'style': 'natural_language'},
-    'flux-2-pro': {'max_words': 60, 'style': 'photography'},
-    'recraft-v4': {'max_words': 100, 'style': 'design_centric'},
-    'imagen-4': {'max_words': 40, 'style': 'concise'},
-    'ideogram-3': {'max_words': 80, 'style': 'typography'},
-}
+try:
+    from .model_catalog import get_catalog as _get_model_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from model_catalog import get_catalog as _get_model_catalog
+
+# Token/word budget per model, derived from the catalog's prompt_budget
+# capability (EPIC #125). Ids AND aliases key the same budget, so callers
+# holding either name ('imagen-4' vs 'imagen-4.0-generate-001') resolve.
+MODEL_BUDGETS = {}
+# Models that do NOT support negative prompts (no_negative_prompt quirk).
+_NO_NEGATIVE_PROMPT_MODELS = set()
+for _entry in _get_model_catalog().entries(role='image_gen'):
+    _names = [_entry['id'], *_entry.get('aliases', [])]
+    _budget = (_entry.get('capabilities') or {}).get('prompt_budget')
+    for _name in _names:
+        if _budget:
+            MODEL_BUDGETS[_name] = dict(_budget)
+        if 'no_negative_prompt' in _entry.get('quirks', []):
+            _NO_NEGATIVE_PROMPT_MODELS.add(_name)
 
 # Standard negative prompt for models that support it.
 # Text overlay is handled by PptxGenJS — never generate in-image text.
@@ -33,9 +42,6 @@ _NEGATIVE_PROMPT = (
     "text, watermark, logo, words, letters, typography, writing, "
     "blurry, low quality, distorted, deformed, ugly, noisy, grainy"
 )
-
-# Models that do NOT support negative prompts
-_NO_NEGATIVE_PROMPT_MODELS = {'gpt-image-1.5', 'imagen-4'}
 
 # Style-specific prefix additions
 _STYLE_PREFIXES = {

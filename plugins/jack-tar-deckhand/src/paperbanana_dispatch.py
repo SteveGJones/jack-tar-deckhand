@@ -63,12 +63,20 @@ _RUN_ID_PATTERN = re.compile(r"/(run_\d{8}_\d{6}_[a-f0-9]+)/")
 OLLAMA_BASE_URL = "http://localhost:11434"
 
 # Image-capable Ollama model families, in quality-priority order for
-# academic figures. flux2-klein (FLUX.2 Klein, 8B) renders labelled
-# diagrams better than z-image-turbo, so it wins when both are pulled.
-# Exact installed tags (e.g. ``x/flux2-klein:4b``) are resolved against
-# this prefix list at detection time — never hardcode a tag here; the
-# operator's tag comes back from Ollama's /api/tags.
-_LOCAL_IMAGE_MODEL_PREFERENCE = ("x/flux2-klein", "x/z-image-turbo")
+# academic figures, from the catalog's local_draft role preference list
+# (EPIC #125). flux2-klein (FLUX.2 Klein) renders labelled diagrams
+# better than z-image-turbo, so it is listed first. Exact installed tags
+# (e.g. ``x/flux2-klein:4b``) are resolved against this prefix list at
+# detection time — never hardcode a tag; the operator's tag comes back
+# from Ollama's /api/tags.
+try:
+    from .model_catalog import get_catalog as _get_model_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from src.model_catalog import get_catalog as _get_model_catalog
+
+_LOCAL_IMAGE_MODEL_PREFERENCE = tuple(
+    _get_model_catalog().role_default("local_draft")
+)
 
 _PAPERBANANA_ABSENT_REASON = (
     "paperbanana CLI not on PATH and paperbanana package not "
@@ -117,7 +125,7 @@ class PaperbananaDispatch:
         fallback_provider: cloud provider to use when paperbanana is
             absent. ``"google"`` by default.
         fallback_model: cloud model to use when paperbanana is absent.
-            ``"gemini-3.1-flash-image-preview"`` (Nano Banana Flash 1K)
+            The catalog's image_gen role default (Nano Banana Flash 1K)
             by default — the cheapest tier that handles complex text.
         fallback_reason: human-readable explanation when ``available``
             is False. Empty when paperbanana was found.
@@ -155,7 +163,7 @@ class PaperbananaDispatch:
     output_dir: str
     args: dict = field(default_factory=dict)
     fallback_provider: str = "google"
-    fallback_model: str = "gemini-3.1-flash-image-preview"
+    fallback_model: str = _get_model_catalog().default_model("image_gen")["id"]
     fallback_reason: str = ""
     backend: str = ""
     local_provider: str = ""
@@ -480,7 +488,10 @@ def build_dispatch_payload(
                 "" if (paperbanana_available or local_only)
                 else _PAPERBANANA_ABSENT_REASON
             ),
-            backend="ollama",
+            # Issue #124: the backend is whatever local provider was
+            # detected ("ollama" today, "mlx" behind the same seam) —
+            # never a hardcoded literal.
+            backend=local_backend.provider,
             local_provider=local_backend.provider,
             local_model=local_backend.model,
             local_args={
@@ -599,12 +610,15 @@ def build_manifest_entry(
         backend_used = dispatch.backend or (
             "paperbanana" if dispatch.available else "cloud_fallback"
         )
-    if backend_used == "ollama":
-        backend_used = "ollama_local"
+    # Issue #124: any local provider family maps to "<provider>_local"
+    # ("ollama" -> "ollama_local", "mlx" -> "mlx_local") — the seam is
+    # provider-shaped, not ollama-shaped.
+    if dispatch.local_provider and backend_used == dispatch.local_provider:
+        backend_used = f"{backend_used}_local"
 
     if backend_used == "paperbanana":
         model_used = "paperbanana"
-    elif backend_used == "ollama_local":
+    elif dispatch.local_provider and backend_used == f"{dispatch.local_provider}_local":
         model_used = dispatch.local_model
     else:
         model_used = dispatch.fallback_model

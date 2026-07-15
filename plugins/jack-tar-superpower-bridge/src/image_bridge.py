@@ -230,7 +230,7 @@ def generate_with_review_cycle(
         )
 
     # --- Phase B: Cloud Flash with prompt refinement -------------------
-    flash_model = "gemini-3.1-flash-image-preview"
+    flash_model = "gemini-3.1-flash-image"
     flash_cost = 0.067
     for flash_attempt in range(1, max_cloud_flash_iterations + 1):
         if not budget.can_afford(flash_cost):
@@ -275,7 +275,7 @@ def generate_with_review_cycle(
         last_reviewer_feedback = verdict_payload
         if verdict_payload.get("verdict") == "pass":
             # Optional Phase C — Pro single-shot when Flash converged on a proven prompt
-            pro_model = "gemini-3-pro-image-preview"
+            pro_model = "gemini-3-pro-image"
             pro_cost = 0.134
             if budget.can_afford(pro_cost):
                 gen_payload = cloud_generate(request, pro_model, 1)

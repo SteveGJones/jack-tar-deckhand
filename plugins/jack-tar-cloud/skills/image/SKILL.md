@@ -67,8 +67,8 @@ Otherwise, route based on content suitability:
 
 When routing to Google, pass the appropriate `--model` based on use case:
 - Budget: `--model imagen-4.0-fast-generate-001`
-- Standard: `--model gemini-3.1-flash-image-preview`
-- Premium: `--model gemini-3-pro-image-preview`
+- Standard: `--model gemini-3.1-flash-image`
+- Premium: `--model gemini-3-pro-image`
 
 Dispatch the appropriate per-provider skill:
 - `fal` → `/jack-tar-cloud:fal-image`
@@ -81,7 +81,7 @@ Dispatch the appropriate per-provider skill:
 Forward the flag to the dispatched per-provider skill:
 - `--resolution 1K` (or omitted) → no change to existing routing
 - `--resolution 2K` → fal-image (FLUX 2 Pro) or google-image (Imagen Standard / Nano Banana Pro)
-- `--resolution 4K` → google-image with `--model gemini-3.1-flash-image-preview` (Flash 4K, $0.151) or `--model gemini-3-pro-image-preview` (Pro 4K, $0.240)
+- `--resolution 4K` → google-image with `--model gemini-3.1-flash-image` (Flash 4K, $0.151) or `--model gemini-3-pro-image` (Pro 4K, $0.240)
 
 **Brand-color-fidelity routing (issue #61):** when the prompt or context indicates exact brand-color match matters (logos, product shots, brand-led hero slides with 3+ specified hexes), prefer Recraft V4 raster over the photorealistic providers:
 - 1K, 2K → `/jack-tar-cloud:recraft-image --tier pro --resolution 2K --colors HEX,HEX,...`

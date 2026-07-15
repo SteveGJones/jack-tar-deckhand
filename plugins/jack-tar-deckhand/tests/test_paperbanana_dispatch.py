@@ -344,7 +344,7 @@ def test_dispatch_payload_when_unavailable_populates_fallback():
     assert dispatch.available is False
     assert dispatch.args == {}
     assert dispatch.fallback_provider == "google"
-    assert dispatch.fallback_model == "gemini-3.1-flash-image-preview"
+    assert dispatch.fallback_model == "gemini-3.1-flash-image"
     assert "paperbanana CLI not on PATH" in dispatch.fallback_reason
     assert "pip install" in dispatch.fallback_reason
 
@@ -476,7 +476,7 @@ def test_manifest_entry_for_fallback_cloud_render():
         output_path="/tmp/deck/images/slide-06-academic-figure.png",
     )
     assert entry["backend"] == "cloud_fallback"
-    assert entry["model_used"] == "gemini-3.1-flash-image-preview"
+    assert entry["model_used"] == "gemini-3.1-flash-image"
     assert "fallback_reason" in entry
     assert "paperbanana CLI not on PATH" in entry["fallback_reason"]
     assert "paperbanana_run_id" not in entry
@@ -527,7 +527,7 @@ def test_dispatch_dataclass_default_fallback_values():
         output_dir="./out",
     )
     assert dispatch.fallback_provider == "google"
-    assert dispatch.fallback_model == "gemini-3.1-flash-image-preview"
+    assert dispatch.fallback_model == "gemini-3.1-flash-image"
     assert dispatch.args == {}
     assert dispatch.fallback_reason == ""
 
@@ -714,7 +714,7 @@ def test_dispatch_local_first_without_paperbanana_keeps_cloud_escalation():
     assert dispatch.backend == "ollama"
     assert dispatch.available is False
     assert dispatch.args == {}
-    assert dispatch.fallback_model == "gemini-3.1-flash-image-preview"
+    assert dispatch.fallback_model == "gemini-3.1-flash-image"
     assert "paperbanana CLI not on PATH" in dispatch.fallback_reason
 
 
@@ -913,7 +913,7 @@ def test_manifest_entry_escalated_to_cloud_after_gate():
         backend_used="cloud_fallback",
     )
     assert entry["backend"] == "cloud_fallback"
-    assert entry["model_used"] == "gemini-3.1-flash-image-preview"
+    assert entry["model_used"] == "gemini-3.1-flash-image"
     assert "fallback_reason" in entry
 
 

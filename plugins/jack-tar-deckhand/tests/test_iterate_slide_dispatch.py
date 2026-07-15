@@ -295,8 +295,8 @@ def test_plan_refinement_unknown_mode_raises():
 def test_plan_refinement_includes_explicit_models():
     """F2 finding: must NOT rely on paperbanana's deprecated defaults."""
     plan = plan_refinement("auto", VALID_RUN_ID, IterateSlideRefinementRequest())
-    assert plan.cli_args["--vlm-model"] == "gemini-2.5-flash"
-    assert plan.cli_args["--image-model"] == "gemini-3.1-flash-image-preview"
+    assert plan.cli_args["--vlm-model"] == "gemini-3.5-flash"
+    assert plan.cli_args["--image-model"] == "gemini-3.1-flash-image"
 
 
 # --- cli_args_to_argv ----------------------------------------------------

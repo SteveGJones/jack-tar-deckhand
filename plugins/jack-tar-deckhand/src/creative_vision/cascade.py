@@ -2,17 +2,22 @@
 
 Implements §5 of the spec. Issue #105.
 
-Cost-table reconciliation (issue #113 AC6): the canonical pricing source is
-``plugins/jack-tar-cloud/src/generate_cloud_image.py``'s ``estimate_google_cost``
-and ``estimate_recraft_cost``. ``TIER_COSTS`` below is the cascade-tier-keyed
-projection of that pricing, and ``TIER_TO_PROVIDER_MODEL_RESOLUTION`` maps each
-cascade tier to the (provider, model, resolution) tuple that the cloud module
-uses. The cross-plugin reconciliation test in
-``plugins/integration_tests/test_cost_reconciliation.py`` asserts the two stay
-in sync — if the cloud table moves (Google drops pricing, Recraft changes a
-tier), the integration test fails and ``TIER_COSTS`` here is updated to match.
+Cost-table reconciliation (issue #113 AC6, superseded by EPIC #125): pricing
+comes from the shipped model catalog (``model-catalog.json`` via
+``model_catalog.py``) — the same source the cloud plugin's estimators read.
+``TIER_TO_PROVIDER_MODEL_RESOLUTION`` maps each cascade tier to the
+(provider, model, resolution) tuple, and ``TIER_COSTS`` is DERIVED from that
+mapping at import time, so the cascade can no longer disagree with the cloud
+module (the $0.193-vs-$0.134 Pro 2K drift that motivated AC6 is structurally
+impossible). ``plugins/integration_tests/test_cost_reconciliation.py`` remains
+as a regression net across the plugin boundary.
 """
 from __future__ import annotations
+
+try:
+    from ..model_catalog import get_catalog as _get_model_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from src.model_catalog import get_catalog as _get_model_catalog
 
 LADDER_DEFAULT: list[str] = [
     "ollama", "flash_1k", "flash_2k", "flash_4k",
@@ -30,35 +35,28 @@ LADDER_RECRAFT: list[str] = [
 # the two namespaces without coupling the modules at import time.
 TIER_TO_PROVIDER_MODEL_RESOLUTION: dict[str, tuple[str | None, str | None, str | None]] = {
     "ollama": (None, None, None),
-    "flash_1k": ("google", "gemini-3.1-flash-image-preview", "1K"),
-    "flash_2k": ("google", "gemini-3.1-flash-image-preview", "2K"),
-    "flash_4k": ("google", "gemini-3.1-flash-image-preview", "4K"),
-    "pro_1k": ("google", "gemini-3-pro-image-preview", "1K"),
-    "pro_2k": ("google", "gemini-3-pro-image-preview", "2K"),
-    "pro_4k": ("google", "gemini-3-pro-image-preview", "4K"),
+    "flash_1k": ("google", "gemini-3.1-flash-image", "1K"),
+    "flash_2k": ("google", "gemini-3.1-flash-image", "2K"),
+    "flash_4k": ("google", "gemini-3.1-flash-image", "4K"),
+    "pro_1k": ("google", "gemini-3-pro-image", "1K"),
+    "pro_2k": ("google", "gemini-3-pro-image", "2K"),
+    "pro_4k": ("google", "gemini-3-pro-image", "4K"),
     "recraft_standard_1k": ("recraft", "recraft-v4-standard", "1K"),
     "recraft_pro_2k": ("recraft", "recraft-v4-pro", "2K"),
     "recraft_pro_4k": ("recraft", "recraft-v4-pro", "4K"),
 }
 
-# Per-tier cost in USD. Mirrors the cloud module's pricing tables; the
-# reconciliation test pins them together. When updating, also update the
-# integration test's expected values OR update the cloud module if that is the
-# moved source of truth.
+# Per-tier cost in USD, derived from the model catalog through the tier
+# mapping above (EPIC #125). The recraft_pro_4k figure includes the
+# Creative-Upscale chain component, honouring RECRAFT_UPSCALE_COST_USD
+# at import time.
 TIER_COSTS: dict[str, float] = {
-    "ollama": 0.0,
-    "flash_1k": 0.067,
-    "flash_2k": 0.101,
-    "flash_4k": 0.151,
-    "pro_1k": 0.134,
-    # Issue #113 AC6: reconciled 2026-05-24. Google Nano Banana Pro 2K is
-    # priced identically to Pro 1K ($0.134); cascade previously had $0.193
-    # which produced inflated cost estimates at strategy approval.
-    "pro_2k": 0.134,
-    "pro_4k": 0.240,
-    "recraft_standard_1k": 0.04,
-    "recraft_pro_2k": 0.25,
-    "recraft_pro_4k": 0.50,
+    tier: (
+        0.0 if provider is None
+        else _get_model_catalog().cost(model, resolution=resolution)
+    )
+    for tier, (provider, model, resolution)
+    in TIER_TO_PROVIDER_MODEL_RESOLUTION.items()
 }
 
 DEFAULT_ITERATION_CAPS: dict[str, int] = {

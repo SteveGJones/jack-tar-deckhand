@@ -208,7 +208,7 @@ For those slides, the `strategy_classifier.py` heuristic (paperbanana E1)
 will set `strategy: "academic_figure"` automatically in the StrategyMap,
 and the imagegen-bridge will dispatch to the **paperbanana** CLI via
 subprocess (`paperbanana generate --input ... --caption ... --image-model
-gemini-3.1-flash-image-preview ...`) for publication-grade rendering
+gemini-3.1-flash-image ...`) for publication-grade rendering
 when paperbanana is installed (falls back to cloud Flash 1K otherwise —
 see `/jack-tar-deckhand:verify` for live availability and install hints).
 

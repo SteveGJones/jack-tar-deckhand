@@ -1,21 +1,32 @@
 """Compute actual USD cost from API-returned usage metadata.
 
-Pure functions; no I/O, no SDK imports. Token rates are sourced from the
-official provider pricing pages — see docs/spikes/2026-05-21-actual-token-pricing/
-token-pricing-rates.md for current values and source URLs.
+Pure functions; no I/O, no SDK imports. Token rates come from the model
+catalog's ``pricing.token_rates`` (EPIC #125) — provenance and source URLs
+live in the catalog entry notes and
+docs/spikes/2026-05-21-actual-token-pricing/token-pricing-rates.md.
 """
 
-# Source: https://ai.google.dev/gemini-api/docs/pricing (captured 2026-05-21)
-_NANO_BANANA_RATES = {
-    "gemini-3.1-flash-image-preview": {
-        "text_input_per_mtok": 0.50,
-        "image_output_per_mtok": 60.00,
-    },
-    "gemini-3-pro-image-preview": {
-        "text_input_per_mtok": 2.00,
-        "image_output_per_mtok": 120.00,
-    },
-}
+try:
+    from .model_catalog import get_catalog as _get_model_catalog
+except ImportError:  # pragma: no cover - direct-script execution path
+    from model_catalog import get_catalog as _get_model_catalog
+
+
+def _rates_by_name(provider, api=None):
+    """Token-rate table keyed by every id AND alias of matching entries."""
+    table = {}
+    for entry in _get_model_catalog().entries(role='image_gen', provider=provider):
+        if api and (entry.get('sdk') or {}).get('api') != api:
+            continue
+        rates = (entry.get('pricing') or {}).get('token_rates')
+        if not rates:
+            continue
+        for name in [entry['id'], *entry.get('aliases', [])]:
+            table[name] = dict(rates)
+    return table
+
+
+_NANO_BANANA_RATES = _rates_by_name('google', api='generate_content')
 
 
 def compute_nano_banana_actual_cost(model: str, usage: dict) -> float:
@@ -40,29 +51,12 @@ def compute_nano_banana_actual_cost(model: str, usage: dict) -> float:
     return text_cost + image_cost
 
 
-# UNVERIFIED_ESTIMATE — all OpenAI pricing URLs (openai.com/api/pricing/,
-# platform.openai.com/docs/pricing, help.openai.com, web.archive.org)
-# returned 403/404 during the 2026-05-21 spike. These placeholder rates
-# ($5.00/MTok input, $40.00/MTok output) are widely-cited in community
-# discussions but have NOT been verified against an authoritative source.
-#
-# MUST re-validate via a logged-in browser session or the OpenAI dashboard
-# (https://platform.openai.com/settings/organization/billing/overview) before
-# this function is used in Phase 2 production cost-tracking code.
+# UNVERIFIED_ESTIMATE — the OpenAI token rates in the catalog are
+# community-cited placeholders; every OpenAI pricing URL 403/404'd during
+# the 2026-05-21 spike. The catalog entry's pricing notes carry the flag;
+# re-validate via the OpenAI dashboard before production cost-tracking.
 # See docs/spikes/2026-05-21-actual-token-pricing/token-pricing-rates.md.
-_OPENAI_IMAGE_RATES = {
-    # UNVERIFIED_ESTIMATE — see module comment above
-    "gpt-image-1": {
-        "input_per_mtok": 5.00,
-        "output_per_mtok": 40.00,
-    },
-    # UNVERIFIED_ESTIMATE — gpt-image-1.5 rates unknown; sharing gpt-image-1
-    # placeholders until verified. These two models may differ in production.
-    "gpt-image-1.5": {
-        "input_per_mtok": 5.00,
-        "output_per_mtok": 40.00,
-    },
-}
+_OPENAI_IMAGE_RATES = _rates_by_name('openai')
 
 
 def compute_openai_image_actual_cost(model: str, usage: dict) -> float:
