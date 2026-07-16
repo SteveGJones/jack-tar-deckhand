@@ -32,6 +32,41 @@ def _verdict(entries, model_id):
     return next(e for e in entries if e["model"] == model_id)
 
 
+class _FakeCatalog:
+    """Minimal stand-in exposing only the ``entries()`` surface classify_entries
+    and find_new_candidates need — lets local-provider retirement tests inject
+    entries the real shipped catalog doesn't currently carry."""
+
+    def __init__(self, entries):
+        self._entries = entries
+
+    def entries(self, role=None, provider=None, status="active"):
+        out = self._entries
+        if status is not None:
+            out = [e for e in out if e["status"] == status]
+        if role is not None:
+            out = [e for e in out if role in e.get("roles", [])]
+        if provider is not None:
+            out = [e for e in out if e["provider"] == provider]
+        return out
+
+
+def _make_complete_snapshot(hub_dir, repo_id, revision="abc123"):
+    """Build a minimal complete HF-cache snapshot for repo_id under hub_dir."""
+    repo_dir = hub_dir / ("models--" + repo_id.replace("/", "--"))
+    blobs_dir = repo_dir / "blobs"
+    blobs_dir.mkdir(parents=True)
+    blob_path = blobs_dir / "deadbeef"
+    blob_path.write_bytes(b"weights")
+    snapshot_dir = repo_dir / "snapshots" / revision
+    snapshot_dir.mkdir(parents=True)
+    (snapshot_dir / "model.safetensors").symlink_to(blob_path)
+    refs_dir = repo_dir / "refs"
+    refs_dir.mkdir(parents=True)
+    (refs_dir / "main").write_text(revision)
+    return repo_dir
+
+
 class TestClassification:
     def test_upstream_listed_model_is_verified(self, catalog):
         probes = {"google": {"status": "ok", "models": {
@@ -71,7 +106,52 @@ class TestClassification:
         probes = {"ollama": {"status": "ok", "models": {"x/flux2-klein:9b"}}}
         entries = model_probe.classify_entries(catalog, probes)
         assert _verdict(entries, "x/flux2-klein")["verdict"] == "verified"
-        assert _verdict(entries, "x/z-image-turbo")["verdict"] == "suspect_retired"
+        # x/z-image-turbo is an ollama (LOCAL_PROVIDERS) entry not in the
+        # probe set — issue #124 review M3: local absence means "not pulled
+        # here", never "retired". Updated from suspect_retired.
+        assert _verdict(entries, "x/z-image-turbo")["verdict"] == "not_installed"
+
+    def test_ollama_entry_not_installed_when_not_pulled(self, catalog):
+        """LOCAL_PROVIDERS classification (issue #124 review M3): an ollama
+        model not present in the probe set is not_installed, with a
+        remediation note naming the exact pull command — never
+        suspect_retired."""
+        probes = {"ollama": {"status": "ok", "models": {"x/flux2-klein:9b"}}}
+        entries = model_probe.classify_entries(catalog, probes)
+        verdict = _verdict(entries, "x/z-image-turbo")
+        assert verdict["verdict"] == "not_installed"
+        assert "ollama pull x/z-image-turbo" in verdict["note"]
+
+    def test_mlx_entry_matches_on_hf_repo(self, catalog):
+        """mlx catalog ids (mlx/flux2-klein-4b) don't appear upstream — the
+        probe returns HF repo ids, so classify_entries must match on
+        sdk.hf_repo/sdk.hf_repo_fallback instead (design §4.2)."""
+        probes = {"mlx": {"status": "ok",
+                          "models": {"Runpod/FLUX.2-klein-4B-mflux-4bit"}}}
+        entries = model_probe.classify_entries(catalog, probes)
+        assert _verdict(entries, "mlx/flux2-klein-4b")["verdict"] == "verified"
+
+    def test_mlx_entry_not_installed_when_repo_absent(self, catalog):
+        """REPLACES the previously-designed test_mlx_entry_suspect_when_repo_absent
+        (review M3 ruling pinned the wrong behaviour) — a catalogued mlx
+        entry whose hf_repo is absent from the probe set is simply not
+        cached locally, never suspect_retired."""
+        probes = {"mlx": {"status": "ok", "models": set()}}
+        entries = model_probe.classify_entries(catalog, probes)
+        verdict = _verdict(entries, "mlx/flux2-klein-4b")
+        assert verdict["verdict"] == "not_installed"
+        assert "hf download Runpod/FLUX.2-klein-4B-mflux-4bit" in verdict["note"]
+
+    def test_local_retired_entry_still_confirmed_retired(self):
+        """Retirement status is checked BEFORE the LOCAL_PROVIDERS branch —
+        a retired local entry stays confirmed_retired, never not_installed."""
+        catalog = _FakeCatalog([
+            {"id": "x/some-old-model", "provider": "ollama",
+             "status": "retired", "aliases": [], "roles": []},
+        ])
+        entries = model_probe.classify_entries(
+            catalog, {"ollama": {"status": "ok", "models": set()}})
+        assert _verdict(entries, "x/some-old-model")["verdict"] == "confirmed_retired"
 
     def test_fal_recraft_always_unprobed(self, catalog):
         entries = model_probe.classify_entries(catalog, {})
@@ -111,6 +191,20 @@ class TestCandidates:
         probes = {"openai": {"status": "skipped", "reason": "no key"}}
         assert model_probe.find_new_candidates(catalog, probes) == {}
 
+    def test_mlx_candidate_filter_matches_mflux_suffix(self, catalog):
+        """A cached mflux-quantized repo no catalog entry covers is a
+        candidate under the mlx provider (design §4.4 substring filter)."""
+        probes = {"mlx": {"status": "ok", "models": {"Foo/Bar-mflux-8bit"}}}
+        candidates = model_probe.find_new_candidates(catalog, probes)
+        assert candidates == {"mlx": ["Foo/Bar-mflux-8bit"]}
+
+    def test_mlx_hf_repo_not_reported_as_candidate(self, catalog):
+        """A catalogued mlx hf_repo (primary) must never be reported as a
+        new candidate even though it matches the -mflux- substring filter."""
+        probes = {"mlx": {"status": "ok",
+                          "models": {"Runpod/FLUX.2-klein-4B-mflux-4bit"}}}
+        assert model_probe.find_new_candidates(catalog, probes) == {}
+
 
 class TestGracefulSkips:
     def test_google_skips_without_credentials(self, monkeypatch):
@@ -129,6 +223,52 @@ class TestGracefulSkips:
         result = model_probe.probe_ollama_models(endpoint="http://localhost:1")
         assert result["status"] == "skipped"
 
+    def test_probe_mlx_skipped_when_cli_absent(self, monkeypatch):
+        monkeypatch.setattr(model_probe.shutil, "which", lambda name: None)
+        result = model_probe.probe_mlx_models()
+        assert result["status"] == "skipped"
+        assert "mflux" in result["reason"]
+
+    def test_probe_mlx_lists_complete_snapshot_repos(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            model_probe.shutil, "which", lambda name: f"/usr/local/bin/{name}")
+        hub_dir = tmp_path / "hub"
+        hub_dir.mkdir(parents=True)
+        _make_complete_snapshot(hub_dir, "Runpod/FLUX.2-klein-4B-mflux-4bit")
+        result = model_probe.probe_mlx_models(hf_home=tmp_path)
+        assert result["status"] == "ok"
+        assert "Runpod/FLUX.2-klein-4B-mflux-4bit" in result["models"]
+
+    def test_probe_mlx_excludes_repo_with_unreferenced_incomplete_blob(
+            self, tmp_path, monkeypatch):
+        """Field finding (2026-07-15 live download): the in-flight file has a
+        blobs/<hash>.incomplete but no snapshot symlink yet — the repo must
+        NOT be reported as installed while a download is active."""
+        monkeypatch.setattr(
+            model_probe.shutil, "which", lambda name: f"/usr/local/bin/{name}")
+        hub_dir = tmp_path / "hub"
+        hub_dir.mkdir(parents=True)
+        repo_dir = _make_complete_snapshot(
+            hub_dir, "Runpod/FLUX.2-klein-4B-mflux-4bit")
+        (repo_dir / "blobs" / "ffff.incomplete").write_text("")
+        result = model_probe.probe_mlx_models(hf_home=tmp_path)
+        assert result["status"] == "ok"
+        assert "Runpod/FLUX.2-klein-4B-mflux-4bit" not in result["models"]
+
+    def test_probe_mlx_honours_hf_hub_cache_env(self, tmp_path, monkeypatch):
+        """HF_HUB_CACHE IS the hub dir directly (review m7) — no ``hub/``
+        child appended, unlike the ``hf_home`` arg / HF_HOME precedence."""
+        monkeypatch.setattr(
+            model_probe.shutil, "which", lambda name: f"/usr/local/bin/{name}")
+        hub_dir = tmp_path / "custom-hub"
+        hub_dir.mkdir(parents=True)
+        _make_complete_snapshot(hub_dir, "Runpod/FLUX.2-klein-4B-mflux-4bit")
+        monkeypatch.setenv("HF_HUB_CACHE", str(hub_dir))
+        monkeypatch.delenv("HF_HOME", raising=False)
+        result = model_probe.probe_mlx_models()
+        assert result["status"] == "ok"
+        assert "Runpod/FLUX.2-klein-4B-mflux-4bit" in result["models"]
+
 
 class TestReport:
     def test_report_shape_with_injected_probes(self, catalog):
@@ -142,3 +282,23 @@ class TestReport:
         assert "models" not in report["probes"]["google"]
         assert report["probes"]["openai"]["reason"] == "no key"
         assert any(e["verdict"] == "suspect_retired" for e in report["entries"])
+
+    def test_report_includes_mlx_probe(self, catalog, monkeypatch):
+        """probe_report()'s default probes dict gains an mlx entry (§4.4) —
+        checked here with the default (no injected probes) path so the
+        wiring itself, not just injected-probe plumbing, is covered."""
+        monkeypatch.setattr(
+            model_probe, "probe_google_models",
+            lambda: {"status": "skipped", "reason": "no key"})
+        monkeypatch.setattr(
+            model_probe, "probe_openai_models",
+            lambda: {"status": "skipped", "reason": "no key"})
+        monkeypatch.setattr(
+            model_probe, "probe_ollama_models",
+            lambda: {"status": "skipped", "reason": "unreachable"})
+        monkeypatch.setattr(
+            model_probe, "probe_mlx_models",
+            lambda: {"status": "skipped", "reason": "no mflux"})
+        report = model_probe.probe_report(catalog=catalog)
+        assert "mlx" in report["probes"]
+        assert report["probes"]["mlx"]["reason"] == "no mflux"

@@ -26,6 +26,9 @@ Invoke each in sequence:
 2. `jack-tar-cloud:verify`
 3. `jack-tar-msft-smartart:verify`
 4. `jack-tar-custom-smartart:verify`
+5. `jack-tar-mlx:verify` (issue #124 — second local $0 draft-image
+   provider, Apple Silicon via mflux; optional, treat as "Not
+   installed" when the plugin isn't present, same as the others)
 
 For each, extract the STATUS line from the output.
 
@@ -103,7 +106,7 @@ also takes the fallback path so the deck still ships.
 ## Step 3: Determine pipeline capabilities
 
 Based on engine plugin availability:
-- **Draft images:** READY if jack-tar-ollama is FULLY_AVAILABLE or PARTIALLY_AVAILABLE
+- **Draft images:** READY if jack-tar-ollama OR jack-tar-mlx is FULLY_AVAILABLE or PARTIALLY_AVAILABLE (issue #124 — MLX is a second, Apple-Silicon-only $0 local draft provider alongside Ollama; see `/jack-tar-mlx:verify` for per-model weight readiness)
 - **Production images:** READY if jack-tar-cloud is FULLY_AVAILABLE or PARTIALLY_AVAILABLE
 - **Editable SmartArt:** READY if jack-tar-msft-smartart is FULLY_AVAILABLE
 - **Custom graphics:** READY if jack-tar-custom-smartart is FULLY_AVAILABLE or PARTIALLY_AVAILABLE
@@ -176,6 +179,7 @@ ENGINE PLUGINS:
   jack-tar-cloud:            PARTIALLY_AVAILABLE
   jack-tar-msft-smartart:    FULLY_AVAILABLE
   jack-tar-custom-smartart:  NOT_AVAILABLE
+  jack-tar-mlx:              NOT_AVAILABLE (not installed)
 
 EXTERNAL TOOLS:
   paperbanana CLI:           NOT_FOUND
@@ -192,7 +196,7 @@ EXTERNAL TOOLS:
     /jack-tar-deckhand:verify   # re-run
 
 PIPELINE CAPABILITY:
-  Draft images:           READY (ollama available)
+  Draft images:           READY (ollama available; mlx not installed)
   Production images:      READY (cloud partially available)
   Editable SmartArt:      READY (msft-smartart available)
   Custom graphics:        NOT_READY (custom-smartart not available)

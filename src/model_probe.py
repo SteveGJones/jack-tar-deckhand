@@ -11,6 +11,15 @@ every catalog entry:
 - ``confirmed_retired`` — catalog already says retired and upstream agrees
 - ``unprobed``          — the provider has no list API (FAL, Recraft) or no
                           credentials are configured; catalog-driven only
+- ``not_installed``     — LOCAL providers only (Ollama, MLX): the model is
+                          simply not pulled/downloaded on this machine yet.
+                          Never means "retired" — local absence says nothing
+                          about upstream existence (issue #124 review M3).
+
+MLX probing scans the Hugging Face cache for complete weight snapshots;
+there is no server API (mflux is a CLI, not a daemon) but "installed" is
+directly observable on disk, so mlx is probeable like ollama, not
+unprobeable like FAL/Recraft.
 
 Upstream models that no catalog entry covers are reported as
 ``new_candidates``. Live discovery attests EXISTENCE, never price — a
@@ -26,6 +35,8 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
+from pathlib import Path
 
 try:
     from .model_catalog import get_catalog
@@ -36,6 +47,11 @@ logger = logging.getLogger(__name__)
 
 #: Providers with no list-models API — their entries are always unprobed.
 UNPROBEABLE_PROVIDERS = frozenset({"fal", "recraft"})
+
+#: Providers whose probe reflects LOCAL installation state, not upstream
+#: existence — absence means "not installed here", never "retired" (issue
+#: #124 review M3 ruling).
+LOCAL_PROVIDERS = frozenset({"ollama", "mlx"})
 
 
 def probe_google_models(timeout=30):
@@ -100,11 +116,141 @@ def probe_ollama_models(endpoint="http://localhost:11434"):
         return {"status": "skipped", "reason": f"Ollama not reachable: {exc}"}
 
 
+def _resolve_hf_hub_dir(hf_home=None):
+    """HF hub cache dir per huggingface_hub precedence (issue #124 review m7).
+
+    ``hf_home`` (root; hub is ``<hf_home>/hub``) > ``$HF_HUB_CACHE`` (IS the
+    hub dir directly) > ``$HF_HOME/hub`` > ``~/.cache/huggingface/hub``.
+
+    Private copy — see design doc §10 OQ-C on the accepted duplication
+    trade-off (the same rule also lives in ``paperbanana_dispatch.py`` and
+    the mlx wrapper's ``--check-weights`` mode).
+    """
+    if hf_home is not None:
+        return Path(hf_home) / "hub"
+    env_cache = os.environ.get("HF_HUB_CACHE")
+    if env_cache:
+        return Path(env_cache)
+    env_home = os.environ.get("HF_HOME")
+    if env_home:
+        return Path(env_home) / "hub"
+    return Path.home() / ".cache" / "huggingface" / "hub"
+
+
+def _hf_snapshot_complete(repo_id, hub_dir):
+    """True when ``repo_id`` has a complete HF-cache snapshot under hub_dir.
+
+    Private copy of the same completeness predicate used by
+    ``paperbanana_dispatch.detect_mlx_backend`` (design doc §2.2 / §10
+    OQ-C) — revision resolved via ``refs/main`` when present, else the
+    newest-by-mtime ``snapshots/`` dir; every symlink under the resolved
+    revision must resolve to an existing path with no ``.incomplete``
+    sibling blob. Any doubt (missing dirs, OSError) returns False so
+    detection under-reports rather than risking a download.
+    """
+    try:
+        repo_dir = hub_dir / ("models--" + repo_id.replace("/", "--"))
+        if not repo_dir.is_dir():
+            return False
+        # Field finding (2026-07-15 live test): an active download leaves
+        # the in-flight file as blobs/<hash>.incomplete with NO snapshot
+        # symlink yet, so revision-scoped checks pass mid-download. Any
+        # .incomplete anywhere in blobs/ blocks readiness
+        # (false-negative-safe).
+        blobs_dir = repo_dir / "blobs"
+        if blobs_dir.is_dir() and any(blobs_dir.glob("*.incomplete")):
+            return False
+        snapshots_dir = repo_dir / "snapshots"
+        if not snapshots_dir.is_dir():
+            return False
+
+        revision_dir = None
+        refs_main = repo_dir / "refs" / "main"
+        if refs_main.is_file():
+            revision = refs_main.read_text().strip()
+            candidate = snapshots_dir / revision
+            if candidate.is_dir():
+                revision_dir = candidate
+        if revision_dir is None:
+            candidates = [d for d in snapshots_dir.iterdir() if d.is_dir()]
+            if not candidates:
+                return False
+            revision_dir = max(candidates, key=lambda d: d.stat().st_mtime)
+
+        entries = list(revision_dir.iterdir())
+        if not entries:
+            return False
+
+        for link in revision_dir.rglob("*"):
+            if not link.is_symlink():
+                continue
+            if not link.exists():
+                return False
+            target = link.resolve()
+            if (target.parent / f"{target.name}.incomplete").exists():
+                return False
+        return True
+    except OSError:
+        return False
+
+
+def probe_mlx_models(hf_home=None, extra_model_dirs=()):
+    """List HF-cached mlx/mflux image-weight repos with COMPLETE snapshots.
+
+    Server-less analogue of ``probe_ollama_models``: "installed" == weights
+    fully cached (mflux has no list API). Returns
+    ``{'status': 'ok', 'models': set[str]}`` of HF repo ids (e.g.
+    ``'Runpod/FLUX.2-klein-4B-mflux-4bit'``) with a complete snapshot under
+    the hub dir resolved per huggingface_hub precedence (``hf_home`` arg ->
+    ``$HF_HUB_CACHE`` -> ``$HF_HOME/hub`` -> ``~/.cache/huggingface/hub``),
+    plus any non-empty ``mflux-save`` dir basenames from
+    ``extra_model_dirs``; or ``{'status': 'skipped', 'reason': ...}`` when
+    no catalogued mflux entry point is on PATH (mflux CLI not installed).
+
+    Never raises; scan errors -> skipped with the reason string.
+    """
+    try:
+        catalog = get_catalog()
+        entrypoints = {
+            (entry.get("sdk") or {}).get("entrypoint")
+            for entry in catalog.entries(provider="mlx", status=None)
+        }
+        entrypoints.discard(None)
+    except Exception as exc:  # catalog load must not break verify
+        return {"status": "skipped", "reason": f"catalog unavailable: {exc}"}
+
+    if not entrypoints or not any(shutil.which(ep) for ep in entrypoints):
+        return {"status": "skipped",
+                "reason": "mflux CLI not installed (no catalogued mlx "
+                          "entrypoint on PATH)"}
+
+    try:
+        hub_dir = _resolve_hf_hub_dir(hf_home)
+        models = set()
+        if hub_dir.is_dir():
+            for child in hub_dir.iterdir():
+                if not child.is_dir() or not child.name.startswith("models--"):
+                    continue
+                repo_id = child.name[len("models--"):].replace("--", "/", 1)
+                if _hf_snapshot_complete(repo_id, hub_dir):
+                    models.add(repo_id)
+        for extra_dir in extra_model_dirs:
+            path = Path(extra_dir)
+            if path.is_dir() and any(path.iterdir()):
+                models.add(path.name)
+        return {"status": "ok", "models": models}
+    except OSError as exc:
+        return {"status": "skipped", "reason": f"scan failed: {exc}"}
+
+
 def _entry_upstream_match(entry, upstream):
     """True when any name of this entry exists upstream.
 
     Ollama catalog ids are tag-prefixes (``x/flux2-klein`` matches the
-    installed ``x/flux2-klein:9b``); other providers match exactly.
+    installed ``x/flux2-klein:9b``); mlx catalog ids are ``mlx/<slug>`` but
+    the probe returns HF repo ids, so mlx entries match on
+    ``sdk.hf_repo``/``sdk.hf_repo_fallback`` instead; other providers match
+    exactly.
     """
     names = [entry["id"], *entry.get("aliases", [])]
     if entry["provider"] == "ollama":
@@ -113,6 +259,10 @@ def _entry_upstream_match(entry, upstream):
             for name in names
             for tag in upstream
         )
+    if entry["provider"] == "mlx":
+        sdk = entry.get("sdk") or {}
+        repos = [r for r in (sdk.get("hf_repo"), sdk.get("hf_repo_fallback")) if r]
+        return any(repo in upstream for repo in repos)
     return any(name in upstream for name in names)
 
 
@@ -146,6 +296,15 @@ def classify_entries(catalog, probes):
         else:
             if entry["status"] == "retired":
                 verdict = {"verdict": "confirmed_retired"}
+            elif provider in LOCAL_PROVIDERS:
+                if provider == "mlx":
+                    sdk = entry.get("sdk") or {}
+                    repo = sdk.get("hf_repo") or entry["id"]
+                    note = f"weights not cached locally — run: hf download {repo}"
+                else:  # ollama
+                    note = (f"not installed locally — run: ollama pull "
+                            f"{entry['id']}")
+                verdict = {"verdict": "not_installed", "note": note}
             else:
                 verdict = {"verdict": "suspect_retired",
                            "note": "not listed upstream — update the catalog "
@@ -167,6 +326,7 @@ _CANDIDATE_FILTERS = {
     "google": ("image", "imagen", "flash", "pro"),
     "openai": ("image", "dall-e"),
     "ollama": ("x/",),
+    "mlx": ("-mflux-",),
 }
 
 
@@ -181,6 +341,11 @@ def find_new_candidates(catalog, probes):
     for entry in catalog.entries(status=None):
         known.add(entry["id"])
         known.update(entry.get("aliases", []))
+        if entry["provider"] == "mlx":
+            sdk = entry.get("sdk") or {}
+            for repo in (sdk.get("hf_repo"), sdk.get("hf_repo_fallback")):
+                if repo:
+                    known.add(repo)
 
     candidates = {}
     for provider, probe in probes.items():
@@ -205,7 +370,8 @@ def probe_report(catalog=None, probes=None):
     Args:
         catalog: ModelCatalog (defaults to the effective loaded catalog).
         probes: pre-computed probe results (tests / callers that already
-            probed); defaults to probing google + openai + ollama live.
+            probed); defaults to probing google + openai + ollama + mlx
+            live.
 
     Returns:
         {catalog_version, probes: {provider: status/reason},
@@ -217,6 +383,7 @@ def probe_report(catalog=None, probes=None):
             "google": probe_google_models(),
             "openai": probe_openai_models(),
             "ollama": probe_ollama_models(),
+            "mlx": probe_mlx_models(),
         }
     return {
         "catalog_version": catalog.version,
