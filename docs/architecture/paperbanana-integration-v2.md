@@ -365,6 +365,97 @@ backend; all pre-addendum tests pass with `local_backend=False`.
 
 ---
 
+## 8.6 Addendum — MLX (mflux) as a second local provider (2026-07-15)
+
+**Decision:** the `LocalBackend` seam gained its planned second provider
+(§8.5's forward note). On Apple Silicon with the
+[mflux](https://github.com/filipstrand/mflux) CLI installed, the
+academic_figure free tier can now render through **MLX** instead of, or
+whenever, Ollama is unavailable — no daemon, no server API, weights
+resolved directly from the Hugging Face cache. Shipped by the
+`feat/mlx-local-backend` branch (issue #124); design doc:
+[`docs/superpowers/plans/2026-07-15-mlx-local-backend.md`](../superpowers/plans/2026-07-15-mlx-local-backend.md)
+is the single source of truth for the implementation — this addendum
+only records the ADR-relevant shape.
+
+**Composed probe + provider order.** `detect_any_local_backend()` in
+`paperbanana_dispatch.py` tries each provider in
+`provider_order` (default `("ollama", "mlx")` — Ollama-first, matching
+`role_defaults.local_draft`) and returns the first `LocalBackend` a
+per-provider detector yields. The bridge reads `local-config.json` →
+`local_provider_order` once and passes it in; the seam function itself
+does **no file I/O** (a machine with only mflux installed and Ollama
+down now gets an MLX backend instead of falling through to
+`local_only_blocked` or a paid tier).
+
+**Two-stage detection, same shape as Ollama's.** `detect_mlx_backend()`
+requires, per catalogued `mlx/*` candidate: (1) the family's mflux entry
+point on PATH (`mflux-generate-flux2` / `-z-image-turbo` / `-qwen`), and
+(2) a **complete** Hugging Face cache snapshot for the entry's
+`sdk.hf_repo` or `hf_repo_fallback` (refs/main-resolved revision, every
+symlink resolves, no `.incomplete` sibling). Stage 2 is a **soft** guard
+against a first-use multi-GB download — it can theoretically pass on a
+snapshot that was interrupted between files (a residual accepted by
+design; see the design doc §2.2). The **hard** guard is in the wrapper:
+every mflux subprocess call runs with `HF_HUB_OFFLINE=1` /
+`TRANSFORMERS_OFFLINE=1`, so a cache miss the soft guard couldn't catch
+still fails fast with the exact `hf download <repo>` remediation instead
+of pulling weights. Detection also gates on `capabilities.min_ram_gb`
+against the machine's physical RAM for catalog-order auto-selection
+(an explicit operator `preferred_model` bypasses the gate, logged).
+
+**Nested cross-provider lock.** Ollama and mflux can drive the same
+GPU/unified-memory context, so a bare per-provider lock (issue #75)
+isn't enough — running an mflux load concurrently with an Ollama render
+is exactly the OOM scenario the locks exist to prevent. The mlx wrapper
+(`jack-tar-mlx/src/generate_image.py`) therefore acquires **the Ollama
+lock first** (`/tmp/jack-tar-ollama-image.lock`), then its own
+(`/tmp/jack-tar-mlx-image.lock`), sharing a single `--lock-wait-timeout`
+deadline across both acquisitions. This is deadlock-safe because the
+Ollama wrapper only ever takes one lock — there is exactly one
+multi-lock acquirer and therefore one global acquisition order.
+**Documented residual:** this serialises all local image work — an
+mflux render can queue behind a long-running Ollama render (up to
+flux2-klein's 600s budget) even on a machine with RAM headroom to spare.
+Accepted for Horizon 1 (correctness over throughput on the common
+single-GPU laptop). **H2 option:** retire the nesting by replacing both
+lock files with one shared `/tmp/jack-tar-local-image.lock` taken by
+both wrappers.
+
+**`render_steps` contract.** The family-native `sdk.default_steps` (4 /
+9 / 20) is what mflux would use on its own, but is not always the value
+the pipeline wants — the 2026-07-11 dogfood needed 20 steps for
+label-fidelity on klein 4B, not its 4-step distilled default. The
+catalog therefore carries a separate `capabilities.render_steps` per
+`mlx/*` entry, which `build_dispatch_payload` copies into
+`local_args["steps"]` whenever the detected backend is `"mlx"`; the
+bridge's mlx render branch **always** passes `--steps` from that value,
+and the wrapper itself always emits `--steps` in its constructed argv.
+This closes a confirmed mflux trap: `--model <HF repo id>` with no
+`--steps` silently defaults to 25 steps.
+
+**`not_installed` probe verdict.** `model_probe.py` classifies
+uninstalled-but-not-retired entries for LOCAL providers
+(`LOCAL_PROVIDERS = {"ollama", "mlx"}`) as `not_installed` with a pull
+command, rather than `suspect_retired` — "not on this machine yet" and
+"the upstream model no longer exists" are different conditions, and
+conflating them for a brand-new local model would train operators to
+ignore the alarm. `probe_mlx_models()` supplies the MLX side by scanning
+the HF cache for complete snapshots (mflux has no server API to list
+installed models against, unlike Ollama's `/api/tags`).
+
+**What's unchanged.** The v1.4/§8.5 contract surface is untouched for
+machines with neither provider present — `build_dispatch_payload` with
+`local_backend=None` degrades exactly as before, and
+`role_defaults.local_draft` stays Ollama-first (Horizon 2 — MLX as
+*replacement*, not just *second* provider — is a separate follow-up
+gated on a dogfood beating the Ollama Klein-9b baseline). Operator
+install guidance, per-repo licensing, and the exact `hf download` /
+`mflux-save` commands live in
+[`docs/architecture/mlx-install-guide.md`](mlx-install-guide.md).
+
+---
+
 ## 9. Related decisions
 
 - [paperbanana-integration.md](paperbanana-integration.md) — v1 ADR, superseded by this file
