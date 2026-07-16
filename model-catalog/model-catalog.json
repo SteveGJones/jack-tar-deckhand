@@ -6,224 +6,124 @@
     "image_gen": "gemini-3.1-flash-image",
     "vlm_json": "gemini-3.5-flash",
     "icon": "recraft-v4-svg",
-    "local_draft": [
-      "x/flux2-klein",
-      "x/z-image-turbo"
-    ]
+    "local_draft": ["x/flux2-klein", "x/z-image-turbo"]
   },
   "models": [
     {
       "id": "gemini-3.1-flash-image",
       "provider": "google",
-      "aliases": [
-        "gemini-3.1-flash-image-preview"
-      ],
+      "aliases": ["gemini-3.1-flash-image-preview"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
-      "quirks": [
-        "no_negative_prompt"
-      ],
+      "roles": ["image_gen"],
+      "quirks": ["no_negative_prompt"],
       "capabilities": {
-        "resolutions": [
-          "512",
-          "1K",
-          "2K",
-          "4K"
-        ],
+        "resolutions": ["512", "1K", "2K", "4K"],
         "text_rendering": "good"
       },
       "pricing": {
         "currency": "USD",
         "verified": "2026-05-24",
         "estimate": false,
-        "per_resolution": {
-          "512": 0.045,
-          "1K": 0.067,
-          "2K": 0.101,
-          "4K": 0.151
-        },
-        "token_rates": {
-          "text_input_per_mtok": 0.5,
-          "image_output_per_mtok": 60.0
-        },
+        "per_resolution": {"512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151},
+        "token_rates": {"text_input_per_mtok": 0.5, "image_output_per_mtok": 60.0},
         "notes": "EPIC #58 pricing table; reconciled issue #113 AC6. Token rates from ai.google.dev/gemini-api/docs/pricing (captured 2026-05-21)."
       },
-      "sdk": {
-        "api": "generate_content",
-        "config_field": "image_size"
-      },
+      "sdk": {"api": "generate_content", "config_field": "image_size"},
       "notes": "Nano Banana Flash. The '-preview' suffixed id was deprecated upstream (issue #123, verified 2026-07-15); alias retained so existing manifests and callers resolve."
     },
     {
       "id": "gemini-3-pro-image",
       "provider": "google",
-      "aliases": [
-        "gemini-3-pro-image-preview"
-      ],
+      "aliases": ["gemini-3-pro-image-preview"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
-      "quirks": [
-        "no_negative_prompt"
-      ],
+      "roles": ["image_gen"],
+      "quirks": ["no_negative_prompt"],
       "capabilities": {
-        "resolutions": [
-          "1K",
-          "2K",
-          "4K"
-        ],
+        "resolutions": ["1K", "2K", "4K"],
         "text_rendering": "excellent"
       },
       "pricing": {
         "currency": "USD",
         "verified": "2026-05-24",
         "estimate": false,
-        "per_resolution": {
-          "1K": 0.134,
-          "2K": 0.134,
-          "4K": 0.24
-        },
-        "token_rates": {
-          "text_input_per_mtok": 2.0,
-          "image_output_per_mtok": 120.0
-        },
+        "per_resolution": {"1K": 0.134, "2K": 0.134, "4K": 0.24},
+        "token_rates": {"text_input_per_mtok": 2.0, "image_output_per_mtok": 120.0},
         "notes": "Pro 2K priced identically to Pro 1K (issue #113 AC6 reconciliation). Token rates from ai.google.dev/gemini-api/docs/pricing (captured 2026-05-21)."
       },
-      "sdk": {
-        "api": "generate_content",
-        "config_field": "image_size"
-      },
-      "notes": "Nano Banana Pro \u2014 best in-image text rendering. '-preview' id deprecated upstream (issue #123)."
+      "sdk": {"api": "generate_content", "config_field": "image_size"},
+      "notes": "Nano Banana Pro — best in-image text rendering. '-preview' id deprecated upstream (issue #123)."
     },
     {
       "id": "imagen-4.0-fast-generate-001",
       "provider": "google",
-      "aliases": [
-        "imagen-4-fast"
-      ],
+      "aliases": ["imagen-4-fast"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
-      "quirks": [
-        "fixed_resolution",
-        "no_negative_prompt"
-      ],
+      "roles": ["image_gen"],
+      "quirks": ["fixed_resolution", "no_negative_prompt"],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ]
+        "resolutions": ["1K"]
       },
       "pricing": {
         "currency": "USD",
         "verified": "2026-05-03",
         "estimate": false,
         "backends": {
-          "vertex": {
-            "1K": 0.02
-          },
-          "developer": {
-            "1K": 0.02
-          }
+          "vertex": {"1K": 0.02},
+          "developer": {"1K": 0.02}
         }
       },
-      "sdk": {
-        "api": "generate_images"
-      },
-      "notes": "Fixed native resolution \u2014 rejects image_size/sampleImageSize with 400 INVALID_ARGUMENT (issue #74). 'imagen-4-fast' is the router-side alias."
+      "sdk": {"api": "generate_images"},
+      "notes": "Fixed native resolution — rejects image_size/sampleImageSize with 400 INVALID_ARGUMENT (issue #74). 'imagen-4-fast' is the router-side alias."
     },
     {
       "id": "imagen-4.0-generate-001",
       "provider": "google",
-      "aliases": [
-        "imagen-4",
-        "imagen-4-standard"
-      ],
+      "aliases": ["imagen-4", "imagen-4-standard"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
-      "quirks": [
-        "no_negative_prompt"
-      ],
+      "roles": ["image_gen"],
+      "quirks": ["no_negative_prompt"],
       "capabilities": {
-        "resolutions": [
-          "1K",
-          "2K"
-        ],
-        "prompt_budget": {
-          "max_words": 40,
-          "style": "concise"
-        }
+        "resolutions": ["1K", "2K"],
+        "prompt_budget": {"max_words": 40, "style": "concise"}
       },
       "pricing": {
         "currency": "USD",
         "verified": "2026-05-03",
         "estimate": false,
         "backends": {
-          "vertex": {
-            "1K": 0.04,
-            "2K": 0.04
-          },
-          "developer": {
-            "1K": 0.04,
-            "2K": 0.101
-          }
+          "vertex": {"1K": 0.04, "2K": 0.04},
+          "developer": {"1K": 0.04, "2K": 0.101}
         },
         "notes": "Dual pricing: Vertex (GOOGLE_APPLICATION_CREDENTIALS) flat per-image; Gemini Developer API (GOOGLE_API_KEY only) token-based, 2K dearer."
       },
-      "sdk": {
-        "api": "generate_images",
-        "config_field": "image_size"
-      }
+      "sdk": {"api": "generate_images", "config_field": "image_size"}
     },
     {
       "id": "imagen-4.0-ultra-generate-001",
       "provider": "google",
-      "aliases": [
-        "imagen-4-ultra"
-      ],
+      "aliases": ["imagen-4-ultra"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
-      "quirks": [
-        "no_negative_prompt"
-      ],
+      "roles": ["image_gen"],
+      "quirks": ["no_negative_prompt"],
       "capabilities": {
-        "resolutions": [
-          "1K",
-          "2K"
-        ]
+        "resolutions": ["1K", "2K"]
       },
       "pricing": {
         "currency": "USD",
         "verified": "2026-05-03",
         "estimate": false,
         "backends": {
-          "vertex": {
-            "1K": 0.06,
-            "2K": 0.06
-          },
-          "developer": {
-            "1K": 0.06,
-            "2K": 0.101
-          }
+          "vertex": {"1K": 0.06, "2K": 0.06},
+          "developer": {"1K": 0.06, "2K": 0.101}
         },
         "notes": "Developer-API 2K treated as token-based like Standard."
       },
-      "sdk": {
-        "api": "generate_images",
-        "config_field": "image_size"
-      }
+      "sdk": {"api": "generate_images", "config_field": "image_size"}
     },
     {
       "id": "gpt-image-1.5",
@@ -231,20 +131,11 @@
       "aliases": [],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
-      "quirks": [
-        "no_negative_prompt"
-      ],
+      "roles": ["image_gen"],
+      "quirks": ["no_negative_prompt"],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ],
-        "prompt_budget": {
-          "max_words": 500,
-          "style": "natural_language"
-        }
+        "resolutions": ["1K"],
+        "prompt_budget": {"max_words": 500, "style": "natural_language"}
       },
       "pricing": {
         "currency": "USD",
@@ -261,69 +152,43 @@
           "1024x1536|medium": 0.051,
           "1024x1536|high": 0.2
         },
-        "token_rates": {
-          "input_per_mtok": 5.0,
-          "output_per_mtok": 40.0
-        },
-        "notes": "token_rates are UNVERIFIED_ESTIMATE \u2014 all OpenAI pricing URLs 403/404'd during the 2026-05-21 spike; community-cited placeholders pending dashboard verification (see docs/spikes/2026-05-21-actual-token-pricing/)."
+        "token_rates": {"input_per_mtok": 5.0, "output_per_mtok": 40.0},
+        "notes": "token_rates are UNVERIFIED_ESTIMATE — all OpenAI pricing URLs 403/404'd during the 2026-05-21 spike; community-cited placeholders pending dashboard verification (see docs/spikes/2026-05-21-actual-token-pricing/)."
       },
-      "sdk": {
-        "api": "openai_images"
-      }
+      "sdk": {"api": "openai_images"}
     },
     {
       "id": "fal-ai/flux-2-pro",
       "provider": "fal",
-      "aliases": [
-        "flux-2-pro"
-      ],
+      "aliases": ["flux-2-pro"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
+      "roles": ["image_gen"],
       "quirks": [],
       "capabilities": {
-        "resolutions": [
-          "1K",
-          "2K"
-        ],
-        "prompt_budget": {
-          "max_words": 60,
-          "style": "photography"
-        }
+        "resolutions": ["1K", "2K"],
+        "prompt_budget": {"max_words": 60, "style": "photography"}
       },
       "pricing": {
         "currency": "USD",
         "verified": "2026-05-03",
         "estimate": false,
-        "tiered_megapixel": {
-          "first_mp": 0.03,
-          "per_extra_mp": 0.015
-        },
-        "notes": "~$0.045 for 1920x1080. budget_tracker previously carried a divergent $0.050 flat figure \u2014 the tiered rate here is canonical (EPIC #125)."
+        "tiered_megapixel": {"first_mp": 0.03, "per_extra_mp": 0.015},
+        "notes": "~$0.045 for 1920x1080. budget_tracker previously carried a divergent $0.050 flat figure — the tiered rate here is canonical (EPIC #125)."
       },
-      "sdk": {
-        "api": "fal_subscribe"
-      },
+      "sdk": {"api": "fal_subscribe"},
       "notes": "Caps at 2048x2048."
     },
     {
       "id": "fal-ai/flux-2-klein",
       "provider": "fal",
-      "aliases": [
-        "flux-2-klein"
-      ],
+      "aliases": ["flux-2-klein"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
+      "roles": ["image_gen"],
       "quirks": [],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ]
+        "resolutions": ["1K"]
       },
       "pricing": {
         "currency": "USD",
@@ -331,31 +196,20 @@
         "estimate": false,
         "flat": 0.014
       },
-      "sdk": {
-        "api": "fal_subscribe"
-      }
+      "sdk": {"api": "fal_subscribe"}
     },
     {
       "id": "fal-ai/ideogram/v3",
       "provider": "fal",
-      "aliases": [
-        "ideogram-3"
-      ],
+      "aliases": ["ideogram-3"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
+      "roles": ["image_gen"],
       "quirks": [],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ],
+        "resolutions": ["1K"],
         "text_rendering": "excellent",
-        "prompt_budget": {
-          "max_words": 80,
-          "style": "typography"
-        }
+        "prompt_budget": {"max_words": 80, "style": "typography"}
       },
       "pricing": {
         "currency": "USD",
@@ -364,45 +218,29 @@
         "flat": 0.06,
         "notes": "Published range $0.030-$0.090; midpoint used."
       },
-      "sdk": {
-        "api": "fal_subscribe"
-      }
+      "sdk": {"api": "fal_subscribe"}
     },
     {
       "id": "recraft-v4-standard",
       "provider": "recraft",
-      "aliases": [
-        "recraft-v4"
-      ],
+      "aliases": ["recraft-v4"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
+      "roles": ["image_gen"],
       "quirks": [],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ],
+        "resolutions": ["1K"],
         "brand_hex_fidelity": true,
-        "prompt_budget": {
-          "max_words": 100,
-          "style": "design_centric"
-        }
+        "prompt_budget": {"max_words": 100, "style": "design_centric"}
       },
       "pricing": {
         "currency": "USD",
         "verified": "2026-05-07",
         "estimate": false,
-        "per_resolution": {
-          "1K": 0.04
-        },
+        "per_resolution": {"1K": 0.04},
         "notes": "Verified via fal.ai/models/fal-ai/recraft/v4/*."
       },
-      "sdk": {
-        "api": "recraft_rest",
-        "endpoint": "external.api.recraft.ai/v1"
-      },
+      "sdk": {"api": "recraft_rest", "endpoint": "external.api.recraft.ai/v1"},
       "notes": "Router-side id; dispatch picks the actual endpoint by tier+resolution (issue #61)."
     },
     {
@@ -411,48 +249,29 @@
       "aliases": [],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen"
-      ],
-      "quirks": [
-        "upscale_chain_4k"
-      ],
+      "roles": ["image_gen"],
+      "quirks": ["upscale_chain_4k"],
       "capabilities": {
-        "resolutions": [
-          "2K",
-          "4K"
-        ],
+        "resolutions": ["2K", "4K"],
         "brand_hex_fidelity": true
       },
       "pricing": {
         "currency": "USD",
         "verified": "2026-05-07",
         "estimate": true,
-        "per_resolution": {
-          "2K": 0.25,
-          "4K": 0.5
-        },
-        "env_override": {
-          "upscale": "RECRAFT_UPSCALE_COST_USD"
-        },
-        "notes": "4K = 2K generation ($0.25) + Creative Upscale ($0.25 FAL-parity assumption \u2014 direct-API upscale price not published; env override honoured when positive)."
+        "per_resolution": {"2K": 0.25, "4K": 0.5},
+        "env_override": {"upscale": "RECRAFT_UPSCALE_COST_USD"},
+        "notes": "4K = 2K generation ($0.25) + Creative Upscale ($0.25 FAL-parity assumption — direct-API upscale price not published; env override honoured when positive)."
       },
-      "sdk": {
-        "api": "recraft_rest",
-        "endpoint": "external.api.recraft.ai/v1"
-      }
+      "sdk": {"api": "recraft_rest", "endpoint": "external.api.recraft.ai/v1"}
     },
     {
       "id": "recraft-v4-svg",
       "provider": "recraft",
-      "aliases": [
-        "recraftv4"
-      ],
+      "aliases": ["recraftv4"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "icon"
-      ],
+      "roles": ["icon"],
       "quirks": [],
       "capabilities": {
         "vector": true,
@@ -462,16 +281,10 @@
         "currency": "USD",
         "verified": "2026-05-03",
         "estimate": false,
-        "per_tier": {
-          "standard": 0.08,
-          "pro": 0.3
-        },
-        "notes": "Same rates via direct API and the FAL route (fal-ai/recraft/v4/text-to-vector). budget_tracker previously carried divergent $0.04/$0.08 svg/png figures \u2014 per_tier here is canonical (EPIC #125)."
+        "per_tier": {"standard": 0.08, "pro": 0.3},
+        "notes": "Same rates via direct API and the FAL route (fal-ai/recraft/v4/text-to-vector). budget_tracker previously carried divergent $0.04/$0.08 svg/png figures — per_tier here is canonical (EPIC #125)."
       },
-      "sdk": {
-        "api": "recraft_rest",
-        "endpoint": "fal-ai/recraft/v4/text-to-vector"
-      }
+      "sdk": {"api": "recraft_rest", "endpoint": "fal-ai/recraft/v4/text-to-vector"}
     },
     {
       "id": "x/flux2-klein",
@@ -479,20 +292,12 @@
       "aliases": [],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen",
-        "local_draft"
-      ],
+      "roles": ["image_gen", "local_draft"],
       "quirks": [],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ],
+        "resolutions": ["1K"],
         "timeout_seconds": 600,
-        "prompt_budget": {
-          "max_words": 200,
-          "style": "detailed_spatial"
-        }
+        "prompt_budget": {"max_words": 200, "style": "detailed_spatial"}
       },
       "pricing": {
         "currency": "USD",
@@ -500,10 +305,8 @@
         "estimate": false,
         "flat": 0.0
       },
-      "sdk": {
-        "api": "ollama_generate"
-      },
-      "notes": "Tag-prefix entry: exact installed tag (e.g. x/flux2-klein:9b) resolves at runtime via /api/tags \u2014 never hardcode tags. Preferred local model for academic figures (F16 audit: Klein 9b at 8/9 on the deck-schema brief)."
+      "sdk": {"api": "ollama_generate"},
+      "notes": "Tag-prefix entry: exact installed tag (e.g. x/flux2-klein:9b) resolves at runtime via /api/tags — never hardcode tags. Preferred local model for academic figures (F16 audit: Klein 9b at 8/9 on the deck-schema brief)."
     },
     {
       "id": "x/z-image-turbo",
@@ -511,20 +314,12 @@
       "aliases": [],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen",
-        "local_draft"
-      ],
+      "roles": ["image_gen", "local_draft"],
       "quirks": [],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ],
+        "resolutions": ["1K"],
         "timeout_seconds": 120,
-        "prompt_budget": {
-          "max_words": 50,
-          "style": "concise_camera"
-        }
+        "prompt_budget": {"max_words": 50, "style": "concise_camera"}
       },
       "pricing": {
         "currency": "USD",
@@ -532,9 +327,7 @@
         "estimate": false,
         "flat": 0.0
       },
-      "sdk": {
-        "api": "ollama_generate"
-      },
+      "sdk": {"api": "ollama_generate"},
       "notes": "Fast local draft fallback when flux2-klein is not pulled."
     },
     {
@@ -543,15 +336,10 @@
       "aliases": [],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "vlm",
-        "vlm_json"
-      ],
+      "roles": ["vlm", "vlm_json"],
       "quirks": [],
       "capabilities": {},
-      "sdk": {
-        "api": "generate_content"
-      },
+      "sdk": {"api": "generate_content"},
       "notes": "Verified 2026-07-15 (issue #123): non-thinking for retriever/planning steps, clean JSON output for paperbanana's parser, publication-quality academic figures in 2-3 iterations at ~$0.02/diagram."
     },
     {
@@ -560,17 +348,11 @@
       "aliases": [],
       "status": "deprecated",
       "replacement": "gemini-3.5-flash",
-      "roles": [
-        "vlm"
-      ],
-      "quirks": [
-        "thinking"
-      ],
+      "roles": ["vlm"],
+      "quirks": ["thinking"],
       "capabilities": {},
-      "sdk": {
-        "api": "generate_content"
-      },
-      "notes": "Thinking model \u2014 reasoning tokens break strict-JSON parsers (paperbanana retriever loops to ~17min timeout, issues #122/#123). NOT eligible for the vlm_json role. Deprecated as a jack-tar default in favour of gemini-3.5-flash."
+      "sdk": {"api": "generate_content"},
+      "notes": "Thinking model — reasoning tokens break strict-JSON parsers (paperbanana retriever loops to ~17min timeout, issues #122/#123). NOT eligible for the vlm_json role. Deprecated as a jack-tar default in favour of gemini-3.5-flash."
     },
     {
       "id": "gemini-2.0-flash",
@@ -578,44 +360,27 @@
       "aliases": [],
       "status": "retired",
       "replacement": "gemini-3.5-flash",
-      "roles": [
-        "vlm",
-        "vlm_json"
-      ],
+      "roles": ["vlm", "vlm_json"],
       "quirks": [],
       "capabilities": {},
-      "sdk": {
-        "api": "generate_content"
-      },
-      "notes": "Retired upstream \u2014 404 NOT_FOUND 'This model is no longer available' (verified 2026-07-15, issue #123)."
+      "sdk": {"api": "generate_content"},
+      "notes": "Retired upstream — 404 NOT_FOUND 'This model is no longer available' (verified 2026-07-15, issue #123)."
     },
     {
       "id": "mlx/flux2-klein-4b",
       "provider": "mlx",
-      "aliases": [
-        "flux2-klein-4b-mflux"
-      ],
+      "aliases": ["flux2-klein-4b-mflux"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen",
-        "local_draft"
-      ],
-      "quirks": [
-        "mflux_metadata_sidecar_null"
-      ],
+      "roles": ["image_gen", "local_draft"],
+      "quirks": ["mflux_metadata_sidecar_null"],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ],
+        "resolutions": ["1K"],
         "text_rendering": "good",
         "timeout_seconds": 300,
         "min_ram_gb": 16,
         "render_steps": 20,
-        "prompt_budget": {
-          "max_words": 200,
-          "style": "detailed_spatial"
-        }
+        "prompt_budget": {"max_words": 200, "style": "detailed_spatial"}
       },
       "pricing": {
         "currency": "USD",
@@ -631,33 +396,23 @@
         "default_steps": 4,
         "quantize": 4
       },
-      "notes": "FLUX.2 Klein 4B via mflux. Primary: pre-quantized 4-bit community export (4.3 GB, fast cold-load, requires mflux >= 0.16; licence CONFIRMED apache-2.0 via HF model card metadata, issue #124 OQ-A \u2014 same terms as the base model, no relicensing). Fallback: black-forest-labs/FLUX.2-klein-4B (Apache 2.0, ~13 GB, quantized 4-bit on load). default_steps 4 is the family-native distilled value; render_steps 20 is what the pipeline passes \u2014 the 2026-07-11 dogfood showed 4B reaches Klein-9b grade at 20 steps + annotation pattern. MLX default draft model. Horizon-2 gate: Phase 5 dogfood must beat/match the Ollama Klein-9b 8/9 baseline before promotion into role_defaults.local_draft. Field finding 2026-07-15: mflux 0.18.0 writes a literal-null .metadata.json sidecar for this family; generation metadata IS embedded in the PNG XMP/IPTC \u2014 consumers must not rely on the sidecar."
+      "notes": "FLUX.2 Klein 4B via mflux. Primary: pre-quantized 4-bit community export (4.3 GB, fast cold-load, requires mflux >= 0.16; licence CONFIRMED apache-2.0 via HF model card metadata, issue #124 OQ-A — same terms as the base model, no relicensing). Fallback: black-forest-labs/FLUX.2-klein-4B (Apache 2.0, ~13 GB, quantized 4-bit on load). default_steps 4 is the family-native distilled value; render_steps 20 is what the pipeline passes — the 2026-07-11 dogfood showed 4B reaches Klein-9b grade at 20 steps + annotation pattern. MLX default draft model. Horizon-2 gate: Phase 5 dogfood must beat/match the Ollama Klein-9b 8/9 baseline before promotion into role_defaults.local_draft. Field finding 2026-07-15: mflux 0.18.0 writes a literal-null .metadata.json sidecar for this family; generation metadata IS embedded in the PNG XMP/IPTC — consumers must not rely on the sidecar."
     },
     {
       "id": "mlx/z-image-turbo",
       "provider": "mlx",
-      "aliases": [
-        "z-image-turbo-mflux"
-      ],
+      "aliases": ["z-image-turbo-mflux"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen",
-        "local_draft"
-      ],
+      "roles": ["image_gen", "local_draft"],
       "quirks": [],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ],
+        "resolutions": ["1K"],
         "text_rendering": "fair",
         "timeout_seconds": 180,
         "min_ram_gb": 16,
         "render_steps": 9,
-        "prompt_budget": {
-          "max_words": 50,
-          "style": "concise_camera"
-        }
+        "prompt_budget": {"max_words": 50, "style": "concise_camera"}
       },
       "pricing": {
         "currency": "USD",
@@ -673,33 +428,23 @@
         "default_steps": 9,
         "quantize": 4
       },
-      "notes": "Z-Image-Turbo via mflux, requires mflux >= 0.13. LICENCE NOTE (issue #124 review M6, CONFIRMED via HF model card metadata): the pre-quantized primary repo filipstrand/Z-Image-Turbo-mflux-4bit is licensed 'tongyi-qianwen-license' (license:other tag), NOT Apache 2.0 \u2014 the derivative repo's licence governs the download. Operators needing pure Apache 2.0 should pull the fallback Tongyi-MAI/Z-Image-Turbo (Apache 2.0, confirmed via HF model card, full precision, quantized 4-bit on load) instead. 9-step distilled (render_steps == default_steps). timeout_seconds 180 is a conservative placeholder \u2014 Mac wall-clock unpublished; Phase 5 measures (proposal risk 2)."
+      "notes": "Z-Image-Turbo via mflux, requires mflux >= 0.13. LICENCE NOTE (issue #124 review M6, CONFIRMED via HF model card metadata): the pre-quantized primary repo filipstrand/Z-Image-Turbo-mflux-4bit is licensed 'tongyi-qianwen-license' (license:other tag), NOT Apache 2.0 — the derivative repo's licence governs the download. Operators needing pure Apache 2.0 should pull the fallback Tongyi-MAI/Z-Image-Turbo (Apache 2.0, confirmed via HF model card, full precision, quantized 4-bit on load) instead. 9-step distilled (render_steps == default_steps). timeout_seconds 180 is a conservative placeholder — Mac wall-clock unpublished; Phase 5 measures (proposal risk 2)."
     },
     {
       "id": "mlx/qwen-image",
       "provider": "mlx",
-      "aliases": [
-        "qwen-image-mflux"
-      ],
+      "aliases": ["qwen-image-mflux"],
       "status": "active",
       "replacement": null,
-      "roles": [
-        "image_gen",
-        "local_draft"
-      ],
+      "roles": ["image_gen", "local_draft"],
       "quirks": [],
       "capabilities": {
-        "resolutions": [
-          "1K"
-        ],
+        "resolutions": ["1K"],
         "text_rendering": "excellent",
         "timeout_seconds": 900,
         "min_ram_gb": 24,
         "render_steps": 20,
-        "prompt_budget": {
-          "max_words": 120,
-          "style": "detailed_spatial"
-        }
+        "prompt_budget": {"max_words": 120, "style": "detailed_spatial"}
       },
       "pricing": {
         "currency": "USD",
@@ -715,7 +460,7 @@
         "default_steps": 20,
         "quantize": 6
       },
-      "notes": "Qwen-Image via mflux, requires mflux >= 0.11. LICENCE NOTE (issue #124 OQ-A, CORRECTED from the original design assumption after HF model card verification): the pre-quantized primary repo filipstrand/Qwen-Image-mflux-6bit is licensed 'tongyi-qianwen-license' (license:other tag) \u2014 NOT Apache 2.0, despite the base Qwen/Qwen-Image being Apache 2.0. This is the same derivative-relicensing pattern already documented for mlx/z-image-turbo (review M6: the derivative repo's licence governs, not the base's). Operators needing pure Apache 2.0 should pull the fallback Qwen/Qwen-Image (Apache 2.0, confirmed via HF model card, ~40 GB download \u2014 called out in the install guide) instead, quantized 6-bit on load; the on-load path needs materially more RAM/disk than the primary. min_ram_gb 24 sized for the 6-bit primary (review OQ-2 ruling). Strongest open-weights in-image text renderer; the challenger most likely to beat the Klein-9b label-fidelity baseline. default_steps 20 confirmed as the family default (review OQ-2). timeout_seconds 900 remains a placeholder pending Phase 5 (\u00a710 OQ-B)."
+      "notes": "Qwen-Image via mflux, requires mflux >= 0.11. LICENCE NOTE (issue #124 OQ-A, CORRECTED from the original design assumption after HF model card verification): the pre-quantized primary repo filipstrand/Qwen-Image-mflux-6bit is licensed 'tongyi-qianwen-license' (license:other tag) — NOT Apache 2.0, despite the base Qwen/Qwen-Image being Apache 2.0. This is the same derivative-relicensing pattern already documented for mlx/z-image-turbo (review M6: the derivative repo's licence governs, not the base's). Operators needing pure Apache 2.0 should pull the fallback Qwen/Qwen-Image (Apache 2.0, confirmed via HF model card, ~40 GB download — called out in the install guide) instead, quantized 6-bit on load; the on-load path needs materially more RAM/disk than the primary. min_ram_gb 24 sized for the 6-bit primary (review OQ-2 ruling). Strongest open-weights in-image text renderer; the challenger most likely to beat the Klein-9b label-fidelity baseline. default_steps 20 confirmed as the family default (review OQ-2). timeout_seconds 900 remains a placeholder pending Phase 5 (§10 OQ-B)."
     }
   ]
 }
