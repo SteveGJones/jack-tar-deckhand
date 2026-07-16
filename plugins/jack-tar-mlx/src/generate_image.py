@@ -461,6 +461,15 @@ def _hf_snapshot_complete(repo_id: str, hub_dir: Path) -> bool:
         if not repo_dir.is_dir():
             return False
 
+        # Field finding (2026-07-15 live test): an active download leaves
+        # the in-flight file as blobs/<hash>.incomplete with NO snapshot
+        # symlink yet, so revision-scoped checks pass mid-download. Any
+        # .incomplete anywhere in blobs/ blocks readiness
+        # (false-negative-safe).
+        blobs_dir = repo_dir / "blobs"
+        if blobs_dir.is_dir() and any(blobs_dir.glob("*.incomplete")):
+            return False
+
         snapshots_dir = repo_dir / "snapshots"
         if not snapshots_dir.is_dir():
             return False

@@ -1015,6 +1015,19 @@ def test_hf_snapshot_complete_false_for_incomplete_blob_in_resolved_revision(tmp
     assert _hf_snapshot_complete("org/name", hub_dir) is False
 
 
+def test_hf_snapshot_complete_false_for_unreferenced_incomplete_blob(tmp_path):
+    """Field finding (2026-07-15 live download): mid-download, the in-flight
+    file has a blobs/<hash>.incomplete but NO snapshot symlink yet, so a
+    revision-scoped check sees only resolving symlinks and passes. Any
+    .incomplete anywhere in blobs/ must block readiness."""
+    hub_dir = tmp_path / "hub"
+    repo_dir = _make_complete_snapshot(hub_dir, "org/name")
+    (repo_dir / "blobs" / "ffffffffffffffff.incomplete").write_text(
+        "", encoding="utf-8"
+    )
+    assert _hf_snapshot_complete("org/name", hub_dir) is False
+
+
 def test_hf_snapshot_complete_false_for_dangling_symlink(tmp_path):
     hub_dir = tmp_path / "hub"
     repo_dir = _make_complete_snapshot(hub_dir, "org/name")

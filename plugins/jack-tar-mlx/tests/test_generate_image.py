@@ -394,6 +394,39 @@ class TestCheckWeights:
         )
 
 
+class TestSnapshotComplete:
+    """Direct tests of this module's own _hf_snapshot_complete copy."""
+
+    @staticmethod
+    def _make_complete_snapshot(hub_dir, repo_id, revision="abc123"):
+        repo_dir = hub_dir / ("models--" + repo_id.replace("/", "--"))
+        blobs_dir = repo_dir / "blobs"
+        blobs_dir.mkdir(parents=True)
+        blob_path = blobs_dir / "deadbeef"
+        blob_path.write_bytes(b"weights")
+        snapshot_dir = repo_dir / "snapshots" / revision
+        snapshot_dir.mkdir(parents=True)
+        (snapshot_dir / "model.safetensors").symlink_to(blob_path)
+        refs_dir = repo_dir / "refs"
+        refs_dir.mkdir(parents=True)
+        (refs_dir / "main").write_text(revision)
+        return repo_dir
+
+    def test_complete_snapshot_is_ready(self, tmp_path):
+        hub_dir = tmp_path / "hub"
+        self._make_complete_snapshot(hub_dir, "org/name")
+        assert generate_image._hf_snapshot_complete("org/name", hub_dir) is True
+
+    def test_unreferenced_incomplete_blob_blocks_readiness(self, tmp_path):
+        """Field finding (2026-07-15 live download): mid-download the
+        in-flight file has a blobs/<hash>.incomplete but no snapshot symlink
+        yet — readiness must be blocked while any download is active."""
+        hub_dir = tmp_path / "hub"
+        repo_dir = self._make_complete_snapshot(hub_dir, "org/name")
+        (repo_dir / "blobs" / "ffff.incomplete").write_text("")
+        assert generate_image._hf_snapshot_complete("org/name", hub_dir) is False
+
+
 class TestSingleFlightLockGenerate:
     """Issue #124/#75 — the mlx wrapper nests two locks: the ollama lock
     FIRST, then its own (review M5). These tests drive ``generate()`` with

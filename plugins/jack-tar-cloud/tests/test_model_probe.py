@@ -239,6 +239,22 @@ class TestGracefulSkips:
         assert result["status"] == "ok"
         assert "Runpod/FLUX.2-klein-4B-mflux-4bit" in result["models"]
 
+    def test_probe_mlx_excludes_repo_with_unreferenced_incomplete_blob(
+            self, tmp_path, monkeypatch):
+        """Field finding (2026-07-15 live download): the in-flight file has a
+        blobs/<hash>.incomplete but no snapshot symlink yet — the repo must
+        NOT be reported as installed while a download is active."""
+        monkeypatch.setattr(
+            model_probe.shutil, "which", lambda name: f"/usr/local/bin/{name}")
+        hub_dir = tmp_path / "hub"
+        hub_dir.mkdir(parents=True)
+        repo_dir = _make_complete_snapshot(
+            hub_dir, "Runpod/FLUX.2-klein-4B-mflux-4bit")
+        (repo_dir / "blobs" / "ffff.incomplete").write_text("")
+        result = model_probe.probe_mlx_models(hf_home=tmp_path)
+        assert result["status"] == "ok"
+        assert "Runpod/FLUX.2-klein-4B-mflux-4bit" not in result["models"]
+
     def test_probe_mlx_honours_hf_hub_cache_env(self, tmp_path, monkeypatch):
         """HF_HUB_CACHE IS the hub dir directly (review m7) — no ``hub/``
         child appended, unlike the ``hf_home`` arg / HF_HOME precedence."""

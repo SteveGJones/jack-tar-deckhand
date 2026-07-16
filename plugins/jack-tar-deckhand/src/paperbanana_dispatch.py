@@ -323,21 +323,37 @@ def _hf_snapshot_complete(repo_id: str, hub_dir: Path) -> bool:
     detection under-reports rather than triggering a download):
       1. ``models--<org>--<name>/`` exists.
       2. The resolved revision dir exists and has ≥1 entry.
-      3. EVERY symlink in the resolved revision resolves to an existing
-         path, AND no ``<target-blob>.incomplete`` sibling exists for any
-         resolved target (scoped to the resolved revision's blobs — review
-         m8).
+      3. No ``*.incomplete`` exists anywhere in ``blobs/`` (field finding
+         2026-07-15: an active download's in-flight file has an
+         ``.incomplete`` blob but NO snapshot symlink yet, so the
+         revision-scoped variant of this check passes mid-download; the
+         repo-wide check supersedes review m8's revision scoping —
+         false-negative-safe).
+      4. EVERY symlink in the resolved revision resolves to an existing
+         path.
     Any OSError → False.
 
-    Accepted residual (review m8): a download interrupted BETWEEN files can
-    leave a revision whose present symlinks all resolve while later files
-    were never started — indistinguishable from complete without the repo
-    manifest. The wrapper's ``HF_HUB_OFFLINE`` hard guard backstops this.
+    Accepted residual: a download interrupted BETWEEN files (killed after
+    one file completed, before the next started) leaves zero
+    ``.incomplete`` blobs and only resolving symlinks — indistinguishable
+    from complete without the repo manifest. The wrapper's
+    ``HF_HUB_OFFLINE`` hard guard backstops this.
     """
     try:
         hub_dir = Path(hub_dir)
         repo_dir = hub_dir / ("models--" + repo_id.replace("/", "--"))
         if not repo_dir.is_dir():
+            return False
+
+        # Field finding (2026-07-15 live test): during an active
+        # `hf download`, each completed file gets its snapshot symlink
+        # immediately while the in-flight file has ONLY a
+        # blobs/<hash>.incomplete and no symlink — so a revision-scoped
+        # check passes mid-download. Any .incomplete anywhere in blobs/
+        # blocks readiness (false-negative-safe; a stale one from another
+        # revision under-reports and self-heals on completion).
+        blobs_dir = repo_dir / "blobs"
+        if blobs_dir.is_dir() and any(blobs_dir.glob("*.incomplete")):
             return False
 
         snapshots_dir = repo_dir / "snapshots"
