@@ -392,7 +392,9 @@ def _do_render(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     rc = last_result.returncode if last_result is not None else 1
-    print(f"mflux error (exit {rc}): {stderr_text[:200]}", file=sys.stderr)
+    # Tail, not head: Python tracebacks put the exception LAST (field
+    # finding 2026-07-15 — the head of a truncated traceback is useless).
+    print(f"mflux error (exit {rc}): {stderr_text[-500:]}", file=sys.stderr)
     sys.exit(1)
 
 

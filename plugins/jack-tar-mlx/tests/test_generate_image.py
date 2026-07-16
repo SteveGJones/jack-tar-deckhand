@@ -359,8 +359,12 @@ class TestErrorHandling:
     def test_other_nonzero_exit_surfaces_stderr_tail(self, tmp_path, capsys):
         output = tmp_path / "out.png"
         args = make_args(output=str(output))
+        # The exception line of a Python traceback is LAST — the surfaced
+        # excerpt must be the TAIL of stderr, not the head (field finding
+        # 2026-07-15: a head-truncated traceback hid the real qwen error).
+        long_stderr = ("boilerplate traceback frame\n" * 40) + "ValueError: the actual error"
         fail = subprocess.CompletedProcess(
-            args=["x"], returncode=7, stdout="", stderr="some unrelated crash trace " * 10,
+            args=["x"], returncode=7, stdout="", stderr=long_stderr,
         )
         with patch("generate_image.shutil.which", return_value="/usr/bin/x"), \
              patch("generate_image.subprocess.run", return_value=fail):
@@ -369,6 +373,7 @@ class TestErrorHandling:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "mflux error (exit 7)" in captured.err
+        assert "ValueError: the actual error" in captured.err
 
 
 class TestCheckWeights:
