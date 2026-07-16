@@ -970,7 +970,7 @@ _MLX_KLEIN = LocalBackend(provider="mlx", model="mlx/flux2-klein-4b")
 
 _KLEIN_HF_REPO = "Runpod/FLUX.2-klein-4B-mflux-4bit"
 _Z_IMAGE_HF_REPO = "filipstrand/Z-Image-Turbo-mflux-4bit"
-_QWEN_HF_REPO = "filipstrand/Qwen-Image-mflux-6bit"
+_QWEN_HF_REPO = "OsaurusAI/Qwen-Image-mflux-4bit"
 
 
 # --- _resolve_hf_hub_dir (review m7) ----------------------------------------
@@ -1118,7 +1118,7 @@ def test_detect_mlx_backend_honours_preferred_model(monkeypatch, tmp_path):
 
 
 def test_detect_mlx_backend_ram_gate_skips_qwen_in_catalog_order(monkeypatch, tmp_path):
-    """min_ram_gb 24 > 16GB machine → qwen skipped during catalog-order
+    """min_ram_gb 32 > 16GB machine → qwen skipped during catalog-order
     auto-selection (review m11); no other candidate has weights → None."""
     import shutil as _sh
 

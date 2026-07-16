@@ -8,8 +8,8 @@ Local AI image generation on Apple Silicon via the [mflux](https://github.com/fi
 - `mflux` installed: `uv tool install --upgrade mflux`
 - Weights for at least one catalogued model, pulled by the operator (this plugin never auto-downloads):
   - `mlx/flux2-klein-4b` — `hf download Runpod/FLUX.2-klein-4B-mflux-4bit` (or the Apache-2.0 fallback `black-forest-labs/FLUX.2-klein-4B`)
-  - `mlx/z-image-turbo` — `hf download filipstrand/Z-Image-Turbo-mflux-4bit` (Tongyi Qianwen licence — operators needing pure Apache 2.0 should pull `Tongyi-MAI/Z-Image-Turbo` instead)
-  - `mlx/qwen-image` — `hf download filipstrand/Qwen-Image-mflux-6bit` (Tongyi Qianwen licence — Apache-2.0 fallback `Qwen/Qwen-Image` is a much larger ~40 GB download)
+  - `mlx/z-image-turbo` — `hf download filipstrand/Z-Image-Turbo-mflux-4bit` (Tongyi Qianwen licence — the Tongyi caveat applies to this model only; operators needing pure Apache 2.0 should pull `Tongyi-MAI/Z-Image-Turbo` instead)
+  - `mlx/qwen-image` — `hf download OsaurusAI/Qwen-Image-mflux-4bit` (apache-2.0, verified 2026-07-15; quantized with mflux 0.18 — the previous primary `filipstrand/Qwen-Image-mflux-6bit` is BROKEN on mflux >= 0.13, upstream mflux issue #296, do not use it. Apache-2.0 fallback `Qwen/Qwen-Image` is a much larger ~58 GB download)
 
 Run `/jack-tar-mlx:verify` for the exact per-model readiness state and pull commands.
 

@@ -119,7 +119,7 @@ ENTRY POINTS:
 WEIGHTS:
   mlx/flux2-klein-4b:   NOT_READY (run: hf download Runpod/FLUX.2-klein-4B-mflux-4bit)
   mlx/z-image-turbo:    NOT_READY (run: hf download filipstrand/Z-Image-Turbo-mflux-4bit)
-  mlx/qwen-image:       NOT_READY (run: hf download filipstrand/Qwen-Image-mflux-6bit)
+  mlx/qwen-image:       NOT_READY (run: hf download OsaurusAI/Qwen-Image-mflux-4bit)
 
 HF CACHE: <resolved hub dir> (<disk usage>)
 

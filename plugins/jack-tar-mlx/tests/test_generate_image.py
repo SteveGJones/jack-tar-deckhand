@@ -127,7 +127,7 @@ class TestArgvConstruction:
 
     @pytest.mark.parametrize("model_id,expected_q", [
         ("mlx/flux2-klein-4b", 4),
-        ("mlx/qwen-image", 6),
+        ("mlx/qwen-image", 4),
     ])
     def test_quantize_applied_on_fullprecision_fallback(self, model_id, expected_q):
         meta = generate_image.MLX_MODEL_REGISTRY[model_id]
@@ -394,7 +394,7 @@ class TestCheckWeights:
             for line in lines
         )
         assert any(
-            line == "mlx/qwen-image: NOT_READY (run: hf download filipstrand/Qwen-Image-mflux-6bit)"
+            line == "mlx/qwen-image: NOT_READY (run: hf download OsaurusAI/Qwen-Image-mflux-4bit)"
             for line in lines
         )
 

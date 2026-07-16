@@ -437,12 +437,12 @@
       "status": "active",
       "replacement": null,
       "roles": ["image_gen", "local_draft"],
-      "quirks": ["qwen_6bit_text_encoder_incompatible_mflux_0_18"],
+      "quirks": [],
       "capabilities": {
         "resolutions": ["1K"],
         "text_rendering": "excellent",
         "timeout_seconds": 900,
-        "min_ram_gb": 24,
+        "min_ram_gb": 32,
         "render_steps": 20,
         "prompt_budget": {"max_words": 120, "style": "detailed_spatial"}
       },
@@ -455,12 +455,12 @@
       "sdk": {
         "api": "mflux_cli",
         "entrypoint": "mflux-generate-qwen",
-        "hf_repo": "filipstrand/Qwen-Image-mflux-6bit",
+        "hf_repo": "OsaurusAI/Qwen-Image-mflux-4bit",
         "hf_repo_fallback": "Qwen/Qwen-Image",
         "default_steps": 20,
-        "quantize": 6
+        "quantize": 4
       },
-      "notes": "Qwen-Image via mflux, requires mflux >= 0.11. FIELD FINDING 2026-07-15: the 6-bit primary FAILS on mflux 0.18.0 — the quantized text encoder's embedding output arrives quantization-packed (broadcast_shapes (3584) vs (1,40,672); 3584*6/32=672), an upstream mflux/export incompatibility. Until an mflux fix or re-export, operators should use a different export (e.g. a 4-bit community repo) or the full-precision fallback with -q on load. LICENCE NOTE (issue #124 OQ-A, CORRECTED from the original design assumption after HF model card verification): the pre-quantized primary repo filipstrand/Qwen-Image-mflux-6bit is licensed 'tongyi-qianwen-license' (license:other tag) — NOT Apache 2.0, despite the base Qwen/Qwen-Image being Apache 2.0. This is the same derivative-relicensing pattern already documented for mlx/z-image-turbo (review M6: the derivative repo's licence governs, not the base's). Operators needing pure Apache 2.0 should pull the fallback Qwen/Qwen-Image (Apache 2.0, confirmed via HF model card, ~40 GB download — called out in the install guide) instead, quantized 6-bit on load; the on-load path needs materially more RAM/disk than the primary. min_ram_gb 24 sized for the 6-bit primary (review OQ-2 ruling). Strongest open-weights in-image text renderer; the challenger most likely to beat the Klein-9b label-fidelity baseline. default_steps 20 confirmed as the family default (review OQ-2). timeout_seconds 900 remains a placeholder pending Phase 5 (§10 OQ-B)."
+      "notes": "Qwen-Image via mflux, requires mflux >= 0.11. REPO SWAP 2026-07-15 (issue #296 upstream): the previous primary filipstrand/Qwen-Image-mflux-6bit was saved with mflux 0.11.0 (safetensors header metadata) and is BROKEN on mflux >= 0.13 — the v0.13 weight-loading refactor broke all pre-0.13 pre-quantized exports (https://github.com/filipstrand/mflux/issues/296, open; maintainer acknowledged 2025-12-17, HF weights never re-uploaded). Failure mode: quantized text-encoder embedding not reconstructed — packed U32 rows (broadcast_shapes (3584) vs (1,N,672)). Do NOT reuse that repo. New primary OsaurusAI/Qwen-Image-mflux-4bit: 25.9 GB, license apache-2.0 (verified via HF API cardData 2026-07-15), ungated, quantized WITH mflux 0.18 (the version this pipeline targets) — mflux-format exports record mflux_version in their safetensors headers, so version-matched saves are the fix. Not yet third-party-confirmed working — a local smoke render is required before role_defaults promotion (Phase 5). Fallback stays Qwen/Qwen-Image (apache-2.0) but its true size is ~58 GB (upstream qwen README), not the ~40 GB previously documented; mflux-save local re-quantization is NOT viable under ~57 GB free RAM (no layer-streaming, confirmed from mflux source). Upstream quality note (mflux qwen README): '6-bit or below can degrade the image a lot more compared to Flux' — quantization quality must be evaluated in Phase 5; 0.18-era saves are mixed-precision (hence 4-bit = 25.9 GB). min_ram_gb 32 sized for the 4-bit primary (25.9 GB weights + activations; operators should pass --low-ram if headroom is tight). Strongest open-weights in-image text renderer; the challenger most likely to beat the Klein-9b label-fidelity baseline. Upstream README examples use --steps 30; render_steps stays 20 (mflux family default) pending Phase 5 measurement. timeout_seconds 900 remains a placeholder pending Phase 5 (§10 OQ-B)."
     }
   ]
 }

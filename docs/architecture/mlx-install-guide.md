@@ -51,7 +51,7 @@ model's primary repo before your first render:
 ```
 hf download Runpod/FLUX.2-klein-4B-mflux-4bit          # mlx/flux2-klein-4b (default draft model)
 hf download filipstrand/Z-Image-Turbo-mflux-4bit       # mlx/z-image-turbo
-hf download filipstrand/Qwen-Image-mflux-6bit          # mlx/qwen-image
+hf download OsaurusAI/Qwen-Image-mflux-4bit            # mlx/qwen-image
 ```
 
 You do not need all three — `flux2-klein-4b` is the plugin's default
@@ -65,13 +65,22 @@ Z-Image-Turbo.
 |---|---|---|---|---|---|
 | `mlx/flux2-klein-4b` | `Runpod/FLUX.2-klein-4B-mflux-4bit` | 4.3 GB | `black-forest-labs/FLUX.2-klein-4B` | ~13 GB (full precision, quantized 4-bit on load) | >= 0.15 (Runpod primary repo needs >= 0.16) |
 | `mlx/z-image-turbo` | `filipstrand/Z-Image-Turbo-mflux-4bit` | small (4-bit) | `Tongyi-MAI/Z-Image-Turbo` | full precision, quantized 4-bit on load | >= 0.13 |
-| `mlx/qwen-image` | `filipstrand/Qwen-Image-mflux-6bit` | ~15-16 GB | `Qwen/Qwen-Image` | **~40 GB** full precision, quantized 6-bit on load | >= 0.11 |
+| `mlx/qwen-image` | `OsaurusAI/Qwen-Image-mflux-4bit` | 25.9 GB | `Qwen/Qwen-Image` | **~58 GB** full precision, quantized 6-bit on load | >= 0.11 |
 
-**The Qwen fallback is a ~40 GB download.** Only pull
+**The Qwen fallback is a ~58 GB download.** Only pull
 `Qwen/Qwen-Image` directly if you specifically need pure Apache 2.0
 licensing (see §3) or the primary repo is unavailable — the on-load
 quantization path also needs materially more RAM/disk headroom during
-load than the pre-quantized primary.
+load than the pre-quantized primary, and local re-quantization via
+`mflux-save` (§5) is NOT viable under ~57 GB free RAM (mflux has no
+layer-streaming, confirmed from mflux source).
+
+**Saved-export version compatibility:** mflux-format exports record the
+`mflux_version` that produced them in their safetensors header metadata.
+An export saved before mflux 0.13 does not load on current mflux — the
+v0.13 weight-loading refactor is not backward compatible with pre-0.13
+pre-quantized saves (see the repo-swap note in §3 below). Prefer exports
+whose save vintage is at or above the mflux version you run.
 
 ## 3. Per-repo licensing — read this before pulling
 
@@ -88,8 +97,9 @@ base's licence.
 | `black-forest-labs/FLUX.2-klein-4B` | fallback (klein) | **Apache 2.0** (confirmed) | ~13 GB. |
 | `filipstrand/Z-Image-Turbo-mflux-4bit` | primary (z-image) | **Tongyi Qianwen licence** (`license:other` tag) — **NOT Apache 2.0** (confirmed) | Pull the fallback below if you need pure Apache 2.0. |
 | `Tongyi-MAI/Z-Image-Turbo` | fallback (z-image) | **Apache 2.0** (confirmed) | Full precision; quantized 4-bit on load. |
-| `filipstrand/Qwen-Image-mflux-6bit` | primary (qwen) | **Tongyi Qianwen licence** (`license:other` tag) — **NOT Apache 2.0** (confirmed) | Same derivative-relicensing pattern as Z-Image-Turbo. |
-| `Qwen/Qwen-Image` | fallback (qwen) | **Apache 2.0** (confirmed) | ~40 GB; quantized 6-bit on load. |
+| `filipstrand/Qwen-Image-mflux-6bit` | **BROKEN — do not pull** (former primary, qwen) | Tongyi Qianwen licence (`license:other` tag) — not Apache 2.0 | Saved with mflux 0.11.0; **BROKEN on mflux >= 0.13** (upstream [mflux issue #296](https://github.com/filipstrand/mflux/issues/296), open, maintainer acknowledged 2025-12-17, HF weights never re-uploaded). Failure mode: quantized text-encoder embedding not reconstructed (`broadcast_shapes (3584) vs (1,N,672)`). Replaced as primary 2026-07-15; kept here as a warning because operators may find the repo organically. |
+| `OsaurusAI/Qwen-Image-mflux-4bit` | primary (qwen) | **Apache 2.0** (verified via HF API `cardData` 2026-07-15) | 25.9 GB; ungated; quantized with mflux 0.18 (the version this pipeline targets). Not yet third-party-confirmed working — a local smoke render is required before role_defaults promotion (Phase 5). |
+| `Qwen/Qwen-Image` | fallback (qwen) | **Apache 2.0** (confirmed) | ~58 GB; quantized 6-bit on load. Upstream mflux qwen README: "6-bit or below can degrade the image a lot more compared to Flux" — quantization quality must be evaluated in Phase 5. |
 
 If your use requires pure Apache-2.0 provenance end-to-end, pull the
 **fallback** repo directly (`hf download <fallback repo>`) instead of
@@ -111,7 +121,7 @@ adding a gated model to the catalog is out of scope for this repo).
 |---|---|---|
 | `mlx/flux2-klein-4b` | 16 | |
 | `mlx/z-image-turbo` | 16 | |
-| `mlx/qwen-image` | 24 | Sized for the 6-bit primary; the full-precision fallback needs materially more RAM/disk during on-load quantization. |
+| `mlx/qwen-image` | 32 | Sized for the 4-bit primary (25.9 GB weights + activations); operators should pass `--low-ram` if headroom is tight. The full-precision fallback needs materially more RAM/disk during on-load quantization. |
 
 Detection (`detect_mlx_backend`) skips a catalog-order candidate whose
 `min_ram_gb` exceeds the machine's physical RAM (read via `sysctl

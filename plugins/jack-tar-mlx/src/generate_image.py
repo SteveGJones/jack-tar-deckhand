@@ -72,10 +72,10 @@ MLX_MODEL_REGISTRY = {
     },
     "mlx/qwen-image": {
         "entrypoint": "mflux-generate-qwen",
-        "hf_repo": "filipstrand/Qwen-Image-mflux-6bit",
+        "hf_repo": "OsaurusAI/Qwen-Image-mflux-4bit",
         "hf_repo_fallback": "Qwen/Qwen-Image",
         "default_steps": 20,
-        "quantize": 6,
+        "quantize": 4,
         "timeout": 900,
     },
 }
