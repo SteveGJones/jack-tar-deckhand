@@ -13,6 +13,7 @@ framing rationale.
 """
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
@@ -21,6 +22,7 @@ sys.path.insert(0, str(PLUGIN_ROOT))
 
 import pytest
 
+import src.paperbanana_dispatch as _pbd_module  # noqa: E402
 from src.paperbanana_dispatch import (  # noqa: E402
     LocalBackend,
     PaperbananaDispatch,
@@ -28,9 +30,13 @@ from src.paperbanana_dispatch import (  # noqa: E402
     _build_local_prompt,
     _build_source_context_from_slide,
     _extract_run_id,
+    _hf_snapshot_complete,
+    _resolve_hf_hub_dir,
     build_dispatch_payload,
     build_manifest_entry,
+    detect_any_local_backend,
     detect_local_backend,
+    detect_mlx_backend,
     is_paperbanana_available,
 )
 
@@ -932,6 +938,446 @@ def test_manifest_entry_legacy_dispatch_without_backend_field():
     )
     assert entry["backend"] == "paperbanana"
     assert entry["model_used"] == "paperbanana"
+
+
+# --- MLX backend detection (issue #124, T3) --------------------------------
+
+
+def _make_complete_snapshot(hub_dir: Path, repo_id: str, revision: str = "abc123def0"):
+    """Build a minimal-but-complete HF-cache snapshot tree for repo_id.
+
+    Layout: ``<hub_dir>/models--<org>--<name>/{blobs,snapshots/<rev>,refs}``,
+    with a single symlinked file resolving into blobs/ and refs/main naming
+    the revision — the shape ``_hf_snapshot_complete`` inspects.
+    """
+    repo_dir = hub_dir / ("models--" + repo_id.replace("/", "--"))
+    blobs_dir = repo_dir / "blobs"
+    blobs_dir.mkdir(parents=True, exist_ok=True)
+    blob_path = blobs_dir / "0123456789abcdef"
+    blob_path.write_text("weights", encoding="utf-8")
+
+    snapshot_dir = repo_dir / "snapshots" / revision
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    (snapshot_dir / "config.json").symlink_to(blob_path)
+
+    refs_dir = repo_dir / "refs"
+    refs_dir.mkdir(parents=True, exist_ok=True)
+    (refs_dir / "main").write_text(revision, encoding="utf-8")
+    return repo_dir
+
+
+_MLX_KLEIN = LocalBackend(provider="mlx", model="mlx/flux2-klein-4b")
+
+_KLEIN_HF_REPO = "Runpod/FLUX.2-klein-4B-mflux-4bit"
+_Z_IMAGE_HF_REPO = "filipstrand/Z-Image-Turbo-mflux-4bit"
+_QWEN_HF_REPO = "filipstrand/Qwen-Image-mflux-6bit"
+
+
+# --- _resolve_hf_hub_dir (review m7) ----------------------------------------
+
+
+def test_resolve_hf_hub_dir_precedence(monkeypatch, tmp_path):
+    """explicit arg > $HF_HUB_CACHE > $HF_HOME/hub > ~/.cache/huggingface/hub."""
+    monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "cache_dir"))
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "home_dir"))
+
+    # Explicit arg wins over both env vars.
+    assert _resolve_hf_hub_dir(str(tmp_path / "explicit")) == (
+        tmp_path / "explicit" / "hub"
+    )
+
+    # HF_HUB_CACHE (used directly as the hub dir) beats HF_HOME.
+    assert _resolve_hf_hub_dir() == tmp_path / "cache_dir"
+
+    monkeypatch.delenv("HF_HUB_CACHE", raising=False)
+    assert _resolve_hf_hub_dir() == tmp_path / "home_dir" / "hub"
+
+    monkeypatch.delenv("HF_HOME", raising=False)
+    assert _resolve_hf_hub_dir() == Path.home() / ".cache" / "huggingface" / "hub"
+
+
+# --- _hf_snapshot_complete (review m8) ---------------------------------------
+
+
+def test_hf_snapshot_complete_true_for_full_snapshot(tmp_path):
+    hub_dir = tmp_path / "hub"
+    _make_complete_snapshot(hub_dir, "org/name")
+    assert _hf_snapshot_complete("org/name", hub_dir) is True
+
+
+def test_hf_snapshot_complete_false_for_incomplete_blob_in_resolved_revision(tmp_path):
+    hub_dir = tmp_path / "hub"
+    repo_dir = _make_complete_snapshot(hub_dir, "org/name")
+    blob_path = repo_dir / "blobs" / "0123456789abcdef"
+    (blob_path.parent / (blob_path.name + ".incomplete")).write_text(
+        "", encoding="utf-8"
+    )
+    assert _hf_snapshot_complete("org/name", hub_dir) is False
+
+
+def test_hf_snapshot_complete_false_for_dangling_symlink(tmp_path):
+    hub_dir = tmp_path / "hub"
+    repo_dir = _make_complete_snapshot(hub_dir, "org/name")
+    (repo_dir / "blobs" / "0123456789abcdef").unlink()
+    assert _hf_snapshot_complete("org/name", hub_dir) is False
+
+
+def test_hf_snapshot_complete_false_for_missing_repo(tmp_path):
+    hub_dir = tmp_path / "hub"
+    hub_dir.mkdir(parents=True, exist_ok=True)
+    assert _hf_snapshot_complete("org/does-not-exist", hub_dir) is False
+
+
+def test_hf_snapshot_complete_resolves_revision_via_refs_main(tmp_path):
+    """With two snapshot dirs, the refs/main-named revision is checked —
+    not simply the newest-by-mtime one (review m8)."""
+    hub_dir = tmp_path / "hub"
+    repo_dir = _make_complete_snapshot(hub_dir, "org/name", revision="main-rev")
+
+    # A second, later-created (hence newer-mtime) snapshot dir that is
+    # INCOMPLETE — if mtime fallback were used instead of refs/main, this
+    # dangling snapshot would be picked and the check would (wrongly) fail.
+    bogus_dir = repo_dir / "snapshots" / "newer-bogus-rev"
+    bogus_dir.mkdir(parents=True)
+    (bogus_dir / "config.json").symlink_to(repo_dir / "blobs" / "does-not-exist")
+
+    assert _hf_snapshot_complete("org/name", hub_dir) is True
+
+
+# --- detect_mlx_backend (issue #124) -----------------------------------------
+
+
+def test_detect_mlx_backend_returns_none_when_no_cli(monkeypatch):
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda _name: None)
+    assert detect_mlx_backend() is None
+
+
+def test_detect_mlx_backend_checks_selected_entrys_entrypoint(monkeypatch, tmp_path):
+    """Only mflux-generate-qwen on PATH → klein/z-image skipped, qwen selectable
+    (review m12) — even though klein/z-image ALSO have complete weights cached."""
+    import shutil as _sh
+
+    monkeypatch.setattr(
+        _sh, "which", lambda name: "/usr/bin/x" if name == "mflux-generate-qwen" else None
+    )
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 64.0)
+    hub_dir = tmp_path / "hub"
+    _make_complete_snapshot(hub_dir, _KLEIN_HF_REPO)
+    _make_complete_snapshot(hub_dir, _Z_IMAGE_HF_REPO)
+    _make_complete_snapshot(hub_dir, _QWEN_HF_REPO)
+
+    backend = detect_mlx_backend(hf_home=str(tmp_path))
+    assert backend == LocalBackend(provider="mlx", model="mlx/qwen-image")
+
+
+def test_detect_mlx_backend_returns_none_when_cli_but_no_weights(monkeypatch, tmp_path):
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 64.0)
+    assert detect_mlx_backend(hf_home=str(tmp_path)) is None
+
+
+def test_detect_mlx_backend_returns_catalog_id_when_weights_complete(monkeypatch, tmp_path):
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 64.0)
+    _make_complete_snapshot(tmp_path / "hub", _KLEIN_HF_REPO)
+
+    backend = detect_mlx_backend(hf_home=str(tmp_path))
+    assert backend == LocalBackend(provider="mlx", model="mlx/flux2-klein-4b")
+
+
+def test_detect_mlx_backend_honours_preferred_model(monkeypatch, tmp_path):
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 64.0)
+    hub_dir = tmp_path / "hub"
+    _make_complete_snapshot(hub_dir, _KLEIN_HF_REPO)
+    _make_complete_snapshot(hub_dir, _Z_IMAGE_HF_REPO)
+
+    backend = detect_mlx_backend(preferred_model="mlx/z-image-turbo", hf_home=str(tmp_path))
+    assert backend == LocalBackend(provider="mlx", model="mlx/z-image-turbo")
+
+
+def test_detect_mlx_backend_ram_gate_skips_qwen_in_catalog_order(monkeypatch, tmp_path):
+    """min_ram_gb 24 > 16GB machine → qwen skipped during catalog-order
+    auto-selection (review m11); no other candidate has weights → None."""
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 16.0)
+    _make_complete_snapshot(tmp_path / "hub", _QWEN_HF_REPO)
+
+    assert detect_mlx_backend(hf_home=str(tmp_path)) is None
+
+
+def test_detect_mlx_backend_preferred_model_bypasses_ram_gate_with_warning(
+    monkeypatch, tmp_path, caplog
+):
+    """An explicit preferred_model bypasses the RAM gate — with a logged
+    warning (review m11 ruling: the operator who names a model owns the
+    consequence)."""
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 16.0)
+    _make_complete_snapshot(tmp_path / "hub", _QWEN_HF_REPO)
+
+    with caplog.at_level(logging.WARNING):
+        backend = detect_mlx_backend(preferred_model="mlx/qwen-image", hf_home=str(tmp_path))
+
+    assert backend == LocalBackend(provider="mlx", model="mlx/qwen-image")
+    assert any("RAM gate" in r.message for r in caplog.records)
+
+
+def test_detect_mlx_backend_ram_gate_disabled_when_ram_unknown(monkeypatch, tmp_path):
+    """_physical_ram_gb() -> None disables the RAM gate (fail-open) — qwen
+    is offered in catalog order despite its min_ram_gb requirement."""
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: None)
+    _make_complete_snapshot(tmp_path / "hub", _QWEN_HF_REPO)
+
+    backend = detect_mlx_backend(hf_home=str(tmp_path))
+    assert backend == LocalBackend(provider="mlx", model="mlx/qwen-image")
+
+
+def test_detect_mlx_backend_honours_hf_hub_cache_env(monkeypatch, tmp_path):
+    """Weights under an HF_HUB_CACHE-pointed dir are found (m7 acceptance)."""
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 64.0)
+    hub_dir = tmp_path / "custom_hub"
+    _make_complete_snapshot(hub_dir, _KLEIN_HF_REPO)
+    monkeypatch.setenv("HF_HUB_CACHE", str(hub_dir))
+    monkeypatch.delenv("HF_HOME", raising=False)
+
+    backend = detect_mlx_backend()
+    assert backend == LocalBackend(provider="mlx", model="mlx/flux2-klein-4b")
+
+
+# --- detect_any_local_backend (composed probe, issue #124) -------------------
+
+
+def test_detect_any_local_backend_prefers_ollama_by_default(monkeypatch, tmp_path):
+    """Both up, provider_order=None -> ollama wins (default order)."""
+    import shutil as _sh
+
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:4b"])
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 64.0)
+    _make_complete_snapshot(tmp_path / "hub", _KLEIN_HF_REPO)
+
+    backend = detect_any_local_backend(hf_home=str(tmp_path))
+    assert backend == LocalBackend(provider="ollama", model="x/flux2-klein:4b")
+
+
+def test_detect_any_local_backend_falls_through_to_mlx_when_ollama_down(monkeypatch, tmp_path):
+    """Issue #124 acceptance case: Ollama down + mflux+weights present."""
+    import urllib.error as _ue
+    import urllib.request as _ur
+    import shutil as _sh
+
+    def boom(*_a, **_k):
+        raise _ue.URLError("connection refused")
+
+    monkeypatch.setattr(_ur, "urlopen", boom)
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 64.0)
+    _make_complete_snapshot(tmp_path / "hub", _KLEIN_HF_REPO)
+
+    backend = detect_any_local_backend(hf_home=str(tmp_path))
+    assert backend == LocalBackend(provider="mlx", model="mlx/flux2-klein-4b")
+
+
+def test_detect_any_local_backend_honours_provider_order(monkeypatch, tmp_path):
+    """order=('mlx','ollama') -> mlx wins even with ollama up."""
+    import shutil as _sh
+
+    _patch_ollama_tags(monkeypatch, ["x/flux2-klein:4b"])
+    monkeypatch.setattr(_sh, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(_pbd_module, "_physical_ram_gb", lambda: 64.0)
+    _make_complete_snapshot(tmp_path / "hub", _KLEIN_HF_REPO)
+
+    backend = detect_any_local_backend(
+        provider_order=("mlx", "ollama"), hf_home=str(tmp_path)
+    )
+    assert backend == LocalBackend(provider="mlx", model="mlx/flux2-klein-4b")
+
+
+def test_detect_any_local_backend_none_when_no_provider(monkeypatch):
+    import urllib.error as _ue
+    import urllib.request as _ur
+    import shutil as _sh
+
+    def boom(*_a, **_k):
+        raise _ue.URLError("connection refused")
+
+    monkeypatch.setattr(_ur, "urlopen", boom)
+    monkeypatch.setattr(_sh, "which", lambda _name: None)
+    assert detect_any_local_backend() is None
+
+
+def test_detect_any_local_backend_does_no_file_io(monkeypatch):
+    """Review m16 pin: monkeypatch builtins.open/Path.open to raise; the
+    seam function still runs on injected params — it never reads
+    local-config.json (or any other file) itself."""
+    import builtins
+    import urllib.error as _ue
+    import urllib.request as _ur
+    import shutil as _sh
+
+    def boom_open(*_a, **_k):
+        raise AssertionError("detect_any_local_backend must not open files")
+
+    monkeypatch.setattr(builtins, "open", boom_open)
+    monkeypatch.setattr(Path, "open", boom_open)
+
+    def boom_urlopen(*_a, **_k):
+        raise _ue.URLError("connection refused")
+
+    monkeypatch.setattr(_ur, "urlopen", boom_urlopen)
+    monkeypatch.setattr(_sh, "which", lambda _name: None)
+
+    assert detect_any_local_backend() is None
+
+
+# --- build_dispatch_payload / build_manifest_entry (MLX provider) -----------
+
+
+def test_dispatch_payload_mlx_local_args_carry_render_steps():
+    """review M4c: local_args['steps'] always carries the catalog's
+    capabilities.render_steps for an MLX dispatch."""
+    dispatch = build_dispatch_payload(
+        {
+            "slide_number": 3,
+            "headline": "Ablation results",
+            "methodology_context": "We ablate the components one at a time.",
+        },
+        output_dir="/tmp/deck/images",
+        paperbanana_available=False,
+        local_backend=_MLX_KLEIN,
+    )
+    assert dispatch.local_args["steps"] == 20
+
+
+def test_build_dispatch_payload_mlx_backend_sets_backend_and_local_model():
+    dispatch = build_dispatch_payload(
+        {"slide_number": 2, "headline": "x"},
+        output_dir="/tmp/x",
+        paperbanana_available=False,
+        local_backend=_MLX_KLEIN,
+    )
+    assert dispatch.backend == "mlx"
+    assert dispatch.local_provider == "mlx"
+    assert dispatch.local_model == "mlx/flux2-klein-4b"
+
+
+def test_manifest_entry_for_local_mlx_render():
+    """The :647 regression guard: an mlx_local backend_used enriches the
+    manifest entry exactly as ollama_local does."""
+    dispatch = build_dispatch_payload(
+        {
+            "slide_number": 7,
+            "headline": "Encoder stack",
+            "methodology_context": "Six identical layers with residual connections.",
+        },
+        output_dir="/tmp/deck/images",
+        paperbanana_available=True,
+        local_backend=_MLX_KLEIN,
+    )
+    entry = build_manifest_entry(
+        dispatch,
+        dispatch_succeeded=True,
+        output_path="/tmp/deck/images/slide-07-academic-figure-mlx.png",
+        content_hash="abc",
+    )
+    assert entry["backend"] == "mlx_local"
+    assert entry["model_used"] == "mlx/flux2-klein-4b"
+    assert entry["local_provider"] == "mlx"
+    assert entry["source_prompt"] == dispatch.local_args["prompt"]
+    assert entry["caption"] == "Encoder stack"
+    assert entry["local_args"]["steps"] == 20
+    assert "paperbanana_run_id" not in entry
+    assert "paperbanana_args" not in entry
+    assert "fallback_reason" not in entry
+
+
+def test_manifest_entry_escalated_from_mlx_to_paperbanana_after_gate():
+    """backend_used override: operator escalated past the MLX draft."""
+    dispatch = build_dispatch_payload(
+        {
+            "slide_number": 9,
+            "headline": "Ablation results",
+            "methodology_context": "We ablate the components one at a time to measure impact.",
+        },
+        output_dir="/tmp/deck/images",
+        paperbanana_available=True,
+        local_backend=_MLX_KLEIN,
+    )
+    real_path = "/tmp/deck/images/run_20260710_120000_abc123/final_output.png"
+    entry = build_manifest_entry(
+        dispatch,
+        dispatch_succeeded=True,
+        output_path=real_path,
+        backend_used="paperbanana",
+    )
+    assert entry["backend"] == "paperbanana"
+    assert entry["model_used"] == "paperbanana"
+    assert entry["paperbanana_run_id"] == "run_20260710_120000_abc123"
+
+
+def test_manifest_entry_legacy_ollama_local_without_provider_takes_fallback_branch():
+    """Review m15 — INTENTIONAL BEHAVIOUR CHANGE: a legacy caller passing
+    backend_used="ollama_local" explicitly on a dispatch whose
+    local_provider is EMPTY previously took the enrichment branch (emitting
+    empty source_prompt/caption/local_args, since there was nothing to
+    enrich from); after the :647 guard generalisation it falls to the
+    fallback (else) branch instead. This is correct — such a dispatch
+    carries no local_args to enrich from — but it is a behaviour change,
+    pinned here per issue #124 T3."""
+    dispatch = PaperbananaDispatch(
+        available=False,
+        slide_number=4,
+        output_dir="/tmp/x",
+        # local_provider left at its default "" — simulates a legacy direct
+        # construction that never set the provider.
+    )
+    entry = build_manifest_entry(
+        dispatch,
+        dispatch_succeeded=True,
+        output_path="/tmp/x/slide-04-academic-figure-ollama.png",
+        backend_used="ollama_local",
+    )
+    assert entry["backend"] == "ollama_local"
+    assert entry["model_used"] == "gemini-3.1-flash-image"
+    assert "local_provider" not in entry
+    assert "local_args" not in entry
+    assert "fallback_reason" in entry
+    assert entry["fallback_reason"] == ""
+
+
+def test_local_only_blocked_message_names_both_providers():
+    """review §2.6: the local_only_blocked message names Ollama AND MLX
+    remediation, not just Ollama, so an MLX-only operator gets actionable
+    guidance."""
+    dispatch = build_dispatch_payload(
+        {"slide_number": 3, "headline": "x", "local_only": True},
+        output_dir="/tmp/x",
+        paperbanana_available=True,
+        local_backend=False,
+    )
+    assert dispatch.backend == "local_only_blocked"
+    assert "ollama" in dispatch.fallback_reason.lower()
+    assert "mlx" in dispatch.fallback_reason.lower()
+    assert "Cloud dispatch is FORBIDDEN" in dispatch.fallback_reason
 
 
 if __name__ == "__main__":

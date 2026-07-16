@@ -47,10 +47,14 @@ See also:
 """
 from __future__ import annotations
 
+import logging
+import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Mapping
 
+logger = logging.getLogger(__name__)
 
 # Paperbanana writes run outputs to ``<output_dir>/run_<YYYYMMDD>_<HHMMSS>_<short-hash>/``.
 # We extract the run-id directory name from manifest paths so iterate-slide (#89)
@@ -70,8 +74,10 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 # detection time — never hardcode a tag; the operator's tag comes back
 # from Ollama's /api/tags.
 try:
+    from .model_catalog import UnknownModelError as _UnknownModelError
     from .model_catalog import get_catalog as _get_model_catalog
 except ImportError:  # pragma: no cover - direct-script execution path
+    from src.model_catalog import UnknownModelError as _UnknownModelError
     from src.model_catalog import get_catalog as _get_model_catalog
 
 _LOCAL_IMAGE_MODEL_PREFERENCE = tuple(
@@ -84,6 +90,19 @@ _PAPERBANANA_ABSENT_REASON = (
     "academic-figure-aware prompting. Install paperbanana via "
     "`pip install 'paperbanana[google]'` for publication-tier "
     "output. See /jack-tar-deckhand:verify for guidance."
+)
+
+# Issue #124: provider-aware remediation for local_only slides when no local
+# backend (Ollama or MLX) was detected — names both providers so an
+# MLX-only operator gets actionable guidance instead of an Ollama-only hint.
+_LOCAL_ONLY_BLOCKED_REASON = (
+    "local_only is set for this slide but no local image backend was "
+    "detected across the configured providers. Bring up at least one: "
+    "Ollama — `ollama serve` then `ollama pull x/flux2-klein`; "
+    "MLX (Apple Silicon) — `uv tool install --upgrade mflux` then "
+    "`hf download <repo>` for a catalogued mlx/* model (see "
+    "docs/architecture/mlx-install-guide.md). Cloud dispatch is FORBIDDEN "
+    "for this slide."
 )
 
 
@@ -273,6 +292,337 @@ def detect_local_backend(
     return None
 
 
+def _resolve_hf_hub_dir(hf_home: str | os.PathLike | None = None) -> Path:
+    """HF hub cache dir per huggingface_hub precedence (review m7):
+    explicit arg (root; hub is <arg>/hub) > $HF_HUB_CACHE (IS the hub dir)
+    > $HF_HOME/hub > ~/.cache/huggingface/hub."""
+    if hf_home is not None:
+        return Path(hf_home) / "hub"
+    hub_cache = os.environ.get("HF_HUB_CACHE")
+    if hub_cache:
+        return Path(hub_cache)
+    hf_home_env = os.environ.get("HF_HOME")
+    if hf_home_env:
+        return Path(hf_home_env) / "hub"
+    return Path.home() / ".cache" / "huggingface" / "hub"
+
+
+def _hf_snapshot_complete(repo_id: str, hub_dir: Path) -> bool:
+    """True when ``repo_id`` has a complete HF-cache snapshot under hub_dir.
+
+    HF layout: ``<hub_dir>/models--<org>--<name>/`` contains ``refs/``
+    (branch → revision hash files), ``snapshots/<rev>/`` (symlinks into
+    ``blobs/``), and ``blobs/`` (content-addressed files; partial downloads
+    are ``<hash>.incomplete``).
+
+    Revision resolution (review m8): read ``refs/main`` when present and use
+    that revision's snapshot dir; otherwise fall back to the
+    newest-by-mtime ``snapshots/`` subdir.
+
+    Completeness predicate (false-negative-safe — any doubt returns False so
+    detection under-reports rather than triggering a download):
+      1. ``models--<org>--<name>/`` exists.
+      2. The resolved revision dir exists and has ≥1 entry.
+      3. EVERY symlink in the resolved revision resolves to an existing
+         path, AND no ``<target-blob>.incomplete`` sibling exists for any
+         resolved target (scoped to the resolved revision's blobs — review
+         m8).
+    Any OSError → False.
+
+    Accepted residual (review m8): a download interrupted BETWEEN files can
+    leave a revision whose present symlinks all resolve while later files
+    were never started — indistinguishable from complete without the repo
+    manifest. The wrapper's ``HF_HUB_OFFLINE`` hard guard backstops this.
+    """
+    try:
+        hub_dir = Path(hub_dir)
+        repo_dir = hub_dir / ("models--" + repo_id.replace("/", "--"))
+        if not repo_dir.is_dir():
+            return False
+
+        snapshots_dir = repo_dir / "snapshots"
+        if not snapshots_dir.is_dir():
+            return False
+
+        revision_dir = None
+        refs_main = repo_dir / "refs" / "main"
+        if refs_main.is_file():
+            try:
+                revision = refs_main.read_text(encoding="utf-8").strip()
+            except OSError:
+                revision = ""
+            if revision:
+                candidate = snapshots_dir / revision
+                if candidate.is_dir():
+                    revision_dir = candidate
+
+        if revision_dir is None:
+            candidates = [d for d in snapshots_dir.iterdir() if d.is_dir()]
+            if not candidates:
+                return False
+            revision_dir = max(candidates, key=lambda d: d.stat().st_mtime)
+
+        if not list(revision_dir.iterdir()):
+            return False
+
+        for entry in revision_dir.rglob("*"):
+            if entry.is_dir():
+                continue
+            if entry.is_symlink():
+                target = entry.resolve()
+                if not target.exists():
+                    return False
+                incomplete = target.parent / (target.name + ".incomplete")
+                if incomplete.exists():
+                    return False
+        return True
+    except OSError:
+        return False
+
+
+def _physical_ram_gb() -> float | None:
+    """Physical RAM in GB, or None when undetectable.
+
+    MLX is Apple-Silicon-only, so macOS is the primary path:
+      1. ``sysctl -n hw.memsize`` (bytes) via ``subprocess.run`` — the
+         canonical macOS source.
+      2. Fallback: ``os.sysconf('SC_PHYS_PAGES') * os.sysconf('SC_PAGE_SIZE')``
+         (present on Linux/most Unix; ``SC_PHYS_PAGES`` may be absent on some
+         macOS builds — hence sysctl first).
+    None on any failure — a None RAM reading DISABLES the RAM gate (fail open
+    to detection; the wrapper's own OOM handling is the backstop) rather than
+    hiding all models.
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["sysctl", "-n", "hw.memsize"],
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return int(result.stdout.strip()) / (1024 ** 3)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+
+    try:
+        pages = os.sysconf("SC_PHYS_PAGES")
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        return (pages * page_size) / (1024 ** 3)
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
+def _extra_dir_has_weights(sdk: Mapping, extra_model_dirs: tuple) -> bool:
+    """True when a non-empty ``mflux-save`` dir in ``extra_model_dirs``
+    is registered for this entry.
+
+    Matching is by directory basename against the entry's ``hf_repo`` /
+    ``hf_repo_fallback`` — either the full repo id or its trailing name
+    segment — since the operator names ``mflux-save`` output directories
+    after the model they hold.
+    """
+    if not extra_model_dirs:
+        return False
+    repo_names = set()
+    for key in ("hf_repo", "hf_repo_fallback"):
+        repo = sdk.get(key)
+        if repo:
+            repo_names.add(repo)
+            repo_names.add(repo.split("/")[-1])
+    if not repo_names:
+        return False
+    for raw_dir in extra_model_dirs:
+        try:
+            path = Path(raw_dir)
+            if path.name in repo_names and path.is_dir() and any(path.iterdir()):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def detect_mlx_backend(
+    *,
+    preferred_model: str | None = None,
+    hf_home: str | os.PathLike | None = None,
+    extra_model_dirs: tuple = (),
+    timeout_seconds: float = 2.0,
+) -> LocalBackend | None:
+    """Probe for a runnable local MLX (mflux) image backend.
+
+    Two-stage detection (issue #124, locked decision 2), mirroring
+    ``detect_local_backend`` but for a *server-less* CLI runtime. Both
+    stages are evaluated PER CANDIDATE ENTRY (review m12): a machine with
+    only ``mflux-generate-qwen`` on PATH must not select a flux2 entry.
+
+    Candidate order: ``preferred_model`` (operator override, catalog id,
+    typically from ``local-config.json`` → ``mlx.academic_figure_model``)
+    first when given; then catalogued active ``mlx/*`` entries in catalog
+    listing order (Klein 4B, Z-Image-Turbo, Qwen-Image — see §3).
+
+    Per-candidate checks, all must pass (first fully-passing candidate wins):
+
+    Stage 1 — runtime: THIS entry's ``sdk.entrypoint``
+    (``mflux-generate-flux2`` / ``mflux-generate-z-image-turbo`` /
+    ``mflux-generate-qwen``) is on PATH (``shutil.which``).
+
+    Stage 2 — weights: a COMPLETE Hugging Face cache snapshot
+    (``_hf_snapshot_complete``) exists for the entry's ``sdk.hf_repo`` OR
+    ``sdk.hf_repo_fallback``, OR a non-empty ``mflux-save`` directory named
+    in ``extra_model_dirs`` is registered for it. This is the soft guard
+    against a multi-GB first-use download (locked decision 1); the
+    wrapper's ``HF_HUB_OFFLINE`` env is the hard guard.
+
+    RAM gate: an entry carrying ``capabilities.min_ram_gb`` above the
+    machine's physical RAM (``_physical_ram_gb``) is SKIPPED during
+    catalog-order auto-selection. An explicit ``preferred_model`` BYPASSES
+    the RAM gate with a logged warning (review m11 ruling) — the operator
+    who names a model owns the consequence; auto-selection stays gated.
+
+    Returns ``LocalBackend(provider="mlx", model=<catalog id>)`` — the
+    catalog id (e.g. ``"mlx/flux2-klein-4b"``), NOT the HF repo. Any
+    failure on any path degrades to None; a broken/partial MLX install can
+    never block the pipeline.
+
+    Args:
+        preferred_model: operator model override (catalog id). Checked
+            first; bypasses the RAM gate (warning logged); still subject to
+            stage 1 + stage 2. Falls through to catalog order when its
+            checks fail.
+        hf_home: HF cache ROOT override (the dir whose ``hub/`` child is the
+            model cache). When None, hub-dir resolution follows the real
+            huggingface_hub precedence (review m7): ``$HF_HUB_CACHE`` (used
+            as the hub dir directly) → ``$HF_HOME/hub`` →
+            ``~/.cache/huggingface/hub``.
+        extra_model_dirs: additional ``mflux-save`` local weight dirs to
+            treat as available (absolute paths). The BRIDGE merges
+            ``local-config.json`` → ``mlx.models`` into this before calling
+            (this function does no file I/O beyond the weights-directory
+            checks above — it never reads local-config.json itself).
+        timeout_seconds: reserved for signature symmetry with
+            ``detect_local_backend``; the MLX probe is a synchronous
+            filesystem + PATH scan with no network, so this is currently a
+            no-op. Kept so ``detect_any_local_backend`` can pass one budget
+            to both detectors.
+    """
+    import shutil
+
+    try:
+        hub_dir = _resolve_hf_hub_dir(hf_home)
+        ram_gb = _physical_ram_gb()
+        catalog = _get_model_catalog()
+
+        def _weights_present(sdk: Mapping) -> bool:
+            for repo_key in ("hf_repo", "hf_repo_fallback"):
+                repo = sdk.get(repo_key)
+                if repo and _hf_snapshot_complete(repo, hub_dir):
+                    return True
+            return _extra_dir_has_weights(sdk, extra_model_dirs)
+
+        def _candidate_available(entry: Mapping) -> bool:
+            sdk = entry.get("sdk") or {}
+            entrypoint = sdk.get("entrypoint")
+            if not entrypoint or shutil.which(entrypoint) is None:
+                return False
+            return _weights_present(sdk)
+
+        if preferred_model:
+            preferred_entry = None
+            try:
+                candidate = catalog.get(preferred_model, follow_replacement=False)
+            except _UnknownModelError:
+                candidate = None
+            if candidate is not None and candidate.get("provider") == "mlx":
+                preferred_entry = candidate
+
+            if preferred_entry is not None and _candidate_available(preferred_entry):
+                capabilities = preferred_entry.get("capabilities") or {}
+                min_ram = capabilities.get("min_ram_gb")
+                if min_ram is not None and ram_gb is not None and ram_gb < min_ram:
+                    logger.warning(
+                        "mlx preferred_model %s declares min_ram_gb=%s but "
+                        "detected physical RAM is %.1fGB — operator override "
+                        "bypasses the RAM gate (issue #124 review m11)",
+                        preferred_entry["id"], min_ram, ram_gb,
+                    )
+                return LocalBackend(provider="mlx", model=preferred_entry["id"])
+
+        for entry in catalog.entries(provider="mlx", status="active"):
+            capabilities = entry.get("capabilities") or {}
+            min_ram = capabilities.get("min_ram_gb")
+            if min_ram is not None and ram_gb is not None and ram_gb < min_ram:
+                continue
+            if _candidate_available(entry):
+                return LocalBackend(provider="mlx", model=entry["id"])
+
+        return None
+    except Exception:  # noqa: BLE001 - any MLX probe failure must degrade to None
+        logger.debug("detect_mlx_backend failed; degrading to None", exc_info=True)
+        return None
+
+
+def detect_any_local_backend(
+    *,
+    base_url: str = OLLAMA_BASE_URL,
+    preferred_ollama_model: str | None = None,
+    preferred_mlx_model: str | None = None,
+    provider_order: tuple | None = None,
+    hf_home: str | os.PathLike | None = None,
+    extra_mlx_dirs: tuple = (),
+    timeout_seconds: float = 2.0,
+) -> LocalBackend | None:
+    """Return the first available local backend in the given provider order.
+
+    PARAMETER-ONLY — this function performs NO file I/O and never reads
+    local-config.json (review m16 ruling); the bridge SKILL step reads the
+    config and passes everything in. Tries each provider in
+    ``provider_order`` and returns the first ``LocalBackend`` a detector
+    yields:
+      - ``"ollama"`` → ``detect_local_backend(base_url,
+        preferred_model=preferred_ollama_model, timeout_seconds=...)``
+      - ``"mlx"``    → ``detect_mlx_backend(preferred_model=preferred_mlx_model,
+        hf_home=..., extra_model_dirs=extra_mlx_dirs,
+        timeout_seconds=...)``
+
+    ``provider_order=None`` → ``("ollama", "mlx")`` (Ollama-first — locked
+    decision 5; Horizon 2 may flip this). Unknown provider names in the
+    order are skipped with a debug log. Returns None when no provider yields
+    a backend — the caller (``build_dispatch_payload``) then takes the
+    paperbanana/cloud ladder or, under ``local_only``, returns
+    ``local_only_blocked``.
+
+    Acceptance case (issue #124): Ollama down + mflux+weights present, default
+    order → ``detect_local_backend`` returns None, ``detect_mlx_backend``
+    returns an MLX backend → this returns the MLX backend.
+    """
+    order = provider_order if provider_order is not None else ("ollama", "mlx")
+    for provider in order:
+        if provider == "ollama":
+            backend = detect_local_backend(
+                base_url,
+                preferred_model=preferred_ollama_model,
+                timeout_seconds=timeout_seconds,
+            )
+        elif provider == "mlx":
+            backend = detect_mlx_backend(
+                preferred_model=preferred_mlx_model,
+                hf_home=hf_home,
+                extra_model_dirs=extra_mlx_dirs,
+                timeout_seconds=timeout_seconds,
+            )
+        else:
+            logger.debug(
+                "detect_any_local_backend: unknown provider %r skipped", provider
+            )
+            continue
+        if backend is not None:
+            return backend
+    return None
+
+
 _MIN_SOURCE_CONTEXT_NOTES_CHARS = 200
 
 
@@ -457,7 +807,7 @@ def build_dispatch_payload(
     if paperbanana_available is None:
         paperbanana_available = is_paperbanana_available()
     if local_backend is None:
-        local_backend = detect_local_backend()
+        local_backend = detect_any_local_backend()
     if local_only is None:
         local_only = bool(slide.get("local_only", False))
 
@@ -479,6 +829,29 @@ def build_dispatch_payload(
         default_iterations = (
             LOCAL_ONLY_ITERATIONS if local_only else LOCAL_LADDER_ITERATIONS
         )
+        local_args = {
+            "prompt": _build_local_prompt(source_context, caption),
+            "caption": caption,
+            "width": 1024,
+            "height": 576,
+            "iterations": int(slide.get("local_iterations", default_iterations)),
+        }
+        if local_backend.provider == "mlx":
+            # Review M4c: the bridge ALWAYS passes --steps for MLX renders —
+            # mflux silently defaults to 25 steps when --steps is omitted
+            # and --model is an HF repo id. All catalogued mlx/* entries
+            # carry capabilities.render_steps, so this key is always present.
+            try:
+                mlx_entry = _get_model_catalog().get(
+                    local_backend.model, follow_replacement=False
+                )
+                render_steps = (mlx_entry.get("capabilities") or {}).get(
+                    "render_steps"
+                )
+                if render_steps is not None:
+                    local_args["steps"] = render_steps
+            except _UnknownModelError:
+                pass
         return PaperbananaDispatch(
             available=paperbanana_available and not local_only,
             slide_number=slide_number,
@@ -494,13 +867,7 @@ def build_dispatch_payload(
             backend=local_backend.provider,
             local_provider=local_backend.provider,
             local_model=local_backend.model,
-            local_args={
-                "prompt": _build_local_prompt(source_context, caption),
-                "caption": caption,
-                "width": 1024,
-                "height": 576,
-                "iterations": int(slide.get("local_iterations", default_iterations)),
-            },
+            local_args=local_args,
             local_only=local_only,
         )
 
@@ -515,13 +882,7 @@ def build_dispatch_payload(
             output_dir=output_dir,
             backend="local_only_blocked",
             local_only=True,
-            fallback_reason=(
-                "local_only is set for this slide but no local image "
-                "backend was detected — Ollama unreachable or no "
-                "image-capable model pulled. Start Ollama (`ollama "
-                "serve`) or pull a model (`ollama pull x/flux2-klein`). "
-                "Cloud dispatch is FORBIDDEN for this slide."
-            ),
+            fallback_reason=_LOCAL_ONLY_BLOCKED_REASON,
         )
 
     if not paperbanana_available:
@@ -586,11 +947,12 @@ def build_manifest_entry(
             succeeded. ``None`` when generation failed / was skipped.
         error: short error string when ``dispatch_succeeded`` is False.
         backend_used: which route actually produced the image —
-            ``"ollama_local"`` (or ``"ollama"``), ``"paperbanana"``, or
-            ``"cloud_fallback"``. Needed when the bridge escalated past
-            the local draft after the operator gate. When None, derived
-            from the dispatch: its ``backend`` field, or (legacy direct
-            constructions with no ``backend``) from ``available``.
+            ``"ollama_local"`` / ``"mlx_local"`` (or ``"ollama"`` / ``"mlx"``),
+            ``"paperbanana"``, or ``"cloud_fallback"``. Needed when the
+            bridge escalated past the local draft after the operator gate.
+            When None, derived from the dispatch: its ``backend`` field, or
+            (legacy direct constructions with no ``backend``) from
+            ``available``.
 
     Returns:
         A dict shaped like other image-manifest entries:
@@ -644,7 +1006,7 @@ def build_manifest_entry(
         # Full args dict so iterate-slide can re-call with the same
         # semantic input via --continue-run + --feedback.
         entry["paperbanana_args"] = dict(dispatch.args)
-    elif backend_used == "ollama_local":
+    elif dispatch.local_provider and backend_used == f"{dispatch.local_provider}_local":
         entry["source_prompt"] = dispatch.local_args.get("prompt", "")
         entry["caption"] = dispatch.local_args.get("caption", "")
         entry["local_provider"] = dispatch.local_provider
