@@ -15,7 +15,13 @@
       "name": "jack-tar-cloud",
       "description": "Cloud AI image generation \u2014 OpenAI, Google, FAL.ai, Recraft with smart provider routing",
       "source": "./plugins/jack-tar-cloud",
-      "version": "1.4.0"
+      "version": "1.5.0"
+    },
+    {
+      "name": "jack-tar-mlx",
+      "description": "Local AI image generation on Apple Silicon via the mflux CLI (MLX) \u2014 server-less, operator-installed weights, flag-compatible with jack-tar-ollama",
+      "source": "./plugins/jack-tar-mlx",
+      "version": "0.1.0"
     },
     {
       "name": "jack-tar-msft-smartart",
@@ -33,7 +39,7 @@
       "name": "jack-tar-deckhand",
       "description": "Full presentation pipeline \u2014 brand, style, narrative, images, SmartArt, assembly, QA + academic-figure rendering (optional paperbanana CLI; local-first Ollama tier + local_only zero-spend mode, #119) + /iterate-slide single-slide critique-driven refinement + full_bleed image-is-the-slide strategy + creative vision renderer (#105) + creative_vision GA: per-slide cost surface, Creative Sprint phase, per-iteration operator gate, deck-level creative anchors (#113)",
       "source": "./plugins/jack-tar-deckhand",
-      "version": "1.7.0"
+      "version": "1.8.0"
     },
     {
       "name": "jack-tar-superpower-bridge",

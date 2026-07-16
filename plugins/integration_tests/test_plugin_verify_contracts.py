@@ -65,9 +65,16 @@ def test_deckhand_verify_mentions_engine_plugins():
     assert "jack-tar-custom-smartart" in content
 
 
+def test_mlx_verify_has_status_lines():
+    content = _read_skill("jack-tar-mlx")
+    assert "STATUS: FULLY_AVAILABLE" in content
+    assert "STATUS: NOT_AVAILABLE" in content
+    assert "PLUGIN: jack-tar-mlx" in content
+
+
 def test_all_plugins_have_plugin_json():
     for name in ["jack-tar-ollama", "jack-tar-cloud", "jack-tar-msft-smartart",
-                 "jack-tar-custom-smartart", "jack-tar-deckhand"]:
+                 "jack-tar-custom-smartart", "jack-tar-deckhand", "jack-tar-mlx"]:
         pj = PLUGINS_DIR / name / ".claude-plugin" / "plugin.json"
         assert pj.exists(), f"Missing plugin.json: {pj}"
 

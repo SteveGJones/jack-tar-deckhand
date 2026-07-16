@@ -67,6 +67,13 @@ def test_deckhand_root_discovered():
     assert (Path(root) / "src" / "deckcontext.py").exists()
 
 
+def test_mlx_root_discovered():
+    root = _discover_root("jack-tar-mlx")
+    assert root != "NOT_FOUND" and root != ""
+    assert (Path(root) / ".claude-plugin" / "plugin.json").exists()
+    assert (Path(root) / "src" / "generate_image.py").exists()
+
+
 def test_env_override_works():
     import os
     plugin = "jack-tar-deckhand"
