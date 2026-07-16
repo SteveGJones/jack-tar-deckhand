@@ -99,6 +99,8 @@
             "vector": {"type": "boolean", "description": "Produces vector (SVG) output."},
             "brand_hex_fidelity": {"type": "boolean", "description": "Renders exact specified hex colours (Recraft) vs approximating them."},
             "timeout_seconds": {"type": "integer", "minimum": 1, "description": "Recommended per-render timeout (local models)."},
+            "min_ram_gb": {"type": "number", "minimum": 1, "description": "Minimum physical RAM (GB) to load this local model — catalog-order detection skips models above the machine's RAM; an explicit operator preferred_model bypasses with a warning (issue #124)."},
+            "render_steps": {"type": "integer", "minimum": 1, "description": "Pipeline-validated inference steps the BRIDGE passes as --steps on every render (issue #124: the family-native sdk.default_steps is often too low for label fidelity — klein 4B needs 20 per the 2026-07-11 dogfood — and mflux silently defaults to 25 when --steps is omitted)."},
             "prompt_budget": {
               "type": "object",
               "additionalProperties": false,
@@ -180,13 +182,18 @@
             "api": {
               "type": "string",
               "minLength": 1,
-              "description": "Which API surface serves this model: generate_content (Nano Banana), generate_images (Imagen), openai_images, fal_subscribe, recraft_rest, ollama_generate, ..."
+              "description": "Which API surface serves this model: generate_content (Nano Banana), generate_images (Imagen), openai_images, fal_subscribe, recraft_rest, ollama_generate, mflux_cli, ..."
             },
             "config_field": {
               "type": "string",
               "description": "SDK config field carrying the resolution (google-genai ImageConfig: 'image_size' — verified present on SDK 2.11.0, issue #121)."
             },
-            "endpoint": {"type": "string", "description": "Endpoint path/id where it differs from the model id."}
+            "endpoint": {"type": "string", "description": "Endpoint path/id where it differs from the model id."},
+            "entrypoint": {"type": "string", "minLength": 1, "description": "CLI entry point for CLI-dispatched local providers (mflux: 'mflux-generate-flux2' etc.)."},
+            "hf_repo": {"type": "string", "minLength": 1, "description": "Hugging Face repo id the wrapper loads and detection checks for a complete snapshot (mlx/mflux). Prefer an ungated pre-quantized export (repo name contains '-mflux-')."},
+            "hf_repo_fallback": {"type": "string", "minLength": 1, "description": "Alternate HF repo id (typically the full-precision base) accepted when the primary is not cached. Loaded with on-load --quantize per sdk.quantize."},
+            "default_steps": {"type": "integer", "minimum": 1, "description": "FAMILY-NATIVE default inference steps — the wrapper's fallback when --steps is somehow absent. The pipeline value the bridge passes is capabilities.render_steps, not this."},
+            "quantize": {"type": ["integer", "null"], "minimum": 3, "maximum": 8, "description": "mflux on-load quantization bits, applied ONLY when the resolved repo is full-precision (repo name lacks '-mflux-'). Pre-quantized repos are loaded as-is. Documented mflux values: 3, 4, 5, 6, 8 — kept as an open integer range, not a closed enum, pending verification of the pinned mflux version's parser (review m18). null = never quantize."}
           }
         },
         "notes": {"type": "string", "description": "Provenance, verification context, decision history."}

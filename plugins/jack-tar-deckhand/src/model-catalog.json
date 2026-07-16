@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.0.0",
+  "catalog_version": "1.1.0",
   "min_loader_version": 1,
   "updated": "2026-07-15",
   "role_defaults": {
@@ -365,6 +365,102 @@
       "capabilities": {},
       "sdk": {"api": "generate_content"},
       "notes": "Retired upstream — 404 NOT_FOUND 'This model is no longer available' (verified 2026-07-15, issue #123)."
+    },
+    {
+      "id": "mlx/flux2-klein-4b",
+      "provider": "mlx",
+      "aliases": ["flux2-klein-4b-mflux"],
+      "status": "active",
+      "replacement": null,
+      "roles": ["image_gen", "local_draft"],
+      "quirks": [],
+      "capabilities": {
+        "resolutions": ["1K"],
+        "text_rendering": "good",
+        "timeout_seconds": 300,
+        "min_ram_gb": 16,
+        "render_steps": 20,
+        "prompt_budget": {"max_words": 200, "style": "detailed_spatial"}
+      },
+      "pricing": {
+        "currency": "USD",
+        "verified": "2026-07-15",
+        "estimate": false,
+        "flat": 0.0
+      },
+      "sdk": {
+        "api": "mflux_cli",
+        "entrypoint": "mflux-generate-flux2",
+        "hf_repo": "Runpod/FLUX.2-klein-4B-mflux-4bit",
+        "hf_repo_fallback": "black-forest-labs/FLUX.2-klein-4B",
+        "default_steps": 4,
+        "quantize": 4
+      },
+      "notes": "FLUX.2 Klein 4B via mflux. Primary: pre-quantized 4-bit community export (4.3 GB, fast cold-load, requires mflux >= 0.16; licence CONFIRMED apache-2.0 via HF model card metadata, issue #124 OQ-A — same terms as the base model, no relicensing). Fallback: black-forest-labs/FLUX.2-klein-4B (Apache 2.0, ~13 GB, quantized 4-bit on load). default_steps 4 is the family-native distilled value; render_steps 20 is what the pipeline passes — the 2026-07-11 dogfood showed 4B reaches Klein-9b grade at 20 steps + annotation pattern. MLX default draft model. Horizon-2 gate: Phase 5 dogfood must beat/match the Ollama Klein-9b 8/9 baseline before promotion into role_defaults.local_draft."
+    },
+    {
+      "id": "mlx/z-image-turbo",
+      "provider": "mlx",
+      "aliases": ["z-image-turbo-mflux"],
+      "status": "active",
+      "replacement": null,
+      "roles": ["image_gen", "local_draft"],
+      "quirks": [],
+      "capabilities": {
+        "resolutions": ["1K"],
+        "text_rendering": "fair",
+        "timeout_seconds": 180,
+        "min_ram_gb": 16,
+        "render_steps": 9,
+        "prompt_budget": {"max_words": 50, "style": "concise_camera"}
+      },
+      "pricing": {
+        "currency": "USD",
+        "verified": "2026-07-15",
+        "estimate": false,
+        "flat": 0.0
+      },
+      "sdk": {
+        "api": "mflux_cli",
+        "entrypoint": "mflux-generate-z-image-turbo",
+        "hf_repo": "filipstrand/Z-Image-Turbo-mflux-4bit",
+        "hf_repo_fallback": "Tongyi-MAI/Z-Image-Turbo",
+        "default_steps": 9,
+        "quantize": 4
+      },
+      "notes": "Z-Image-Turbo via mflux, requires mflux >= 0.13. LICENCE NOTE (issue #124 review M6, CONFIRMED via HF model card metadata): the pre-quantized primary repo filipstrand/Z-Image-Turbo-mflux-4bit is licensed 'tongyi-qianwen-license' (license:other tag), NOT Apache 2.0 — the derivative repo's licence governs the download. Operators needing pure Apache 2.0 should pull the fallback Tongyi-MAI/Z-Image-Turbo (Apache 2.0, confirmed via HF model card, full precision, quantized 4-bit on load) instead. 9-step distilled (render_steps == default_steps). timeout_seconds 180 is a conservative placeholder — Mac wall-clock unpublished; Phase 5 measures (proposal risk 2)."
+    },
+    {
+      "id": "mlx/qwen-image",
+      "provider": "mlx",
+      "aliases": ["qwen-image-mflux"],
+      "status": "active",
+      "replacement": null,
+      "roles": ["image_gen", "local_draft"],
+      "quirks": [],
+      "capabilities": {
+        "resolutions": ["1K"],
+        "text_rendering": "excellent",
+        "timeout_seconds": 900,
+        "min_ram_gb": 24,
+        "render_steps": 20,
+        "prompt_budget": {"max_words": 120, "style": "detailed_spatial"}
+      },
+      "pricing": {
+        "currency": "USD",
+        "verified": "2026-07-15",
+        "estimate": false,
+        "flat": 0.0
+      },
+      "sdk": {
+        "api": "mflux_cli",
+        "entrypoint": "mflux-generate-qwen",
+        "hf_repo": "filipstrand/Qwen-Image-mflux-6bit",
+        "hf_repo_fallback": "Qwen/Qwen-Image",
+        "default_steps": 20,
+        "quantize": 6
+      },
+      "notes": "Qwen-Image via mflux, requires mflux >= 0.11. LICENCE NOTE (issue #124 OQ-A, CORRECTED from the original design assumption after HF model card verification): the pre-quantized primary repo filipstrand/Qwen-Image-mflux-6bit is licensed 'tongyi-qianwen-license' (license:other tag) — NOT Apache 2.0, despite the base Qwen/Qwen-Image being Apache 2.0. This is the same derivative-relicensing pattern already documented for mlx/z-image-turbo (review M6: the derivative repo's licence governs, not the base's). Operators needing pure Apache 2.0 should pull the fallback Qwen/Qwen-Image (Apache 2.0, confirmed via HF model card, ~40 GB download — called out in the install guide) instead, quantized 6-bit on load; the on-load path needs materially more RAM/disk than the primary. min_ram_gb 24 sized for the 6-bit primary (review OQ-2 ruling). Strongest open-weights in-image text renderer; the challenger most likely to beat the Klein-9b label-fidelity baseline. default_steps 20 confirmed as the family default (review OQ-2). timeout_seconds 900 remains a placeholder pending Phase 5 (§10 OQ-B)."
     }
   ]
 }
