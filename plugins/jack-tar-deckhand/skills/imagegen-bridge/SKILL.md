@@ -203,13 +203,18 @@ import json; print(json.dumps(result, indent=2))
 
 For slides whose strategy is `academic_figure` (set by the strategy
 classifier — see `src/strategy_classifier.py`), the bridge renders a
-**free local draft via Ollama first** whenever a local image model is
-detected (`x/flux2-klein`, `x/z-image-turbo`), then holds at the F10
-operator gate before any paid tier. Paid escalation goes to the
-**paperbanana CLI via subprocess** when paperbanana is installed, and
-falls back to a cloud render with academic-figure-aware prompting when
-it is not. With no local model, the ladder starts at paperbanana/cloud
-exactly as before.
+**free local draft first** whenever a local image backend is
+detected, then holds at the F10 operator gate before any paid tier.
+Two local providers are checked, composed via
+`detect_any_local_backend` (issue #124): **Ollama**
+(`x/flux2-klein`, `x/z-image-turbo`) and, on Apple Silicon with mflux
+installed, **MLX** (`mlx/flux2-klein-4b`, `mlx/z-image-turbo`,
+`mlx/qwen-image` — via the sibling `jack-tar-mlx` plugin). Paid
+escalation goes to the **paperbanana CLI via subprocess** when
+paperbanana is installed, and falls back to a cloud render with
+academic-figure-aware prompting when it is not. With no local backend
+available at all, the ladder starts at paperbanana/cloud exactly as
+before.
 
 Paperbanana is treated as an external CLI tool (sibling orchestrator),
 not a Claude Code plugin or a cross-skill dispatch target. See
@@ -225,37 +230,53 @@ the availability check inline.
 ```bash
 PYTHONPATH="$PLUGIN_ROOT" python3 -c "
 import json
-from src.paperbanana_dispatch import build_dispatch_payload
+from src.paperbanana_dispatch import build_dispatch_payload, detect_any_local_backend
 
 with open('./tmp/deck/outline.json') as f:
     outline = json.load(f)
 
 slide = next(s for s in outline['slides'] if s['slide_number'] == $SLIDE_NUMBER)
 
-# Honour the operator's model override from local-config.json when present.
-preferred = None
+# Read local-config.json ONCE here — detect_any_local_backend is
+# parameter-only (review m16) and does no file I/O itself; the bridge
+# step owns reading the config and passing everything in.
+cfg = {}
 try:
     with open('local-config.json') as f:
-        preferred = json.load(f).get('ollama', {}).get('academic_figure_model')
+        cfg = json.load(f)
 except FileNotFoundError:
     pass
+ollama_cfg = cfg.get('ollama', {})
+mlx_cfg = cfg.get('mlx', {})
 
-from src.paperbanana_dispatch import detect_local_backend
-# local_only: slide-level key wins; otherwise the machine-wide config
-# value (ollama.academic_figure_local_only) applies.
-machine_local_only = False
-try:
-    with open('local-config.json') as f:
-        machine_local_only = bool(
-            json.load(f).get('ollama', {}).get('academic_figure_local_only', False)
-        )
-except FileNotFoundError:
-    pass
+# Composed local probe (issue #124): tries each provider in
+# local_provider_order (default 'ollama' then 'mlx' when the key is
+# absent) and returns the first available LocalBackend.
+backend = detect_any_local_backend(
+    preferred_ollama_model=ollama_cfg.get('academic_figure_model'),
+    preferred_mlx_model=mlx_cfg.get('academic_figure_model'),
+    provider_order=tuple(cfg['local_provider_order'])
+        if 'local_provider_order' in cfg else None,
+    extra_mlx_dirs=tuple(mlx_cfg.get('models', ())),
+)
+
+# local_only precedence (review m10): the slide-level key wins
+# outright; otherwise the top-level academic_figure_local_only key,
+# WHEN PRESENT, wins outright over BOTH legacy provider-namespaced
+# keys — those two sit uniformly below it (neither ollama.* nor mlx.*
+# is preferred over the other).
+if 'academic_figure_local_only' in cfg:
+    machine_local_only = bool(cfg['academic_figure_local_only'])
+else:
+    machine_local_only = bool(
+        ollama_cfg.get('academic_figure_local_only', False)
+        or mlx_cfg.get('academic_figure_local_only', False)
+    )
 
 dispatch = build_dispatch_payload(
     slide,
     output_dir='./tmp/deck/images',
-    local_backend=detect_local_backend(preferred_model=preferred),
+    local_backend=backend,
     local_only=bool(slide.get('local_only', machine_local_only)),
 )
 print(json.dumps({
@@ -275,7 +296,7 @@ print(json.dumps({
 "
 ```
 
-2. **If `dispatch.backend` is `"ollama"`** — render the free local
+2a. **If `dispatch.backend` is `"ollama"`** — render the free local
    draft first. `local_args` carries the composed academic-figure
    prompt and dimensions; `local_model` is the exact installed tag
    (never hardcode one):
@@ -361,6 +382,95 @@ print(json.dumps(entry))
    pass `backend_used='paperbanana'` / `backend_used='cloud_fallback'`
    to `build_manifest_entry` so the manifest records the tier that
    actually produced the accepted image.
+
+2b. **If `dispatch.backend` is `"mlx"`** — same free local-draft tier
+   as 2a, routed to mflux via the sibling `jack-tar-mlx` plugin
+   instead of Ollama (issue #124: MLX is jack-tar's second $0 local
+   provider, Apple-Silicon-only, selected by `detect_any_local_backend`
+   whenever Ollama isn't up or `local_provider_order` prefers it).
+   `local_args` carries the same `{prompt, caption, width, height,
+   iterations}` contract as the ollama branch, PLUS a `steps` key
+   (`local_args.steps` — the catalog's `capabilities.render_steps` for
+   the detected `mlx/*` model; `build_dispatch_payload` always
+   populates this for MLX dispatches so the wrapper is never left to
+   mflux's own silent 25-step default):
+
+```bash
+MLX_PLUGIN_ROOT=$(dirname "$PLUGIN_ROOT")/jack-tar-mlx
+LOCAL_PROMPT=$(echo "$DISPATCH_JSON" | jq -r '.local_args.prompt')
+LOCAL_MODEL=$(echo "$DISPATCH_JSON" | jq -r '.local_model')
+LOCAL_STEPS=$(echo "$DISPATCH_JSON" | jq -r '.local_args.steps')
+OUT_PNG=$(echo "$DISPATCH_JSON" | jq -r '.output_dir')/slide-$(printf '%02d' $SLIDE_NUMBER)-academic-figure-mlx.png
+
+# Operator on-load quantize override (local-config.json -> mlx.quantize,
+# review m9). Left empty when unset so the wrapper falls back to its
+# own registry default for the detected model.
+MLX_Q=$(python3 -c "import json;print(json.load(open('local-config.json')).get('mlx',{}).get('quantize',''))" 2>/dev/null)
+
+python3 "$MLX_PLUGIN_ROOT/src/generate_image.py" \
+  --prompt "$LOCAL_PROMPT" \
+  --model "$LOCAL_MODEL" \
+  --steps "$LOCAL_STEPS" \
+  ${MLX_Q:+--quantize "$MLX_Q"} \
+  --width $(echo "$DISPATCH_JSON" | jq -r '.local_args.width') \
+  --height $(echo "$DISPATCH_JSON" | jq -r '.local_args.height') \
+  --output "$OUT_PNG" 2> >(tee /tmp/mlx-render-stderr.log >&2)
+
+# review m19: the wrapper reports the actually-loaded repo on stderr
+# (it may fall back to sdk.hf_repo_fallback when the primary HF-cache
+# snapshot is incomplete) — capture it so manifest model fidelity
+# survives the fallback.
+REPO_USED=$(grep -o 'MFLUX_REPO_USED=.*' /tmp/mlx-render-stderr.log | cut -d= -f2)
+```
+
+   Stash `REPO_USED` into `local_args['hf_repo_used']` before calling
+   `build_manifest_entry` (same process as the payload build, or a
+   follow-up `python3 -c` block) so the manifest's `local_args` records
+   the exact repo the render used, not just the requested catalog id:
+
+```python
+local_args = dict(dispatch.local_args)
+local_args['hf_repo_used'] = "$REPO_USED"
+# dispatch.local_args is what build_manifest_entry reads (§2.5 of the
+# design doc) — replace it with the enriched dict before that call.
+```
+
+   Then dispatch the `image-reviewer` agent on `$OUT_PNG` and run the
+   **same free critique loop** described in step 2a — the 2026-07-11
+   Ollama model-comparison budget (`dispatch.local_args.iterations`: 3
+   ladder / 5 local_only), the F11 simplified-label rebuild on
+   text-corruption-or-structure-drift verdicts, and the plateau stop
+   rule all apply unchanged to MLX renders.
+
+   **local_only mode** is IDENTICAL to the ollama branch: no paid tiers
+   exist for this slide; exhausting the budget surfaces best-so-far at
+   the operator gate with **accept** / **loop again** / **hand-edit**
+   only, never paperbanana/cloud. A `backend: "local_only_blocked"`
+   dispatch means BOTH local providers were probed and neither is up —
+   surface `fallback_reason` (which now names both providers' pull
+   commands, issue #124 §2.6) and mark the slide skipped.
+
+   In **ladder mode**, apply the **F10 operator gate** on the best
+   render — this is a free→cost boundary, so the gate is MANDATORY
+   here exactly as it is in the ollama branch (see CLAUDE.md root).
+   This is the free local tier — F10/F12 gate semantics are IDENTICAL
+   to the ollama branch; MLX is a $0 tier, never a paid escalation:
+
+   1. Open the draft for the operator (`open "$OUT_PNG"` on macOS).
+   2. State the prospective paid escalation and its cost: paperbanana
+      (~$0.14, when `dispatch.available` is true) or Nano Banana Flash
+      1K ($0.067, `fallback_model`).
+   3. WAIT for explicit operator go-ahead before ANY paid render. The
+      image-reviewer's verdict is advisory — it does not authorise
+      spend.
+
+   If the operator **accepts the local draft**, write the manifest
+   entry exactly as in step 2a — `backend_used` defaults to the
+   dispatch's own backend → `mlx_local`, and the generalized `:647`
+   guard means the `source_prompt`/`caption`/`local_provider`/
+   `local_args` enrichment happens automatically for MLX too. If the
+   operator **escalates**, continue to step 3 (paperbanana) or step 4
+   (cloud fallback) exactly as in step 2a.
 
 3. **If `dispatch.available` is true** (and there was no local draft,
    or the operator escalated past it) — dispatch paperbanana via
@@ -463,6 +573,18 @@ print(json.dumps(entry))
    to call `paperbanana generate --continue-run <id> --feedback "..."`
    for cheap critique-driven refinement (~$0.07 per refinement vs
    ~$0.14 for a full 2-iteration re-run from scratch).
+
+#### `local-config.json` keys for academic_figure (issue #124)
+
+| Key | Type | Meaning | Precedence |
+|---|---|---|---|
+| `local_provider_order` | array | provider order passed to `detect_any_local_backend`; default `["ollama", "mlx"]` (Ollama-first) when the key is absent | this key > built-in default |
+| `mlx.academic_figure_model` | string (catalog id, e.g. `mlx/qwen-image`) | preferred MLX model; bypasses the RAM gate with a logged warning (review m11) | catalog auto-selection order falls back to this when set |
+| `mlx.models` | array of paths | extra `mflux-save` local weight dirs treated as available, additive to the HF-cache scan | additive |
+| `mlx.quantize` | int 3–8 | override the wrapper's on-load `--quantize` bits (m9) | passed to the wrapper's `--quantize`; empty ⇒ wrapper's own registry default for the model |
+| `academic_figure_local_only` | bool | provider-agnostic paid-tier opt-out for the whole machine | `slide.local_only` > **this top-level key, WHEN PRESENT, wins outright** > either legacy `<provider>.academic_figure_local_only` key below, which sit UNIFORMLY under it (m10 — neither legacy key is preferred over the other) |
+| `ollama.academic_figure_model` | string | preferred Ollama model (unchanged, back-compat) | catalog auto-selection order falls back to this when set |
+| `ollama.academic_figure_local_only` | bool | legacy per-provider opt-out (unchanged, back-compat) | see `academic_figure_local_only` row above |
 
 > Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly.
 > If you need to verify an image, dispatch the
