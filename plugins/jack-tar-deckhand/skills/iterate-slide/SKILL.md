@@ -217,6 +217,56 @@ fi
 
 `auto` mode default-skips this step (paperbanana's Critic already evaluates). Operator can `--review` it explicitly.
 
+## Step 7.5: Annotation refresh guard (annotate-figure v2 native slides, F4)
+
+**Runs whenever Step 7 accepted a replacement image, regardless of mode.** Before the manifest is updated (Step 8), check whether this slide is contracted `annotation_mode: native` in `strategy-map.json`. If so, the anchor pass + `build_annotation_payload` rewrite is **mandatory** before reassembly — the prior payload's `base_image_hash` no longer matches the new image, and both the assembler's hash-gate and QA's AN-01 will refuse a stale overlay (design doc §6.3, F4).
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.slide_prompt_composer import load_strategy_map
+from src.iterate_slide_dispatch import (
+    find_strategy_map_entry, annotation_refresh_required, annotation_refresh_notice,
+)
+
+strategy_map = load_strategy_map('$DECK_DIR')
+slide_entry = find_strategy_map_entry(strategy_map, $SLIDE_NUMBER)
+
+if annotation_refresh_required(slide_entry):
+    print(json.dumps(annotation_refresh_notice($SLIDE_NUMBER), indent=2))
+else:
+    print(json.dumps({'annotation_refresh_required': False}))
+"
+```
+
+If `annotation_refresh_required` is `false` — the slide has no strategy-map entry, or its `annotation_mode` is `none`/`raster`/absent — skip straight to Step 8; there is nothing to refresh (raster annotations are baked into the pixels at generation time, not tracked by a separate payload).
+
+If `annotation_refresh_required` is `true`, print the `instructions` field to the operator and, before proceeding to Step 8:
+
+1. Re-run the anchor pass against `$PB_NEW_FILE` (the new base image) — dispatch `image-reviewer` / `general-purpose` with the annotate-figure vision-anchor contract, exactly as the imagegen-bridge native sub-step does (imagegen-bridge SKILL.md §4.8, step 2).
+2. On a valid anchor result, rebuild the payload:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+from src.annotation_payload import build_annotation_payload, write_annotation_payload
+
+payload = build_annotation_payload(
+    slide_number=$SLIDE_NUMBER,
+    source='generated',
+    base_image_path='$PB_NEW_FILE',
+    image_dimensions=None,
+    placement_zone='$PLACEMENT_ZONE',   # from the manifest entry
+    anchors=$ANCHORS_JSON,              # validated {label: [x, y]} from the anchor pass
+)
+path = write_annotation_payload('$DECK_DIR', $SLIDE_NUMBER, payload)
+print(path)
+"
+```
+
+3. **On anchor-pass failure — including a failed re-dispatch — apply the F5 three-way operator choice** (same vocabulary as the imagegen-bridge sub-step, `annotation_refresh_notice`'s `downgrade_choices`): **(a) retry** the anchor pass fresh (optionally at Sonnet tier); **(b) raster_with_manual_anchors** — the operator supplies `{label: [x, y]}` by hand and the v1 `annotate()` flow bakes them into a fresh raster image, replacing this native slide's flow entirely; **(c) ship_unlabeled** — the new base image goes in as a plain figure and no payload is written for it. Whichever choice is taken, record `status: accepted_with_issues` (minimum) on the Step 8 manifest update and note the anchor-pass failure in the operator-facing summary (Step 10).
+
+**Never proceed to Step 8/reassembly with a stale or absent payload for a native-annotated slide bound to a just-replaced image.** The hash-gate makes a skipped refresh fail *safe* (the overlay is refused); this step is what makes it fail *correct* (anchors match the shipped image).
+
 ## Step 8: Update manifest entry
 
 ```bash
@@ -318,6 +368,7 @@ Next:
 - **`paperbanana_run_id` must be present** in the manifest entry for this skill to apply. The dispatch refactor (issue #94) ensures this is written for every academic_figure slide.
 - **Auto-mode regret:** `--auto` can produce a figure that's qualitatively different from what the operator wanted (the dogfood F10 finding). When the operator's feedback names specific items to add, `--mode enumerate` is the right choice; `--mode auto` is for "make it look better" feedback.
 - **Cost discipline:** check the cost ledger after a refinement. If cumulative-spend is approaching the deck's budget envelope, escalate to the operator before launching another refinement.
+- **Annotate-figure v2 native slides (F4, §6.3):** Step 7.5 is not optional for `annotation_mode: native` slides — a refined image without a refreshed annotations payload will be refused by the assembler's hash-gate and flagged `error` by deck-qa's AN-01. Always run the guard check before Step 8.
 
 ## Creative vision feedback (#105)
 
