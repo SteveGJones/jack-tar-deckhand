@@ -25,11 +25,63 @@ from .checks import (
     ANIMATION_CHECKS,
     COLOUR_CHECKS,
     KEYNOTE_CHECKS,
+    check_annotation_contract,
+    check_label_text_verbatim,
+    check_labels_within_bounds,
     check_slide_count_ratio,
     check_contrast,
 )
 from .config import QA_CONFIG
 from .report import generate_report
+
+# Note: ANNOTATION_CHECKS (checks/__init__.py) registers AN-01/02/03 for
+# discoverability/enumeration. run_qa calls each function explicitly below
+# rather than looping the list — their signatures differ (the contract
+# check needs the image-manifest entry for its hash gate, the bounds check
+# needs the Presentation for slide dimensions) — the same pattern the
+# SmartArt checks use in Step 1c further down.
+
+
+def _load_slide_strategy_entries(deck_dir):
+    """Load the strategy-map's per-slide entries, keyed by slide_number.
+
+    Retains the FULL entry dict (not just the resolved strategy string) so
+    routing branches — e.g. run_qa's native-annotation branch — can read
+    additional per-slide keys such as ``annotation_mode`` without a second
+    file parse (design doc §7, F3b). Returns {} when strategy-map.json is
+    absent.
+    """
+    strategy_map_path = os.path.join(deck_dir, 'strategy-map.json')
+    entries = {}
+    if os.path.exists(strategy_map_path):
+        with open(strategy_map_path) as f:
+            strategy_map = json.load(f)
+        for entry in strategy_map.get('slides', []):
+            entries[entry['slide_number']] = entry
+    return entries
+
+
+def _load_annotation_payload(deck_dir, image_entry):
+    """Load the SlideAnnotations payload referenced by an image-manifest
+    entry's ``annotations_path`` (design doc §7/§2.1).
+
+    Returns None when the manifest entry, the ``annotations_path`` field,
+    or the file itself is absent/unreadable — the AN-01 signal for a
+    dropped annotation contract (F3c).
+    """
+    if not image_entry:
+        return None
+    rel_path = image_entry.get('annotations_path')
+    if not rel_path:
+        return None
+    path = rel_path if os.path.isabs(rel_path) else os.path.join(deck_dir, rel_path)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None):
@@ -38,14 +90,11 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
     prs = Presentation(pptx_path)
     findings = []
 
-    # Load strategy map (optional — absent means all slides are 'composed')
+    # Load strategy map (optional — absent means all slides are 'composed').
+    # Retains FULL per-slide entry dicts, not just the resolved strategy
+    # string (design doc §7, F3b) — see _load_slide_strategy_entries.
     strategy_map_path = os.path.join(deck_dir, 'strategy-map.json')
-    slide_strategies = {}
-    if os.path.exists(strategy_map_path):
-        with open(strategy_map_path) as f:
-            strategy_map = json.load(f)
-        for entry in strategy_map.get('slides', []):
-            slide_strategies[entry['slide_number']] = entry.get('speaker_override') or entry['strategy']
+    slide_strategy_entries = _load_slide_strategy_entries(deck_dir)
 
     # Load brand palette for palette drift checks
     brand_palette = []
@@ -56,12 +105,55 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
         palette = bp.get('palette', {})
         brand_palette = [v for v in palette.values() if isinstance(v, str) and len(v) == 6]
 
+    # Load image manifest once — reused by the native-annotation branch's
+    # hash gate (below) and by the element-layout / SmartArt checks further
+    # down (Step 1b/1c), which used to load it again with a second parse.
+    im_path = os.path.join(deck_dir, 'image-manifest.json')
+    im_data = {}
+    if os.path.exists(im_path):
+        with open(im_path) as f:
+            im_data = json.load(f)
+    image_manifest_by_slide = {
+        img['slide_number']: img
+        for img in im_data.get('images', [])
+        if img.get('slide_number')
+    }
+
     # Step 1: Per-slide checks (strategy-aware)
     for i, slide in enumerate(prs.slides):
         slide_number = i + 1
-        strategy = slide_strategies.get(slide_number, 'composed')
+        entry = slide_strategy_entries.get(slide_number, {})
+        strategy = entry.get('speaker_override') or entry.get('strategy', 'composed')
+        annotation_mode = entry.get('annotation_mode', 'none')
 
-        if strategy == 'full_render':
+        if annotation_mode == 'native':
+            # Dedicated native-annotation route (design doc §7, F3a/F3b):
+            # image-quality + keynote + AN-01/02/03 checks, with structural
+            # checks exempting annotation_*-named overlay shapes so a
+            # deliberately small/positioned label doesn't trip checks meant
+            # for body content. Takes priority over the strategy-based
+            # branches below — annotation_mode is orthogonal to the slide's
+            # base strategy (full_bleed/full_render/background/backdrop/
+            # composed/academic_figure can all carry native annotation).
+            for check_fn in IMAGE_QUALITY_CHECKS:
+                findings.extend(check_fn(slide, slide_number, prs, config=cfg))
+            for check_fn in KEYNOTE_CHECKS:
+                findings.extend(check_fn(slide, slide_number, brand_palette=brand_palette, config=cfg))
+
+            annotation_exempt_cfg = dict(cfg)
+            annotation_exempt_cfg['exempt_shape_name_prefixes'] = ['annotation_']
+            for check_fn in STRUCTURAL_CHECKS:
+                findings.extend(check_fn(slide, slide_number, config=annotation_exempt_cfg))
+            for check_fn in STRUCTURAL_CHECKS_WITH_PRESENTATION:
+                findings.extend(check_fn(slide, slide_number, prs, config=annotation_exempt_cfg))
+
+            image_entry = image_manifest_by_slide.get(slide_number)
+            payload = _load_annotation_payload(deck_dir, image_entry)
+            findings.extend(check_annotation_contract(
+                slide, slide_number, payload, image_entry=image_entry, config=cfg))
+            findings.extend(check_label_text_verbatim(slide, slide_number, payload, config=cfg))
+            findings.extend(check_labels_within_bounds(slide, slide_number, prs, config=cfg))
+        elif strategy == 'full_render':
             # Full render: skip text checks, run image + keynote checks
             for check_fn in IMAGE_QUALITY_CHECKS:
                 findings.extend(check_fn(slide, slide_number, prs, config=cfg))
@@ -111,17 +203,12 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
         check_element_image_completeness,
     )
 
-    # Load image manifest for alignment checks
-    im_path = os.path.join(deck_dir, 'image-manifest.json')
-    im_data = {}
-    if os.path.exists(im_path):
-        with open(im_path) as f:
-            im_data = json.load(f)
-    images_by_slide = {}
-    for img in im_data.get('images', []):
-        sn = img.get('slide_number')
-        if sn and img.get('detected_positions'):
-            images_by_slide[sn] = img
+    # Element layout checks reuse the image manifest already loaded above
+    # (image_manifest_by_slide), filtered to entries carrying detected_positions.
+    images_by_slide = {
+        sn: img for sn, img in image_manifest_by_slide.items()
+        if img.get('detected_positions')
+    }
 
     if os.path.exists(strategy_map_path):
         with open(strategy_map_path) as f:

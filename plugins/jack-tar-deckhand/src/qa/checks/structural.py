@@ -37,6 +37,23 @@ CTA_KEYWORDS = [
 ]
 
 
+def _is_exempt_shape(shape, cfg):
+    """True if shape.name starts with a config-listed exempt prefix.
+
+    Used by run_qa's native-annotation routing branch (design doc §7,
+    F3a) to exempt ``annotation_*``-named overlay shapes (labels,
+    leaders, dots, casing) from structural checks that were designed for
+    body content, not deliberately small/positioned annotation label
+    boxes. Exempt list is config-driven (``exempt_shape_name_prefixes``)
+    and empty by default, so existing callers are unaffected.
+    """
+    prefixes = (cfg or {}).get('exempt_shape_name_prefixes') or ()
+    if not prefixes:
+        return False
+    name = getattr(shape, 'name', '') or ''
+    return any(name.startswith(p) for p in prefixes)
+
+
 def check_wall_of_text(slide, slide_number, config=None):
     """AP-01: Check for excessive word counts per text box and per slide."""
     cfg = config or QA_CONFIG
@@ -45,6 +62,8 @@ def check_wall_of_text(slide, slide_number, config=None):
     issues = []
     slide_word_count = 0
     for shape in slide.shapes:
+        if _is_exempt_shape(shape, cfg):
+            continue
         if shape.has_text_frame:
             text = shape.text_frame.text.strip()
             word_count = len(text.split()) if text else 0
@@ -79,6 +98,8 @@ def check_font_size(slide, slide_number, config=None):
     min_title = cfg['min_font_size_title_pt']
     issues = []
     for shape in slide.shapes:
+        if _is_exempt_shape(shape, cfg):
+            continue
         if shape.has_text_frame:
             try:
                 is_title = (shape.placeholder_format is not None and
@@ -109,6 +130,8 @@ def check_orphan_widow(slide, slide_number, config=None):
     min_chars = cfg.get('min_last_line_chars', 15)
     issues = []
     for shape in slide.shapes:
+        if _is_exempt_shape(shape, cfg):
+            continue
         if shape.has_text_frame:
             for para in shape.text_frame.paragraphs:
                 text = para.text.strip()
@@ -143,6 +166,8 @@ def check_safe_margins(slide, slide_number, presentation, config=None):
 
     issues = []
     for shape in slide.shapes:
+        if _is_exempt_shape(shape, cfg):
+            continue
         if not shape.has_text_frame or not shape.text_frame.text.strip():
             continue
         if (shape.left < margin_left or
@@ -224,8 +249,11 @@ def check_slide_count_ratio(presentation, duration_minutes=None, config=None):
 
 def check_placeholder_residue(slide, slide_number, config=None):
     """AP-11: Check for leftover placeholder text."""
+    cfg = config or QA_CONFIG
     issues = []
     for shape in slide.shapes:
+        if _is_exempt_shape(shape, cfg):
+            continue
         if shape.has_text_frame:
             text = shape.text_frame.text.strip()
             if not text:
@@ -251,6 +279,8 @@ def check_bullet_count(slide, slide_number, config=None):
     max_bullets = cfg['max_bullets_per_slide']
     issues = []
     for shape in slide.shapes:
+        if _is_exempt_shape(shape, cfg):
+            continue
         if shape.has_text_frame:
             bullet_count = 0
             for para in shape.text_frame.paragraphs:
@@ -339,6 +369,8 @@ def check_text_overflow(slide, slide_number, config=None):
     min_scale = cfg.get('min_autofit_scale_pct', 90)
     issues = []
     for shape in slide.shapes:
+        if _is_exempt_shape(shape, cfg):
+            continue
         if shape.has_text_frame:
             tf_xml = shape.text_frame._txBody
             bodyPr = tf_xml.find('.//a:bodyPr', NSMAP)
@@ -396,6 +428,8 @@ def check_element_overlap(slide, slide_number, config=None):
     min_overlap_pct = cfg['min_overlap_pct']
     shapes_with_content = []
     for shape in slide.shapes:
+        if _is_exempt_shape(shape, cfg):
+            continue
         if shape.has_text_frame and shape.text_frame.text.strip():
             shapes_with_content.append({
                 'name': shape.name,

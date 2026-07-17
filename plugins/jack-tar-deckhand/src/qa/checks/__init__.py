@@ -42,6 +42,11 @@ from .image_quality import (
 from .animations import check_excessive_animations
 from .chart_quality import check_chart_junk
 from .keynote_checks import check_palette_drift
+from .annotation_checks import (
+    check_annotation_contract,
+    check_label_text_verbatim,
+    check_labels_within_bounds,
+)
 
 # Per-slide structural checks (fast path)
 STRUCTURAL_CHECKS = [
@@ -102,4 +107,17 @@ COLOUR_CHECKS = [
 # Per-slide keynote checks (applied only to full_render/backdrop_render slides)
 KEYNOTE_CHECKS = [
     check_palette_drift,
+]
+
+# Per-slide annotate-figure v2 checks (AN-01/02/03), applied only to slides
+# whose strategy-map entry has annotation_mode == 'native' (issue #142 v2,
+# design §7). Each check has a distinct signature (contract needs the image
+# manifest entry for the hash gate, bounds needs the Presentation for slide
+# dimensions) so run_qa's native routing branch calls them explicitly rather
+# than via a uniform loop — this list exists for discoverability/registration
+# and for tests that want to enumerate the full AN check set.
+ANNOTATION_CHECKS = [
+    check_annotation_contract,
+    check_label_text_verbatim,
+    check_labels_within_bounds,
 ]
