@@ -17,8 +17,15 @@
           "image_id": {"type": "string"},
           "slide_number": {"type": "integer"},
           "file_path": {"type": "string"},
-          "placement_zone": {"type": "string"},
+          "placement_zone": {
+            "type": "string",
+            "description": "Zone the image occupies on the slide. Includes 'full_bleed' (Step 4.7 full-slide images) and element-flow values like 'background', plus the annotate-figure v2 native-annotation values 'annotated_full_slide' and 'annotated_image_zone' (F8) — deliberately distinct vocabularies, no collision with annotations.schema.json's placement_zone."
+          },
           "element_id": {"type": "string"},
+          "annotations_path": {
+            "type": "string",
+            "description": "Relative or absolute path to the slide's SlideAnnotations payload (<deck_dir>/annotations/slide-NN-annotations.json), mirroring the creative_vision_manifest_path precedent (imagegen-bridge Step 4.7). Present only for slides using the annotate-figure v2 native/raster annotation flow."
+          },
           "detected_positions": {
             "type": "array",
             "items": {
