@@ -1,0 +1,20 @@
+A1-w : RefPro > Klein4b > RefFlash > Zimg4 > ERNIE > ZimgQ8 > KlBase > Qwen4
+A1-sq: Klein4b > RefPro > Zimg4 > ERNIE > RefFlash > ZimgQ8 > KlBase > Qwen4
+A2-w : RefFlash > RefPro > ZimgQ8 > Zimg4 > ERNIE > Klein4b > KlBase > Qwen4
+A2-sq: ERNIE > Klein4b > Zimg4 > ZimgQ8 > RefPro > RefFlash > KlBase > Qwen4
+A3-w : ERNIE > RefFlash > RefPro > Zimg4 > ZimgQ8 > Klein4b > KlBase > Qwen4
+A3-sq: ERNIE > Zimg4 > Klein4b > ZimgQ8 > RefPro > RefFlash > Qwen4 > KlBase
+A4-w : RefPro > ERNIE > RefFlash > Klein4b > Zimg4 > ZimgQ8 > KlBase > Qwen4
+A4-sq: ERNIE > Klein4b > ZimgQ8 > Zimg4 > RefPro > RefFlash > Qwen4 > KlBase
+A5-w : RefPro > Zimg4 > ZimgQ8 > ERNIE > Qwen4 > RefFlash > Klein4b > KlBase
+A5-sq: Zimg4 > ZimgQ8 > ERNIE > RefPro > RefFlash > Klein4b > Qwen4 > KlBase
+B1-w : RefFlash > RefPro > ERNIE > ZimgQ8 > Zimg4 > Klein4b > KlBase > Qwen4
+B1-sq: RefPro > RefFlash > ERNIE > Zimg4 > ZimgQ8 > Klein4b > KlBase > Qwen4
+B2-w : RefPro > RefFlash > Zimg4 > ZimgQ8 > ERNIE > Klein4b > KlBase > Qwen4
+B2-sq: RefFlash > RefPro > ERNIE > ZimgQ8 > Zimg4 > Klein4b > KlBase > Qwen4
+B3-w : Zimg4 > ZimgQ8 > ERNIE > RefPro > RefFlash > KlBase > Klein4b > Qwen4
+B3-sq: Zimg4 > ZimgQ8 > RefPro > RefFlash > ERNIE > Klein4b > KlBase > Qwen4
+B4-w : RefPro > RefFlash > ERNIE > ZimgQ8 > Zimg4 > Klein4b > Qwen4 > KlBase
+B4-sq: RefPro > RefFlash > ERNIE > ZimgQ8 > Zimg4 > Klein4b > Qwen4 > KlBase
+B5-w : RefFlash > RefPro > Zimg4 > ERNIE > ZimgQ8 > Klein4b > KlBase > Qwen4
+B5-sq: RefFlash > RefPro > ERNIE > Zimg4 > ZimgQ8 > Klein4b > KlBase > Qwen4
