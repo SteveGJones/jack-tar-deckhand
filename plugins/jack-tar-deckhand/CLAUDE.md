@@ -31,6 +31,7 @@ Without engine plugins, the pipeline produces text-only slides with placeholder 
 | `/deck-assembler` | Assemble .pptx — routes to PptxGenJS (standard) or python-pptx (template mode) |
 | `/deck-qa` | Run 25 automated anti-pattern checks |
 | `/iterate-slide` | Single-slide critique-driven refinement via paperbanana `--continue-run` (three modes: auto / enumerate / draft) |
+| `/annotate-figure` | Perfect-text labeled figures: label-free render (or external image) + vision anchors + programmatic overlay |
 | `/verify` | Check pipeline readiness and engine plugin availability |
 
 ## Quick Start
