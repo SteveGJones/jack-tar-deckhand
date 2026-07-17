@@ -65,6 +65,7 @@ jobs:
           - jack-tar-custom-smartart
           - jack-tar-ollama
           - jack-tar-mlx
+          - jack-tar-advisor
           - jack-tar-superpower-bridge
     steps:
       - uses: actions/checkout@v6

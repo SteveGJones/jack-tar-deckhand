@@ -74,7 +74,8 @@ def test_mlx_verify_has_status_lines():
 
 def test_all_plugins_have_plugin_json():
     for name in ["jack-tar-ollama", "jack-tar-cloud", "jack-tar-msft-smartart",
-                 "jack-tar-custom-smartart", "jack-tar-deckhand", "jack-tar-mlx"]:
+                 "jack-tar-custom-smartart", "jack-tar-deckhand", "jack-tar-mlx",
+                 "jack-tar-advisor"]:
         pj = PLUGINS_DIR / name / ".claude-plugin" / "plugin.json"
         assert pj.exists(), f"Missing plugin.json: {pj}"
 
