@@ -24,6 +24,12 @@
       "version": "0.1.0"
     },
     {
+      "name": "jack-tar-advisor",
+      "description": "Model advisor — evidence-based per-task model recommendations: costs, services to pay for, local models to install.",
+      "source": "./plugins/jack-tar-advisor",
+      "version": "0.1.0"
+    },
+    {
       "name": "jack-tar-msft-smartart",
       "description": "Editable PowerPoint SmartArt graphics \u2014 29 layouts, speakers can modify after delivery",
       "source": "./plugins/jack-tar-msft-smartart",
