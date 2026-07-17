@@ -146,6 +146,15 @@ The original `src/` directory remains as the development source of truth. Plugin
 
 Claude Code skills and agents for conference-quality PowerPoint presentations. This is NOT a standalone app — it runs inside Claude Code.
 
+### MANDATORY KNOWLEDGE: 2026-07-17 model benchmark — escalation economics changed
+
+Full blind + adversarial benchmark (10 scenarios × 2 aspects × 6 local models + Nano Banana Flash/Pro anchors; 180 scored images, 89 adversarial corrections; spike: [`docs/spikes/2026-07-17-mlx-model-benchmark/`](docs/spikes/2026-07-17-mlx-model-benchmark/README.md), PR #138). Two conclusions BIND escalation decisions until superseded:
+
+1. **Nano Banana Pro is NOT required for technical/academic figures at 1K.** Flash matched-or-beat Pro on technical figures (TECH 8.70 vs 8.40, blind). Escalate academic_figure slides to **Flash**, not Pro; Pro is for 2K/4K resolution needs or hero polish only. (Corrects the standing "Pro = best text rendering" heuristic at 1K.)
+2. **Local models are more than adequate for hero/full_bleed images.** ERNIE-Image-Turbo (baidu base, on-load q8 via mflux) scored 8.75 on hero scenarios — above BOTH cloud anchors; Z-Image-Turbo 8.30. Cloud escalation for hero drafts should be the exception (operator-requested polish or resolution), not the default ladder step. Z-Image is the preferred local draft for text-bearing figures (quote-card winner, fastest at ~82 s); Klein-4b needs its exact-spellings prompt dialect to perform.
+
+The model catalog entry notes carry these findings (gemini-3-pro-image, gemini-3.1-flash-image, mlx/z-image-turbo). ERNIE catalog entry + routing updates tracked as follow-up issues.
+
 ### Current Status (2026-07-15 — MLX (mflux) second local provider shipped on branch, issue #124)
 
 - **New sibling plugin `jack-tar-mlx` v0.1.0** ships a second $0 local image-generation provider alongside `jack-tar-ollama` — Apple Silicon only, driven by the [mflux](https://github.com/filipstrand/mflux) CLI, no server daemon, flag-compatible with the Ollama wrapper. Three catalog entries (`mlx/flux2-klein-4b` default, `mlx/z-image-turbo`, `mlx/qwen-image`), all operator-installed and operator-weight-pulled — the plugin never auto-downloads. On branch `feat/mlx-local-backend`, 6 implementation commits (T1–T6 of the design doc's task breakdown, plus 3 preceding planning commits), not yet merged to `main`.

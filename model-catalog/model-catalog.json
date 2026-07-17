@@ -30,7 +30,7 @@
         "notes": "EPIC #58 pricing table; reconciled issue #113 AC6. Token rates from ai.google.dev/gemini-api/docs/pricing (captured 2026-05-21)."
       },
       "sdk": {"api": "generate_content", "config_field": "image_size"},
-      "notes": "Nano Banana Flash. The '-preview' suffixed id was deprecated upstream (issue #123, verified 2026-07-15); alias retained so existing manifests and callers resolve."
+      "notes": "Nano Banana Flash. The '-preview' suffixed id was deprecated upstream (issue #123, verified 2026-07-15); alias retained so existing manifests and callers resolve. BENCHMARK 2026-07-17: top TECHNICAL-figure scorer of the whole field (8.70 blind, above Pro's 8.40 at 1K) — the preferred cloud tier for academic/technical figures."
     },
     {
       "id": "gemini-3-pro-image",
@@ -53,7 +53,7 @@
         "notes": "Pro 2K priced identically to Pro 1K (issue #113 AC6 reconciliation). Token rates from ai.google.dev/gemini-api/docs/pricing (captured 2026-05-21)."
       },
       "sdk": {"api": "generate_content", "config_field": "image_size"},
-      "notes": "Nano Banana Pro — best in-image text rendering. '-preview' id deprecated upstream (issue #123)."
+      "notes": "Nano Banana Pro. '-preview' id deprecated upstream (issue #123). BENCHMARK 2026-07-17 (blind adversarial, docs/spikes/2026-07-17-mlx-model-benchmark/): at 1K, Flash MATCHED-OR-BEAT Pro on technical figures (TECH 8.70 vs 8.40) — Pro escalation is NOT required for technical/academic figures at 1K; reserve Pro for 2K/4K resolution needs or hero polish. On hero images the local ERNIE-Turbo draft beat both cloud tiers (8.75 blind) — cloud hero escalation is frequently unnecessary."
     },
     {
       "id": "imagen-4.0-fast-generate-001",
@@ -428,7 +428,7 @@
         "default_steps": 9,
         "quantize": 4
       },
-      "notes": "Z-Image-Turbo via mflux, requires mflux >= 0.13. SMOKE RESULT 2026-07-16 (M2 Max 32 GB, 9 steps, seed 42): 9/10 on BOTH the exact-spellings and natural-prose dialects — labels letter-perfect, flat clean white background (flat-field noise sigma 0.43, statistically identical to Klein's 0.42), no grain, ~62 s/render at 1024x576. The Ollama-variant retirement for schema figures (2026-07-11 dogfood: paradigm drift on prose, 1-2/9) does NOT reproduce in this mflux 4-bit port — that verdict was variant-specific. First-class draft model alongside Klein 4B. LICENCE NOTE (issue #124 review M6, CONFIRMED via HF model card metadata): the pre-quantized primary repo filipstrand/Z-Image-Turbo-mflux-4bit is licensed 'tongyi-qianwen-license' (license:other tag), NOT Apache 2.0 — the derivative repo's licence governs the download. Operators needing pure Apache 2.0 should pull the fallback Tongyi-MAI/Z-Image-Turbo (Apache 2.0, confirmed via HF model card, full precision, quantized 4-bit on load) instead. 9-step distilled (render_steps == default_steps). timeout_seconds 180 is a conservative placeholder — Mac wall-clock unpublished; Phase 5 measures (proposal risk 2)."
+      "notes": "Z-Image-Turbo via mflux, requires mflux >= 0.13. SMOKE RESULT 2026-07-16 (M2 Max 32 GB, 9 steps, seed 42): 9/10 on BOTH the exact-spellings and natural-prose dialects — labels letter-perfect, flat clean white background (flat-field noise sigma 0.43, statistically identical to Klein's 0.42), no grain, ~62 s/render at 1024x576. The Ollama-variant retirement for schema figures (2026-07-11 dogfood: paradigm drift on prose, 1-2/9) does NOT reproduce in this mflux 4-bit port — that verdict was variant-specific. First-class draft model alongside Klein 4B. BENCHMARK 2026-07-17: best LOCAL text all-rounder (7.05 overall blind; outright quote-card winner in both aspects; fastest in fleet ~82 s) — preferred local draft for text-bearing figures. LICENCE NOTE (issue #124 review M6, CONFIRMED via HF model card metadata): the pre-quantized primary repo filipstrand/Z-Image-Turbo-mflux-4bit is licensed 'tongyi-qianwen-license' (license:other tag), NOT Apache 2.0 — the derivative repo's licence governs the download. Operators needing pure Apache 2.0 should pull the fallback Tongyi-MAI/Z-Image-Turbo (Apache 2.0, confirmed via HF model card, full precision, quantized 4-bit on load) instead. 9-step distilled (render_steps == default_steps). timeout_seconds 180 is a conservative placeholder — Mac wall-clock unpublished; Phase 5 measures (proposal risk 2)."
     },
     {
       "id": "mlx/qwen-image",
