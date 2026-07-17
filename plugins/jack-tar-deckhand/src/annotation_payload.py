@@ -18,7 +18,7 @@ import os
 
 import jsonschema
 
-from src.annotate_figure import place_labels
+from src.annotate_figure import _segment_box_entry, place_labels
 from src.process_image import compute_content_hash, get_dimensions
 from src.qa.config import QA_CONFIG
 
@@ -173,6 +173,36 @@ def write_annotation_payload(deck_dir, slide_number, payload):
         f.write('\n')
     os.replace(tmp_path, path)
     return path
+
+
+def segment_box_entry(p0, p1, box):
+    """Shared geometry helper (§4.6): where segment p0 -> p1 first enters
+    an axis-aligned box.
+
+    `annotation_payload` is the single import surface for the shared
+    geometry helpers used by both assembler paths (§2.3, §4.6) — this is
+    a thin re-export of `annotate_figure._segment_box_entry`, the exact
+    slab-clip v1 uses to terminate a leader line at its own label box's
+    edge nearest the anchor rather than drawing into the box interior.
+    The python-pptx template path (T5) calls this directly; the JS
+    assembler (T6) ports the same ~15-line algorithm verbatim as
+    `segmentBoxEntry` in `assembler/annotation_geometry.js`. Parity
+    between the two is pinned by `test_annotation_geometry_parity.py`
+    (§8.3, F13).
+
+    Args:
+        p0: (x, y) segment start (the anchor), in any consistent unit
+            (pixels for v1's raster path, inches/EMU for the assemblers).
+        p1: (x, y) segment end (the label box centre), same unit as p0.
+        box: (left, top, right, bottom) rect, same unit as p0/p1.
+
+    Returns:
+        (x, y) tuple: the entry point on the box perimeter, or p0 when the
+        anchor already lies inside the box (zero-length leader), or p1
+        unchanged for the degenerate case where the segment never enters
+        the box at all.
+    """
+    return _segment_box_entry(p0, p1, box)
 
 
 def estimate_label_box(text, font_size_pt, *, pad_in=0.06):
