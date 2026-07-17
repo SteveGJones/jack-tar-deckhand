@@ -45,7 +45,7 @@
       "name": "jack-tar-deckhand",
       "description": "Full presentation pipeline \u2014 brand, style, narrative, images, SmartArt, assembly, QA + academic-figure rendering (optional paperbanana CLI; local-first Ollama tier + local_only zero-spend mode, #119) + /iterate-slide single-slide critique-driven refinement + full_bleed image-is-the-slide strategy + creative vision renderer (#105) + creative_vision GA: per-slide cost surface, Creative Sprint phase, per-iteration operator gate, deck-level creative anchors (#113)",
       "source": "./plugins/jack-tar-deckhand",
-      "version": "1.8.0"
+      "version": "1.9.0"
     },
     {
       "name": "jack-tar-superpower-bridge",
