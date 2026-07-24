@@ -975,10 +975,20 @@ SAME field entirely inside the `/jack-tar-deckhand:annotate-figure` flow
    > was requested to be kept visually quiet for label placement. Judge
    > whether that region is clear: would white label boxes placed there
    > sit over any salient object, figure, text, or high-detail structure?
-   > Plain backgrounds, open sky, water, gentle gradients and soft texture
-   > COUNT AS CLEAR; any distinct object, subject part, or busy detail
-   > extending into the region means NOT clear. Output ONLY JSON:
+   > Plain backgrounds, open sky, CALM open water, gentle gradients and
+   > soft texture COUNT AS CLEAR; breaking surf, whitecaps, foam, rocks,
+   > shoreline detail, and any distinct object, subject part, or busy
+   > high-contrast detail extending into the region mean NOT clear. Judge
+   > the WHOLE region: if a salient object or busy detail intrudes into
+   > any substantial part of the region, answer NOT clear. Output ONLY JSON:
    > `{"description": "...", "anchors": {"<Label>": [x, y], ...}, "blank_zone": {"clear": true|false, "notes": "one line"}}`
+
+   (The count-as-clear wording is the CALIBRATED v2 from the 2026-07-24
+   dogfood — the first-pass wording's "water counts as clear" was read
+   literally on breaking surf/whitecaps and produced systematically
+   lenient false-clear verdicts; the calibrated wording moves residual
+   error to the conservative fallback side. See
+   `docs/superpowers/dogfooding/2026-07-24-blank-zone-compliance.md`.)
 
    Zone phrases — kept in lockstep with
    `src.annotate_figure.BLANK_ZONE_RECTS` (drift-pinned, BZ-9):
