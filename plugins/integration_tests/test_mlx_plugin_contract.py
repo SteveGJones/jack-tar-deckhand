@@ -90,6 +90,8 @@ def test_mlx_registry_matches_canonical_catalog_full_value():
             "default_steps": sdk["default_steps"],
             "quantize": sdk["quantize"],
             "timeout": capabilities["timeout_seconds"],
+            "edit_entrypoint": sdk.get("edit_entrypoint"),
+            "edit_steps": capabilities.get("edit_render_steps"),
         }
         actual = generate_image.MLX_MODEL_REGISTRY[entry_id]
         assert actual == expected, (
