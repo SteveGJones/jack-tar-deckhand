@@ -33,6 +33,7 @@ full design spec.
 from __future__ import annotations
 
 import enum
+import json
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -476,6 +477,70 @@ def update_manifest_entry(
     return updated
 
 
+# --- edit tier (issue #143, §4.5) -------------------------------------------
+#
+# The $0 local mflux edit channel for the standard (academic_figure)
+# iterate-slide flow. This is the flat image-manifest.json analogue of
+# Step 8's ``update_manifest_entry`` — same read/splice/write shape, but
+# it delegates the provenance-chain construction to
+# ``edit_dispatch.record_edit`` (D5/§4.3) instead of paperbanana's
+# refinement-history shape, since an edit's provenance (parent hash +
+# instruction + args, chained) is a different contract from a paperbanana
+# --continue-run refinement.
+
+from src.edit_dispatch import record_edit  # noqa: E402
+
+
+def edit_action(
+    manifest_path: str,
+    slide_number: int,
+    *,
+    new_file_path: str,
+    new_content_hash: str,
+    edit_instruction: str,
+    edit_args: Mapping,
+) -> dict:
+    """Apply a completed $0 local mflux edit's result to image-manifest.json.
+
+    Locates the slide's manifest entry, builds the provenance-chained
+    replacement via ``edit_dispatch.record_edit``, splices it back into
+    the manifest, writes to disk, and returns the new entry. Mirrors the
+    Step 7.5/8 write pattern already used for paperbanana refinements —
+    the SKILL.md calls this AFTER the edit subprocess + image-reviewer
+    dispatch + (for native-annotation slides) the F4 refresh guard have
+    already run; this function only persists the result.
+
+    Raises:
+        ValueError: no manifest entry exists for ``slide_number``.
+    """
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    prior_entry = find_manifest_entry(manifest, slide_number)
+    if prior_entry is None:
+        raise ValueError(f"No manifest entry for slide {slide_number}")
+
+    new_entry = record_edit(
+        prior_entry,
+        new_file_path,
+        new_content_hash,
+        edit_instruction=edit_instruction,
+        edit_args=edit_args,
+        parent_content_hash=prior_entry.get("content_hash", ""),
+    )
+
+    entries = manifest.get("entries") or manifest.get("images") or []
+    for i, entry in enumerate(entries):
+        if entry.get("slide_number") == slide_number:
+            entries[i] = new_entry
+            break
+
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    return new_entry
+
+
 # --- annotate-figure v2 native-annotation invalidation guard (F4, T12) ---
 #
 # See docs/superpowers/plans/2026-07-17-annotate-figure-v2.md §6.3: any
@@ -618,8 +683,13 @@ def is_creative_vision_slide(deck_dir: str, slide_number: int) -> bool:
 def available_channels_for_creative_vision(deck_dir: str, slide_number: int) -> list[str]:
     """List of channels the operator can choose between right now.
 
-    Channels: 'revise_prose', 'refine_prompt', 'escalate_tier'. The third
-    is excluded when the manifest says we're out of budget OR at the ceiling.
+    Channels: 'revise_prose', 'refine_prompt', 'escalate_tier', and 'edit'
+    (issue #143). The third is excluded when the manifest says we're out
+    of budget OR at the ceiling. 'edit' is appended only once the
+    manifest's ``can_edit`` hook is True (at least one attempt with an
+    on-disk render exists — see ``creative_vision.manifest.append_attempt``);
+    it is independent of budget/ceiling, since an edit is a $0 delta on
+    the last rendered image regardless of which tier produced it.
     """
     m = load_manifest(deck_dir, slide_number)
     hooks = m["iterate_slide_hooks"]
@@ -630,6 +700,8 @@ def available_channels_for_creative_vision(deck_dir: str, slide_number: int) -> 
         channels.append("refine_prompt")
     if hooks.get("can_escalate_tier", True):
         channels.append("escalate_tier")
+    if hooks.get("can_edit", False):
+        channels.append("edit")
     return channels
 
 

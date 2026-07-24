@@ -35,6 +35,11 @@ def initialise_manifest(slide_number: int, vision_prose: str, budget_usd: float)
             "can_revise_prose": True,
             "can_refine_prompt": True,
             "can_escalate_tier": True,
+            # Edit tier (issue #143): flips True once an attempt with an
+            # on-disk render exists — see append_attempt. Independent of
+            # budget/ceiling: an edit is a $0 delta on the last rendered
+            # image regardless of which tier produced it.
+            "can_edit": False,
             "current_tier": "ollama",
             "next_tier_available": "flash_1k",
             "remaining_budget_usd": budget_usd,
@@ -110,15 +115,27 @@ def append_attempt(manifest: dict, attempt: dict, ladder: list[str]) -> None:
     Reads `manifest['_initial_budget_usd']` (stashed by `initialise_manifest`)
     and recomputes `remaining_budget_usd` as `initial - cumulative`. When
     remaining hits zero, `can_escalate_tier` is flipped off.
+
+    Edit tier (issue #143, F-10/T8): an `mlx_edit` attempt is NOT a rung
+    on the cascade ladder — it must not reset `current_tier` /
+    `next_tier_available`, or a later escalate_tier would compute "next
+    after mlx_edit" instead of resuming from wherever the ladder actually
+    was. `can_edit` flips True the first time any attempt (edit or
+    regular) carries a rendered image — an edit only ever needs a prior
+    on-disk image to work from, independent of budget or tier ceiling.
     """
     manifest["attempts"].append(attempt)
     hooks = manifest["iterate_slide_hooks"]
-    hooks["current_tier"] = attempt["tier"]
-    hooks["next_tier_available"] = _next_tier(attempt["tier"], ladder)
+    if attempt["tier"] != "mlx_edit":
+        hooks["current_tier"] = attempt["tier"]
+        hooks["next_tier_available"] = _next_tier(attempt["tier"], ladder)
     initial_budget = manifest["_initial_budget_usd"]
     hooks["remaining_budget_usd"] = max(0.0, initial_budget - attempt["cumulative_cost_usd"])
     if hooks["remaining_budget_usd"] <= 0.001:
         hooks["can_escalate_tier"] = False
+    render = attempt.get("render") or {}
+    if render.get("image_path") or render.get("output_path"):
+        hooks["can_edit"] = True
 
 
 def finalise_manifest(manifest: dict, image_path: str, final_verdict: dict) -> None:

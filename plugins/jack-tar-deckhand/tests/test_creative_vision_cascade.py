@@ -57,9 +57,13 @@ def test_tier_costs_match_spec():
 
 
 def test_tier_to_provider_model_resolution_covers_all_ladder_tiers():
-    """Every tier in either ladder must have a (provider, model, resolution) tuple."""
+    """Every tier in either ladder must have a (provider, model, resolution)
+    tuple. ``mlx_edit`` (issue #143) is the one deliberate exception — it is
+    NOT a ladder rung (it's a $0 tier-orthogonal edit action), so it is
+    excluded from this ladder-coverage check but still present in the
+    mapping (see the dedicated mlx_edit tests below)."""
     all_tiers = set(LADDER_DEFAULT) | set(LADDER_RECRAFT)
-    assert set(TIER_TO_PROVIDER_MODEL_RESOLUTION) == all_tiers
+    assert set(TIER_TO_PROVIDER_MODEL_RESOLUTION) - {"mlx_edit"} == all_tiers
 
 
 def test_tier_to_provider_model_resolution_ollama_is_local():
@@ -182,3 +186,28 @@ def test_next_tier_clamped_by_allowed_ceiling():
     assert next_tier("flash_1k", LADDER_DEFAULT, allowed_ceiling="flash_4k") == "flash_2k"
     # At the ceiling, no further escalation
     assert next_tier("flash_4k", LADDER_DEFAULT, allowed_ceiling="flash_4k") is None
+
+
+# --- mlx_edit — $0, tier-orthogonal action (issue #143, F-10) --------------
+
+
+def test_mlx_edit_present_in_tier_to_provider_model_resolution():
+    assert TIER_TO_PROVIDER_MODEL_RESOLUTION["mlx_edit"] == (None, None, None)
+
+
+def test_mlx_edit_cost_is_zero():
+    assert TIER_COSTS["mlx_edit"] == 0.0
+
+
+def test_mlx_edit_never_returned_by_next_tier():
+    """mlx_edit appears in NO ladder, so it can never be a next_tier
+    candidate on either ladder, and it is not itself a valid 'current'
+    tier to advance from."""
+    assert next_tier("mlx_edit", LADDER_DEFAULT) is None
+    assert next_tier("mlx_edit", LADDER_RECRAFT) is None
+    assert "mlx_edit" not in LADDER_DEFAULT
+    assert "mlx_edit" not in LADDER_RECRAFT
+
+
+def test_can_afford_mlx_edit_always_true():
+    assert can_afford(remaining_budget_usd=0.0, tier="mlx_edit") is True

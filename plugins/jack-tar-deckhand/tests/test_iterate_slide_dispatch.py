@@ -677,3 +677,106 @@ def test_annotation_refresh_downgrade_choices_match_f5_three_way():
         "raster_with_manual_anchors",
         "ship_unlabeled",
     )
+
+
+# --- edit tier (issue #143, §4.5, T7) ---------------------------------------
+
+import json  # noqa: E402
+
+from src.iterate_slide_dispatch import edit_action  # noqa: E402
+
+
+def _write_manifest(tmp_path, entries):
+    manifest = {"entries": entries}
+    path = tmp_path / "image-manifest.json"
+    with open(path, "w") as f:
+        json.dump(manifest, f)
+    return str(path)
+
+
+def test_edit_action_persists_new_entry_with_edit_chain(tmp_path):
+    manifest_path = _write_manifest(tmp_path, [
+        {"slide_number": 4, "file_path": "/deck/slide-04-draft.png",
+         "content_hash": "sha256:base", "backend": "ollama_local"},
+    ])
+
+    new_entry = edit_action(
+        manifest_path, slide_number=4,
+        new_file_path="/deck/slide-04-edit-1.png",
+        new_content_hash="sha256:new1",
+        edit_instruction="darken the sky, keep the ships and horizon",
+        edit_args={"model": "mlx/flux2-klein-4b", "steps": 4, "seed": 42,
+                   "image_paths": ["/deck/slide-04-draft.png"]},
+    )
+
+    assert new_entry["file_path"] == "/deck/slide-04-edit-1.png"
+    assert new_entry["content_hash"] == "sha256:new1"
+    assert new_entry["backend"] == "mlx_edit"
+    assert new_entry["cost_usd"] == 0.0
+    assert len(new_entry["edit_chain"]) == 1
+    assert new_entry["edit_chain"][0]["parent_content_hash"] == "sha256:base"
+    assert new_entry["edit_chain"][0]["parent_backend"] == "ollama_local"
+
+    with open(manifest_path) as f:
+        on_disk = json.load(f)
+    assert on_disk["entries"][0]["file_path"] == "/deck/slide-04-edit-1.png"
+    assert on_disk["entries"][0]["edit_chain"][0]["instruction"] == (
+        "darken the sky, keep the ships and horizon"
+    )
+
+
+def test_edit_action_raises_for_unknown_slide(tmp_path):
+    manifest_path = _write_manifest(tmp_path, [
+        {"slide_number": 4, "file_path": "/deck/slide-04.png", "content_hash": "sha256:x"},
+    ])
+    with pytest.raises(ValueError):
+        edit_action(
+            manifest_path, slide_number=99,
+            new_file_path="/x.png", new_content_hash="sha256:y",
+            edit_instruction="i", edit_args={"model": "mlx/flux2-klein-4b", "seed": 1},
+        )
+
+
+def test_edit_action_second_edit_appends_chain(tmp_path):
+    manifest_path = _write_manifest(tmp_path, [
+        {"slide_number": 4, "file_path": "/deck/slide-04-draft.png",
+         "content_hash": "sha256:base", "backend": "ollama_local"},
+    ])
+    edit_action(
+        manifest_path, slide_number=4,
+        new_file_path="/deck/slide-04-edit-1.png", new_content_hash="sha256:new1",
+        edit_instruction="edit 1", edit_args={"model": "mlx/flux2-klein-4b", "seed": 1},
+    )
+    second = edit_action(
+        manifest_path, slide_number=4,
+        new_file_path="/deck/slide-04-edit-2.png", new_content_hash="sha256:new2",
+        edit_instruction="edit 2", edit_args={"model": "mlx/flux2-klein-4b", "seed": 2},
+    )
+    assert len(second["edit_chain"]) == 2
+    assert second["edit_chain"][1]["parent_content_hash"] == "sha256:new1"
+
+
+# --- F4 refresh guard fires identically for an edit-triggered replacement --
+# (issue #143 §4.3 — "no new guard; a test pins that an edit triggers it")
+
+
+def test_annotation_refresh_required_fires_after_edit_action(tmp_path):
+    """An edit is an image REPLACEMENT — annotation_refresh_required only
+    ever reads the strategy-map's annotation_mode (§6.3), so it fires
+    identically whether the replacement came from paperbanana
+    --continue-run or from edit_action. No edit-specific guard code
+    exists; this test proves none is needed."""
+    manifest_path = _write_manifest(tmp_path, [
+        {"slide_number": 4, "file_path": "/deck/slide-04-draft.png",
+         "content_hash": "sha256:base", "backend": "ollama_local"},
+    ])
+    edit_action(
+        manifest_path, slide_number=4,
+        new_file_path="/deck/slide-04-edit-1.png", new_content_hash="sha256:new1",
+        edit_instruction="darken the sky", edit_args={"model": "mlx/flux2-klein-4b", "seed": 1},
+    )
+    native_slide_entry = {"slide_number": 4, "annotation_mode": "native"}
+    assert annotation_refresh_required(native_slide_entry) is True
+
+    raster_slide_entry = {"slide_number": 4, "annotation_mode": "raster"}
+    assert annotation_refresh_required(raster_slide_entry) is False

@@ -35,6 +35,13 @@ LADDER_RECRAFT: list[str] = [
 # the two namespaces without coupling the modules at import time.
 TIER_TO_PROVIDER_MODEL_RESOLUTION: dict[str, tuple[str | None, str | None, str | None]] = {
     "ollama": (None, None, None),
+    # Edit tier (issue #143, F-10): a $0 local mflux edit is NOT a rung on
+    # either ladder — it never appears in LADDER_DEFAULT/LADDER_RECRAFT and
+    # is never returned by next_tier(). It gets a TIER_COSTS entry (derived
+    # to 0.0 below, provider=None) purely so should_fire_operator_gate /
+    # can_afford never KeyError when a caller passes "mlx_edit" as a tier
+    # name for gate-cost lookups.
+    "mlx_edit": (None, None, None),
     "flash_1k": ("google", "gemini-3.1-flash-image", "1K"),
     "flash_2k": ("google", "gemini-3.1-flash-image", "2K"),
     "flash_4k": ("google", "gemini-3.1-flash-image", "4K"),

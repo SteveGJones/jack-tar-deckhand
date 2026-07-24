@@ -161,6 +161,70 @@ def test_append_attempt_at_top_of_ladder_clears_next_tier():
     assert m["iterate_slide_hooks"]["next_tier_available"] is None
 
 
+# --- edit tier (issue #143, T8) ---------------------------------------------
+
+
+def test_initialise_manifest_can_edit_starts_false():
+    m = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
+    assert m["iterate_slide_hooks"]["can_edit"] is False
+
+
+def test_append_attempt_flips_can_edit_true_after_first_rendered_attempt():
+    m = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
+    assert m["iterate_slide_hooks"]["can_edit"] is False
+    append_attempt(m, _sample_attempt(idx=1, tier="ollama", cost=0.0, cumulative=0.0), ladder=_LADDER_FIXTURE)
+    assert m["iterate_slide_hooks"]["can_edit"] is True
+
+
+def test_append_attempt_can_edit_stays_true_once_set():
+    m = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
+    append_attempt(m, _sample_attempt(idx=1, tier="ollama", cost=0.0, cumulative=0.0), ladder=_LADDER_FIXTURE)
+    assert m["iterate_slide_hooks"]["can_edit"] is True
+    append_attempt(m, _sample_attempt(idx=2, tier="flash_1k", cost=0.067, cumulative=0.067), ladder=_LADDER_FIXTURE)
+    assert m["iterate_slide_hooks"]["can_edit"] is True
+
+
+def _mlx_edit_attempt(idx=2, base_idx=1, cumulative=0.0):
+    attempt = _sample_attempt(idx=idx, tier="mlx_edit", cost=0.0, cumulative=cumulative)
+    attempt["render"]["output_path"] = f"runs/{idx:02d}-mlx-edit.png"
+    attempt["base_attempt_index"] = base_idx
+    attempt["base_image_hash"] = "sha256:abc"
+    return attempt
+
+
+def test_append_attempt_mlx_edit_does_not_advance_current_tier():
+    """F-10: an mlx_edit attempt must NOT reset current_tier/
+    next_tier_available — a later escalate should resume from wherever
+    the ladder actually was, not from 'after mlx_edit'."""
+    m = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
+    append_attempt(m, _sample_attempt(idx=1, tier="flash_1k", cost=0.067, cumulative=0.067), ladder=_LADDER_FIXTURE)
+    assert m["iterate_slide_hooks"]["current_tier"] == "flash_1k"
+    assert m["iterate_slide_hooks"]["next_tier_available"] == "flash_2k"
+
+    append_attempt(m, _mlx_edit_attempt(idx=2, base_idx=1, cumulative=0.067), ladder=_LADDER_FIXTURE)
+    assert m["iterate_slide_hooks"]["current_tier"] == "flash_1k"
+    assert m["iterate_slide_hooks"]["next_tier_available"] == "flash_2k"
+    assert len(m["attempts"]) == 2
+
+
+def test_append_attempt_mlx_edit_appears_in_attempts_list():
+    m = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
+    append_attempt(m, _sample_attempt(idx=1, tier="ollama", cost=0.0, cumulative=0.0), ladder=_LADDER_FIXTURE)
+    append_attempt(m, _mlx_edit_attempt(idx=2, base_idx=1), ladder=_LADDER_FIXTURE)
+    assert [a["tier"] for a in m["attempts"]] == ["ollama", "mlx_edit"]
+
+
+def test_finalise_manifest_tolerates_mlx_edit_final_tier():
+    m = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
+    append_attempt(m, _sample_attempt(idx=1, tier="flash_1k", cost=0.067, cumulative=0.067), ladder=_LADDER_FIXTURE)
+    append_attempt(m, _mlx_edit_attempt(idx=2, base_idx=1, cumulative=0.067), ladder=_LADDER_FIXTURE)
+    final_verdict = _valid_verdict_inline()
+    final_verdict["verdict"] = "pass"
+    finalise_manifest(m, image_path="runs/02-mlx-edit.png", final_verdict=final_verdict)
+    assert m["final"]["accepted_at_tier"] == "mlx_edit"
+    assert m["final"]["total_cost_usd"] == pytest.approx(0.067)
+
+
 def test_finalise_manifest_sets_final_block():
     m = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
     append_attempt(m, _sample_attempt(idx=1, tier="flash_1k", cost=0.067, cumulative=0.067), ladder=_LADDER_FIXTURE)

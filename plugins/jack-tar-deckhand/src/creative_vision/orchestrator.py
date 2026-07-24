@@ -167,6 +167,8 @@ def decide_next_action(
     per_tier_iteration_count: int,
     per_tier_cap: int,
     allowed_ceiling: str | None,
+    locality: str | None = None,
+    can_edit: bool = False,
 ) -> NextAction:
     """Decide what to do next based on the Director's Critic verdict + cascade state.
 
@@ -174,6 +176,10 @@ def decide_next_action(
     cascade state (tier, ladder, budget, iterations), it returns the next action:
 
     - 'accept': The image is good enough; stop iterating.
+    - 'edit': A $0 local mflux edit can apply the fix without a re-render
+      (issue #143 — only when verdict is 'refine_at_tier', the gap is
+      spatially 'local' per ``edit_dispatch.classify_edit_locality``, AND
+      an edit backend/base image is available).
     - 'refine_at_tier': Iterate again at the current tier (prompt refinement + regenerate).
     - 'escalate_tier': Escalate to the next tier in the ladder and regenerate.
     - 'abort': Give up (budget exhausted, critic says abort, or forced accept at ceiling).
@@ -186,6 +192,14 @@ def decide_next_action(
         per_tier_iteration_count: Number of iterations already done at the current tier.
         per_tier_cap: Max iterations allowed per tier (e.g. 3).
         allowed_ceiling: Max tier we're allowed to escalate to (e.g. 'flash_2k'). None means no cap.
+        locality: Optional locality classification of the critic's gap
+            ('local' | 'global' | 'ambiguous' | 'text_excluded'), from
+            ``edit_dispatch.classify_edit_locality``. None (default)
+            preserves pre-#143 behaviour exactly — the edit path is only
+            ever reached when a caller explicitly passes locality='local'.
+        can_edit: Whether the edit channel is currently available for this
+            slide (manifest hook + detected backend). Defaults False —
+            same reasoning as ``locality``.
 
     Returns:
         A NextAction with kind set and relevant fields filled in.
@@ -197,6 +211,14 @@ def decide_next_action(
 
     if verdict == "abort":
         return NextAction(kind="abort", abort_reason="critic_abort")
+
+    # Edit tier (issue #143, D4/§5.3): a local gap on a refine_at_tier
+    # verdict can be fixed with a $0 targeted edit instead of a re-render —
+    # checked BEFORE the per-tier iteration cap, since an edit doesn't
+    # consume the tier's render budget. Escalate_tier verdicts and
+    # non-local gaps are UNAFFECTED and fall through to the existing logic.
+    if verdict == "refine_at_tier" and can_edit and locality == "local":
+        return NextAction(kind="edit")
 
     # refine_at_tier OR escalate_tier — check whether we can stay at this tier
     cap_reached = per_tier_iteration_count >= per_tier_cap
