@@ -1017,3 +1017,217 @@ def test_build_deck_template_full_slide_native_default_unchanged(tmp_path):
     assert len(pictures) == 1
     assert non_annotation_non_picture == []  # pure figure -- no headline band, no chrome
     assert _shapes_named(native_slide, "native_headline_") == []
+
+
+# =============================================================================
+# v2.1 Feature B — headline opt-in (issue #142 v2.1, T5)
+#
+# Design: docs/superpowers/plans/2026-07-23-annotate-figure-v2.1.md §3, §5.2.
+# =============================================================================
+
+
+def test_native_full_slide_headline_opt_in_adds_band(tmp_path):
+    prs, slide = _blank_slide()
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    payload = build_annotation_payload(
+        slide_number=20, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_full_slide", anchors={"Rudder": [0.5, 0.5]},
+    )
+    pic = _apply_native_annotation(
+        slide, base, payload, SLIDE_W, SLIDE_H, FULL_SLIDE_ZONE,
+        headline_text="Full slide headline",
+    )
+    headline_shapes = _shapes_named(slide, "native_headline_")
+    assert len(headline_shapes) == 1
+    assert headline_shapes[0].text_frame.text == "Full slide headline"
+
+    band_h = int(SLIDE_H * 0.14)
+    assert pic.top >= band_h - EMU_TOLERANCE
+
+
+def test_native_full_slide_default_is_pure_figure(tmp_path):
+    """show_headline absent/false (default None) -- NO native_headline_*
+    shape. v2 byte-parity pin."""
+    prs, slide = _blank_slide()
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    payload = build_annotation_payload(
+        slide_number=21, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_full_slide", anchors={"Rudder": [0.5, 0.5]},
+    )
+    _apply_native_annotation(slide, base, payload, SLIDE_W, SLIDE_H, FULL_SLIDE_ZONE)
+    assert _shapes_named(slide, "native_headline_") == []
+
+
+def test_native_headline_shrinks_fit_rect(tmp_path):
+    """With the band, the picture's top >= band_h; anchor [0, 0] maps into
+    the reduced rect, not the true slide origin."""
+    prs, slide = _blank_slide()
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    payload = build_annotation_payload(
+        slide_number=22, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_full_slide", anchors={"Corner": [0.0, 0.0]},
+    )
+    pic = _apply_native_annotation(
+        slide, base, payload, SLIDE_W, SLIDE_H, FULL_SLIDE_ZONE,
+        headline_text="Headline",
+    )
+    band_h = int(SLIDE_H * 0.14)
+    assert pic.top >= band_h - EMU_TOLERANCE
+
+    dots = _shapes_named(slide, "annotation_dot_")
+    assert len(dots) == 1
+    dot = dots[0]
+    dot_cx = dot.left + dot.width / 2
+    dot_cy = dot.top + dot.height / 2
+    assert dot_cx == pytest.approx(pic.left, abs=EMU_TOLERANCE)
+    assert dot_cy == pytest.approx(pic.top, abs=EMU_TOLERANCE)
+    assert dot_cy >= band_h - EMU_TOLERANCE
+
+
+def test_native_headline_shape_not_annotation_prefixed(tmp_path):
+    prs, slide = _blank_slide()
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    payload = build_annotation_payload(
+        slide_number=23, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_full_slide", anchors={"Rudder": [0.5, 0.5]},
+    )
+    _apply_native_annotation(
+        slide, base, payload, SLIDE_W, SLIDE_H, FULL_SLIDE_ZONE,
+        headline_text="Headline",
+    )
+    headline_shapes = _shapes_named(slide, "native_headline_")
+    assert len(headline_shapes) == 1
+    assert not headline_shapes[0].name.startswith("annotation_")
+    # AN-01 counts unaffected -- exactly 1 of the annotation_label_ prefix
+    # for the single label, headline shape not among them.
+    assert _count_named(slide, "annotation_label_") == 1
+
+
+def test_raster_show_headline_ignored_no_band(tmp_path):
+    """F-04 (python path): build_deck's routing only ever passes headline_text
+    on the native branch -- a raster full-slide slide with show_headline:
+    true never sees a band."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    template_path = _template_path_from_default(tmp_path)
+
+    outline = {
+        "narrative_arc": "test", "estimated_duration_minutes": 4, "total_slides": 1,
+        "slides": [
+            {"slide_number": 1, "slide_type": "content", "headline": "Raster headline",
+             "body_points": [], "visual_type": "hero_image", "layout_template": "content"},
+        ],
+    }
+    with open(deck_dir / "outline.json", "w") as f:
+        json.dump(outline, f)
+
+    square = _make_image(tmp_path / "square.png", (900, 900))
+    image_manifest = {
+        "generated_at": "2026-07-23T00:00:00Z", "image_backend": "ollama",
+        "images": [
+            {"image_id": "slide-01-square", "slide_number": 1, "file_path": square,
+             "placement_zone": "annotated_full_slide",
+             "dimensions": {"width": 900, "height": 900},
+             "source_prompt": "test", "model_used": "test", "alt_text": "square",
+             "status": "generated", "retry_count": 0, "generation_time_seconds": 1.0},
+        ],
+        "summary": {"total_images": 1, "generated_count": 1, "cached_count": 0,
+                    "placeholder_count": 0, "failed_count": 0, "total_generation_seconds": 1.0},
+    }
+    with open(deck_dir / "image-manifest.json", "w") as f:
+        json.dump(image_manifest, f)
+
+    strategy_map = {
+        "approval_mode": "review",
+        "slides": [
+            {"slide_number": 1, "strategy": "full_bleed", "rationale": "raster figure",
+             "render_funnel": ["ollama"], "speaker_override": None,
+             "annotation_mode": "raster",
+             "annotation": {"labels": [{"text": "X", "target": "x"}], "show_headline": True}},
+        ],
+    }
+    with open(deck_dir / "strategy-map.json", "w") as f:
+        json.dump(strategy_map, f)
+
+    profile = {
+        "master_index": 0,
+        "layout_mapping": {"content": {"layout_index": 8, "layout_name": "Picture with Caption"}},
+        "unmapped_fallback": {"layout_index": 8, "layout_name": "Picture with Caption"},
+        "layouts": [_picture_profile_layout()],
+    }
+
+    output_path = build_deck(str(deck_dir), template_path, profile)
+    prs = Presentation(output_path)
+    slide = prs.slides[0]
+    assert _shapes_named(slide, "native_headline_") == []
+
+
+def test_native_headline_survives_payload_absent_fallback(tmp_path):
+    """F-12: native + show_headline: true + no payload -- contain-fit
+    picture in the reduced zone AND the native_headline_* textbox present
+    (no overlay shapes, since there is no payload to draw one from)."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    template_path = _template_path_from_default(tmp_path)
+
+    outline = {
+        "narrative_arc": "test", "estimated_duration_minutes": 4, "total_slides": 1,
+        "slides": [
+            {"slide_number": 1, "slide_type": "content", "headline": "Fallback headline",
+             "body_points": [], "visual_type": "hero_image", "layout_template": "content"},
+        ],
+    }
+    with open(deck_dir / "outline.json", "w") as f:
+        json.dump(outline, f)
+
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    image_manifest = {
+        "generated_at": "2026-07-23T00:00:00Z", "image_backend": "ollama",
+        "images": [
+            {"image_id": "slide-01-hero", "slide_number": 1, "file_path": base,
+             "placement_zone": "annotated_full_slide",
+             # NOTE: no annotations_path -- payload will be absent (F-12).
+             "dimensions": {"width": 1920, "height": 1080},
+             "source_prompt": "test", "model_used": "test", "alt_text": "hero",
+             "status": "generated", "retry_count": 0, "generation_time_seconds": 1.0},
+        ],
+        "summary": {"total_images": 1, "generated_count": 1, "cached_count": 0,
+                    "placeholder_count": 0, "failed_count": 0, "total_generation_seconds": 1.0},
+    }
+    with open(deck_dir / "image-manifest.json", "w") as f:
+        json.dump(image_manifest, f)
+
+    strategy_map = {
+        "approval_mode": "review",
+        "slides": [
+            {"slide_number": 1, "strategy": "full_bleed", "rationale": "annotated figure",
+             "render_funnel": ["ollama"], "speaker_override": None,
+             "annotation_mode": "native",
+             "annotation": {"labels": [{"text": "X", "target": "x"}], "show_headline": True}},
+        ],
+    }
+    with open(deck_dir / "strategy-map.json", "w") as f:
+        json.dump(strategy_map, f)
+
+    profile = {
+        "master_index": 0,
+        "layout_mapping": {"content": {"layout_index": 8, "layout_name": "Picture with Caption"}},
+        "unmapped_fallback": {"layout_index": 8, "layout_name": "Picture with Caption"},
+        "layouts": [_picture_profile_layout()],
+    }
+
+    output_path = build_deck(str(deck_dir), template_path, profile)
+    prs = Presentation(output_path)
+    slide = prs.slides[0]
+
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+    headline_shapes = _shapes_named(slide, "native_headline_")
+    assert len(headline_shapes) == 1
+    assert headline_shapes[0].text_frame.text == "Fallback headline"
+    # No overlay shapes -- payload was absent.
+    assert not any(s.name.startswith("annotation_") for s in slide.shapes)

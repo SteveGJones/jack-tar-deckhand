@@ -316,8 +316,59 @@ def _add_annotation_label_box(slide, box_rect, text, fill_color, border_color,
     return tb
 
 
+# ---------------------------------------------------------------------------
+# annotate-figure v2.1 — headline opt-in (issue #142 v2.1, T5)
+#
+# Design: docs/superpowers/plans/2026-07-23-annotate-figure-v2.1.md §3.
+# ---------------------------------------------------------------------------
+
+# Fraction of slide height reserved for the optional headline band on a
+# full-slide native annotation slide (§3.2). Mirrors build_deck.js's
+# HEADLINE_BAND_FRAC.
+HEADLINE_BAND_FRAC = 0.14
+
+
+def _shrink_zone_for_headline(zone_rect_emu, slide_h, headline_text):
+    """When ``headline_text`` is set, shrink ``zone_rect_emu`` by a top band
+    (§3.2) and return ``(figure_zone, band_rect)``; otherwise return the zone
+    unchanged with ``band_rect=None`` (v2 byte-parity when no headline is
+    requested). Shared by ``_apply_native_annotation`` and the payload-absent
+    fallback in ``build_deck`` (F-12) so the band survives either way.
+    """
+    if not headline_text:
+        return zone_rect_emu, None
+    zx, zy, zw, zh = zone_rect_emu
+    band_h = int(slide_h * HEADLINE_BAND_FRAC)
+    band_rect = (zx, zy, zw, band_h)
+    figure_zone = (zx, zy + band_h, zw, zh - band_h)
+    return figure_zone, band_rect
+
+
+def _add_headline_band(slide, band_rect_emu, headline_text, slide_number):
+    """Draw the v2.1 Feature B headline textbox (§3.2/§3.4) spanning
+    ``band_rect_emu`` (zx, zy, zw, band_h) EMU. Named
+    ``native_headline_<slide_number>`` — deliberately NOT `annotation_`-
+    prefixed so it never disturbs AN-01's per-prefix shape counts, and is
+    checked normally by structural QA (it is real presentation text).
+    """
+    zx, zy, zw, band_h = band_rect_emu
+    tb = slide.shapes.add_textbox(
+        int(round(zx)), int(round(zy)), int(round(zw)), int(round(band_h)))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    run = p.add_run()
+    run.text = headline_text
+    run.font.size = Pt(32)
+    run.font.bold = True
+    tb.name = f"native_headline_{slide_number}"
+    return tb
+
+
 def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
-                             zone_rect_emu, *, strip_chrome=True):
+                             zone_rect_emu, *, strip_chrome=True, headline_text=None):
     """Render a native-annotated slide (§5): pure figure (F2) — a contain-fit
     base image with an editable overlay of leader connectors, casing
     underlays, terminus dots, and label textboxes, all resolved from a
@@ -358,13 +409,25 @@ def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
             — v2 pure-figure byte-parity. When False (v2.1 composed
             callers), the caller has already populated title/body
             placeholders and they must survive.
+        headline_text: v2.1 Feature B (§3.2/§3.4), native full-slide only.
+            When truthy, a top band is reserved above a shrunk contain-fit
+            zone and a ``native_headline_<n>`` textbox renders this text
+            there. The band is chrome, independent of the figure/payload
+            state (F-05/F-12): it is drawn even when the image is missing
+            or the payload's hash check refuses the overlay. Default None
+            (v2 byte-parity — no band).
 
     Returns:
         The picture shape, or None if base_image_path is missing/absent
         (mirrors ``_apply_full_bleed``'s empty-slide edge case).
     """
-    pic = _place_contain_fit_picture(slide, base_image_path, zone_rect_emu, strip=strip_chrome)
+    slide_number = payload['slide_number']
+    figure_zone, band_rect = _shrink_zone_for_headline(zone_rect_emu, slide_h, headline_text)
+
+    pic = _place_contain_fit_picture(slide, base_image_path, figure_zone, strip=strip_chrome)
     if pic is None:
+        if band_rect is not None:
+            _add_headline_band(slide, band_rect, headline_text, slide_number)
         return None
 
     current_hash = compute_content_hash(base_image_path)
@@ -377,11 +440,12 @@ def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
             f"without annotations.",
             file=sys.stderr,
         )
+        if band_rect is not None:
+            _add_headline_band(slide, band_rect, headline_text, slide_number)
         return pic
 
     fit_rect = (pic.left, pic.top, pic.width, pic.height)
     style = payload['style']
-    slide_number = payload['slide_number']
 
     leader_color = RGBColor.from_string(style['leader_color'])
     casing_color = RGBColor.from_string(style['casing_color'])
@@ -457,6 +521,9 @@ def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
             slide, g['box_rect'], g['text'], box_fill, box_border,
             box_border_width_emu, text_color, font_face, font_size_pt,
             f"annotation_label_{slide_number}_{g['index']}")
+
+    if band_rect is not None:
+        _add_headline_band(slide, band_rect, headline_text, slide_number)
 
     return pic
 
@@ -690,13 +757,26 @@ def build_deck(deck_dir, template_path, template_profile):
                     # raster, or native with a refused/missing payload.
                     _place_contain_fit_picture(slide, abs_image_path, zone_rect_emu, strip=False)
             else:
-                # Full-slide (v2 pure figure): unchanged.
+                # Full-slide (v2 pure figure, v2.1 headline opt-in). F-04:
+                # the headline band is native-only, matching the schema
+                # text -- raster never sees a headline_text.
+                show_headline = mode == 'native' and annotation_headline_slides.get(slide_number, False)
+                headline_text = headline if show_headline else None
                 if mode == 'native' and payload is not None:
                     _apply_native_annotation(
                         slide, abs_image_path, payload, slide_w, slide_h,
-                        (0, 0, slide_w, slide_h))
+                        (0, 0, slide_w, slide_h), headline_text=headline_text)
                 else:
-                    _place_contain_fit_picture(slide, abs_image_path, (0, 0, slide_w, slide_h))
+                    # raster, or native with a refused/missing payload. F-12:
+                    # the headline band is chrome, independent of the
+                    # payload -- the shared shrink+draw helper honours it
+                    # here too so a payload-absent slide doesn't silently
+                    # drop the band.
+                    figure_zone, band_rect = _shrink_zone_for_headline(
+                        (0, 0, slide_w, slide_h), slide_h, headline_text)
+                    _place_contain_fit_picture(slide, abs_image_path, figure_zone)
+                    if band_rect is not None:
+                        _add_headline_band(slide, band_rect, headline_text, slide_number)
 
             if slide_number in speaker_notes:
                 slide.notes_slide.notes_text_frame.text = speaker_notes[slide_number]
