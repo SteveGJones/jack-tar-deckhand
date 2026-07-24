@@ -45,6 +45,27 @@ DEFAULT_MARGIN_BAND = 0.12
 
 _BANDS = ('top', 'bottom', 'left', 'right')
 
+# ---------------------------------------------------------------------------
+# Blank-zone variant (issue #142, final scope item)
+# ---------------------------------------------------------------------------
+
+#: Normalized (x, y, w, h) rects of the reserved region per zone name.
+#: 0.33 / 0.25 are first-pass constants matching the vocabulary's literal
+#: "third" / "strip" reading — the design doc's §8 dogfood is the
+#: calibration mechanism for these fractions; treat them as tunable, not
+#: as a load-bearing invariant of the vocabulary itself.
+BLANK_ZONE_RECTS = {
+    'left_third':   (0.0,  0.0,  0.33, 1.0),
+    'right_third':  (0.67, 0.0,  0.33, 1.0),
+    'top_strip':    (0.0,  0.0,  1.0,  0.25),
+    'bottom_strip': (0.0,  0.75, 1.0,  0.25),
+}
+
+#: v1's estimated box pitch for vertically-stacked side-band labels
+#: (place_labels' est_step), reused verbatim for the side-zone vertical
+#: slot spacing and capacity count.
+_ZONE_SLOT_PITCH_PX = 60.0
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -344,6 +365,185 @@ def place_labels(anchors, image_size, *, margin_band=DEFAULT_MARGIN_BAND):
             }
 
     return placements
+
+
+def place_labels_in_zone(anchors, image_size, zone, *,
+                         font_size_pt, displayed_width_in, pad=0.03):
+    """Stack ALL labels inside a reserved blank zone (§4.1, issue #142).
+
+    Preference placement used only when the zone verifiably came back
+    clear (§5) AND has capacity for the whole label set — this is
+    all-or-nothing (§4.2): no per-label nearest-zone mixing. Returns the
+    same {label: {"anchor": [...], "label_pos": [...]}} shape as
+    place_labels, or None when the zone lacks capacity (caller falls
+    back to place_labels for the whole set).
+
+    font_size_pt / displayed_width_in (BZ-3, BZ-6): the capacity checks
+    need real label-box extents via estimate_label_box at the RESOLVED
+    style font size (operator-variable, e.g. style.font_size_pt: 14 —
+    not derivable from anchors), converted to a normalized fraction of
+    the image via the zone-dependent effective displayed width in
+    inches. Both are required kwargs; the caller (build_annotation_payload
+    for native, the annotate-figure flow for raster) always has them.
+    A lazy import of annotation_payload.estimate_label_box is used here
+    to avoid a module-load-time circular import (annotation_payload
+    already imports place_labels / _segment_box_entry from this module
+    at import time; by the time this function actually runs,
+    annotation_payload is fully loaded regardless of which module
+    called first).
+
+    Side zones (left_third, right_third): labels stack VERTICALLY, x
+    centred in the zone, sorted by anchor y (tie-break label name) so
+    leaders fan out monotonically — crossings are MINIMISED, not
+    eliminated (BZ-5): a far-side anchor whose y-order differs from its
+    slot's neighbours can produce a crossing; this is an accepted trade
+    of the all-labels-to-one-zone design. Slots spaced by the v1
+    estimated box pitch (60px / image height, normalized), centred on
+    the anchors' y-centroid, clamped to
+    [zone_y + pad, zone_y + zone_h - pad].
+
+    Top/bottom strips: labels spread HORIZONTALLY, y centred in the
+    strip, sorted by anchor x (tie-break name), evenly slotted across
+    [pad, 1 - pad] as v1's top/bottom spread does.
+
+    All labels go to the zone, not just nearby ones [FIRM] — that is the
+    point of a reserved region: guaranteed-empty space. A far-side
+    anchor gets a long leader crossing the subject; leaders are drawn
+    with a white casing halo and this is the standard cartographic
+    trade.
+
+    Capacity gates (§4.2) — ANY of these failing returns None:
+      - Side zones: count `floor(usable_h / slot_pitch)` with
+        `slot_pitch = 60px / image_height` normalized, `usable_h =
+        zone_h - 2*pad`; AND width — the WIDEST label's normalized
+        `estimate_label_box` width must fit `zone_w - 2*pad` (BZ-2),
+        otherwise the box spills out of the reserved region.
+      - Strips: `floor(usable_w / max_slot_w)` where `max_slot_w` is the
+        widest label's normalized estimated width plus a fixed gap
+        (`pad`, reused as the inter-box gap) — height fits by
+        construction (one box row in a 0.25 strip).
+
+    Args:
+        anchors: dict of {label: [x, y]} normalized coordinates
+            (already validated by validate_anchors).
+        image_size: (width, height) in pixels.
+        zone: one of BLANK_ZONE_RECTS's keys (never 'auto' here — the
+            caller resolves 'auto' before calling).
+        font_size_pt: the RESOLVED (merged) style font size in points.
+        displayed_width_in: effective displayed width of the image, in
+            inches, for the inches->normalized-fraction conversion
+            (BZ-6 — a per-placement-zone conservative constant, NOT a
+            flat 96-dpi assumption).
+        pad: normalized padding from the zone's own edges (default
+            0.03), also reused as the strip inter-box gap.
+
+    Returns:
+        dict, or None when any capacity gate fails.
+
+    Raises:
+        KeyError: zone is not one of BLANK_ZONE_RECTS's keys.
+        ValueError: image_size is not positive.
+    """
+    from src.annotation_payload import estimate_label_box  # lazy: avoid circular import
+
+    width, height = image_size
+    if width <= 0 or height <= 0:
+        raise ValueError(f"image_size must be positive, got {image_size}")
+
+    zone_x, zone_y, zone_w, zone_h = BLANK_ZONE_RECTS[zone]
+
+    labels_sorted_by_name = sorted(anchors)
+    box_w_fracs = {}
+    for label in labels_sorted_by_name:
+        box_w_in, _box_h_in = estimate_label_box(label, font_size_pt)
+        box_w_fracs[label] = box_w_in / displayed_width_in
+    max_box_w_frac = max(box_w_fracs.values())
+
+    n = len(anchors)
+    placements = {}
+
+    if zone in ('left_third', 'right_third'):
+        slot_pitch = _ZONE_SLOT_PITCH_PX / height
+        usable_h = zone_h - 2 * pad
+        count_capacity = int(usable_h // slot_pitch) if slot_pitch > 0 else 0
+        if n > count_capacity:
+            return None
+        if max_box_w_frac > zone_w - 2 * pad:
+            return None
+
+        cx = zone_x + zone_w / 2.0
+        labels_sorted = sorted(anchors, key=lambda lbl: (anchors[lbl][1], lbl))
+        centroid = sum(anchors[lbl][1] for lbl in labels_sorted) / n
+        half_window = (n - 1) / 2.0 * slot_pitch
+        win_lo = zone_y + pad + half_window
+        win_hi = zone_y + zone_h - pad - half_window
+        if win_lo <= win_hi:
+            centred = min(max(centroid, win_lo), win_hi)
+            for i, label in enumerate(labels_sorted):
+                slot_y = centred + (i - (n - 1) / 2.0) * slot_pitch
+                placements[label] = {
+                    'anchor': list(anchors[label]),
+                    'label_pos': [cx, slot_y],
+                }
+        else:
+            # Defensive fallback (capacity gate above should prevent this):
+            # even spread across the usable span.
+            span_lo, span_hi = zone_y + pad, zone_y + zone_h - pad
+            step = (span_hi - span_lo) / (n + 1)
+            for i, label in enumerate(labels_sorted):
+                slot_y = span_lo + step * (i + 1)
+                placements[label] = {
+                    'anchor': list(anchors[label]),
+                    'label_pos': [cx, slot_y],
+                }
+        return placements
+
+    if zone in ('top_strip', 'bottom_strip'):
+        usable_w = zone_w - 2 * pad
+        max_slot_w = max_box_w_frac + pad
+        count_capacity = int(usable_w // max_slot_w) if max_slot_w > 0 else 0
+        if n > count_capacity:
+            return None
+
+        cy = zone_y + zone_h / 2.0
+        labels_sorted = sorted(anchors, key=lambda lbl: (anchors[lbl][0], lbl))
+        span_lo, span_hi = zone_x + pad, zone_x + zone_w - pad
+        step = (span_hi - span_lo) / (n + 1)
+        for i, label in enumerate(labels_sorted):
+            slot_x = span_lo + step * (i + 1)
+            placements[label] = {
+                'anchor': list(anchors[label]),
+                'label_pos': [slot_x, cy],
+            }
+        return placements
+
+    raise KeyError(
+        f"Unknown blank zone {zone!r}; expected one of {sorted(BLANK_ZONE_RECTS)}"
+    )
+
+
+def parse_blank_zone_verdict(payload):
+    """Tolerant parse of the anchor-pass's blank_zone verdict (§5.2).
+
+    Args:
+        payload: the parsed anchor-pass JSON dict.
+
+    Returns:
+        True, False, or None — None when the 'blank_zone' key is absent,
+        the value is not a dict, or 'clear' is missing / non-boolean.
+        NEVER raises. Absent/malformed is treated by the caller exactly
+        like False: fall back to margin-band placement (the conservative
+        default).
+    """
+    if not isinstance(payload, dict):
+        return None
+    blank_zone = payload.get('blank_zone')
+    if not isinstance(blank_zone, dict):
+        return None
+    clear = blank_zone.get('clear')
+    if isinstance(clear, bool):
+        return clear
+    return None
 
 
 def annotate(image_path, labels, out_path, *, font_size=DEFAULT_FONT_SIZE,
