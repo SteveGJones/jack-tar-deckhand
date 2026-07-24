@@ -187,6 +187,59 @@ def test_manifest_strategy_must_be_creative_vision():
         validate(instance=bad, schema=_load("creative_vision_manifest.schema.json"))
 
 
+# --- mlx_edit attempt shape (issue #143, F-09) -------------------------------
+
+
+def _f09_edit_attempt():
+    """The F-09 edit-attempt record shape from the design doc §5.2 — a full
+    attempt (not a side-channel), reusing all required attempt fields but
+    with tier: mlx_edit, text_iterations: [], and the base_attempt_index /
+    base_image_hash edit-specific extensions. The render block ALSO
+    satisfies the pre-existing render.required contract (model, resolution,
+    cost_usd, output_path) alongside the design's illustrative prompt /
+    image_path fields — additionalProperties is open on this schema, so
+    both shapes coexist without conflict."""
+    return {
+        "attempt_index": 2,
+        "prose_version": 1,
+        "tier": "mlx_edit",
+        "text_iterations": [],
+        "render": {
+            "prompt": "darken the sky, keep the ships and horizon",
+            "image_path": "runs/02-mlx-edit.png",
+            "model": "mlx/flux2-klein-4b",
+            "resolution": "native",
+            "output_path": "runs/02-mlx-edit.png",
+            "cost_usd": 0.0,
+        },
+        "image_reviewer_verdict": "pass",
+        "directors_critic_verdict": _valid_verdict(),
+        "cumulative_cost_usd": 0.067,
+        "base_attempt_index": 1,
+        "base_image_hash": "sha256:abc123",
+    }
+
+
+def test_manifest_accepts_mlx_edit_attempt_shape():
+    m = _valid_manifest()
+    m["attempts"].append(_f09_edit_attempt())
+    validate(instance=m, schema=_load("creative_vision_manifest.schema.json"))
+
+
+def test_manifest_can_edit_hook_optional_true():
+    m = _valid_manifest()
+    m["iterate_slide_hooks"]["can_edit"] = True
+    validate(instance=m, schema=_load("creative_vision_manifest.schema.json"))
+
+
+def test_manifest_legacy_without_can_edit_still_validates():
+    """A manifest written before the edit tier landed has no can_edit key
+    at all — must still validate (can_edit is optional, not required)."""
+    m = _valid_manifest()
+    assert "can_edit" not in m["iterate_slide_hooks"]
+    validate(instance=m, schema=_load("creative_vision_manifest.schema.json"))
+
+
 # --- strategy_map.creative_vision integration -------------------------------
 
 

@@ -153,6 +153,90 @@ def test_decide_next_action_escalate_at_top_of_ladder_returns_accept_with_warnin
     assert action.forced is True  # accepted because we're at ceiling and out of iterations
 
 
+# --- edit channel (issue #143, D4/§5.3) -------------------------------------
+
+
+def test_decide_next_action_refine_local_can_edit_returns_edit():
+    action = decide_next_action(
+        critic_verdict=_verdict("refine_at_tier"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k", "flash_2k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=1,
+        per_tier_cap=3,
+        allowed_ceiling="flash_2k",
+        locality="local",
+        can_edit=True,
+    )
+    assert action.kind == "edit"
+
+
+def test_decide_next_action_refine_global_can_edit_is_unaffected():
+    """A global gap must NOT route to edit even when can_edit is True —
+    only a local gap is edit-eligible."""
+    action = decide_next_action(
+        critic_verdict=_verdict("refine_at_tier"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k", "flash_2k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=1,
+        per_tier_cap=3,
+        allowed_ceiling="flash_2k",
+        locality="global",
+        can_edit=True,
+    )
+    assert action.kind == "refine_at_tier"
+
+
+def test_decide_next_action_refine_local_but_cannot_edit_falls_through():
+    """locality='local' alone is not sufficient — can_edit must also be True
+    (no detected backend / no base image yet -> ordinary refine path)."""
+    action = decide_next_action(
+        critic_verdict=_verdict("refine_at_tier"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k", "flash_2k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=1,
+        per_tier_cap=3,
+        allowed_ceiling="flash_2k",
+        locality="local",
+        can_edit=False,
+    )
+    assert action.kind == "refine_at_tier"
+
+
+def test_decide_next_action_escalate_tier_unaffected_by_locality():
+    """escalate_tier verdicts are never redirected to edit, regardless of
+    locality/can_edit — an edit can't fix a fundamentally-under-tier image."""
+    action = decide_next_action(
+        critic_verdict=_verdict("escalate_tier"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k", "flash_2k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=1,
+        per_tier_cap=3,
+        allowed_ceiling="flash_2k",
+        locality="local",
+        can_edit=True,
+    )
+    assert action.kind == "escalate_tier"
+
+
+def test_decide_next_action_defaults_preserve_pre_edit_tier_behaviour():
+    """Callers that don't pass locality/can_edit get the exact pre-#143
+    behaviour — refine_at_tier stays refine_at_tier."""
+    action = decide_next_action(
+        critic_verdict=_verdict("refine_at_tier"),
+        current_tier="flash_1k",
+        ladder=["ollama", "flash_1k", "flash_2k"],
+        remaining_budget_usd=0.5,
+        per_tier_iteration_count=1,
+        per_tier_cap=3,
+        allowed_ceiling="flash_2k",
+    )
+    assert action.kind == "refine_at_tier"
+
+
 def test_decide_next_action_critic_abort_returns_abort():
     action = decide_next_action(
         critic_verdict=_verdict("abort"),
@@ -311,6 +395,18 @@ def test_gate_does_not_fire_when_next_tier_is_free():
         next_tier="ollama",
         tier_costs=_TEST_TIER_COSTS,
     ) is False
+
+
+def test_gate_fires_unconditionally_on_edit_iteration():
+    """F12 is absolute (issue #143 §5.3): an mlx_edit iteration on a
+    creative_vision slide fires the gate exactly like any other iteration —
+    no bypass. Requires TIER_COSTS to carry an 'mlx_edit' entry (F-10) so
+    this lookup doesn't KeyError."""
+    assert should_fire_operator_gate(
+        strategy="creative_vision",
+        current_tier="flash_1k",
+        next_tier="mlx_edit",
+    ) is True
 
 
 # --- defaults + error contract ---

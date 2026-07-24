@@ -39,7 +39,19 @@
         "properties": {
           "attempt_index": {"type": "integer", "minimum": 1},
           "prose_version": {"type": "integer", "minimum": 1},
-          "tier": {"type": "string"},
+          "tier": {
+            "type": "string",
+            "description": "Cascade tier name (ollama, flash_1k, ..., pro_4k), OR 'mlx_edit' (issue #143) — a $0 tier-orthogonal local edit action, not a ladder rung. An mlx_edit attempt carries base_attempt_index/base_image_hash below."
+          },
+          "base_attempt_index": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Only present on tier: mlx_edit attempts — the attempt_index of the image this edit was applied to."
+          },
+          "base_image_hash": {
+            "type": "string",
+            "description": "Only present on tier: mlx_edit attempts — content hash of the base image this edit was applied to."
+          },
           "text_iterations": {
             "type": "array",
             "items": {
@@ -173,6 +185,10 @@
         "can_revise_prose": {"type": "boolean"},
         "can_refine_prompt": {"type": "boolean"},
         "can_escalate_tier": {"type": "boolean"},
+        "can_edit": {
+          "type": "boolean",
+          "description": "Issue #143: whether the edit channel is available. Optional (not required) so legacy manifests written before the edit tier still validate. Flips True once at least one attempt with an on-disk render exists."
+        },
         "current_tier": {"type": "string"},
         "next_tier_available": {"type": ["string", "null"]},
         "remaining_budget_usd": {"type": "number", "minimum": 0}

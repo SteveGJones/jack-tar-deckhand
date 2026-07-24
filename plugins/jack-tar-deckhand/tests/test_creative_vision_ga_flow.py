@@ -341,6 +341,18 @@ def test_ga_flow_full_ordering_is_serialised(tmp_path):
     assert is_sprint_complete(str(tmp_path), smap) is True
 
 
+def test_ga_flow_gate_fires_on_edit_iteration_no_bypass():
+    """Issue #143 F12: an mlx_edit iteration on a creative_vision slide is
+    just another iteration for gate purposes — no special-cased bypass.
+    Pairs with AC3's cost-to-cost / same-tier-refinement cases above."""
+    assert should_fire_operator_gate(
+        strategy="creative_vision", current_tier="ollama", next_tier="mlx_edit"
+    ) is True
+    assert should_fire_operator_gate(
+        strategy="creative_vision", current_tier="pro_1k", next_tier="mlx_edit"
+    ) is True
+
+
 def test_ga_flow_anchors_optional_when_absent(tmp_path):
     """AC4: a deck without creative_anchors.json must not break the GA flow.
 
