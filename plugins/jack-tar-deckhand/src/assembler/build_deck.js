@@ -171,17 +171,50 @@ async function assembleDeck() {
         const chartData = findChart(chartManifest, slideData.slide_number);
         const strategy = slideStrategies[slideData.slide_number] || 'composed';
 
-        // Annotation routing (issue #142 v2, T6) — orthogonal to base
-        // strategy: a native/raster-annotated slide always renders as a
-        // pure figure via its own builder, regardless of which strategy
-        // classified it. Checked BEFORE the strategy-first if-chain below
-        // (design §6.2: "orthogonal to the base strategy").
+        // Annotation routing (issue #142 v2, T6; v2.1 T2/T3 composed +
+        // headline) — orthogonal to base strategy: a native/raster-annotated
+        // slide always renders through the annotation-aware path, regardless
+        // of which strategy classified it. Checked BEFORE the strategy-first
+        // if-chain below (design §6.2: "orthogonal to the base strategy").
         const annotationEntry = strategyMap
             ? (strategyMap.slides || []).find(e => e.slide_number === slideData.slide_number)
             : null;
         const annotationMode = annotationEntry?.annotation_mode || 'none';
         if ((annotationMode === 'native' || annotationMode === 'raster') && imageData) {
-            buildNativeAnnotatedSlide(pptx, slideData, { palette, layouts, SLIDE_W, SLIDE_H, noteData, imageData, annotationMode });
+            // F-02 (v2.1): placement zone is derived HERE, from the
+            // effective strategy already resolved into `strategy` above, and
+            // passed down explicitly. The builders never resolve it from the
+            // payload or the manifest entry themselves.
+            const placementZone = (strategy === 'composed')
+                ? 'annotated_image_zone' : 'annotated_full_slide';
+            if (placementZone === 'annotated_image_zone') {
+                // Composed (v2.1 Feature A): keep chrome, overlay into the
+                // image zone via buildContentSlide.
+                const annotationPayload = annotationMode === 'native'
+                    ? loadAnnotationPayload(imageData) : null;
+                // F-10: a composed native slide whose image file is missing
+                // would silently discard the payload inside buildContentSlide
+                // (hasImage false) -- warn loudly at the routing site.
+                if (annotationPayload && !fs.existsSync(resolveImagePath(imageData.file_path))) {
+                    console.warn(`Slide ${slideData.slide_number}: annotation payload present ` +
+                                 `but base image file is missing -- overlay will not be drawn`);
+                }
+                buildContentSlide(pptx, slideData, {
+                    palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN,
+                    logoPath, hasLogo, noteData, imageData, annotationPayload,
+                });
+            } else {
+                // Full-slide (v2 pure figure), plus the v2.1 headline opt-in
+                // (Feature B). F-04: the headline band is NATIVE-only,
+                // matching the schema text.
+                buildNativeAnnotatedSlide(pptx, slideData, {
+                    palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN,
+                    noteData, imageData, annotationMode,
+                    placementZone,   // F-02: strategy-derived, always 'annotated_full_slide' here
+                    showHeadline: annotationMode === 'native'
+                        && annotationEntry?.annotation?.show_headline === true,
+                });
+            }
             continue;
         }
 
@@ -390,7 +423,7 @@ function buildTitleSlide(pptx, slideData, ctx) {
  * left edge (#006B5E).
  */
 function buildContentSlide(pptx, slideData, ctx) {
-    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData } = ctx;
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData, annotationPayload } = ctx;
     const bgColor = slidePalette?.content_slides?.background || palette.background || 'F5F0E8';
     const textColor = slidePalette?.content_slides?.text || palette.text_primary;
     const accentColor = slidePalette?.content_slides?.accent_bar || palette.accent || palette.primary || 'C67B2F';
@@ -481,8 +514,13 @@ function buildContentSlide(pptx, slideData, ctx) {
             w: SLIDE_W * 0.428,
             h: SLIDE_H * 0.787,
         };
-        // Calculate image dimensions to preserve 16:9 aspect ratio within zone
-        const imgNativeRatio = (imageData.dimensions?.width || 1024) / (imageData.dimensions?.height || 576);
+        // Calculate image dimensions to preserve 16:9 aspect ratio within zone.
+        // F-01 (v2.1): when an annotation payload is present, its
+        // image_dimensions are payload-required and always real (read via
+        // get_dimensions when the payload was built) -- prefer them over the
+        // manifest's dimensions field, then the 1024x576 fallback.
+        const imgNativeRatio = (annotationPayload?.image_dimensions?.width || imageData.dimensions?.width || 1024)
+            / (annotationPayload?.image_dimensions?.height || imageData.dimensions?.height || 576);
         const zoneRatio = imgZone.w / imgZone.h;
         let imgW, imgH, imgX, imgY;
         if (imgNativeRatio > zoneRatio) {
@@ -506,6 +544,16 @@ function buildContentSlide(pptx, slideData, ctx) {
             h: imgH,
             altText: imageData.alt_text || '',
         });
+
+        // v2.1 Feature A: composed annotated slide -- draw the native
+        // overlay into the image's own contain-fit rect. `drawAnnotations`
+        // is the v2 renderer, unchanged; the composed image zone's
+        // contain-fit rect IS its fitRect.
+        if (annotationPayload) {
+            drawAnnotations(pptx, slide, annotationPayload,
+                             { x: imgX, y: imgY, w: imgW, h: imgH },
+                             slideData.slide_number);
+        }
     }
 
     // Footer logo (bottom-right, every slide)
@@ -1212,35 +1260,72 @@ function drawAnnotations(pptx, slide, payload, fitRect, slideNumber) {
     }
 }
 
+// v2.1 Feature B (§3.2): fraction of slide height reserved for the
+// optional headline band on a full-slide native annotation slide.
+const HEADLINE_BAND_FRAC = 0.14;
+
 /**
- * Native/raster annotated slide (issue #142 v2): the base image (unlabelled
- * for native, already-labelled for raster) contain-fits its placement zone
- * and — for native mode with a valid payload — the vector overlay is drawn
- * on top. Pure figure (F2): no headline, no body_points, no footer logo,
- * matching full_bleed's zero-chrome contract. Distinct from full_bleed only
- * in fit (contain, never cover) and in the optional overlay pass.
+ * Native/raster annotated slide (issue #142 v2, headline opt-in v2.1): the
+ * base image (unlabelled for native, already-labelled for raster)
+ * contain-fits its placement zone and — for native mode with a valid
+ * payload — the vector overlay is drawn on top. Pure figure (F2): no
+ * headline, no body_points, no footer logo, matching full_bleed's
+ * zero-chrome contract. Distinct from full_bleed only in fit (contain,
+ * never cover) and in the optional overlay pass.
+ *
+ * v2.1 `ctx.showHeadline` (native-only, F-04): when true and the slide has
+ * a headline, a top band is reserved above a shrunk contain-fit zone and a
+ * `native_headline_<n>` textbox renders the outline headline there. The
+ * headline is chrome, independent of the payload/image state (F-05/F-12):
+ * it is drawn even when the base image is missing.
  */
 function buildNativeAnnotatedSlide(pptx, slideData, ctx) {
-    const { palette, layouts, SLIDE_W, SLIDE_H, noteData, imageData, annotationMode } = ctx;
+    const { palette, typo, slidePalette, layouts, SLIDE_W, SLIDE_H, MARGIN, noteData, imageData, annotationMode, placementZone, showHeadline } = ctx;
 
     const slide = pptx.addSlide();
 
     const payload = annotationMode === 'native' ? loadAnnotationPayload(imageData) : null;
 
-    const placementZone = payload?.placement_zone || imageData?.placement_zone || 'annotated_full_slide';
+    // F-02 (v2.1): the placement zone is strategy-derived at the routing
+    // site and passed in as `ctx.placementZone` -- it is NEVER resolved from
+    // the payload or the manifest entry here. A stale payload
+    // `placement_zone` (e.g. left over after a speaker_override moved this
+    // slide off `composed`) must not silently mis-fit a full-slide build.
+    // Since composed routes through buildContentSlide in v2.1, this builder
+    // only ever receives 'annotated_full_slide' -- the parameter exists for
+    // explicitness and future zones.
     const zoneRect = resolveAnnotationZoneRect(placementZone, layouts, SLIDE_W, SLIDE_H);
 
+    const hasHeadlineBand = Boolean(showHeadline && slideData.headline);
+    if (showHeadline && !slideData.headline) {
+        console.warn(`Slide ${slideData.slide_number}: show_headline is true but the outline ` +
+                     'headline is empty -- drawing no headline band');
+    }
+    const bandH = hasHeadlineBand ? SLIDE_H * HEADLINE_BAND_FRAC : 0;
+    // The figure's own placement zone shrinks to the region below the band
+    // (§3.2); the letterbox/background FILL still covers the zone it always
+    // has (F-05: full-slide when the fill gate below widens it).
+    const figureZone = hasHeadlineBand
+        ? { x: zoneRect.x, y: zoneRect.y + bandH, w: zoneRect.w, h: zoneRect.h - bandH }
+        : zoneRect;
+
     const imgPath = imageData ? resolveImagePath(imageData.file_path) : null;
-    if (imgPath && fs.existsSync(imgPath)) {
+    const hasImage = Boolean(imgPath && fs.existsSync(imgPath));
+    if (hasImage) {
         const nativeW = payload?.image_dimensions?.width || imageData.dimensions?.width || 1024;
         const nativeH = payload?.image_dimensions?.height || imageData.dimensions?.height || 576;
-        const fitRect = computeContainFit(zoneRect, nativeW, nativeH);
+        const fitRect = computeContainFit(figureZone, nativeW, nativeH);
 
         // Letterbox fill first (§4.4 step 1), so any off-aspect band shows
         // the brand background rather than the PptxGenJS canvas default.
+        // F-05: in showHeadline mode this fill covers the FULL slide (not
+        // just zoneRect) so the headline band never sits on unfilled white
+        // canvas on a non-white brand background; the default (no headline)
+        // path keeps the v2 zone-only fill, byte-parity preserved.
         const bgColor = palette?.background || 'FFFFFF';
+        const fillRect = hasHeadlineBand ? { x: 0, y: 0, w: SLIDE_W, h: SLIDE_H } : zoneRect;
         slide.addShape(pptx.ShapeType.rect, {
-            x: zoneRect.x, y: zoneRect.y, w: zoneRect.w, h: zoneRect.h,
+            x: fillRect.x, y: fillRect.y, w: fillRect.w, h: fillRect.h,
             fill: { color: bgColor }, line: { width: 0 },
         });
 
@@ -1262,7 +1347,25 @@ function buildNativeAnnotatedSlide(pptx, slideData, ctx) {
         slide.background = { color: bgColor };
     }
 
-    // Pure figure (F2): no headline, no body_points, no footer logo.
+    // F-05/F-12: the headline band is chrome, independent of the figure --
+    // draw it even when the base image was missing (fallback background).
+    if (hasHeadlineBand) {
+        const headlineTextColor = hasImage
+            ? (slidePalette?.content_slides?.text || palette?.text_primary || '111111')
+            : 'FFFFFF'; // readable on the palette.primary no-image fallback
+        slide.addText(slideData.headline, {
+            x: zoneRect.x + (MARGIN || 0), y: zoneRect.y,
+            w: zoneRect.w - 2 * (MARGIN || 0), h: bandH,
+            fontFace: typo?.heading_font,
+            fontSize: typo?.heading_sizes?.slide_heading || 32,
+            bold: true,
+            color: headlineTextColor,
+            valign: 'middle',
+            objectName: `native_headline_${slideData.slide_number}`,
+        });
+    }
+
+    // Pure figure (F2) otherwise: no headline, no body_points, no footer logo.
     if (noteData) {
         slide.addNotes(noteData.text);
     }

@@ -147,6 +147,19 @@ def run_qa(pptx_path, deck_dir='./tmp/deck', duration_minutes=None, config=None)
             for check_fn in STRUCTURAL_CHECKS_WITH_PRESENTATION:
                 findings.extend(check_fn(slide, slide_number, prs, config=annotation_exempt_cfg))
 
+            # F-08 (v2.1): a composed-strategy native slide has REAL chrome
+            # (headline/body, same as any plain composed sibling) that
+            # deserves the same visual scrutiny — run VISUAL_CHECKS with the
+            # same annotation exemption, mirroring the plain composed
+            # branch's invocation below. Full-slide native slides (pure
+            # figure, F2) stay VISUAL_CHECKS-free, as v2 shipped.
+            if strategy == 'composed':
+                for check_fn in VISUAL_CHECKS:
+                    try:
+                        findings.extend(check_fn(slide, slide_number, config=annotation_exempt_cfg))
+                    except Exception:
+                        pass
+
             image_entry = image_manifest_by_slide.get(slide_number)
             payload = _load_annotation_payload(deck_dir, image_entry)
             findings.extend(check_annotation_contract(
