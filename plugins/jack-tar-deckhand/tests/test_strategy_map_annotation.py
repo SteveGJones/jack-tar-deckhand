@@ -205,3 +205,44 @@ def test_schema_accepts_native_on_composed_with_annotation():
         annotation=_valid_annotation(),
     )
     validate(instance=_base_map(slide), schema=_schema())
+
+
+# --- blank_zone variant (issue #142, final scope item) --------------------
+
+
+def test_schema_accepts_annotation_blank_zone_all_values():
+    for mode in ("native", "raster"):
+        for zone in ("left_third", "right_third", "top_strip", "bottom_strip", "auto"):
+            annotation = _valid_annotation()
+            annotation["blank_zone"] = zone
+            slide = _base_slide(
+                strategy="full_bleed",
+                annotation_mode=mode,
+                annotation=annotation,
+            )
+            validate(instance=_base_map(slide), schema=_schema())
+
+
+def test_schema_rejects_unknown_blank_zone_value():
+    """'top_band' is the F8-rejected collision value (§2.2) — deliberately
+    used as the fixture here to also pin the vocabulary decision."""
+    annotation = _valid_annotation()
+    annotation["blank_zone"] = "top_band"
+    slide = _base_slide(
+        strategy="full_bleed",
+        annotation_mode="native",
+        annotation=annotation,
+    )
+    with pytest.raises(ValidationError):
+        validate(instance=_base_map(slide), schema=_schema())
+
+
+def test_schema_accepts_annotation_without_blank_zone():
+    """Backward-compat pin: omitted blank_zone is valid, v2/v2.1 shape."""
+    slide = _base_slide(
+        strategy="full_bleed",
+        annotation_mode="native",
+        annotation=_valid_annotation(),
+    )
+    assert "blank_zone" not in slide["annotation"]
+    validate(instance=_base_map(slide), schema=_schema())

@@ -151,6 +151,28 @@ def test_schema_rejects_label_missing_text():
         validate(instance=payload, schema=_annotations_schema())
 
 
+# --- blank_zone audit block (issue #142, final scope item) -----------------
+
+
+def test_schema_accepts_payload_without_blank_zone():
+    """v2/v2.1 payloads on disk (no blank_zone key at all) stay valid."""
+    payload = _valid_payload()
+    assert "blank_zone" not in payload
+    validate(instance=payload, schema=_annotations_schema())
+
+
+def test_schema_rejects_bad_blank_zone_placement_value():
+    payload = _valid_payload()
+    payload["blank_zone"] = {
+        "requested": "right_third",
+        "resolved": "right_third",
+        "verified_clear": True,
+        "placement": "zone_partial",  # not in the enum
+    }
+    with pytest.raises(ValidationError):
+        validate(instance=payload, schema=_annotations_schema())
+
+
 # --- image_manifest.schema.json (F8) ----------------------------------------
 
 
