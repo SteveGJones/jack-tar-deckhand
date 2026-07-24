@@ -47,6 +47,26 @@ def test_available_channels_excludes_escalate_tier_when_budget_out(tmp_path):
     assert "refine_prompt" in channels
 
 
+# --- edit channel (issue #143) ----------------------------------------------
+
+
+def test_available_channels_excludes_edit_when_can_edit_false(tmp_path):
+    manifest = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
+    save_manifest(str(tmp_path), manifest)
+    channels = available_channels_for_creative_vision(str(tmp_path), slide_number=3)
+    assert "edit" not in channels
+
+
+def test_available_channels_includes_edit_when_can_edit_true(tmp_path):
+    manifest = initialise_manifest(slide_number=3, vision_prose="x", budget_usd=1.0)
+    manifest["iterate_slide_hooks"]["can_edit"] = True
+    save_manifest(str(tmp_path), manifest)
+    channels = available_channels_for_creative_vision(str(tmp_path), slide_number=3)
+    assert "edit" in channels
+    # edit is independent of budget/ceiling — present alongside the others
+    assert set(channels) == {"revise_prose", "refine_prompt", "escalate_tier", "edit"}
+
+
 def test_revise_prose_action_bumps_version(tmp_path):
     manifest = initialise_manifest(slide_number=3, vision_prose="v1", budget_usd=1.0)
     save_manifest(str(tmp_path), manifest)

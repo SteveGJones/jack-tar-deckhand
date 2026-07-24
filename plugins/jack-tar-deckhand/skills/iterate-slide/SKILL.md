@@ -399,6 +399,127 @@ Next:
 - **Cost discipline:** check the cost ledger after a refinement. If cumulative-spend is approaching the deck's budget envelope, escalate to the operator before launching another refinement.
 - **Annotate-figure v2 native slides (F4, §6.3):** Step 7.5 is not optional for `annotation_mode: native` slides — a refined image without a refreshed annotations payload will be refused by the assembler's hash-gate and flagged `error` by deck-qa's AN-01. Always run the guard check before Step 8.
 
+## Edit channel (local $0 targeted edit, issue #143)
+
+A **local mflux edit** is a fourth refinement action, available for BOTH
+the standard `academic_figure` paperbanana flow above and the
+creative_vision three-channel branch below. Unlike a re-roll (paperbanana
+`--continue-run` or a fresh cascade render), an edit takes the slide's
+EXISTING image + an instruction and preserves everything the instruction
+does not name — $0, ~1 minute, no new download, on Apple Silicon with the
+`jack-tar-mlx` plugin's edit-capable weights cached.
+
+**Procedure: classifier proposes, operator disposes.** Nothing here is
+autonomous.
+
+1. **Check availability.**
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.edit_dispatch import detect_mlx_edit_backend, edit_channel_available, edit_channel_unavailable_reason
+
+backend = detect_mlx_edit_backend()
+entry = json.loads('''$PRIOR_ENTRY_JSON''')  # this slide's current manifest entry
+available = edit_channel_available(entry, backend)
+print(json.dumps({'available': available, 'reason': edit_channel_unavailable_reason(backend)}))
+"
+```
+
+   If unavailable, print `reason` to the operator — it distinguishes the
+   F-06 stale-catalog-cache condition ("no `image_edit`-role entries in
+   the loaded catalog — re-run `refresh-models` or delete the stale
+   `~/.jack-tar/model-catalog.json`") from a plain "no local edit backend
+   detected" — and fall back to the standard refinement path (Step 3
+   onward, above, or the three-channel branch below).
+
+2. **Classify the operator's feedback.** The text carve-out is applied
+   FIRST and is a HARD EXCLUSION (issue #143 D9 — the simplest
+   word-for-word edit garbled "NOTICE" -> "NOBTICE" in the 2026-07-23
+   smoke, S1):
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.edit_dispatch import classify_edit_locality
+print(json.dumps(classify_edit_locality('''$FEEDBACK''')))
+"
+```
+
+   - `text_excluded` — **NEVER offer edit for this feedback**, not even
+     with a warning. Route to the standard re-roll path, or (for
+     `annotation_mode: native` slides) annotate-figure's native mode.
+   - `local` — propose edit.
+   - `global` — propose the standard re-roll/refine_prompt path.
+   - `ambiguous` — present both; operator picks.
+
+3. **Operator confirms.** The edit is $0 — for `academic_figure` slides
+   this means the edit channel is **F10-ungated** (no free→cost crossing
+   to pause on), but the operator still explicitly picks the channel; no
+   silent auto-edit. For creative_vision slides, confirming this channel
+   IS an F12 gate touch — see the three-channel branch's cross-reference
+   below; F12 fires on EVERY edit iteration, unconditionally, with no
+   free-tier bypass.
+
+4. **Build args and invoke `edit_image.py`** via the sibling `jack-tar-mlx`
+   plugin (same discovery pattern imagegen-bridge Step 4.6 uses):
+
+```bash
+MLX_PLUGIN_ROOT=$(dirname "$PLUGIN_ROOT")/jack-tar-mlx
+EDIT_ARGS_JSON=$(PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.edit_dispatch import build_edit_args, LocalBackend
+backend = LocalBackend(provider='mlx', model='$BACKEND_MODEL')
+print(json.dumps(build_edit_args('$PRIOR_FILE_PATH', '''$FEEDBACK''', backend)))
+")
+STEPS=$(echo "$EDIT_ARGS_JSON" | jq -r '.steps')
+SEED=$(echo "$EDIT_ARGS_JSON" | jq -r '.seed')
+
+python3 "$MLX_PLUGIN_ROOT/src/edit_image.py" \
+  --prompt "$FEEDBACK" \
+  --image-paths "$PRIOR_FILE_PATH" \
+  --model "$BACKEND_MODEL" \
+  --steps "$STEPS" \
+  --seed "$SEED" \
+  --output "$EDIT_OUT_PNG" 2> >(tee /tmp/mlx-edit-stderr.log >&2)
+```
+
+5. **Dispatch `image-reviewer`** on `$EDIT_OUT_PNG` before persisting —
+   same failsafe-rollback discipline as Step 7 above: on `refine`/`fail`,
+   do not update the manifest, surface the verdict, and let the operator
+   choose to retry or accept the prior version.
+
+6. **Run the F4 annotation-refresh guard (Step 7.5)** exactly as it runs
+   for a paperbanana refinement — an edit is an image replacement, and
+   `annotation_refresh_required` only ever reads the strategy-map's
+   `annotation_mode`, so it fires identically regardless of what produced
+   the new file. No edit-specific guard exists or is needed.
+
+7. **Persist via `edit_action`** (the edit-tier analogue of Step 8's
+   `update_manifest_entry`, but chaining `edit_chain` provenance instead
+   of `paperbanana_history`):
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.iterate_slide_dispatch import edit_action
+entry = edit_action(
+    '$MANIFEST_PATH', $SLIDE_NUMBER,
+    new_file_path='$EDIT_OUT_PNG',
+    new_content_hash='$EDIT_SHA',
+    edit_instruction='''$FEEDBACK''',
+    edit_args=json.loads('''$EDIT_ARGS_JSON'''),
+)
+print(json.dumps(entry, indent=2))
+"
+```
+
+Cross-references: `plugins/jack-tar-deckhand/src/edit_dispatch.py`,
+`plugins/jack-tar-mlx/src/edit_image.py`, imagegen-bridge SKILL.md Step
+4.9 (the same mechanics, entered from the bridge's dispatch loops instead
+of from an operator-invoked `iterate-slide` call), design doc
+`docs/superpowers/plans/2026-07-23-edit-tier.md` §4.
+
 ## Creative vision feedback (#105)
 
 The three modes above (`auto` / `enumerate` / `draft`) apply to `academic_figure` slides rendered via paperbanana. For `creative_vision` slides — slides whose image was produced by the CreativeVision orchestrator — a different feedback model applies: the **three-channel branch**.
@@ -429,13 +550,14 @@ print(json.dumps(channels))
 "
 ```
 
-`available_channels_for_creative_vision` reads `iterate_slide_hooks` from the manifest. The three channels are:
+`available_channels_for_creative_vision` reads `iterate_slide_hooks` from the manifest. The four channels are:
 
 | Channel | When available |
 |---|---|
 | `revise_prose` | Always (`can_revise_prose` — always True in v1, reserved for future deprecation) |
 | `refine_prompt` | When `can_refine_prompt` is True |
 | `escalate_tier` | When `can_escalate_tier` is True — flipped to False when `remaining_budget_usd` ≤ 0 or the cascade ceiling has been reached |
+| `edit` | When `can_edit` is True (issue #143) — flips True once at least one attempt has an on-disk render; independent of budget/ceiling. See "Edit channel" above for the mechanics; see Channel 4 below for the creative_vision-specific routing. |
 
 ### Channel semantics
 
@@ -501,15 +623,50 @@ print(json.dumps({'tier': tier, 'cost_usd': cost}))
 
 4. On operator confirmation: bump `iterate_slide_hooks.current_tier` to `next_tier`, reset the per-tier iteration counter, and resume the orchestration loop at the new tier. The manifest's `can_escalate_tier` will be flipped to False by the next `append_attempt` call when budget hits zero.
 
+#### Channel 4 — edit (issue #143)
+
+Use when the Director's Critic returns `refine_at_tier` AND the gap is
+spatially **local** — a $0 mflux edit can apply the fix without spending
+another render at the current tier.
+
+1. Read the most recent attempt's Director's Critic verdict. Classify it
+   (and/or the operator's free-text note) via
+   `src.edit_dispatch.classify_edit_locality` — the mechanics are
+   identical to the "Edit channel" section above (availability check,
+   text carve-out, wrapper invocation, image-reviewer dispatch).
+2. `src.creative_vision.orchestrator.decide_next_action` returns
+   `NextAction(kind="edit")` when `critic_verdict.verdict ==
+   "refine_at_tier"`, `locality == "local"`, and `can_edit` is True — this
+   is the SAME state machine every other creative_vision action goes
+   through, not a special case.
+3. **F12 fires unconditionally** — even though the edit itself costs $0,
+   `should_fire_operator_gate(strategy="creative_vision", ...)` still
+   requires an explicit operator accept/reject on the edited image before
+   the attempt can be treated as final. There is no free-tier bypass of
+   F12 (design doc §5.3 — "F12 is absolute").
+4. On operator confirmation, run the wrapper (per the "Edit channel"
+   section above) and append the result as an F-09-shaped attempt via
+   `creative_vision.manifest.append_attempt` — `tier: "mlx_edit"`,
+   `text_iterations: []`, `render.cost_usd: 0.0`, `base_attempt_index` /
+   `base_image_hash` set to the attempt/image being edited. The
+   `append_attempt` `mlx_edit` guard leaves `current_tier` /
+   `next_tier_available` untouched, so a later `escalate_tier` (Channel
+   3) resumes from wherever the ladder actually was — an edit is never a
+   ladder rung.
+5. An edit that comes back garbled or with a leaked reference subject
+   (D11) is NOT appended — surface the `image-reviewer` verdict and let
+   the operator choose to retry the edit, fall back to `refine_prompt`
+   (Channel 2), or accept the pre-edit image as-is.
+
 ### Mode mapping
 
-The existing iterate-slide modes map onto the three channels:
+The existing iterate-slide modes map onto the four channels:
 
 | Mode | Behaviour for creative_vision slides |
 |---|---|
 | `enumerate` | Read manifest, call `available_channels_for_creative_vision`, annotate each channel with the Director's Critic's `recommended_action`. Present to operator; operator selects. |
-| `auto` | Read `directors_critic_verdict.gap_location`. If `gap_location: "prose"` AND Critic's `recommended_action` explicitly suggests prose revision → prompt operator to revise prose (channel 1 ALWAYS requires explicit operator confirmation — auto never autonomously rewrites prose). If `gap_location: "prompt"` → route to refine_prompt automatically. If `gap_location: "tier"` → route to escalate_tier if budget allows; otherwise present to operator. |
-| `draft` | Operator writes a free-form note. Classify heuristically: if the note is a substantial rewrite of the vision → route to revise_prose; if it is a targeted correction naming a specific element → route to refine_prompt. **Confirm routing with operator before taking action.** |
+| `auto` | Read `directors_critic_verdict.gap_location`. If `gap_location: "prose"` AND Critic's `recommended_action` explicitly suggests prose revision → prompt operator to revise prose (channel 1 ALWAYS requires explicit operator confirmation — auto never autonomously rewrites prose). If `gap_location: "prompt"` → route to refine_prompt automatically, UNLESS `classify_edit_locality` on the verdict returns `"local"` and `can_edit` is True, in which case propose Channel 4 (edit) instead — still requires operator confirmation (F12). If `gap_location: "tier"` → route to escalate_tier if budget allows; otherwise present to operator. |
+| `draft` | Operator writes a free-form note. Classify heuristically: if the note is a substantial rewrite of the vision → route to revise_prose; if it is a targeted correction naming a specific element AND `classify_edit_locality` returns `"local"` (and NOT `"text_excluded"`) → propose Channel 4 (edit); otherwise → route to refine_prompt. **Confirm routing with operator before taking action.** |
 
 ### Manifest hooks read here
 
@@ -520,6 +677,7 @@ The SKILL.md reads these specific fields from `manifest["iterate_slide_hooks"]`:
 | `can_revise_prose` | boolean | Always True in v1; reserved for future |
 | `can_refine_prompt` | boolean | Whether channel 2 is open |
 | `can_escalate_tier` | boolean | Flipped False when budget ≤ 0 or ceiling reached |
+| `can_edit` | boolean | Issue #143 — whether Channel 4 (edit) is open; True once ≥1 attempt has an on-disk render, independent of budget/ceiling |
 | `current_tier` | string | Current cascade tier (e.g. `"flash_1k"`) |
 | `next_tier_available` | string \| null | Next tier up, or null at ceiling |
 | `remaining_budget_usd` | float | Budget remaining after all attempts so far |
@@ -529,6 +687,8 @@ The SKILL.md reads these specific fields from `manifest["iterate_slide_hooks"]`:
 - Manifest module: `plugins/jack-tar-deckhand/src/creative_vision/manifest.py`
 - Dispatch entry: `plugins/jack-tar-deckhand/src/creative_vision_dispatch.py`
 - Cascade costs: `plugins/jack-tar-deckhand/src/creative_vision/cascade.py` (`TIER_COSTS`)
+- Edit tier dispatch: `plugins/jack-tar-deckhand/src/edit_dispatch.py`; orchestrator edit path: `src/creative_vision/orchestrator.py::decide_next_action`
 - Spec: `docs/superpowers/specs/2026-05-21-creative-vision-renderer-design.md`
+- Edit tier design: `docs/superpowers/plans/2026-07-23-edit-tier.md`
 
 > Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly. If you need to verify an image, dispatch the `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or the `general-purpose` subagent (Sonnet, higher accuracy). Both subagents pull the image into THEIR context and return text.
