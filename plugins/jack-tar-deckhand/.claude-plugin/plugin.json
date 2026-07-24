@@ -1,7 +1,7 @@
 {
   "name": "jack-tar-deckhand",
-  "description": "Full presentation pipeline — brand, style, narrative, images, SmartArt, assembly, QA + academic-figure rendering (optional paperbanana CLI) + /iterate-slide single-slide critique-driven refinement + full_bleed image-is-the-slide strategy + creative vision renderer (#105) + creative_vision GA: per-slide cost surface, Creative Sprint phase, per-iteration operator gate, deck-level creative anchors (#113) + annotate-figure v2.1: composed-strategy annotation zone + native full-slide headline opt-in (#142 v2.1) + blank-zone annotation variant: reserve an empty image region for label placement, verified + fallback-guaranteed (#142)",
-  "version": "1.12.0",
+  "description": "Full presentation pipeline — brand, style, narrative, images, SmartArt, assembly, QA + academic-figure rendering (optional paperbanana CLI) + /iterate-slide single-slide critique-driven refinement + full_bleed image-is-the-slide strategy + creative vision renderer (#105) + creative_vision GA: per-slide cost surface, Creative Sprint phase, per-iteration operator gate, deck-level creative anchors (#113) + annotate-figure v2.1: composed-strategy annotation zone + native full-slide headline opt-in (#142 v2.1) + blank-zone annotation variant: reserve an empty image region for label placement, verified + fallback-guaranteed (#142) + edit tier: $0 local mflux targeted edits wired into iterate-slide and the creative_vision cascade as a fourth refinement channel (#143)",
+  "version": "1.13.0",
   "author": {
     "name": "Steve Jones"
   },
