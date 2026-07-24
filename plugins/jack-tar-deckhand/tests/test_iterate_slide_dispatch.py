@@ -611,6 +611,30 @@ def test_annotation_refresh_required_ignores_image_manifest_entry_content():
     ) is True
 
 
+def test_annotation_refresh_required_true_for_composed_native(tmp_path):
+    """v2.1 §2.6: the F4 guard's predicate is annotation_mode alone -- it
+    fires for a composed native slide exactly as it does for a full-slide
+    one (no code change needed; this pins the "no change" claim). Still a
+    no-op for composed raster (no payload to invalidate) and for a
+    headline-only change (chrome, not the base image -- covered by the
+    absence of an annotation_mode change, since show_headline never
+    appears in this predicate at all)."""
+    assert annotation_refresh_required(
+        {"strategy": "composed", "annotation_mode": "native",
+         "annotation": {"labels": [{"text": "X", "target": "x"}]}}
+    ) is True
+    assert annotation_refresh_required(
+        {"strategy": "composed", "annotation_mode": "raster",
+         "annotation": {"labels": [{"text": "X", "target": "x"}]}}
+    ) is False
+    # A headline-only toggle carries no annotation_mode change at all --
+    # the predicate is unaffected by show_headline being present/absent.
+    assert annotation_refresh_required(
+        {"strategy": "full_bleed", "annotation_mode": "native",
+         "annotation": {"labels": [{"text": "X", "target": "x"}], "show_headline": True}}
+    ) is True
+
+
 # --- annotation_refresh_notice (F4, T12) ----------------------------------
 
 
