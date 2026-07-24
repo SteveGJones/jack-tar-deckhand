@@ -142,6 +142,61 @@ class TestSchemaValidity:
         jsonschema.Draft7Validator.check_schema(schema)
 
 
+class TestEditCapability:
+    """Issue #143 (edit tier, PR C) — every model advertising the
+    image_edit role must carry a working sdk.edit_entrypoint, and its
+    edit RAM floor must never be cheaper than its generate RAM floor
+    (qwen-edit is a materially heavier 64 GB tier per upstream mflux
+    #420 — edit_min_ram_gb encodes that asymmetry as a separate field,
+    never a reuse of min_ram_gb)."""
+
+    @pytest.fixture
+    def catalog(self):
+        return json.loads(CANONICAL_CATALOG.read_text())
+
+    def test_image_edit_role_entries_have_edit_entrypoint(self, catalog):
+        offenders = []
+        for entry in catalog["models"]:
+            if "image_edit" in entry.get("roles", []):
+                sdk = entry.get("sdk", {})
+                if not sdk.get("edit_entrypoint"):
+                    offenders.append(entry["id"])
+        assert not offenders, (
+            f"image_edit-role entries missing sdk.edit_entrypoint: {offenders}"
+        )
+
+    def test_edit_min_ram_not_below_generate_min_ram(self, catalog):
+        for entry in catalog["models"]:
+            if "image_edit" not in entry.get("roles", []):
+                continue
+            caps = entry.get("capabilities", {})
+            min_ram = caps.get("min_ram_gb")
+            edit_min_ram = caps.get("edit_min_ram_gb")
+            assert min_ram is not None and edit_min_ram is not None, (
+                f"{entry['id']}: image_edit role requires both min_ram_gb "
+                f"and edit_min_ram_gb"
+            )
+            assert edit_min_ram >= min_ram, (
+                f"{entry['id']}: edit_min_ram_gb ({edit_min_ram}) is below "
+                f"min_ram_gb ({min_ram}) — the edit path can never be "
+                f"cheaper than the generate path"
+            )
+
+    def test_non_edit_capable_entries_have_no_edit_entrypoint(self, catalog):
+        """z-image-turbo ships no mflux edit CLI — the absence of
+        edit_entrypoint (not a stray/unused one) is the contract."""
+        for entry in catalog["models"]:
+            if entry["provider"] != "mlx":
+                continue
+            if "image_edit" in entry.get("roles", []):
+                continue
+            sdk = entry.get("sdk", {})
+            assert "edit_entrypoint" not in sdk, (
+                f"{entry['id']}: has sdk.edit_entrypoint but is missing "
+                f"the image_edit role — roles/sdk have drifted"
+            )
+
+
 class TestPriceAgreementWithLegacyTables:
     """The cloud module's tables derive from the catalog (#127); these
     assertions guard the derivation — a bug in the derivation loops would

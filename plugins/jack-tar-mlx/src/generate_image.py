@@ -51,8 +51,11 @@ from pathlib import Path
 # catalog id -> dispatch metadata. DRIFT-GUARDED: tests assert each value
 # dict equals the vendored deckhand catalog entry's derived fields exactly
 # (review M2) — entrypoint, hf_repo, hf_repo_fallback, default_steps,
-# quantize, timeout (<- capabilities.timeout_seconds) — plus exact
-# key-set equality.
+# quantize, timeout (<- capabilities.timeout_seconds), edit_entrypoint
+# (<- sdk.edit_entrypoint, issue #143), edit_steps (<-
+# capabilities.edit_render_steps) — plus exact key-set equality.
+# edit_entrypoint/edit_steps are None for models with no edit CLI
+# (z-image-turbo — mflux ships no z-image edit entry point).
 MLX_MODEL_REGISTRY = {
     "mlx/flux2-klein-4b": {
         "entrypoint": "mflux-generate-flux2",
@@ -61,6 +64,8 @@ MLX_MODEL_REGISTRY = {
         "default_steps": 4,
         "quantize": 4,
         "timeout": 300,
+        "edit_entrypoint": "mflux-generate-flux2-edit",
+        "edit_steps": 4,
     },
     "mlx/z-image-turbo": {
         "entrypoint": "mflux-generate-z-image-turbo",
@@ -69,6 +74,8 @@ MLX_MODEL_REGISTRY = {
         "default_steps": 9,
         "quantize": 4,
         "timeout": 180,
+        "edit_entrypoint": None,
+        "edit_steps": None,
     },
     "mlx/qwen-image": {
         "entrypoint": "mflux-generate-qwen",
@@ -77,6 +84,8 @@ MLX_MODEL_REGISTRY = {
         "default_steps": 20,
         "quantize": 4,
         "timeout": 900,
+        "edit_entrypoint": "mflux-generate-qwen-edit",
+        "edit_steps": 8,
     },
 }
 DEFAULT_MODEL = "mlx/flux2-klein-4b"

@@ -73,7 +73,7 @@
           "type": "array",
           "items": {"type": "string", "minLength": 1},
           "uniqueItems": true,
-          "description": "What this model is FOR. Known roles: image_gen (raster generation), vlm (vision-language), vlm_json (VLM safe for strict-JSON parsers — thinking models are NOT), icon (vector icon generation), upscale, local_draft (free local draft tier)."
+          "description": "What this model is FOR. Known roles: image_gen (raster generation), vlm (vision-language), vlm_json (VLM safe for strict-JSON parsers — thinking models are NOT), icon (vector icon generation), upscale, local_draft (free local draft tier), image_edit (edit-capable — accepts a base image + instruction via sdk.edit_entrypoint, issue #143)."
         },
         "quirks": {
           "type": "array",
@@ -101,6 +101,8 @@
             "timeout_seconds": {"type": "integer", "minimum": 1, "description": "Recommended per-render timeout (local models)."},
             "min_ram_gb": {"type": "number", "minimum": 1, "description": "Minimum physical RAM (GB) to load this local model — catalog-order detection skips models above the machine's RAM; an explicit operator preferred_model bypasses with a warning (issue #124)."},
             "render_steps": {"type": "integer", "minimum": 1, "description": "Pipeline-validated inference steps the BRIDGE passes as --steps on every render (issue #124: the family-native sdk.default_steps is often too low for label fidelity — klein 4B needs 20 per the 2026-07-11 dogfood — and mflux silently defaults to 25 when --steps is omitted)."},
+            "edit_render_steps": {"type": "integer", "minimum": 1, "description": "Inference steps the edit CLI uses (mflux-generate-*-edit, issue #143). Distinct from render_steps — the distilled edit path uses fewer steps (klein: 4)."},
+            "edit_min_ram_gb": {"type": "number", "minimum": 1, "description": "Minimum physical RAM (GB) to run this model's EDIT path (issue #143) — may exceed the generate min_ram_gb (qwen-edit is a 64 GB tier, upstream mflux #420)."},
             "prompt_budget": {
               "type": "object",
               "additionalProperties": false,
@@ -190,6 +192,7 @@
             },
             "endpoint": {"type": "string", "description": "Endpoint path/id where it differs from the model id."},
             "entrypoint": {"type": "string", "minLength": 1, "description": "CLI entry point for CLI-dispatched local providers (mflux: 'mflux-generate-flux2' etc.)."},
+            "edit_entrypoint": {"type": "string", "minLength": 1, "description": "mflux edit CLI entry point (mflux-generate-flux2-edit / mflux-generate-qwen-edit, issue #143). Present only on entries whose roles include image_edit."},
             "hf_repo": {"type": "string", "minLength": 1, "description": "Hugging Face repo id the wrapper loads and detection checks for a complete snapshot (mlx/mflux). Prefer an ungated pre-quantized export (repo name contains '-mflux-')."},
             "hf_repo_fallback": {"type": "string", "minLength": 1, "description": "Alternate HF repo id (typically the full-precision base) accepted when the primary is not cached. Loaded with on-load --quantize per sdk.quantize."},
             "default_steps": {"type": "integer", "minimum": 1, "description": "FAMILY-NATIVE default inference steps — the wrapper's fallback when --steps is somehow absent. The pipeline value the bridge passes is capabilities.render_steps, not this."},
