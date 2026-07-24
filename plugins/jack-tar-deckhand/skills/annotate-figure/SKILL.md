@@ -57,11 +57,19 @@ and get back one labeled PNG, baked. Inside a deck build, a slide can opt into
 annotation via the **strategy map** instead, and the pipeline resolves one of
 three modes:
 
-| `annotation_mode` | Meaning | Who draws the labels | Placement on full-slide strategies |
+| `annotation_mode` | Meaning | Who draws the labels | Placement |
 |---|---|---|---|
 | `none` (default) | no annotation | — | unchanged |
-| `raster` | v1 flow above — labels baked into the PNG | `annotate()` (PIL), at bridge time | **contain-fit**, not cover/stretch (see Letterbox price below) |
-| `native` | labels drawn as real PPTX shapes over an unlabelled image | the assembler (PptxGenJS / python-pptx) | contain-fit (required for anchor validity) |
+| `raster` | v1 flow above — labels baked into the PNG | `annotate()` (PIL), at bridge time | **contain-fit**, not cover/stretch (see Letterbox price below); full-slide on full-slide strategies, the image zone on `composed` |
+| `native` | labels drawn as real PPTX shapes over an unlabelled image | the assembler (PptxGenJS / python-pptx) | contain-fit (required for anchor validity); full-slide on full-slide strategies, the image zone on `composed` (v2.1) |
+
+**Placement zone is derived from the slide's effective base strategy (v2.1,
+`speaker_override` wins when present), never re-read from the payload at
+assembly time**: `composed` → the picture-zone rect (`annotated_image_zone`,
+chrome retained); every other allowed strategy → the full slide
+(`annotated_full_slide`, pure figure, F2). Both assemblers make this decision
+themselves; the payload's own `placement_zone` field is written to match but
+is informational only.
 
 ### Opting in on the strategy map
 
@@ -78,7 +86,8 @@ A slide requests annotation by adding two fields to its strategy-map entry:
       {"text": "Rudder", "target": "the steering blade at the stern, below the waterline"}
     ],
     "source_image_path": "optional/external/image.png",
-    "style": { "font_size_pt": 14 }
+    "style": { "font_size_pt": 14 },
+    "show_headline": false
   }
 }
 ```
@@ -98,9 +107,26 @@ A slide requests annotation by adding two fields to its strategy-map entry:
   font size, …) — see `src/schemas/annotations.schema.json` for the full field
   list. Only `native` mode reads `style`; `raster` mode uses `annotate()`'s
   existing PIL styling.
+- `show_headline` (boolean, default `false`, v2.1) — **native + full-slide
+  strategies only.** When `true`, a top band renders the slide's OUTLINE
+  headline (`slide.headline`, not a separate string — there is no
+  `headline_text` override field) above a shrunk contain-fit figure. Ignored
+  on `raster` mode (the schema field is `native`-only in name and in both
+  assemblers' routing — a raster slide with `show_headline: true` renders
+  identically to one without) and ignored on `composed` (a composed
+  annotated slide already carries its own headline via its retained chrome —
+  see below). Toggling this is a chrome-only change: it does NOT invalidate
+  the annotation payload or trigger `/iterate-slide`'s F4 anchor-refresh
+  guard, since the base image is untouched.
 - Allowed base strategies for either mode: `full_bleed`, `full_render`,
-  `background`, `backdrop`, `academic_figure` (full-slide) — `composed`
-  (image-zone) is schema-allowed but not yet wired through the assemblers.
+  `background`, `backdrop`, `academic_figure` (full-slide, pure figure, F2 —
+  no headline/body/footer, unless `show_headline` opts a headline band back
+  in) and `composed` (image-zone, v2.1 — chrome RETAINED: headline, body,
+  accent bars, footer logo all render as normal, and the figure fills the
+  slide's picture-placeholder rect instead of the canvas; a composed
+  annotated slide's own `slide_type` — `content`, `diagram`, `data_chart`,
+  etc. — does not change this: EVERY composed annotated slide gets
+  content-with-image chrome, regardless of `slide_type`).
   `creative_vision` and `smartart` slides cannot carry `annotation_mode` — the
   creative_vision image is the operator-certified deliverable, and SmartArt is
   a graphic, not a figure.
@@ -127,11 +153,19 @@ coordinates:
   `annotation_dotring_*`). The operator can click into any of these in
   PowerPoint after delivery and edit the text, move a label, or restyle a
   leader — none of that is possible with a baked raster.
-- **Pure figure**: a native-annotated slide drops the headline, body_points,
-  AND the footer logo — the annotated figure IS the entire slide, the same
-  contract as `full_bleed`. This holds even when the underlying base strategy
-  (e.g. `background`/`backdrop`) would otherwise carry a text panel. A
-  headline opt-in is a possible fast-follow, not part of this flow today.
+- **Pure figure on full-slide strategies**: a native-annotated slide on
+  `full_bleed`/`full_render`/`background`/`backdrop`/`academic_figure` drops
+  the headline, body_points, AND the footer logo — the annotated figure IS
+  the entire slide, the same contract as `full_bleed`. This holds even when
+  the underlying base strategy (e.g. `background`/`backdrop`) would
+  otherwise carry a text panel. The optional `show_headline` (v2.1, above)
+  opts a single headline band back in above the figure — everything else
+  (body_points, footer logo) stays dropped.
+- **Chrome retained on `composed` (v2.1)**: the exact opposite contract.
+  Headline, body_points, accent bars, and footer logo all render exactly as
+  a plain composed slide's would — the annotated figure fills the slide's
+  image zone (the picture-placeholder rect in template mode, the
+  `content_with_image` image zone in PptxGenJS mode) instead of the canvas.
 - **Contain-fit, never cover-crop or stretch**: the assembler fits the base
   image inside its placement zone preserving aspect (the same box-fit math
   used for content/diagram image zones), then maps the bridge's
@@ -158,6 +192,18 @@ bands are nil for the generated path. **External images of arbitrary aspect
 WILL letterbox** on either mode — this is the accepted cost of keeping every
 anchor (and every baked label) on-slide and undistorted, rather than silently
 cropping or distorting.
+
+**Manifest dimensions (v2.1 F-01).** The `raster` flow has no payload to
+carry `image_dimensions` — the image-manifest entry is the assembler's ONLY
+source for the baked PNG's native aspect when computing the contain-fit
+rect. The manifest entry MUST carry a `dimensions` field (read via
+`src.process_image.get_dimensions` on the FINAL baked PNG, after
+`annotate()` runs), matching the standard shape every other image-manifest
+entry already carries. `native` mode has the same requirement covered
+independently: the payload always carries `image_dimensions` (required by
+`build_annotation_payload`), and the manifest entry gains a matching
+`dimensions` field too (imagegen-bridge Step 4.8) so any manifest-only
+consumer stays consistent.
 
 ### Anchor-pass failure — the three-way choice (never silent)
 

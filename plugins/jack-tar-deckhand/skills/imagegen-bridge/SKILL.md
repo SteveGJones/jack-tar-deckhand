@@ -951,7 +951,20 @@ produced.
    width, height = get_dimensions(base_image_path)
    ```
 
-4. **Build the payload.** Call `src.annotation_payload.build_annotation_payload`
+4. **Resolve the placement zone from the slide's EFFECTIVE base strategy
+   (v2.1, §2.5)** — `speaker_override` wins when present, mirroring both
+   assemblers' own routing decision:
+   ```python
+   effective_strategy = entry.get("speaker_override") or entry.get("strategy")
+   placement_zone = "annotated_image_zone" if effective_strategy == "composed" else "annotated_full_slide"
+   ```
+   This keeps the payload's `placement_zone` consistent with what the
+   assembler will actually draw into — but note the assembler does **not**
+   trust this value for routing (it re-derives the same decision from the
+   strategy map at assembly time, §4.1 of the v2.1 design); the payload's
+   copy is informational / cross-check data only.
+
+5. **Build the payload.** Call `src.annotation_payload.build_annotation_payload`
    with the VALIDATED anchors dict from step 2:
    ```python
    from src.annotation_payload import build_annotation_payload
@@ -960,7 +973,7 @@ produced.
        source="external" if annotation.get("source_image_path") else "generated",
        base_image_path=base_image_path,
        image_dimensions={"width": width, "height": height},
-       placement_zone="annotated_full_slide",  # "annotated_image_zone" for composed (deferred, §10 of the design doc — v2 ships full-slide strategies only)
+       placement_zone=placement_zone,  # composed -> annotated_image_zone, else annotated_full_slide (v2.1)
        anchors=validated_anchors,
        style_overrides=annotation.get("style"),
        style_guide=style_guide,
@@ -972,23 +985,29 @@ produced.
    has none), and schema-validates the result against
    `annotations.schema.json` before returning it.
 
-5. **Write the payload**:
+6. **Write the payload**:
    ```python
    from src.annotation_payload import write_annotation_payload
    annotations_path = write_annotation_payload(deck_dir, entry["slide_number"], payload)
    # -> <deck_dir>/annotations/slide-NN-annotations.json
    ```
 
-6. **Append the image-manifest entry to the in-memory manifest dict** — the
+7. **Append the image-manifest entry to the in-memory manifest dict** — the
    same Step 4.7 precedent (`image_manifest["images"].append({...})`;
    `manifest_utils` is reserved for post-write surgery, not the bridge's own
-   in-flight writes, per F7):
+   in-flight writes, per F7). The entry carries `dimensions` (v2.1 F-01) —
+   the assembler's composed-zone fit prefers the payload's own
+   `image_dimensions`, but the manifest's copy is read by any code path that
+   doesn't load the payload (e.g. a future manifest-only consumer), and
+   keeps this entry consistent with every other image-manifest entry's
+   shape (Step 12's standard entry always carries `dimensions`):
    ```python
    image_manifest["images"].append({
        "image_id": f"slide-{entry['slide_number']}-annotated",
        "slide_number": entry["slide_number"],
        "file_path": base_image_path,          # the UNLABELLED base image
-       "placement_zone": "annotated_full_slide",  # or "annotated_image_zone"
+       "placement_zone": placement_zone,      # annotated_full_slide or annotated_image_zone (v2.1)
+       "dimensions": {"width": width, "height": height},  # v2.1 F-01
        "annotations_path": annotations_path,
        "status": "generated",  # or "accepted_with_issues" — see F5 above
        "source_prompt": label_free_prompt if annotation_source == "generated" else None,
@@ -996,7 +1015,7 @@ produced.
    })
    ```
 
-7. **Anchor-verification review — pre-assembly raster preview (OQ4).** Before
+8. **Anchor-verification review — pre-assembly raster preview (OQ4).** Before
    handing off to assembly, render a THROWAWAY raster preview on the SAME
    anchors used to build the payload:
    ```python
@@ -1007,7 +1026,7 @@ produced.
    SKILL.md §4 on `preview_path` ("does each leader line touch the
    anatomically/semantically correct part?"). One refine loop allowed: on a
    mispointed label, re-query coordinates for the affected labels and
-   re-run steps 4–5 (rebuild and rewrite the payload), then re-preview. This
+   re-run steps 5–6 (rebuild and rewrite the payload), then re-preview. This
    is cheaper than rasterising the assembled slide and keeps the loop before
    any OOXML is built — **the preview PNG is a throwaway artefact, never
    placed in the deck.**
@@ -1034,6 +1053,12 @@ review — they read the PNG into THEIR context and return text.
 #### Reference
 
 - Design doc: `docs/superpowers/plans/2026-07-17-annotate-figure-v2.md` §6.2, §6.3
+- v2.1 addendum (composed zone + headline opt-in):
+  `docs/superpowers/plans/2026-07-23-annotate-figure-v2.1.md` §2.5 (bridge
+  placement-zone wiring), §3.1 (`annotation.show_headline` — a chrome toggle
+  read by the assemblers directly off the strategy map; the bridge/payload
+  are UNCHANGED for the headline opt-in, since headline text comes from the
+  outline, not the payload)
 - Payload module: `plugins/jack-tar-deckhand/src/annotation_payload.py`
   (`build_annotation_payload`, `write_annotation_payload`,
   `estimate_label_box`, `segment_box_entry`)
@@ -1041,10 +1066,11 @@ review — they read the PNG into THEIR context and return text.
   (`validate_anchors`, `place_labels`, `annotate`)
 - Payload schema: `plugins/jack-tar-deckhand/src/schemas/annotations.schema.json`
 - ImageManifest extension: `plugins/jack-tar-deckhand/src/schemas/image_manifest.schema.json`
-  (`annotations_path`, `annotated_full_slide` / `annotated_image_zone`)
+  (`annotations_path`, `annotated_full_slide` / `annotated_image_zone` — the
+  latter now wired through both assemblers for `composed` slides, v2.1)
 - `/annotate-figure` SKILL.md: `plugins/jack-tar-deckhand/skills/annotate-figure/SKILL.md`
   (§1 label-free prompt transform, §2 anchor-pass contract, §4 pointers-only
-  verification review)
+  verification review, "Deck-native mode" for the composed/headline surface)
 - QA checks: `plugins/jack-tar-deckhand/src/qa/checks/annotation_checks.py`
   (AN-01 contract/hash check — the tripwire for F5 choice (c))
 
