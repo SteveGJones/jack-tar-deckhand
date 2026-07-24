@@ -37,6 +37,8 @@ print('NOT_FOUND')
 command -v mflux-generate-flux2
 command -v mflux-generate-z-image-turbo
 command -v mflux-generate-qwen
+command -v mflux-generate-flux2-edit    # klein EDIT — needs mflux >= 0.18
+command -v mflux-generate-qwen-edit     # qwen EDIT — 64 GB RAM tier (upstream mflux #420)
 ```
 
 Report per-family presence. A missing entry point on an otherwise-working install usually means the installed mflux predates that family:
@@ -46,6 +48,12 @@ Report per-family presence. A missing entry point on an otherwise-working instal
 | qwen (mflux-generate-qwen) | >= 0.11 |
 | z-image (mflux-generate-z-image-turbo) | >= 0.13 |
 | flux2 (mflux-generate-flux2) | >= 0.15 (the Runpod klein primary repo needs >= 0.16) |
+| flux2 edit (mflux-generate-flux2-edit) | >= 0.18 |
+| qwen edit (mflux-generate-qwen-edit) | >= 0.18 — also needs 64 GB RAM (edit_min_ram_gb), not just the generate 32 GB floor |
+
+`mlx/z-image-turbo` has no edit entry point at all — mflux ships no
+z-image edit CLI. Its EDIT row (Step 5) always reads `N/A (not
+edit-capable)`, never `NOT_READY`.
 
 If ALL entry points are absent, report:
 
@@ -92,6 +100,8 @@ python3 "$PLUGIN_ROOT/src/generate_image.py" --check-weights
 
 This prints, per catalogued model, either `READY (<repo>)` or `NOT_READY (run: hf download <repo>)`, using the same HF-cache snapshot-completeness check the deckhand detection seam uses.
 
+**EDIT readiness is derived, not separately probed.** Edit reuses the SAME cached weights as generate for a given catalog model id — there is no separate edit weight set to download. So per-family EDIT readiness in the Step 5 report is: `entry point present` (Step 1) AND `weights READY` (this step) ⇒ `EDIT: READY`; entry point present but weights NOT_READY ⇒ `EDIT: NOT_READY (weights)`; entry point absent (even with weights cached) ⇒ `EDIT: NOT_READY (entry point)`. `mlx/z-image-turbo` is always `EDIT: N/A (not edit-capable)` regardless of weights state.
+
 ## Step 4: HF cache location + disk usage
 
 Resolve the HF hub cache dir per precedence (`HF_HUB_CACHE` env var directly → `HF_HOME/hub` → `~/.cache/huggingface/hub`) and report its path plus disk usage:
@@ -115,11 +125,18 @@ ENTRY POINTS:
   mflux-generate-flux2:          READY / NOT_READY
   mflux-generate-z-image-turbo:  READY / NOT_READY
   mflux-generate-qwen:           READY / NOT_READY
+  mflux-generate-flux2-edit:     READY / NOT_READY
+  mflux-generate-qwen-edit:      READY / NOT_READY
 
 WEIGHTS:
   mlx/flux2-klein-4b:   NOT_READY (run: hf download Runpod/FLUX.2-klein-4B-mflux-4bit)
   mlx/z-image-turbo:    NOT_READY (run: hf download filipstrand/Z-Image-Turbo-mflux-4bit)
   mlx/qwen-image:       NOT_READY (run: hf download OsaurusAI/Qwen-Image-mflux-4bit)
+
+EDIT:
+  mlx/flux2-klein-4b:   NOT_READY (entry point) / NOT_READY (weights) / READY
+  mlx/z-image-turbo:    N/A (not edit-capable)
+  mlx/qwen-image:       NOT_READY (entry point) / NOT_READY (weights) / READY — needs 64 GB RAM (edit_min_ram_gb)
 
 HF CACHE: <resolved hub dir> (<disk usage>)
 
@@ -138,14 +155,21 @@ DEPENDENCIES:
 
 ENTRY POINTS:
   mflux-generate-flux2:          READY
+  mflux-generate-flux2-edit:     READY
 
 WEIGHTS:
   mlx/flux2-klein-4b:   READY (Runpod/FLUX.2-klein-4B-mflux-4bit)
+
+EDIT:
+  mlx/flux2-klein-4b:   READY (Runpod/FLUX.2-klein-4B-mflux-4bit)
+  mlx/z-image-turbo:    N/A (not edit-capable)
+  mlx/qwen-image:       NOT_READY (entry point)
 
 HF CACHE: <resolved hub dir> (<disk usage>)
 
 CAPABILITIES:
   image:           READY
+  image-edit:      READY
 
 STATUS: FULLY_AVAILABLE
 REASON: mflux runtime + N cached model(s) available
