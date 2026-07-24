@@ -168,6 +168,11 @@
               "style": {
                 "type": "object",
                 "description": "Optional vector-style overrides (see annotations.schema.json $defs.style)."
+              },
+              "show_headline": {
+                "type": "boolean",
+                "default": false,
+                "description": "Native full-slide annotation only: when true, render the slide's outline headline in a top band above the contain-fit figure. Default false = pure figure (v2 F2 contract). Ignored for composed (annotated_image_zone) slides, which always carry their own headline."
               }
             }
           }

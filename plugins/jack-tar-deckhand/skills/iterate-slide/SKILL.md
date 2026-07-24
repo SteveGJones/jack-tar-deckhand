@@ -267,6 +267,21 @@ print(path)
 
 **Never proceed to Step 8/reassembly with a stale or absent payload for a native-annotated slide bound to a just-replaced image.** The hash-gate makes a skipped refresh fail *safe* (the overlay is refused); this step is what makes it fail *correct* (anchors match the shipped image).
 
+**Composed native slides (v2.1, §2.6).** The guard's predicate is
+`annotation_mode == "native"` alone — it does not read the slide's base
+`strategy` at all, so it already fires identically for a `composed`
+annotated slide as it does for a full-slide one. No code change was needed
+for v2.1; this is a reminder for the operator reading this SKILL, not a new
+behaviour.
+
+**Headline opt-in is chrome-only (v2.1, §3.5).** Toggling
+`annotation.show_headline` or editing the slide's outline headline text
+changes chrome, not the base image — the base image's content hash is
+unaffected, so the existing annotations payload stays valid. This does
+**not** trigger the F4 guard above (which fires only on a base-image
+replacement, Step 7's `$PB_NEW_FILE`); a headline-only edit just needs
+reassembly (Step 9), no anchor-pass re-run, no payload rewrite.
+
 ## Step 8: Update manifest entry
 
 ```bash

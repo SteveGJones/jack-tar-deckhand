@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from pptx import Presentation
+from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.util import Emu, Inches, Pt
 
@@ -347,3 +348,103 @@ def test_run_qa_ignores_annotation_mode_none_or_absent(tmp_path, mode):
 
     report = run_qa(str(pptx_path), str(deck_dir))
     assert [f for f in report["findings"] if f["category"] == "annotation"] == []
+
+
+# --- v2.1 T8: composed-strategy native slides (F-08, §5.4) -----------------
+
+
+def test_composed_native_runs_an_checks(tmp_path):
+    """AN-01/02/03 fire for a composed native slide exactly as for a
+    full-slide one -- zone-agnostic, no per-zone variant needed."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    _write_strategy_map(deck_dir, [
+        {"slide_number": 1, "strategy": "composed", "annotation_mode": "native",
+         "rationale": "x", "render_funnel": ["ollama"]},
+    ])
+
+    prs = Presentation()
+    prs.slide_width = SLIDE_W
+    prs.slide_height = SLIDE_H
+    prs.slides.add_slide(prs.slide_layouts[6])
+    # No annotation shapes at all -- AN-01 fires (absent payload, since no
+    # image-manifest/annotations file exists in deck_dir either).
+    pptx_path = tmp_path / "test.pptx"
+    prs.save(pptx_path)
+
+    report = run_qa(str(pptx_path), str(deck_dir))
+    annotation_findings = [f for f in report["findings"] if f["category"] == "annotation"]
+    assert len(annotation_findings) == 1
+    assert annotation_findings[0]["severity"] == "error"
+
+
+def test_composed_native_chrome_still_structurally_checked(tmp_path):
+    """A composed native slide's REAL headline/body text (not
+    annotation_-prefixed) is NOT exempted from structural checks -- a
+    genuinely deficient body still flags (mirrors the full-slide exemption
+    pin, but proves the exemption doesn't over-reach on composed chrome)."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    _write_strategy_map(deck_dir, [
+        {"slide_number": 1, "strategy": "composed", "annotation_mode": "native",
+         "rationale": "x", "render_funnel": ["ollama"]},
+    ])
+
+    prs = Presentation()
+    prs.slide_width = SLIDE_W
+    prs.slide_height = SLIDE_H
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_label(slide, "annotation_label_1_0", "Rudder", font_pt=10)  # exempt
+    _add_label(slide, "composed_body_text", "Some real body copy", font_pt=10)  # NOT exempt
+    pptx_path = tmp_path / "test.pptx"
+    prs.save(pptx_path)
+
+    report = run_qa(str(pptx_path), str(deck_dir))
+    font_findings = [f for f in report["findings"] if f["category"] == "consistency"]
+    affected = {f["affected_element"] for f in font_findings}
+
+    assert "annotation_label_1_0" not in affected
+    assert "composed_body_text" in affected
+
+
+def test_composed_native_runs_visual_checks(tmp_path):
+    """F-08: a composed-strategy native slide gets VISUAL_CHECKS findings
+    (a planted low-contrast defect flags); a full-slide native slide does
+    NOT run VISUAL_CHECKS at all (v2 parity)."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    _write_strategy_map(deck_dir, [
+        {"slide_number": 1, "strategy": "composed", "annotation_mode": "native",
+         "rationale": "x", "render_funnel": ["ollama"]},
+        {"slide_number": 2, "strategy": "full_bleed", "annotation_mode": "native",
+         "rationale": "x", "render_funnel": ["ollama"]},
+    ])
+
+    prs = Presentation()
+    prs.slide_width = SLIDE_W
+    prs.slide_height = SLIDE_H
+
+    composed_slide = prs.slides.add_slide(prs.slide_layouts[6])
+    # White-on-white text -- a planted AP-07 low-contrast defect. Default
+    # slide background is white, so this trips check_contrast.
+    white_tb = composed_slide.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1))
+    white_tb.name = "composed_body_text"
+    white_tb.text_frame.text = "Invisible text"
+    white_tb.text_frame.paragraphs[0].runs[0].font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+
+    full_slide_slide = prs.slides.add_slide(prs.slide_layouts[6])
+    full_white_tb = full_slide_slide.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1))
+    full_white_tb.name = "annotation_label_2_0"
+    full_white_tb.text_frame.text = "Invisible text"
+    full_white_tb.text_frame.paragraphs[0].runs[0].font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+
+    pptx_path = tmp_path / "test.pptx"
+    prs.save(pptx_path)
+
+    report = run_qa(str(pptx_path), str(deck_dir))
+    contrast_findings = [f for f in report["findings"] if f["category"] == "contrast"]
+    composed_contrast = [f for f in contrast_findings if f["slide_number"] == 1]
+    full_slide_contrast = [f for f in contrast_findings if f["slide_number"] == 2]
+
+    assert composed_contrast, "composed-strategy native slide must run VISUAL_CHECKS"
+    assert full_slide_contrast == [], "full-slide native slide must stay VISUAL_CHECKS-free (v2 parity)"

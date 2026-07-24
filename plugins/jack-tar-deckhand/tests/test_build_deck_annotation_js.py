@@ -182,7 +182,8 @@ def _flipv(shape):
 
 def _build_deck_dir(
         deck_dir: Path, *, image_path: str, image_dims, annotation_mode,
-        labels=None, annotations_path=None, placement_zone="annotated_full_slide"):
+        labels=None, annotations_path=None, placement_zone="annotated_full_slide",
+        strategy="full_bleed", show_headline=False, include_manifest_dimensions=True):
     """Build the full contract set for a 2-slide deck: slide 1 stays plain
     `composed` (backward-compat control), slide 2 carries the annotation
     contract under test."""
@@ -203,10 +204,12 @@ def _build_deck_dir(
 
     image_entry = {
         "image_id": "slide-02-figure", "slide_number": 2, "file_path": rel_image_path,
-        "placement_zone": placement_zone, "dimensions": {"width": image_dims[0], "height": image_dims[1]},
+        "placement_zone": placement_zone,
         "source_prompt": "test", "model_used": "test", "alt_text": "figure",
         "status": "generated", "retry_count": 0, "generation_time_seconds": 1.0,
     }
+    if include_manifest_dimensions:
+        image_entry["dimensions"] = {"width": image_dims[0], "height": image_dims[1]}
     if annotations_path is not None:
         image_entry["annotations_path"] = annotations_path
     image_manifest = {
@@ -217,18 +220,22 @@ def _build_deck_dir(
     }
     (deck_dir / "image-manifest.json").write_text(json.dumps(image_manifest))
 
+    annotation_block = {"labels": [
+        {"text": lbl["text"], "target": lbl["text"]}
+        for lbl in (labels or [{"text": "x"}])
+    ]}
+    if show_headline:
+        annotation_block["show_headline"] = True
+
     strategy_map = {
         "approval_mode": "review",
         "slides": [
             {"slide_number": 1, "strategy": "composed", "rationale": "title",
              "render_funnel": ["ollama"], "speaker_override": None},
-            {"slide_number": 2, "strategy": "full_bleed", "rationale": "annotated figure",
+            {"slide_number": 2, "strategy": strategy, "rationale": "annotated figure",
              "render_funnel": ["ollama"], "speaker_override": None,
              "annotation_mode": annotation_mode,
-             "annotation": {"labels": [
-                 {"text": lbl["text"], "target": lbl["text"]}
-                 for lbl in (labels or [{"text": "x"}])
-             ]}},
+             "annotation": annotation_block},
         ],
     }
     (deck_dir / "strategy-map.json").write_text(json.dumps(strategy_map))
@@ -558,3 +565,244 @@ def test_js_assembler_backward_compat_without_annotation_mode_unchanged(tmp_path
     assert pic.left == 0 and pic.top == 0
     assert abs(pic.width - SLIDE_W_IN * EMU_PER_IN) < EMU_TOLERANCE
     assert abs(pic.height - SLIDE_H_IN * EMU_PER_IN) < EMU_TOLERANCE
+
+
+# --- v2.1 Feature A: composed annotated zone (§2.2, §5.3) --------------------
+
+
+def test_js_composed_native_emits_chrome_and_overlay(tmp_path):
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    dest = _build_deck_dir(
+        deck_dir, image_path=str(HERO_IMAGE_FIXTURE), image_dims=(1920, 1080),
+        annotation_mode="native", labels=LABELS, strategy="composed",
+    )
+    rel_ann_path = _write_annotations_payload(
+        deck_dir, 2, str(dest), (1920, 1080), LABELS, placement_zone="annotated_image_zone",
+    )
+    manifest_path = deck_dir / "image-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["images"][0]["annotations_path"] = rel_ann_path
+    manifest_path.write_text(json.dumps(manifest))
+
+    output_pptx, _stderr = _run_assembler(deck_dir)
+    prs = Presentation(output_pptx)
+    slide = prs.slides[1]
+
+    texts = [s.text_frame.text for s in slide.shapes if getattr(s, "has_text_frame", False)]
+    assert any(FORBIDDEN_HEADLINE in t for t in texts), "composed chrome must retain the headline"
+    assert any(FORBIDDEN_BODY in t for t in texts), "composed chrome must retain body_points"
+
+    n = len(LABELS)
+    for prefix in ("annotation_label_", "annotation_leader_", "annotation_dot_"):
+        assert len(_shapes_named(slide, prefix)) == n
+
+
+def test_js_composed_raster_no_overlay_shapes(tmp_path):
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    square_path = _make_image(tmp_path / "square.png", (1000, 1000))
+    _build_deck_dir(
+        deck_dir, image_path=square_path, image_dims=(1000, 1000),
+        annotation_mode="raster", labels=None, annotations_path=None, strategy="composed",
+    )
+
+    output_pptx, _stderr = _run_assembler(deck_dir)
+    prs = Presentation(output_pptx)
+    slide = prs.slides[1]
+
+    texts = [s.text_frame.text for s in slide.shapes if getattr(s, "has_text_frame", False)]
+    assert any(FORBIDDEN_HEADLINE in t for t in texts)
+
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+    for prefix in ("annotation_label_", "annotation_leader_", "annotation_dot_",
+                   "annotation_casing_", "annotation_dotring_"):
+        assert _shapes_named(slide, prefix) == []
+
+
+def test_js_full_slide_ignores_stale_payload_zone(tmp_path):
+    """F-02: a payload whose placement_zone says annotated_image_zone on a
+    slide whose effective strategy is full_bleed must still contain-fit the
+    FULL slide -- the strategy-derived routing zone wins, the payload zone
+    is informational only."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    square_path = _make_image(tmp_path / "square.png", (1000, 1000))
+    one_label = [{"text": "Centre", "anchor": [0.5, 0.5], "label_pos": [0.2, 0.2]}]
+    dest = _build_deck_dir(
+        deck_dir, image_path=square_path, image_dims=(1000, 1000),
+        annotation_mode="native", labels=one_label, strategy="full_bleed",
+    )
+    # Payload claims the composed image-zone placement, but the slide's
+    # strategy is full_bleed -- routing must ignore this.
+    rel_ann_path = _write_annotations_payload(
+        deck_dir, 2, str(dest), (1000, 1000), one_label, placement_zone="annotated_image_zone",
+    )
+    manifest_path = deck_dir / "image-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["images"][0]["annotations_path"] = rel_ann_path
+    manifest_path.write_text(json.dumps(manifest))
+
+    output_pptx, _stderr = _run_assembler(deck_dir)
+    prs = Presentation(output_pptx)
+    slide = prs.slides[1]
+
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+    pic = pictures[0]
+
+    # Square image, fit-to-height against the FULL slide (not the smaller
+    # composed image-zone rect).
+    expected_h = SLIDE_H_IN * EMU_PER_IN
+    expected_w = expected_h
+    assert abs(pic.height - expected_h) < EMU_TOLERANCE
+    assert abs(pic.width - expected_w) < EMU_TOLERANCE
+
+
+def test_js_composed_native_fit_uses_payload_dimensions(tmp_path):
+    """F-01: a non-16:9 base image with a manifest entry lacking `dimensions`
+    must still fit using payload.image_dimensions (not the 1024x576
+    fallback), and the anchor mapping lands accordingly."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    # Portrait image so a 1024x576 fallback would produce a visibly
+    # different fit than the real 400x800 aspect.
+    portrait_path = _make_image(tmp_path / "portrait.png", (400, 800))
+    one_label = [{"text": "Centre", "anchor": [0.5, 0.5], "label_pos": [0.2, 0.2]}]
+    dest = _build_deck_dir(
+        deck_dir, image_path=portrait_path, image_dims=(400, 800),
+        annotation_mode="native", labels=one_label, strategy="composed",
+        include_manifest_dimensions=False,
+    )
+    rel_ann_path = _write_annotations_payload(
+        deck_dir, 2, str(dest), (400, 800), one_label, placement_zone="annotated_image_zone",
+    )
+    manifest_path = deck_dir / "image-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    assert "dimensions" not in manifest["images"][0]
+    manifest["images"][0]["annotations_path"] = rel_ann_path
+    manifest_path.write_text(json.dumps(manifest))
+
+    output_pptx, _stderr = _run_assembler(deck_dir)
+    prs = Presentation(output_pptx)
+    slide = prs.slides[1]
+
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+    pic = pictures[0]
+
+    # Default image zone (content_with_image, no style-guide override):
+    zone_w = SLIDE_W_IN * 0.428
+    zone_h = SLIDE_H_IN * 0.787
+    zone_ratio = zone_w / zone_h
+    img_ratio = 400 / 800
+    assert img_ratio < zone_ratio  # image taller than the zone -> fit to height
+    expected_h = zone_h * EMU_PER_IN
+    expected_w = expected_h * img_ratio
+    assert abs(pic.height - expected_h) < EMU_TOLERANCE
+    assert abs(pic.width - expected_w) < EMU_TOLERANCE
+    # NOT the 1024x576 fallback ratio, which would be wide, not tall.
+    fallback_ratio = 1024 / 576
+    assert abs(pic.width / pic.height - fallback_ratio) > 0.1
+
+
+# --- v2.1 Feature B: headline opt-in (§3, §5.3) ------------------------------
+
+
+def test_js_native_headline_band_textbox(tmp_path):
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    dest = _build_deck_dir(
+        deck_dir, image_path=str(HERO_IMAGE_FIXTURE), image_dims=(1920, 1080),
+        annotation_mode="native", labels=LABELS, strategy="full_bleed", show_headline=True,
+    )
+    rel_ann_path = _write_annotations_payload(deck_dir, 2, str(dest), (1920, 1080), LABELS)
+    manifest_path = deck_dir / "image-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["images"][0]["annotations_path"] = rel_ann_path
+    manifest_path.write_text(json.dumps(manifest))
+
+    output_pptx, _stderr = _run_assembler(deck_dir)
+    prs = Presentation(output_pptx)
+    slide = prs.slides[1]
+
+    headline_shapes = _shapes_named(slide, "native_headline_")
+    assert len(headline_shapes) == 1
+    assert FORBIDDEN_HEADLINE in headline_shapes[0].text_frame.text
+
+    n = len(LABELS)
+    assert len(_shapes_named(slide, "annotation_label_")) == n
+
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+    band_h_emu = SLIDE_H_IN * 0.14 * EMU_PER_IN
+    assert pictures[0].top >= band_h_emu - EMU_TOLERANCE
+
+
+def test_js_native_headline_absent_by_default(tmp_path):
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    dest = _build_deck_dir(
+        deck_dir, image_path=str(HERO_IMAGE_FIXTURE), image_dims=(1920, 1080),
+        annotation_mode="native", labels=LABELS, strategy="full_bleed", show_headline=False,
+    )
+    rel_ann_path = _write_annotations_payload(deck_dir, 2, str(dest), (1920, 1080), LABELS)
+    manifest_path = deck_dir / "image-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["images"][0]["annotations_path"] = rel_ann_path
+    manifest_path.write_text(json.dumps(manifest))
+
+    output_pptx, _stderr = _run_assembler(deck_dir)
+    prs = Presentation(output_pptx)
+    slide = prs.slides[1]
+
+    assert _shapes_named(slide, "native_headline_") == []
+
+
+def test_js_raster_show_headline_no_band(tmp_path):
+    """F-04: the headline band is native-only -- raster + show_headline
+    renders identically to raster without the flag."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    square_path = _make_image(tmp_path / "square.png", (1000, 1000))
+    _build_deck_dir(
+        deck_dir, image_path=square_path, image_dims=(1000, 1000),
+        annotation_mode="raster", labels=None, annotations_path=None,
+        strategy="full_bleed", show_headline=True,
+    )
+
+    output_pptx, _stderr = _run_assembler(deck_dir)
+    prs = Presentation(output_pptx)
+    slide = prs.slides[1]
+
+    assert _shapes_named(slide, "native_headline_") == []
+
+
+def test_js_headline_mode_fills_full_slide_background(tmp_path):
+    """F-05: with show_headline true, a background-fill rect spans the full
+    slide (no unfilled band seam above the shrunk zone)."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    dest = _build_deck_dir(
+        deck_dir, image_path=str(HERO_IMAGE_FIXTURE), image_dims=(1920, 1080),
+        annotation_mode="native", labels=LABELS, strategy="full_bleed", show_headline=True,
+    )
+    rel_ann_path = _write_annotations_payload(deck_dir, 2, str(dest), (1920, 1080), LABELS)
+    manifest_path = deck_dir / "image-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["images"][0]["annotations_path"] = rel_ann_path
+    manifest_path.write_text(json.dumps(manifest))
+
+    output_pptx, _stderr = _run_assembler(deck_dir)
+    prs = Presentation(output_pptx)
+    slide = prs.slides[1]
+
+    from pptx.enum.shapes import MSO_SHAPE_TYPE as _SHAPE_TYPE
+    rects = [
+        s for s in slide.shapes
+        if s.shape_type == _SHAPE_TYPE.AUTO_SHAPE
+        and abs(s.width - SLIDE_W_IN * EMU_PER_IN) < EMU_TOLERANCE
+        and abs(s.height - SLIDE_H_IN * EMU_PER_IN) < EMU_TOLERANCE
+    ]
+    assert len(rects) >= 1, "expected a full-slide background fill rect in showHeadline mode"
