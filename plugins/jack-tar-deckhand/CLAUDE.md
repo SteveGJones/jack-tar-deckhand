@@ -31,7 +31,7 @@ Without engine plugins, the pipeline produces text-only slides with placeholder 
 | `/deck-assembler` | Assemble .pptx — routes to PptxGenJS (standard) or python-pptx (template mode) |
 | `/deck-qa` | Run 25 automated anti-pattern checks |
 | `/iterate-slide` | Single-slide critique-driven refinement via paperbanana `--continue-run` (three modes: auto / enumerate / draft) |
-| `/annotate-figure` | Perfect-text labeled figures — standalone raster overlay, or deck-native editable text boxes + connectors via `annotation_mode: native` |
+| `/annotate-figure` | Perfect-text labeled figures — standalone raster overlay, or deck-native editable text boxes + connectors via `annotation_mode: native` (v2.1: `composed` strategy keeps chrome and draws into the image zone; `annotation.show_headline` opts a headline band into full-slide native slides, #142 v2.1) |
 | `/verify` | Check pipeline readiness and engine plugin availability |
 
 ## Quick Start
