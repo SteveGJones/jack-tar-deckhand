@@ -24,10 +24,11 @@ from PIL import Image
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PLUGIN_ROOT))
 
-from src.annotate_figure import place_labels  # noqa: E402
+from src.annotate_figure import BLANK_ZONE_RECTS, place_labels  # noqa: E402
 from src.annotation_payload import (  # noqa: E402
     build_annotation_payload,
     estimate_label_box,
+    resolve_blank_zone,
     write_annotation_payload,
 )
 from src.qa.config import QA_CONFIG  # noqa: E402
@@ -147,6 +148,28 @@ def test_schema_rejects_style_missing_required_field():
 def test_schema_rejects_label_missing_text():
     payload = _valid_payload()
     del payload["labels"][0]["text"]
+    with pytest.raises(ValidationError):
+        validate(instance=payload, schema=_annotations_schema())
+
+
+# --- blank_zone audit block (issue #142, final scope item) -----------------
+
+
+def test_schema_accepts_payload_without_blank_zone():
+    """v2/v2.1 payloads on disk (no blank_zone key at all) stay valid."""
+    payload = _valid_payload()
+    assert "blank_zone" not in payload
+    validate(instance=payload, schema=_annotations_schema())
+
+
+def test_schema_rejects_bad_blank_zone_placement_value():
+    payload = _valid_payload()
+    payload["blank_zone"] = {
+        "requested": "right_third",
+        "resolved": "right_third",
+        "verified_clear": True,
+        "placement": "zone_partial",  # not in the enum
+    }
     with pytest.raises(ValidationError):
         validate(instance=payload, schema=_annotations_schema())
 
@@ -403,3 +426,101 @@ def test_estimate_label_box_pad_override():
 def test_estimate_label_box_rejects_non_positive_font_size():
     with pytest.raises(ValueError):
         estimate_label_box("x", 0)
+
+
+# ===========================================================================
+# blank_zone variant (issue #142, final scope item) — T3
+# ===========================================================================
+
+
+def test_build_payload_zone_placement_when_clear(tmp_path):
+    payload = _build(tmp_path, blank_zone="right_third", blank_zone_clear=True)
+    zone_x, zone_y, zone_w, zone_h = BLANK_ZONE_RECTS["right_third"]
+    pad = 0.03
+    for label in payload["labels"]:
+        x, y = label["label_pos"]
+        assert zone_x - pad <= x <= zone_x + zone_w + pad
+        assert zone_y - pad <= y <= zone_y + zone_h + pad
+    assert payload["blank_zone"]["placement"] == "zone"
+    validate(instance=payload, schema=_annotations_schema())
+
+
+def test_build_payload_falls_back_when_not_clear(tmp_path):
+    base = _make_base_image(tmp_path)
+    with_zone = _build(
+        tmp_path, base_image_path=base,
+        blank_zone="right_third", blank_zone_clear=False,
+    )
+    plain = _build(tmp_path, base_image_path=base)
+    assert with_zone["blank_zone"]["placement"] == "fallback_margin"
+    without_audit = {k: v for k, v in with_zone.items() if k != "blank_zone"}
+    assert without_audit == plain
+
+
+def test_build_payload_falls_back_when_unverified(tmp_path):
+    payload = _build(tmp_path, blank_zone="right_third", blank_zone_clear=None)
+    assert payload["blank_zone"]["verified_clear"] is None
+    assert payload["blank_zone"]["placement"] == "fallback_margin"
+
+
+def test_build_payload_falls_back_on_capacity_overflow(tmp_path):
+    anchors = {f"L{i}": [0.9, i / 5.0] for i in range(5)}
+    base = _make_base_image(tmp_path, size=(800, 200))
+    payload = _build(
+        tmp_path, base_image_path=base, anchors=anchors,
+        image_dimensions={"width": 800, "height": 200},
+        blank_zone="right_third", blank_zone_clear=True,
+    )
+    assert payload["blank_zone"]["placement"] == "fallback_margin"
+    expected = place_labels(anchors, (800, 200))
+    by_text = {lbl["text"]: lbl for lbl in payload["labels"]}
+    for name in anchors:
+        assert by_text[name]["label_pos"] == list(expected[name]["label_pos"])
+
+
+def test_build_payload_blank_zone_block_fully_explicit(tmp_path):
+    payload = _build(tmp_path, blank_zone="right_third", blank_zone_clear=True)
+    assert set(payload["blank_zone"]) == {
+        "requested", "resolved", "verified_clear", "placement",
+    }
+    assert payload["blank_zone"]["requested"] == "right_third"
+    assert payload["blank_zone"]["resolved"] == "right_third"
+
+
+def test_build_payload_no_blank_zone_block_when_not_requested(tmp_path):
+    """v2/v2.1 byte-shape pin: omitting blank_zone entirely omits the
+    audit block from the payload, not just leaves it null."""
+    payload = _build(tmp_path)
+    assert "blank_zone" not in payload
+
+
+def test_build_payload_capacity_uses_resolved_font_size(tmp_path):
+    """BZ-3: the capacity math sees the MERGED style — a small enough
+    font_size_pt fits a label a default-18pt build rejects."""
+    anchors = {"Orchestration Bus": [0.9, 0.5]}
+    base = _make_base_image(tmp_path, size=(1024, 576))
+    kwargs = dict(
+        base_image_path=base, anchors=anchors,
+        image_dimensions={"width": 1024, "height": 576},
+        placement_zone="annotated_image_zone",
+        blank_zone="right_third", blank_zone_clear=True,
+    )
+    default_font = _build(tmp_path, **kwargs)
+    small_font = _build(tmp_path, **kwargs, style_overrides={"font_size_pt": 6})
+    assert default_font["blank_zone"]["placement"] == "fallback_margin"
+    assert small_font["blank_zone"]["placement"] == "zone"
+
+
+# --- resolve_blank_zone ------------------------------------------------
+
+
+def test_resolve_blank_zone_auto_landscape_and_portrait():
+    assert resolve_blank_zone("auto", 16 / 9) == "right_third"
+    assert resolve_blank_zone("auto", 1.0) == "right_third"  # aspect >= 1.0
+    assert resolve_blank_zone("auto", 0.5) == "bottom_strip"
+
+
+def test_resolve_blank_zone_passthrough_concrete():
+    for zone in ("left_third", "right_third", "top_strip", "bottom_strip"):
+        assert resolve_blank_zone(zone, 1.78) == zone
+    assert resolve_blank_zone(None, 1.78) is None

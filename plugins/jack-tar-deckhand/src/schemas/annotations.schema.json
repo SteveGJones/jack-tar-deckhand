@@ -36,7 +36,31 @@
         }
       }
     },
-    "style": {"$ref": "#/$defs/style"}
+    "style": {"$ref": "#/$defs/style"},
+    "blank_zone": {
+      "type": "object",
+      "required": ["requested", "resolved", "verified_clear", "placement"],
+      "properties": {
+        "requested": {
+          "type": "string",
+          "enum": ["left_third", "right_third", "top_strip", "bottom_strip", "auto"]
+        },
+        "resolved": {
+          "type": "string",
+          "enum": ["left_third", "right_third", "top_strip", "bottom_strip"]
+        },
+        "verified_clear": {
+          "type": ["boolean", "null"],
+          "description": "The anchor-pass zone verdict. null = reviewer did not answer / answer unparseable (treated as NOT clear)."
+        },
+        "placement": {
+          "type": "string",
+          "enum": ["zone", "fallback_margin"],
+          "description": "Where labels actually went. 'fallback_margin' = standard v2 place_labels flow (zone not clear, no capacity, or unverified)."
+        }
+      },
+      "description": "Audit trail for a requested blank_zone (#142 blank-zone variant). Present only when a blank zone was requested; absent entirely otherwise (F9 — no schema defaults). The assemblers never read this block; label_pos is already resolved."
+    }
   },
   "$defs": {
     "norm_point": {

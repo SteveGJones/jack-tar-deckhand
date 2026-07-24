@@ -17,11 +17,14 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PLUGIN_ROOT))
 
 from src.annotate_figure import (  # noqa: E402
+    BLANK_ZONE_RECTS,
     DEFAULT_MARGIN_BAND,
     LABEL_BOX_PADDING,
     LEADER_LINE_WIDTH,
     annotate,
+    parse_blank_zone_verdict,
     place_labels,
+    place_labels_in_zone,
     validate_anchors,
     _load_font,
     _segment_box_entry,
@@ -612,3 +615,173 @@ def test_annotate_creates_output_directory_if_missing(tmp_path):
     out = tmp_path / 'nested' / 'dir' / 'annotated.png'
     annotate(src, {"Bow": [0.1, 0.5]}, str(out))
     assert out.exists()
+
+
+# ---------------------------------------------------------------------------
+# place_labels regression pin (issue #142 blank-zone variant, §10.1)
+# ---------------------------------------------------------------------------
+
+def test_place_labels_unchanged():
+    """Regression pin: place_labels_in_zone is a NEW sibling function,
+    v1's place_labels is untouched — fixed fixture, fixed expected output."""
+    anchors = {"Bow": [0.05, 0.5], "Stern": [0.95, 0.5], "Mast": [0.5, 0.05]}
+    result = place_labels(anchors, (800, 600))
+    assert result == {
+        "Bow": {"anchor": [0.05, 0.5], "label_pos": [0.06, 0.5]},
+        "Stern": {"anchor": [0.95, 0.5], "label_pos": [0.94, 0.5]},
+        "Mast": {"anchor": [0.5, 0.05], "label_pos": [0.5, 0.06]},
+    }
+
+
+# ---------------------------------------------------------------------------
+# place_labels_in_zone — blank-zone variant (issue #142, final scope item)
+# ---------------------------------------------------------------------------
+
+_FULL_SLIDE_WIDTH_IN = 12.0
+_IMAGE_ZONE_WIDTH_IN = 4.8
+
+
+def test_place_labels_in_zone_side_zone_stacks_vertically_sorted_by_anchor_y():
+    anchors = {"C": [0.9, 0.8], "A": [0.9, 0.1], "B": [0.9, 0.5]}
+    result = place_labels_in_zone(
+        anchors, (800, 600), "right_third",
+        font_size_pt=18, displayed_width_in=_FULL_SLIDE_WIDTH_IN,
+    )
+    assert result is not None
+    zone_x, _zone_y, zone_w, _zone_h = BLANK_ZONE_RECTS["right_third"]
+    cx = zone_x + zone_w / 2.0
+    xs = {name: spec["label_pos"][0] for name, spec in result.items()}
+    assert all(x == pytest.approx(cx) for x in xs.values())
+    ys = {name: spec["label_pos"][1] for name, spec in result.items()}
+    assert ys["A"] < ys["B"] < ys["C"]
+
+
+def test_place_labels_in_zone_strip_spreads_horizontally_sorted_by_anchor_x():
+    anchors = {"C": [0.8, 0.1], "A": [0.1, 0.1], "B": [0.5, 0.1]}
+    result = place_labels_in_zone(
+        anchors, (800, 600), "top_strip",
+        font_size_pt=18, displayed_width_in=_FULL_SLIDE_WIDTH_IN,
+    )
+    assert result is not None
+    _zone_x, zone_y, _zone_w, zone_h = BLANK_ZONE_RECTS["top_strip"]
+    cy = zone_y + zone_h / 2.0
+    ys = {name: spec["label_pos"][1] for name, spec in result.items()}
+    assert all(y == pytest.approx(cy) for y in ys.values())
+    xs = {name: spec["label_pos"][0] for name, spec in result.items()}
+    assert xs["A"] < xs["B"] < xs["C"]
+
+
+def test_place_labels_in_zone_positions_inside_zone_rect():
+    anchors = {"A": [0.5, 0.5], "B": [0.4, 0.6]}
+    pad = 0.03
+    for zone in BLANK_ZONE_RECTS:
+        result = place_labels_in_zone(
+            anchors, (800, 600), zone,
+            font_size_pt=18, displayed_width_in=_FULL_SLIDE_WIDTH_IN, pad=pad,
+        )
+        assert result is not None, zone
+        zone_x, zone_y, zone_w, zone_h = BLANK_ZONE_RECTS[zone]
+        for name, spec in result.items():
+            x, y = spec["label_pos"]
+            assert zone_x - pad <= x <= zone_x + zone_w + pad, (zone, name, x)
+            assert zone_y - pad <= y <= zone_y + zone_h + pad, (zone, name, y)
+
+
+def test_place_labels_in_zone_is_deterministic():
+    anchors_a = {"Bow": [0.9, 0.2], "Stern": [0.9, 0.8]}
+    anchors_b = {"Stern": [0.9, 0.8], "Bow": [0.9, 0.2]}
+    kwargs = dict(font_size_pt=18, displayed_width_in=_FULL_SLIDE_WIDTH_IN)
+    r1 = place_labels_in_zone(anchors_a, (800, 600), "right_third", **kwargs)
+    r2 = place_labels_in_zone(anchors_a, (800, 600), "right_third", **kwargs)
+    r3 = place_labels_in_zone(anchors_b, (800, 600), "right_third", **kwargs)
+    assert r1 == r2 == r3
+
+
+def test_place_labels_in_zone_returns_none_over_capacity():
+    # slot_pitch = 60/200 = 0.3, usable_h = 1.0 - 2*0.03 = 0.94 ->
+    # count_capacity = 3; 5 labels overflows.
+    anchors = {f"L{i}": [0.9, i / 5.0] for i in range(5)}
+    result = place_labels_in_zone(
+        anchors, (800, 200), "right_third",
+        font_size_pt=18, displayed_width_in=_FULL_SLIDE_WIDTH_IN,
+    )
+    assert result is None
+
+
+def test_place_labels_in_zone_returns_none_when_widest_label_exceeds_side_zone_width():
+    # "Orchestration Bus" at 18pt against the (stricter) image-zone
+    # displayed width (BZ-2's own illustrative example) spills past the
+    # 0.33-wide side zone -> capacity gate rejects rather than a silent
+    # spill.
+    anchors = {"Orchestration Bus": [0.9, 0.5]}
+    result = place_labels_in_zone(
+        anchors, (1024, 576), "right_third",
+        font_size_pt=18, displayed_width_in=_IMAGE_ZONE_WIDTH_IN,
+    )
+    assert result is None
+
+
+def test_place_labels_in_zone_capacity_scales_with_displayed_width():
+    """BZ-6: same labels, smaller displayed_width_in -> lower capacity;
+    the image-zone constant is stricter than the full-slide constant."""
+    anchors = {
+        "Alpha": [0.1, 0.1], "Beta": [0.3, 0.1], "Gamma": [0.5, 0.1],
+        "Delta": [0.7, 0.1], "Epsilon": [0.9, 0.1],
+    }
+    wide = place_labels_in_zone(
+        anchors, (1024, 576), "top_strip",
+        font_size_pt=18, displayed_width_in=_FULL_SLIDE_WIDTH_IN,
+    )
+    narrow = place_labels_in_zone(
+        anchors, (1024, 576), "top_strip",
+        font_size_pt=18, displayed_width_in=_IMAGE_ZONE_WIDTH_IN,
+    )
+    assert wide is not None
+    assert narrow is None
+
+
+def test_place_labels_in_zone_far_anchor_keeps_anchor_verbatim():
+    anchors = {"Far": [0.05, 0.9]}  # far side of the frame from right_third
+    result = place_labels_in_zone(
+        anchors, (800, 600), "right_third",
+        font_size_pt=18, displayed_width_in=_FULL_SLIDE_WIDTH_IN,
+    )
+    assert result is not None
+    assert result["Far"]["anchor"] == [0.05, 0.9]
+    assert result["Far"]["label_pos"][0] != 0.05
+
+
+def test_place_labels_in_zone_unknown_zone_raises():
+    with pytest.raises(KeyError):
+        place_labels_in_zone(
+            {"A": [0.5, 0.5]}, (800, 600), "top_band",
+            font_size_pt=18, displayed_width_in=_FULL_SLIDE_WIDTH_IN,
+        )
+
+
+# ---------------------------------------------------------------------------
+# parse_blank_zone_verdict (§5.2)
+# ---------------------------------------------------------------------------
+
+def test_parse_blank_zone_verdict_true_false_absent_malformed():
+    assert parse_blank_zone_verdict({"blank_zone": {"clear": True}}) is True
+    assert parse_blank_zone_verdict({"blank_zone": {"clear": False}}) is False
+    assert parse_blank_zone_verdict({"description": "x", "anchors": {}}) is None
+    assert parse_blank_zone_verdict({"blank_zone": {"clear": "yes"}}) is None
+    assert parse_blank_zone_verdict({"blank_zone": "not-a-dict"}) is None
+    assert parse_blank_zone_verdict("not-a-dict") is None
+    assert parse_blank_zone_verdict({"blank_zone": {}}) is None
+
+
+# ---------------------------------------------------------------------------
+# validate_anchors tolerance pin (BZ-7 — already holds, no relaxation)
+# ---------------------------------------------------------------------------
+
+def test_validate_anchors_tolerates_blank_zone_key():
+    payload = {
+        "description": "test",
+        "anchors": {"Bow": [0.1, 0.5]},
+        "blank_zone": {"clear": True, "notes": "sky is empty"},
+    }
+    result = validate_anchors(payload)
+    assert result is payload

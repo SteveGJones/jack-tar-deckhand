@@ -517,7 +517,17 @@ ANNOTATION_REFRESH_INSTRUCTIONS = (
     "ship stale or absent anchors silently -- apply the F5 three-way "
     "operator choice (retry / raster_with_manual_anchors / "
     "ship_unlabeled) and record status: accepted_with_issues on the "
-    "manifest entry."
+    "manifest entry. "
+    "(4) BLANK-ZONE VARIANT (issue #142 final scope item, BZ-4): for "
+    "slides whose annotation object carries blank_zone, re-run the FULL "
+    "blank-zone sub-steps of Step 4.8 -- the amended anchor-pass contract "
+    "including the zone question -- and pass blank_zone / "
+    "blank_zone_clear through to build_annotation_payload (a new image "
+    "means new anchors AND a fresh zone verdict; the new render may "
+    "honour the directive differently). A plain v2-shaped rebuild "
+    "(anchors only, no blank_zone kwargs) silently reverts this slide's "
+    "labels from the reserved zone back to the margin bands -- legal, "
+    "unwarned, and invisible to QA."
 )
 
 

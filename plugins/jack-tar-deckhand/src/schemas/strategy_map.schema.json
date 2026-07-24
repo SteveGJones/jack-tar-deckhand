@@ -173,6 +173,11 @@
                 "type": "boolean",
                 "default": false,
                 "description": "Native full-slide annotation only: when true, render the slide's outline headline in a top band above the contain-fit figure. Default false = pure figure (v2 F2 contract). Ignored for composed (annotated_image_zone) slides, which always carry their own headline."
+              },
+              "blank_zone": {
+                "type": "string",
+                "enum": ["left_third", "right_third", "top_strip", "bottom_strip", "auto"],
+                "description": "Optional. Reserve a deliberately empty region of the BASE IMAGE for label placement: the render prompt asks the model to keep this region visually quiet, the anchor pass verifies it came back clear, and labels are placed inside it when it did. Best-effort — on non-compliance (or an external source image with a busy region) placement falls back to the standard margin-band flow. 'auto' resolves from image aspect (resolve_blank_zone). Applies to both 'native' and 'raster' modes; ownership differs — see the mode-ownership note. Absent = v2 behaviour exactly."
               }
             }
           }
