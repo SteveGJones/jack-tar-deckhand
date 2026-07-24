@@ -1177,6 +1177,198 @@ review — they read the PNG into THEIR context and return text.
 - QA checks: `plugins/jack-tar-deckhand/src/qa/checks/annotation_checks.py`
   (AN-01 contract/hash check — the tripwire for F5 choice (c))
 
+### Step 4.9: Local edit (targeted $0 refinement, issue #143)
+
+A $0 local mflux **edit** — a targeted change to an EXISTING image that
+preserves everything the instruction does not name — is a fourth
+refinement channel alongside the standard re-roll paths. It is reachable
+from two places: the academic_figure local-draft loop (Step 4.6, when the
+operator wants to fix something local on an already-rendered draft
+without spending another render) and the creative_vision loop (Step 4.7,
+when the Director's Critic returns `refine_at_tier` with a spatially
+local gap). It is NOT its own dispatch branch — it's an action taken on a
+slide that's already produced at least one on-disk image.
+
+**Procedure: classifier proposes, operator disposes (D4).** Nothing here
+is autonomous — the classifier only pre-selects/annotates; the operator
+always confirms the channel before the edit subprocess runs.
+
+1. **Check whether the edit channel is even available.** Detect an
+   edit-capable local backend and confirm a base image exists on disk:
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.edit_dispatch import detect_mlx_edit_backend, edit_channel_available, edit_channel_unavailable_reason
+
+backend = detect_mlx_edit_backend()
+entry = json.loads('''$MANIFEST_ENTRY_JSON''')  # the slide's current image-manifest entry
+available = edit_channel_available(entry, backend)
+print(json.dumps({
+    'available': available,
+    'backend': None if backend is None else {'provider': backend.provider, 'model': backend.model},
+    'reason': edit_channel_unavailable_reason(backend),
+}))
+"
+```
+
+   If `available` is false, print `reason` — this DISTINGUISHES the F-06
+   stale-catalog-cache failure mode ("re-run `refresh-models` or delete
+   the stale `~/.jack-tar/model-catalog.json`") from a plain "no local
+   edit backend detected" — and fall through to the standard re-roll
+   paths (Step 4.6 §2/3/4, or Step 4.7's `refine_prompt`/`escalate_tier`).
+   Do NOT silently skip this explanation; an operator staring at a
+   missing edit option with no reason is the F-06 failure mode made
+   invisible.
+
+2. **Classify the operator's feedback (and, for creative_vision, the
+   Director's Critic verdict).** The text carve-out is applied FIRST and
+   is a HARD EXCLUSION (D9 — S1 showed the simplest word-for-word edit
+   garble "NOTICE" -> "NOBTICE"):
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.edit_dispatch import classify_edit_locality
+result = classify_edit_locality('''$FEEDBACK''', critic_verdict=$CRITIC_VERDICT_JSON_OR_NULL)
+print(json.dumps(result))
+"
+```
+
+   - `locality: "text_excluded"` — **NEVER offer the edit channel for
+     this feedback**, not even with a warning. Route to a re-roll (Step
+     4.6/4.7's normal path) or, for `annotation_mode: native` slides,
+     annotate-figure's native mode (perfect-text-by-construction).
+   - `locality: "local"` — propose **edit**.
+   - `locality: "global"` — propose the standard re-roll/refine path.
+   - `locality: "ambiguous"` — present BOTH options; operator picks.
+
+3. **Operator confirms the channel.** For creative_vision slides this
+   confirmation IS an F12 gate touch — see step 6 below. For
+   academic_figure slides the edit is $0 and therefore F10-ungated, but
+   the operator still explicitly picks the channel; there is no silent
+   auto-edit path anywhere in this flow.
+
+4. **Build the edit args and invoke the wrapper**, reusing the SAME
+   `MLX_PLUGIN_ROOT` discovery and `MFLUX_REPO_USED`/`MFLUX_SEED_USED`
+   stderr-capture pattern Step 4.6 §2b already established, but calling
+   `edit_image.py` instead of `generate_image.py`:
+
+```bash
+MLX_PLUGIN_ROOT=$(dirname "$PLUGIN_ROOT")/jack-tar-mlx
+
+# build_edit_args resolves steps from the catalog, ALWAYS resolves a
+# seed (F-08 — an unseeded edit is unrecoverable, S3), and emits NO
+# width/height keys (S7 — the edit CLI always inherits the base image's
+# dimensions; explicit differing dims are a documented mflux hang).
+EDIT_ARGS_JSON=$(PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.edit_dispatch import build_edit_args, LocalBackend
+backend = LocalBackend(provider='$BACKEND_PROVIDER', model='$BACKEND_MODEL')
+args = build_edit_args('$BASE_IMAGE_PATH', '''$INSTRUCTION''', backend,
+                        reference_paths=$REFERENCE_PATHS_JSON_LIST)
+print(json.dumps(args))
+")
+
+OUT_PNG="$(dirname "$BASE_IMAGE_PATH")/slide-$(printf '%02d' $SLIDE_NUMBER)-edit-$(date +%s).png"
+STEPS=$(echo "$EDIT_ARGS_JSON" | jq -r '.steps')
+SEED=$(echo "$EDIT_ARGS_JSON" | jq -r '.seed')
+IMAGE_PATHS=$(echo "$EDIT_ARGS_JSON" | jq -r '.image_paths[]')
+
+python3 "$MLX_PLUGIN_ROOT/src/edit_image.py" \
+  --prompt "$INSTRUCTION" \
+  --image-paths $IMAGE_PATHS \
+  --model "$BACKEND_MODEL" \
+  --steps "$STEPS" \
+  --seed "$SEED" \
+  --output "$OUT_PNG" 2> >(tee /tmp/mlx-edit-stderr.log >&2)
+
+REPO_USED=$(grep -o 'MFLUX_REPO_USED=.*' /tmp/mlx-edit-stderr.log | cut -d= -f2)
+SEED_USED=$(grep -o 'MFLUX_SEED_USED=.*' /tmp/mlx-edit-stderr.log | cut -d= -f2)
+```
+
+   **Multi-reference caveat (D11).** When a second `--image-paths` entry
+   is passed (e.g. a creative_vision anchor image), it strongly
+   influences the output — S4 observed direct element transfer, not just
+   a style pull (a reference subject was injected into the scene). Scope
+   the instruction tightly ("match the palette/lighting of the second
+   image; do NOT add any subject from it") and dispatch the
+   `image-reviewer` pass below with an explicit check for injected
+   reference-image subjects.
+
+5. **Dispatch `image-reviewer` on `$OUT_PNG`** (out-of-context, per the
+   discipline hook) before persisting anything — an edit that failed to
+   preserve the untouched regions, or that leaked a reference subject
+   (D11), should not be written to the manifest as accepted.
+
+6. **F12 gate for creative_vision slides — unconditional, no bypass.**
+   `should_fire_operator_gate(strategy="creative_vision", ...)` fires on
+   EVERY edit iteration exactly as it fires on any other creative_vision
+   iteration (§4.7 Step H.1's cadence, F12 doctrine) — the image is the
+   slide; only the operator closes it. There is no special-cased
+   edit-is-free bypass of F12, even though the edit itself is $0 and
+   therefore F10-ungated. Open `$OUT_PNG` for the operator and wait for
+   explicit accept/reject before treating this attempt as final.
+
+7. **Persist.** For academic_figure / standard iterate-slide slides,
+   call `edit_dispatch.record_edit` (via `iterate_slide_dispatch.edit_action`,
+   which locates the entry, chains provenance, and writes
+   `image-manifest.json`):
+
+```bash
+PYTHONPATH="$PLUGIN_ROOT" python3 -c "
+import json
+from src.iterate_slide_dispatch import edit_action
+entry = edit_action(
+    '$MANIFEST_PATH', $SLIDE_NUMBER,
+    new_file_path='$OUT_PNG',
+    new_content_hash='$NEW_SHA',
+    edit_instruction='''$INSTRUCTION''',
+    edit_args=json.loads('''$EDIT_ARGS_JSON'''),
+)
+print(json.dumps(entry))
+"
+```
+
+   For creative_vision slides, build the F-09 attempt shape
+   (`tier: "mlx_edit"`, `text_iterations: []`, `render.cost_usd: 0.0`,
+   `base_attempt_index`, `base_image_hash`) and append it via
+   `creative_vision.manifest.append_attempt` — the SAME path every other
+   creative_vision attempt goes through; the `mlx_edit` guard (F-10)
+   leaves `current_tier`/`next_tier_available` untouched so a later
+   `escalate_tier` resumes from wherever the ladder actually was.
+
+8. **annotate-figure v2 native-slide interaction (F4).** An edit is an
+   image REPLACEMENT — for `annotation_mode: native` slides it MUST
+   trigger the same anchor-pass + payload-rewrite guard Step 4.8 and
+   iterate-slide's Step 7.5 already implement
+   (`iterate_slide_dispatch.annotation_refresh_required` /
+   `annotation_refresh_notice`). No new guard exists for edits — the
+   guard's predicate only reads the strategy-map's `annotation_mode`, so
+   it fires identically regardless of what produced the replacement.
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly.
+> If you need to verify an image, dispatch the
+> `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or
+> the `general-purpose` subagent (Sonnet, higher accuracy). Both
+> subagents pull the image into THEIR context and return text.
+
+#### Reference
+
+- Design doc: `docs/superpowers/plans/2026-07-23-edit-tier.md` §4 (iterate-slide),
+  §5 (creative_vision), §6 (this step), §8.1 (smoke results)
+- Wrapper (PR C): `plugins/jack-tar-mlx/src/edit_image.py`, `/jack-tar-mlx:image-edit` skill
+- Dispatch helper: `plugins/jack-tar-deckhand/src/edit_dispatch.py`
+  (`detect_mlx_edit_backend`, `edit_channel_available`,
+  `edit_channel_unavailable_reason`, `classify_edit_locality`,
+  `build_edit_args`, `record_edit`)
+- Standard-slide persistence: `plugins/jack-tar-deckhand/src/iterate_slide_dispatch.py`
+  (`edit_action`)
+- creative_vision persistence: `plugins/jack-tar-deckhand/src/creative_vision/manifest.py`
+  (`append_attempt` mlx_edit guard), `src/creative_vision/orchestrator.py`
+  (`decide_next_action` edit path), `src/creative_vision/cascade.py`
+  (`TIER_TO_PROVIDER_MODEL_RESOLUTION["mlx_edit"]`)
+
 ## Step 5: Check Cache for Each Image
 
 **Production mode:** If `production-upgrade-plan.json` exists in the deck directory, skip this step and use Step 9A instead. The upgrade plan takes precedence over the routing matrix for production renders.
