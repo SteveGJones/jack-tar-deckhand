@@ -199,9 +199,11 @@ def _map_norm_point(norm_xy, fit_rect):
     return (fx + nx * fw, fy + ny * fh)
 
 
-def _place_contain_fit_picture(slide, image_path, zone_rect):
-    """Strip all shapes and place ``image_path`` contain-fit inside
-    ``zone_rect`` (EMU), hoisted to the front of z-order.
+def _place_contain_fit_picture(slide, image_path, zone_rect, *, strip=True):
+    """Place ``image_path`` contain-fit inside ``zone_rect`` (EMU), hoisted
+    to the front of z-order. Strips all existing shapes first unless
+    ``strip=False`` (v2.1 F-06/§2.3: a composed annotated slide keeps its
+    populated title/body chrome).
 
     Shared by the native-annotation overlay path and the raster / no-payload
     fallback paths (F11): every annotated image — whether it will carry a
@@ -213,17 +215,24 @@ def _place_contain_fit_picture(slide, image_path, zone_rect):
     instead of the full zone.
 
     Args:
-        slide: python-pptx Slide (chrome not yet stripped).
+        slide: python-pptx Slide (chrome not yet stripped, unless
+            ``strip=False`` is requested and the caller already populated it).
         image_path: absolute path to the image file, or None/missing.
         zone_rect: (x, y, w, h) EMU rect of the placement zone.
+        strip: when True (default, full-slide callers), remove every
+            existing shape first — v2 byte-parity. When False (composed
+            callers), leave populated placeholders/text in place; the
+            picture still lands hoisted to the sptree head so it renders,
+            but any later-added overlay shapes land on top of it.
 
     Returns:
         The picture shape, or None if image_path is missing/absent (mirrors
         ``_apply_full_bleed``'s empty-slide edge case).
     """
-    for shape in list(slide.shapes):
-        el = shape._element
-        el.getparent().remove(el)
+    if strip:
+        for shape in list(slide.shapes):
+            el = shape._element
+            el.getparent().remove(el)
 
     if not image_path or not os.path.isfile(image_path):
         return None
@@ -308,7 +317,7 @@ def _add_annotation_label_box(slide, box_rect, text, fill_color, border_color,
 
 
 def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
-                             zone_rect_emu):
+                             zone_rect_emu, *, strip_chrome=True):
     """Render a native-annotated slide (§5): pure figure (F2) — a contain-fit
     base image with an editable overlay of leader connectors, casing
     underlays, terminus dots, and label textboxes, all resolved from a
@@ -316,12 +325,13 @@ def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
     RESOLVED image-normalized coordinates. This function draws; it never
     re-runs placement.
 
-    Modelled on ``_apply_full_bleed`` — same strip-all-shapes, single
-    picture, no title/body/footer chrome — but the picture is contain-fit
-    (§3.1/§3.2) rather than stretched, and connectors/ovals/textboxes are
-    drawn on top afterward so they land after the picture in spTree
-    (= on top in z-order), matching the pass order in §4.4:
-    casing (leader + dot ring) -> dark cores (leader + dot) -> label boxes.
+    Modelled on ``_apply_full_bleed`` — same strip-all-shapes (unless
+    ``strip_chrome=False``), single picture, no title/body/footer chrome —
+    but the picture is contain-fit (§3.1/§3.2) rather than stretched, and
+    connectors/ovals/textboxes are drawn on top afterward so they land after
+    the picture in spTree (= on top in z-order), matching the pass order in
+    §4.4: casing (leader + dot ring) -> dark cores (leader + dot) -> label
+    boxes.
 
     Hash gate (F4, step 0): the picture is placed contain-fit regardless,
     then ``base_image_path``'s current content hash is compared against
@@ -332,7 +342,7 @@ def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
 
     Args:
         slide: python-pptx Slide (already added via prs.slides.add_slide;
-            chrome not yet stripped).
+            chrome not yet stripped, unless ``strip_chrome=False``).
         base_image_path: absolute path to the CURRENT on-disk base image
             (already resolved relative to deck_dir by the caller).
         payload: the loaded SlideAnnotations dict.
@@ -341,16 +351,19 @@ def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
             symmetry with ``_apply_full_bleed`` and to make full-slide
             callers' intent explicit at the call site.
         zone_rect_emu: (x, y, w, h) EMU rect of the placement zone the base
-            image occupies. Always ``(0, 0, slide_w, slide_h)`` for every
-            strategy v2 wires (§3.3 — full-slide strategies only; the
-            composed/``annotated_image_zone`` zone is schema-allowed but
-            deferred).
+            image occupies. ``(0, 0, slide_w, slide_h)`` for full-slide
+            strategies (§3.3); a composed slide's picture-placeholder (or
+            fallback) rect for ``annotated_image_zone`` (v2.1 §2.3).
+        strip_chrome: when True (default), strip every existing shape first
+            — v2 pure-figure byte-parity. When False (v2.1 composed
+            callers), the caller has already populated title/body
+            placeholders and they must survive.
 
     Returns:
         The picture shape, or None if base_image_path is missing/absent
         (mirrors ``_apply_full_bleed``'s empty-slide edge case).
     """
-    pic = _place_contain_fit_picture(slide, base_image_path, zone_rect_emu)
+    pic = _place_contain_fit_picture(slide, base_image_path, zone_rect_emu, strip=strip_chrome)
     if pic is None:
         return None
 
@@ -448,6 +461,65 @@ def _apply_native_annotation(slide, base_image_path, payload, slide_w, slide_h,
     return pic
 
 
+# ---------------------------------------------------------------------------
+# annotate-figure v2.1 — composed strategy wiring (issue #142 v2.1, T4)
+#
+# Design: docs/superpowers/plans/2026-07-23-annotate-figure-v2.1.md §2.3, F-06.
+# ---------------------------------------------------------------------------
+
+
+def _resolve_annotation_zone_rect(slide, profile_layout, slide_number):
+    """Resolve the EMU zone rect a composed annotated slide's figure draws
+    into (F-06 fallback chain, §2.3):
+
+      1. The slide's own picture placeholder rect — when found, the empty
+         placeholder element is removed so no unfilled placeholder ships.
+      2. Else the content placeholder rect from ``profile_layout`` (the same
+         ``placeholders[].type == 'content'`` lookup ``_emit_smartart_placeholder``
+         uses).
+      3. Else the hardcoded default rect ``_emit_smartart_placeholder`` falls
+         back to.
+
+    A stderr warning names the slide and which fallback fired whenever step 1
+    misses — a layout mapped for `content` without a picture placeholder is
+    single-column, so body_points may sit behind the figure; the warning
+    gives the operator the signal to pick an image-bearing layout mapping.
+
+    Returns:
+        (x, y, w, h) EMU tuple.
+    """
+    pic_ph = _find_placeholder_by_type(slide, 'picture', profile_layout)
+    if pic_ph is not None:
+        zone_rect = (pic_ph.left, pic_ph.top, pic_ph.width, pic_ph.height)
+        pic_ph._element.getparent().remove(pic_ph._element)
+        return zone_rect
+
+    content_info = None
+    if profile_layout:
+        for ph_info in profile_layout.get('placeholders', []):
+            if ph_info['type'] == 'content':
+                content_info = ph_info
+                break
+
+    if content_info:
+        print(
+            f"WARNING: slide {slide_number} composed annotation has no picture "
+            f"placeholder in its mapped layout -- falling back to the content "
+            f"placeholder rect. The figure may overlap body_points.",
+            file=sys.stderr,
+        )
+        return (Inches(content_info['x']), Inches(content_info['y']),
+                Inches(content_info['w']), Inches(content_info['h']))
+
+    print(
+        f"WARNING: slide {slide_number} composed annotation has no picture or "
+        f"content placeholder in its mapped layout -- falling back to the "
+        f"hardcoded default rect.",
+        file=sys.stderr,
+    )
+    return (Inches(0.6), Inches(2.3), Inches(12.13), Inches(4.57))
+
+
 def _emit_smartart_placeholder(slide, slide_number, profile_layout):
     """Add a named rectangle placeholder for pptx_native SmartArt injection.
 
@@ -521,11 +593,12 @@ def build_deck(deck_dir, template_path, template_profile):
 
     # Build a set of slide numbers marked full_bleed (issue #88), and a map
     # of slide numbers with an annotate-figure v2 annotation_mode (#142 v2,
-    # T5). speaker_override wins when present, mirroring the JS assembler.
-    # annotation_mode is orthogonal to speaker_override/strategy (§6.1) — it
-    # is read as-is, not overridden.
+    # T5; v2.1 T4/T5 composed zone + headline). speaker_override wins when
+    # present, mirroring the JS assembler. annotation_mode is orthogonal to
+    # speaker_override/strategy (§6.1) — it is read as-is, not overridden.
     full_bleed_slides = set()
-    annotation_slides = {}  # slide_number -> 'native' | 'raster'
+    annotation_slides = {}  # slide_number -> ('native'|'raster', effective_strategy)
+    annotation_headline_slides = {}  # slide_number -> bool (show_headline)
     strategy_map_path = os.path.join(deck_dir, 'strategy-map.json')
     if os.path.isfile(strategy_map_path):
         with open(strategy_map_path) as f:
@@ -536,7 +609,9 @@ def build_deck(deck_dir, template_path, template_profile):
                 full_bleed_slides.add(entry['slide_number'])
             annotation_mode = entry.get('annotation_mode')
             if annotation_mode in ('native', 'raster'):
-                annotation_slides[entry['slide_number']] = annotation_mode
+                annotation_slides[entry['slide_number']] = (annotation_mode, effective)
+                show_headline = bool((entry.get('annotation') or {}).get('show_headline'))
+                annotation_headline_slides[entry['slide_number']] = show_headline
 
     prs = Presentation(template_path)
     _strip_existing_slides(prs)
@@ -551,21 +626,24 @@ def build_deck(deck_dir, template_path, template_profile):
         layout = _resolve_layout(prs, template_profile, slide_type)
         slide = prs.slides.add_slide(layout)
 
-        # annotate-figure v2 (#142 v2) short-circuits all standard
-        # population, same as full_bleed: pure figure (F2), no headline,
-        # no body, no footer. Checked BEFORE full_bleed so a slide whose
-        # base strategy is full_bleed but which also carries
-        # annotation_mode gets the dedicated contain-fit + overlay builder
-        # instead of the plain stretch-to-canvas path (§3.1).
+        # annotate-figure v2 (#142 v2) / v2.1 (#142 v2.1) intercept. Checked
+        # BEFORE full_bleed so a slide whose base strategy is full_bleed but
+        # which also carries annotation_mode gets the dedicated contain-fit
+        # + overlay builder instead of the plain stretch-to-canvas path
+        # (§3.1). Two branches on the slide's EFFECTIVE strategy (v2.1
+        # §2.3): non-composed strategies get the v2 pure-figure short-circuit
+        # (F2: no headline, no body, no footer); `composed` keeps its chrome
+        # and draws the figure into the picture-placeholder (or fallback)
+        # zone instead of the full slide.
         if slide_number in annotation_slides:
-            mode = annotation_slides[slide_number]
+            mode, ann_strategy = annotation_slides[slide_number]
             abs_image_path = None
             if slide_number in image_lookup:
                 raw = image_lookup[slide_number]
                 abs_image_path = raw if os.path.isabs(raw) else os.path.join(deck_dir, raw)
 
+            payload = None
             if mode == 'native':
-                payload = None
                 rel_ann_path = annotations_path_lookup.get(slide_number)
                 if rel_ann_path:
                     abs_ann_path = (rel_ann_path if os.path.isabs(rel_ann_path)
@@ -582,15 +660,43 @@ def build_deck(deck_dir, template_path, template_profile):
                         f"was found — placing base image without overlay.",
                         file=sys.stderr,
                     )
-                    _place_contain_fit_picture(slide, abs_image_path, (0, 0, slide_w, slide_h))
+
+            if ann_strategy == 'composed':
+                # v2.1 Feature A (§2.3): keep chrome — resolve the SAME
+                # layout mapping/profile the normal composed path uses
+                # (F-03 option b: routing keys on strategy alone, never on
+                # slide_type), populate title + body, then draw the figure
+                # into the resolved zone with strip_chrome/strip=False.
+                layout_name = _get_mapped_layout_name(template_profile, slide_type)
+                profile_layout = _get_profile_layout(template_profile, layout_name)
+
+                title_ph = _find_placeholder_by_type(slide, 'title', profile_layout)
+                _populate_text(title_ph, headline)
+
+                content_ph = _find_placeholder_by_type(slide, 'content', profile_layout)
+                body_ph = _find_placeholder_by_type(slide, 'body', profile_layout)
+                if content_ph and body_points:
+                    _populate_body_points(content_ph, body_points)
+                elif body_ph and body_points:
+                    _populate_body_points(body_ph, body_points)
+
+                zone_rect_emu = _resolve_annotation_zone_rect(slide, profile_layout, slide_number)
+
+                if mode == 'native' and payload is not None:
+                    _apply_native_annotation(
+                        slide, abs_image_path, payload, slide_w, slide_h,
+                        zone_rect_emu, strip_chrome=False)
                 else:
+                    # raster, or native with a refused/missing payload.
+                    _place_contain_fit_picture(slide, abs_image_path, zone_rect_emu, strip=False)
+            else:
+                # Full-slide (v2 pure figure): unchanged.
+                if mode == 'native' and payload is not None:
                     _apply_native_annotation(
                         slide, abs_image_path, payload, slide_w, slide_h,
                         (0, 0, slide_w, slide_h))
-            else:
-                # 'raster' — labels already baked into pixels (F11);
-                # contain-fit placement only, no overlay renderer.
-                _place_contain_fit_picture(slide, abs_image_path, (0, 0, slide_w, slide_h))
+                else:
+                    _place_contain_fit_picture(slide, abs_image_path, (0, 0, slide_w, slide_h))
 
             if slide_number in speaker_notes:
                 slide.notes_slide.notes_text_frame.text = speaker_notes[slide_number]

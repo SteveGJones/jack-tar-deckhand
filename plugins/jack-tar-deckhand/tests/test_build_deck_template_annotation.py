@@ -40,6 +40,8 @@ from src.annotation_payload import (  # noqa: E402
 )
 from src.assembler.build_deck_template import (  # noqa: E402
     _apply_native_annotation,
+    _place_contain_fit_picture,
+    _resolve_annotation_zone_rect,
     build_deck,
 )
 
@@ -562,3 +564,456 @@ def test_build_deck_template_without_annotation_unchanged(tmp_path):
     assert pictures[0].left == 0 and pictures[0].top == 0
     assert pictures[0].width == prs.slide_width
     assert pictures[0].height == prs.slide_height
+
+
+# =============================================================================
+# v2.1 Feature A — composed strategy wiring (issue #142 v2.1, T4)
+#
+# Design: docs/superpowers/plans/2026-07-23-annotate-figure-v2.1.md §2.3, §5.2.
+#
+# These operate directly on _resolve_annotation_zone_rect / _apply_native_
+# annotation / _place_contain_fit_picture against python-pptx's bundled
+# default template (no external fixture needed — its "Picture with Caption"
+# layout at index 8 has a real PICTURE placeholder with the same idx layout
+# as the project's own template fixture; "Title and Content" at index 1 has
+# none, exercising the F-06 fallback).
+# =============================================================================
+
+
+def _slide_with_layout(layout_index):
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[layout_index])
+    return prs, slide
+
+
+def _picture_profile_layout():
+    """Profile-layout metadata for python-pptx's bundled 'Picture with
+    Caption' layout (index 8): title idx0, picture idx1, body idx2 — the
+    F-06 happy path (step 1: a real picture placeholder is found)."""
+    return {
+        "name": "Picture with Caption",
+        "placeholders": [
+            {"idx": 0, "type": "title", "name": "Title", "x": 1.96, "y": 5.25, "w": 6.0, "h": 0.62},
+            {"idx": 1, "type": "picture", "name": "Picture", "x": 1.96, "y": 0.67, "w": 6.0, "h": 4.5},
+            {"idx": 2, "type": "body", "name": "Text", "x": 1.96, "y": 5.87, "w": 6.0, "h": 0.88},
+        ],
+    }
+
+
+def _content_only_profile_layout():
+    """Profile-layout metadata mirroring _stub_template_profile()'s 'Title
+    and Content' layout (index 1): title + content, NO picture type
+    declared -- exercises the F-06 fallback chain's step 2."""
+    return {
+        "name": "Title and Content",
+        "placeholders": [
+            {"idx": 0, "type": "title", "name": "Title", "x": 0.5, "y": 0.3, "w": 12.0, "h": 1.0},
+            {"idx": 1, "type": "content", "name": "Body", "x": 0.5, "y": 1.5, "w": 12.0, "h": 5.5},
+        ],
+    }
+
+
+def test_composed_native_retains_headline_and_body(tmp_path):
+    prs, slide = _slide_with_layout(8)
+    profile_layout = _picture_profile_layout()
+    slide.placeholders[0].text_frame.text = "Composed headline"
+    slide.placeholders[2].text_frame.text = "body point one"
+
+    zone_rect = _resolve_annotation_zone_rect(slide, profile_layout, 10)
+
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    payload = build_annotation_payload(
+        slide_number=10, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_image_zone", anchors={"Rudder": [0.5, 0.5]},
+    )
+    _apply_native_annotation(slide, base, payload, SLIDE_W, SLIDE_H, zone_rect, strip_chrome=False)
+
+    assert "Composed headline" in slide.placeholders[0].text_frame.text
+    assert "body point one" in slide.placeholders[2].text_frame.text
+    assert _count_named(slide, "annotation_label_") == 1
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+
+
+def test_composed_native_maps_anchor_into_image_zone(tmp_path):
+    """Anchor [0.5, 0.5] on a 16:9 image maps to the CENTRE of the
+    picture-placeholder rect (EMU tolerance), NOT the slide centre."""
+    prs, slide = _slide_with_layout(8)
+    profile_layout = _picture_profile_layout()
+
+    zone_rect = _resolve_annotation_zone_rect(slide, profile_layout, 11)
+    zx, zy, zw, zh = zone_rect
+    zone_cx, zone_cy = zx + zw / 2, zy + zh / 2
+    # Sanity: the picture-zone centre is NOT the slide centre (the fixture
+    # layout's picture placeholder is off-centre / smaller than the canvas).
+    assert abs(zone_cx - prs.slide_width / 2) > EMU_TOLERANCE or \
+        abs(zone_cy - prs.slide_height / 2) > EMU_TOLERANCE
+
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    payload = build_annotation_payload(
+        slide_number=11, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_image_zone", anchors={"Centre": [0.5, 0.5]},
+    )
+    _apply_native_annotation(slide, base, payload, prs.slide_width, prs.slide_height,
+                             zone_rect, strip_chrome=False)
+
+    dots = _shapes_named(slide, "annotation_dot_")
+    assert len(dots) == 1
+    dot = dots[0]
+    dot_cx = dot.left + dot.width / 2
+    dot_cy = dot.top + dot.height / 2
+    assert dot_cx == pytest.approx(zone_cx, abs=EMU_TOLERANCE)
+    assert dot_cy == pytest.approx(zone_cy, abs=EMU_TOLERANCE)
+
+
+def test_composed_native_removes_empty_picture_placeholder(tmp_path):
+    prs, slide = _slide_with_layout(8)
+    profile_layout = _picture_profile_layout()
+    assert any(ph.placeholder_format.idx == 1 for ph in slide.placeholders)
+
+    zone_rect = _resolve_annotation_zone_rect(slide, profile_layout, 12)
+
+    # The picture placeholder (idx 1) is gone -- no unfilled placeholder ships.
+    assert not any(ph.placeholder_format.idx == 1 for ph in slide.placeholders)
+
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    payload = build_annotation_payload(
+        slide_number=12, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_image_zone", anchors={"Rudder": [0.5, 0.5]},
+    )
+    _apply_native_annotation(slide, base, payload, prs.slide_width, prs.slide_height,
+                             zone_rect, strip_chrome=False)
+
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+
+
+def test_composed_raster_places_contain_fit_in_zone_no_overlay(tmp_path):
+    prs, slide = _slide_with_layout(8)
+    profile_layout = _picture_profile_layout()
+    slide.placeholders[0].text_frame.text = "Composed headline"
+
+    zone_rect = _resolve_annotation_zone_rect(slide, profile_layout, 13)
+    base = _make_image(tmp_path / "square.png", (900, 900))
+    _place_contain_fit_picture(slide, base, zone_rect, strip=False)
+
+    assert "Composed headline" in slide.placeholders[0].text_frame.text
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+    assert not any(s.name.startswith("annotation_") for s in slide.shapes)
+
+
+def test_composed_native_exact_shape_counts(tmp_path):
+    prs, slide = _slide_with_layout(8)
+    profile_layout = _picture_profile_layout()
+    zone_rect = _resolve_annotation_zone_rect(slide, profile_layout, 14)
+
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    anchors = {"Rudder": [0.85, 0.7], "Mainsail": [0.4, 0.15], "Keel": [0.5, 0.95]}
+    payload = build_annotation_payload(
+        slide_number=14, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_image_zone", anchors=anchors,
+    )
+    _apply_native_annotation(slide, base, payload, prs.slide_width, prs.slide_height,
+                             zone_rect, strip_chrome=False)
+
+    n = len(anchors)
+    assert _count_named(slide, "annotation_label_") == n
+    assert _count_named(slide, "annotation_leader_") == n
+    assert _count_named(slide, "annotation_dot_") == n
+    assert _count_named(slide, "annotation_casing_") == n
+    assert _count_named(slide, "annotation_dotring_") == n
+
+
+def test_composed_native_no_picture_placeholder_falls_back(tmp_path, capsys):
+    """F-06: a layout with no picture placeholder falls back to the content
+    placeholder rect, with a warning, and the overlay still draws."""
+    prs, slide = _slide_with_layout(1)  # "Title and Content" -- no picture ph
+    profile_layout = _content_only_profile_layout()
+
+    zone_rect = _resolve_annotation_zone_rect(slide, profile_layout, 15)
+    assert zone_rect == (Inches(0.5), Inches(1.5), Inches(12.0), Inches(5.5))
+
+    err = capsys.readouterr().err
+    assert "slide 15" in err and "content placeholder" in err.lower()
+
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    payload = build_annotation_payload(
+        slide_number=15, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_image_zone", anchors={"Rudder": [0.5, 0.5]},
+    )
+    _apply_native_annotation(slide, base, payload, prs.slide_width, prs.slide_height,
+                             zone_rect, strip_chrome=False)
+
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+    assert _count_named(slide, "annotation_label_") == 1
+
+
+# --- F-03: composed annotated slide with a non-content slide_type ----------
+
+
+def _template_path_from_default(tmp_path):
+    """A synthetic .pptx template built from python-pptx's own bundled
+    default presentation -- avoids depending on the project's template
+    fixture for tests that only need 'Picture with Caption' (index 8)."""
+    path = tmp_path / "default-template.pptx"
+    Presentation().save(str(path))
+    return str(path)
+
+
+def test_composed_native_diagram_slide_type_uses_content_chrome(tmp_path):
+    """F-03 (option b): a composed native slide with slide_type='diagram'
+    still renders through the standard content-chrome population (title +
+    body populated, overlay drawn) -- python's build_deck has no separate
+    diagram-specific builder to accidentally bypass, so this pins that a
+    'diagram' slide_type composed-annotated slide is never silently
+    short-circuited or left unannotated."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    template_path = _template_path_from_default(tmp_path)
+
+    outline = {
+        "narrative_arc": "test", "estimated_duration_minutes": 4, "total_slides": 1,
+        "slides": [
+            {"slide_number": 1, "slide_type": "diagram", "headline": "Diagram headline",
+             "body_points": ["diagram body point"], "visual_type": "hero_image",
+             "layout_template": "diagram"},
+        ],
+    }
+    with open(deck_dir / "outline.json", "w") as f:
+        json.dump(outline, f)
+
+    base = _make_image(tmp_path / "base.png", (1920, 1080))
+    image_manifest = {
+        "generated_at": "2026-07-23T00:00:00Z", "image_backend": "ollama",
+        "images": [
+            {"image_id": "slide-01-figure", "slide_number": 1, "file_path": base,
+             "placement_zone": "annotated_image_zone",
+             "annotations_path": "annotations/slide-01-annotations.json",
+             "dimensions": {"width": 1920, "height": 1080},
+             "source_prompt": "test", "model_used": "test", "alt_text": "figure",
+             "status": "generated", "retry_count": 0, "generation_time_seconds": 1.0},
+        ],
+        "summary": {"total_images": 1, "generated_count": 1, "cached_count": 0,
+                    "placeholder_count": 0, "failed_count": 0, "total_generation_seconds": 1.0},
+    }
+    with open(deck_dir / "image-manifest.json", "w") as f:
+        json.dump(image_manifest, f)
+
+    payload = build_annotation_payload(
+        slide_number=1, source="generated", base_image_path=base,
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_image_zone", anchors={"Rudder": [0.5, 0.5]},
+    )
+    write_annotation_payload(str(deck_dir), 1, payload)
+
+    strategy_map = {
+        "approval_mode": "review",
+        "slides": [
+            {"slide_number": 1, "strategy": "composed", "rationale": "diagram figure",
+             "render_funnel": ["ollama"], "speaker_override": None,
+             "annotation_mode": "native",
+             "annotation": {"labels": [{"text": "Rudder", "target": "the rudder"}]}},
+        ],
+    }
+    with open(deck_dir / "strategy-map.json", "w") as f:
+        json.dump(strategy_map, f)
+
+    profile = {
+        "master_index": 0,
+        "layout_mapping": {
+            "diagram": {"layout_index": 8, "layout_name": "Picture with Caption"},
+        },
+        "unmapped_fallback": {"layout_index": 8, "layout_name": "Picture with Caption"},
+        "layouts": [_picture_profile_layout()],
+    }
+
+    output_path = build_deck(str(deck_dir), template_path, profile)
+    prs = Presentation(output_path)
+    slide = prs.slides[0]
+
+    has_headline = any(
+        getattr(s, "has_text_frame", False) and "Diagram headline" in (s.text_frame.text or "")
+        for s in slide.shapes
+    )
+    has_body = any(
+        getattr(s, "has_text_frame", False) and "diagram body point" in (s.text_frame.text or "")
+        for s in slide.shapes
+    )
+    assert has_headline, "composed native diagram slide must keep its headline"
+    assert has_body, "composed native diagram slide must keep its body_points"
+    assert _count_named(slide, "annotation_label_") == 1
+
+
+# --- E2E (skipif no template fixture) ---------------------------------------
+
+
+@pytest.mark.skipif(not TEMPLATE_FIXTURE.exists(), reason="template fixture missing")
+def test_build_deck_template_composed_native_end_to_end(tmp_path):
+    """Full build_deck run: a composed native slide keeps headline + body +
+    figure + overlay; a sibling PLAIN composed slide keeps its own chrome
+    unaffected (backward-compat)."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+
+    outline = {
+        "narrative_arc": "test", "estimated_duration_minutes": 6, "total_slides": 2,
+        "slides": [
+            {"slide_number": 1, "slide_type": "content", "headline": "Plain composed sibling",
+             "body_points": ["alpha", "beta"], "visual_type": "none", "layout_template": "content"},
+            {"slide_number": 2, "slide_type": "content", "headline": "Composed annotated headline",
+             "body_points": ["composed annotated body point"], "visual_type": "hero_image",
+             "layout_template": "content"},
+        ],
+    }
+    with open(deck_dir / "outline.json", "w") as f:
+        json.dump(outline, f)
+
+    image_manifest = {
+        "generated_at": "2026-07-23T00:00:00Z", "image_backend": "ollama",
+        "images": [
+            {"image_id": "slide-02-hero", "slide_number": 2,
+             "file_path": str(HERO_IMAGE_FIXTURE),
+             "placement_zone": "annotated_image_zone",
+             "annotations_path": "annotations/slide-02-annotations.json",
+             "dimensions": {"width": 1920, "height": 1080},
+             "source_prompt": "test", "model_used": "test", "alt_text": "hero",
+             "status": "generated", "retry_count": 0, "generation_time_seconds": 1.0},
+        ],
+        "summary": {"total_images": 1, "generated_count": 1, "cached_count": 0,
+                    "placeholder_count": 0, "failed_count": 0, "total_generation_seconds": 1.0},
+    }
+    with open(deck_dir / "image-manifest.json", "w") as f:
+        json.dump(image_manifest, f)
+
+    payload = build_annotation_payload(
+        slide_number=2, source="generated", base_image_path=str(HERO_IMAGE_FIXTURE),
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_image_zone",
+        anchors={"Rudder": [0.85, 0.7], "Mainsail": [0.4, 0.15]},
+    )
+    write_annotation_payload(str(deck_dir), 2, payload)
+
+    strategy_map = {
+        "approval_mode": "review",
+        "slides": [
+            {"slide_number": 1, "strategy": "composed", "rationale": "plain",
+             "render_funnel": ["ollama"], "speaker_override": None},
+            {"slide_number": 2, "strategy": "composed", "rationale": "composed annotated figure",
+             "render_funnel": ["ollama", "cloud_low", "cloud_full"],
+             "speaker_override": None, "annotation_mode": "native",
+             "annotation": {"labels": [
+                 {"text": "Rudder", "target": "the rudder"},
+                 {"text": "Mainsail", "target": "the mainsail"},
+             ]}},
+        ],
+    }
+    with open(deck_dir / "strategy-map.json", "w") as f:
+        json.dump(strategy_map, f)
+
+    output_path = build_deck(str(deck_dir), str(TEMPLATE_FIXTURE), _stub_template_profile())
+    prs = Presentation(output_path)
+    assert len(prs.slides) == 2
+
+    plain_slide = prs.slides[0]
+    has_plain_title = any(
+        getattr(s, "has_text_frame", False)
+        and "Plain composed sibling" in (s.text_frame.text or "")
+        for s in plain_slide.shapes
+    )
+    assert has_plain_title, "sibling plain composed slide must keep its own chrome"
+
+    composed_slide = prs.slides[1]
+    has_headline = any(
+        getattr(s, "has_text_frame", False)
+        and "Composed annotated headline" in (s.text_frame.text or "")
+        for s in composed_slide.shapes
+    )
+    has_body = any(
+        getattr(s, "has_text_frame", False)
+        and "composed annotated body point" in (s.text_frame.text or "")
+        for s in composed_slide.shapes
+    )
+    assert has_headline, "composed native slide must retain its headline"
+    assert has_body, "composed native slide must retain its body_points"
+
+    pictures = [s for s in composed_slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pictures) == 1
+
+    label_texts = sorted(
+        s.text_frame.text for s in composed_slide.shapes if s.name.startswith("annotation_label_")
+    )
+    assert label_texts == ["Mainsail", "Rudder"]
+
+
+@pytest.mark.skipif(not TEMPLATE_FIXTURE.exists(), reason="template fixture missing")
+def test_build_deck_template_full_slide_native_default_unchanged(tmp_path):
+    """Regression: a non-headline, non-composed native slide is byte-parity
+    with v2 -- this simply re-runs the v2 end-to-end test to pin that the
+    v2.1 composed/headline branching didn't perturb the default path."""
+    deck_dir = tmp_path / "deck"
+    deck_dir.mkdir()
+    _write_outline(deck_dir)
+
+    image_manifest = {
+        "generated_at": "2026-07-17T00:00:00Z", "image_backend": "ollama",
+        "images": [
+            {
+                "image_id": "slide-02-hero", "slide_number": 2,
+                "file_path": str(HERO_IMAGE_FIXTURE),
+                "placement_zone": "annotated_full_slide",
+                "annotations_path": "annotations/slide-02-annotations.json",
+                "dimensions": {"width": 1920, "height": 1080},
+                "source_prompt": "test", "model_used": "test", "alt_text": "hero",
+                "status": "generated", "retry_count": 0, "generation_time_seconds": 1.0,
+            },
+        ],
+        "summary": {"total_images": 1, "generated_count": 1, "cached_count": 0,
+                    "placeholder_count": 0, "failed_count": 0, "total_generation_seconds": 1.0},
+    }
+    with open(deck_dir / "image-manifest.json", "w") as f:
+        json.dump(image_manifest, f)
+
+    payload = build_annotation_payload(
+        slide_number=2, source="generated", base_image_path=str(HERO_IMAGE_FIXTURE),
+        image_dimensions={"width": 1920, "height": 1080},
+        placement_zone="annotated_full_slide",
+        anchors={"Rudder": [0.85, 0.7], "Mainsail": [0.4, 0.15]},
+    )
+    write_annotation_payload(str(deck_dir), 2, payload)
+
+    strategy_map = {
+        "approval_mode": "review",
+        "slides": [
+            {"slide_number": 1, "strategy": "composed", "rationale": "keep chrome",
+             "render_funnel": ["ollama"], "speaker_override": None},
+            {"slide_number": 2, "strategy": "full_bleed", "rationale": "annotated figure",
+             "render_funnel": ["ollama", "cloud_low", "cloud_full"],
+             "speaker_override": None, "annotation_mode": "native",
+             "annotation": {"labels": [
+                 {"text": "Rudder", "target": "the rudder"},
+                 {"text": "Mainsail", "target": "the mainsail"},
+             ]}},
+        ],
+    }
+    with open(deck_dir / "strategy-map.json", "w") as f:
+        json.dump(strategy_map, f)
+
+    output_path = build_deck(str(deck_dir), str(TEMPLATE_FIXTURE), _stub_template_profile())
+    prs = Presentation(output_path)
+    native_slide = prs.slides[1]
+
+    pictures = [s for s in native_slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    non_annotation_non_picture = [
+        s for s in native_slide.shapes
+        if s.shape_type != MSO_SHAPE_TYPE.PICTURE and not s.name.startswith("annotation_")
+    ]
+    assert len(pictures) == 1
+    assert non_annotation_non_picture == []  # pure figure -- no headline band, no chrome
+    assert _shapes_named(native_slide, "native_headline_") == []
