@@ -18,7 +18,7 @@ import os
 
 import jsonschema
 
-from src.annotate_figure import _segment_box_entry, place_labels
+from src.annotate_figure import _segment_box_entry, place_labels, place_labels_in_zone
 from src.process_image import compute_content_hash, get_dimensions
 from src.qa.config import QA_CONFIG
 
@@ -35,6 +35,18 @@ DEFAULT_FONT_FACE = 'Calibri'
 # AP-02 floor, read from QA_CONFIG below).
 _ESTIMATOR_REF_CPI = 7.0
 _ESTIMATOR_REF_PT = 18.0
+
+# Blank-zone variant (issue #142, final scope item, §4.2 BZ-6): per-
+# placement-zone CONSERVATIVE effective displayed width in inches, used
+# to convert estimate_label_box's inch extents into normalized image
+# fractions for the zone-capacity gates. Both values are deliberately
+# BELOW the true 16:9 contain-fit widths (13.33" / ~5.71") — a smaller
+# assumed display width yields LARGER normalized fractions and therefore
+# LOWER capacity, so estimation errors land on the safe (fallback) side.
+_DISPLAYED_WIDTH_IN = {
+    'annotated_full_slide': 12.0,
+    'annotated_image_zone': 4.8,
+}
 
 
 def _style_defaults(style_guide=None):
@@ -69,9 +81,51 @@ def _load_annotations_schema():
         return json.load(f)
 
 
+def resolve_blank_zone(requested, image_aspect):
+    """'auto' -> a concrete zone; concrete zones pass through unchanged.
+
+    Owner: whichever flow drives the render (bridge Step 4.8 for
+    native, the /annotate-figure flow for raster/standalone) — resolved
+    BEFORE rendering, since the prompt directive needs a concrete zone
+    (§2.3, issue #142 final scope item).
+
+    Args:
+        requested: one of 'left_third', 'right_third', 'top_strip',
+            'bottom_strip', 'auto', or None.
+        image_aspect: W / H of the intended render (1024x576 default ->
+            1.78) or of the external source image.
+
+    Returns:
+        A concrete zone string, or None when requested is None.
+
+        aspect >= 1.0  ->  'right_third'    # landscape: side thirds are
+                                            # wide enough for label boxes
+                                            # and stack many labels
+                                            # vertically
+        aspect <  1.0  ->  'bottom_strip'   # portrait: a side third is
+                                            # too narrow in absolute px
+                                            # for wide label boxes; a
+                                            # strip is full-width
+
+        Label count does NOT influence zone choice in this release —
+        capacity is handled at placement time (place_labels_in_zone),
+        and a count-driven zone switch would make the directive depend
+        on data the operator can't see. 'right' over 'left' is a
+        deterministic default (labels read after the figure in LTR
+        reading order).
+    """
+    if requested is None:
+        return None
+    if requested != 'auto':
+        return requested
+    return 'right_third' if image_aspect >= 1.0 else 'bottom_strip'
+
+
 def build_annotation_payload(slide_number, source, base_image_path,
                              image_dimensions, placement_zone, anchors,
-                             *, style_overrides=None, style_guide=None):
+                             *, style_overrides=None, style_guide=None,
+                             blank_zone=None, blank_zone_clear=None,
+                             blank_zone_requested=None):
     """Build a schema-valid, fully-explicit SlideAnnotations payload dict.
 
     Reuses annotate_figure.place_labels verbatim to resolve collision-free
@@ -95,6 +149,19 @@ def build_annotation_payload(slide_number, source, base_image_path,
             code-level defaults (e.g. {'font_size_pt': 14}).
         style_guide: Optional StyleGuide dict — its typography.body_font
             becomes the default font_face.
+        blank_zone: Optional RESOLVED concrete zone string (one of
+            place_labels_in_zone's BLANK_ZONE_RECTS keys — never 'auto'
+            here; resolve_blank_zone runs BEFORE this call), or None for
+            plain v2/v2.1 behaviour (issue #142 final scope item).
+        blank_zone_clear: True | False | None — the §5 anchor-pass zone
+            verification verdict (parse_blank_zone_verdict's return).
+            Ignored when blank_zone is None.
+        blank_zone_requested: Optional ORIGINAL operator request (may be
+            'auto', unlike blank_zone). Defaults to blank_zone when
+            omitted, so the audit block's 'requested' field is always
+            populated whenever blank_zone is set — callers that resolved
+            'auto' themselves can pass the original string through here
+            to preserve it in the audit trail.
 
     Returns:
         dict: payload validated against annotations.schema.json.
@@ -114,10 +181,27 @@ def build_annotation_payload(slide_number, source, base_image_path,
         width, height = get_dimensions(base_image_path)
         image_dimensions = {'width': width, 'height': height}
 
-    placements = place_labels(
-        anchors,
-        (image_dimensions['width'], image_dimensions['height']),
-    )
+    dims = (image_dimensions['width'], image_dimensions['height'])
+
+    # Style is resolved (defaults + style_overrides merged) BEFORE the
+    # placement branch runs, so the blank-zone capacity math sees the
+    # same font_size_pt the assembler will render at (BZ-3).
+    style = _style_defaults(style_guide)
+    if style_overrides:
+        style.update(style_overrides)
+
+    placement_used = None
+    if blank_zone and blank_zone_clear is True:
+        zone_placements = place_labels_in_zone(
+            anchors, dims, blank_zone,
+            font_size_pt=style['font_size_pt'],
+            displayed_width_in=_DISPLAYED_WIDTH_IN[placement_zone],
+        )
+        placement_used = 'zone' if zone_placements is not None else 'fallback_margin'
+        placements = zone_placements if zone_placements is not None else place_labels(anchors, dims)
+    else:
+        placements = place_labels(anchors, dims)
+        placement_used = 'fallback_margin' if blank_zone else None
 
     labels = [
         {
@@ -127,10 +211,6 @@ def build_annotation_payload(slide_number, source, base_image_path,
         }
         for name in anchors
     ]
-
-    style = _style_defaults(style_guide)
-    if style_overrides:
-        style.update(style_overrides)
 
     payload = {
         'slide_number': slide_number,
@@ -143,6 +223,17 @@ def build_annotation_payload(slide_number, source, base_image_path,
         'labels': labels,
         'style': style,
     }
+
+    # Blank-zone audit block (§4.3, F9): present ONLY when a blank zone
+    # was requested, with ALL four fields explicit; absent entirely
+    # otherwise — v2/v2.1 payload shape is byte-identical.
+    if blank_zone:
+        payload['blank_zone'] = {
+            'requested': blank_zone_requested if blank_zone_requested is not None else blank_zone,
+            'resolved': blank_zone,
+            'verified_clear': blank_zone_clear,
+            'placement': placement_used,
+        }
 
     jsonschema.Draft202012Validator(_load_annotations_schema()).validate(payload)
     return payload
