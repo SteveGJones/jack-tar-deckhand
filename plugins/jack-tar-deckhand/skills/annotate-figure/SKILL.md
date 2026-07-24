@@ -19,8 +19,17 @@ Do not `Read` PNG/JPG/image files directly — all image inspection goes through
 
 ### 1. Source the base image
 
-- **External image**: use the given path as-is. Record `source: external`.
-- **Generate**: transform the prompt to be LABEL-FREE — remove every quoted label directive and any "labelled/labeled X" phrasing, describe the parts that must be *visible* instead ("rudder visible at the rear below the waterline"), and append: `No text, no labels, no leader lines, no annotations of any kind.` Render via the standard local draft ladder (`local-config.json` model preferences; klein/z-image per the catalog `local_draft` role) at 1024×576 unless told otherwise. $0; the F10 gate is untouched (no paid tier is involved unless the operator later escalates the BASE image).
+- **External image**: use the given path as-is. Record `source: external`. **Blank-zone variant** (issue #142, final scope item): when a `blank_zone` was requested, resolve it against the image's REAL aspect via `annotation_payload.resolve_blank_zone(requested, image_aspect)` — there is nothing to inject a directive into, but verification (step 2) and zone-preferred placement (step 3) still run: the operator may have chosen this image because it already has a clear region.
+- **Generate**: transform the prompt to be LABEL-FREE — remove every quoted label directive and any "labelled/labeled X" phrasing, describe the parts that must be *visible* instead ("rudder visible at the rear below the waterline"), and append: `No text, no labels, no leader lines, no annotations of any kind.` Render via the standard local draft ladder (`local-config.json` model preferences; klein/z-image per the catalog `local_draft` role) at 1024×576 unless told otherwise. $0; the F10 gate is untouched (no paid tier is involved unless the operator later escalates the BASE image). **Blank-zone variant:** when a `blank_zone` was requested, resolve `auto` FIRST via `annotation_payload.resolve_blank_zone(requested, intended_aspect)` (1024×576 default → aspect 1.78), then append the resolved zone's directive text below to the label-free prompt, AFTER the scene description and BEFORE the no-text negative:
+
+  | Zone | Directive text |
+  |---|---|
+  | `right_third` | `Compose the main subject and all scene detail within the left two-thirds of the frame. Keep the right third of the frame plain and empty — clean, uncluttered background with nothing in it.` |
+  | `left_third` | `Compose the main subject and all scene detail within the right two-thirds of the frame. Keep the left third of the frame plain and empty — clean, uncluttered background with nothing in it.` |
+  | `top_strip` | `Compose the main subject and all scene detail in the lower three-quarters of the frame. Keep the top of the frame plain and empty — clean open sky or flat background with nothing in it.` |
+  | `bottom_strip` | `Compose the main subject and all scene detail in the upper three-quarters of the frame. Keep the bottom of the frame plain and empty — clean, plain foreground with nothing in it.` |
+
+  No `blank_zone` requested ⇒ this is a no-op, prompt unchanged (v1 exactly).
 
 ### 2. Anchor pass (vision → structured JSON)
 
@@ -28,7 +37,13 @@ Dispatch `jack-tar-deckhand:image-reviewer` (or `general-purpose` for complex sc
 
 > Return NORMALIZED coordinates (x, y as fractions of width/height, 0–1, origin top-left) for the exact point a leader line should TOUCH for each of: <label>: <what it points at>, … Also give a one-line description of the depicted subject and any orientation facts needed to sanity-check (e.g. which side is the front). Output ONLY JSON: `{"description": "...", "anchors": {"<Label>": [x, y], ...}}`
 
-Validate the response with `annotate_figure.validate_anchors` (module below); on validation failure, re-dispatch once with the error message included.
+**Blank-zone variant — amended contract (BZ-10).** When step 1 resolved a `blank_zone` for this image, the SAME dispatch uses this contract instead — the enumerated output shape ITSELF grows a third key on the SAME closing "Output ONLY JSON" line, never a second appended instruction (a model obeying an earlier "Output ONLY JSON" literally would silently drop an appended field):
+
+> […existing anchor instructions…] Additionally: the **<zone phrase>** was requested to be kept visually quiet for label placement. Judge whether that region is clear: would white label boxes placed there sit over any salient object, figure, text, or high-detail structure? Plain backgrounds, open sky, water, gentle gradients and soft texture COUNT AS CLEAR; any distinct object, subject part, or busy detail extending into the region means NOT clear. Output ONLY JSON: `{"description": "...", "anchors": {"<Label>": [x, y], ...}, "blank_zone": {"clear": true|false, "notes": "one line"}}`
+
+Zone phrases — kept in lockstep with `annotate_figure.BLANK_ZONE_RECTS` (drift-pinned against imagegen-bridge SKILL.md, BZ-9): `right third of the frame (x > 0.67)`, `left third of the frame (x < 0.33)`, `top strip of the frame (y < 0.25)`, `bottom strip of the frame (y > 0.75)`.
+
+Validate the response with `annotate_figure.validate_anchors` (module below); on validation failure, re-dispatch once with the error message included. `validate_anchors` already tolerates the extra `blank_zone` top-level key. **Blank-zone variant:** after validation succeeds, call `annotate_figure.parse_blank_zone_verdict` on the same parsed response — `True`, `False`, or `None` (absent/malformed, treated exactly like `False`), never raises. Carry the result to step 3. A failed or absent zone verdict never affects anchor validity — the two are independent checks.
 
 ### 3. Overlay (perfect text, deterministic)
 
@@ -42,13 +57,15 @@ PY
 
 Automatic occlusion-avoiding placement puts each label in the nearest margin band; pass explicit `{"anchor": [...], "label_pos": [...]}` per label only when the reviewer flags a placement problem.
 
+**Blank-zone variant — zone-preferred overlay.** When step 2's verdict is `clear: true`, compute placements via `place_labels_in_zone(anchors, image_size, resolved_zone, font_size_pt=<bake font size>, displayed_width_in=<the full-slide constant, annotation_payload._DISPLAYED_WIDTH_IN['annotated_full_slide']>)` and pass the result to `annotate()` as explicit per-label `{"anchor": ..., "label_pos": ...}` dicts (the explicit-placement path above). `place_labels_in_zone` returns `None` when the zone lacks capacity for the label set (height, or the widest label's width) — on `clear` false/absent OR a `None` return, omit explicit placements and let `annotate()` run its standard margin-band flow, v1 exactly. No automatic re-render either way — a busy or over-capacity zone just means the labels land in the margins, same $0 cost.
+
 ### 4. Anchor-verification review (pointers only — text is axiomatic)
 
 Dispatch the reviewer on the ANNOTATED image: "For each labeled leader line, does it touch the anatomically/semantically correct part? Leader lines are dark with a white casing halo — over dark image regions look for the casing, and zoom before declaring a leader absent. Do not review spelling (programmatic). Flag any label box occluding important content and any stray text baked into the base image." One refine loop allowed: re-query coordinates for mispointed labels (include the reviewer's correction hints), re-run the overlay. More than one failed loop → surface to the operator with the best attempt (F12 stance: reviewer verdicts advisory; the operator certifies).
 
 ### 5. Deliver
 
-Report: output path, source (external | generated + model + seed), anchor JSON used, review verdict. In deck context, hand the annotated PNG to the assembler like any figure asset.
+Report: output path, source (external | generated + model + seed), anchor JSON used, review verdict. In deck context, hand the annotated PNG to the assembler like any figure asset. **Blank-zone variant**: when a `blank_zone` was requested, add one line recording the outcome — `blank_zone: right_third — honoured` (zone verified clear, capacity fit) or `blank_zone: right_third — fallback (zone not clear)` / `— fallback (over capacity)` — this is `raster`/standalone mode's only audit trail (no payload exists to carry it, unlike `native`).
 
 ## Deck-native mode
 
@@ -87,7 +104,8 @@ A slide requests annotation by adding two fields to its strategy-map entry:
     ],
     "source_image_path": "optional/external/image.png",
     "style": { "font_size_pt": 14 },
-    "show_headline": false
+    "show_headline": false,
+    "blank_zone": "right_third"
   }
 }
 ```
@@ -130,6 +148,12 @@ A slide requests annotation by adding two fields to its strategy-map entry:
   `creative_vision` and `smartart` slides cannot carry `annotation_mode` — the
   creative_vision image is the operator-certified deliverable, and SmartArt is
   a graphic, not a figure.
+- `blank_zone` (optional, `left_third | right_third | top_strip |
+  bottom_strip | auto`, issue #142 final scope item) — reserve a
+  deliberately empty region of the BASE IMAGE for label placement instead
+  of the standard margin bands. See the **Blank-zone variant** section
+  below for the full contract. Applies to BOTH `native` and `raster`
+  modes.
 
 The imagegen-bridge is what actually reads this and drives generation +
 anchoring — see **imagegen-bridge SKILL.md Step 4.8** ("native sub-step") for
@@ -227,6 +251,45 @@ check independently errors if a `native`-contracted slide reaches assembly
 with no annotations payload at all, so a silent drop cannot pass QA even if
 the three-way prompt were somehow skipped.
 
+## Blank-zone variant (issue #142, final scope item)
 
+Opt-in field: `annotation.blank_zone` (`left_third | right_third |
+top_strip | bottom_strip | auto`, absent by default). It closes the
+labelling loop from the other side of v2's margin-band placement: instead
+of placing labels wherever the model happened to paint at the edges, it
+asks the model to leave a chosen region deliberately empty, verifies the
+region actually came back clear, and places labels inside it when it did.
+
+- **Vocabulary**: `left_third` / `right_third` reserve a 33%-wide vertical
+  slice; `top_strip` / `bottom_strip` reserve a 25%-tall horizontal slice
+  (`annotate_figure.BLANK_ZONE_RECTS`); `auto` resolves from the image's
+  aspect via `annotation_payload.resolve_blank_zone` (landscape →
+  `right_third`, portrait → `bottom_strip`).
+- **Best-effort, not a hard mask**: the directive (step 1) is a composition
+  instruction, not a guaranteed constraint — models comply partially or not
+  at all. The design assumes that.
+- **Fallback guarantee**: the anchor pass (step 2) is the single source of
+  truth for whether the zone actually came back clear. `clear: true` AND
+  enough capacity for the whole label set (both height and width, checked
+  by `place_labels_in_zone`) ⇒ labels go in the zone. Anything else — busy
+  zone, unverified/malformed verdict, or capacity overflow — falls back to
+  the standard v2 `place_labels` margin-band flow automatically. No block,
+  no automatic re-render, no new operator gate; the whole flow stays $0
+  local unless the operator separately escalates the base image.
+- **Mode ownership (BZ-1)**: `native` slides are driven entirely by
+  **imagegen-bridge Step 4.8** (base image, anchor pass, and payload build
+  all happen there — see that SKILL.md's "Blank-zone variant" note).
+  `raster` slides — and every standalone/manual invocation of this
+  skill — are driven entirely by THIS flow's steps 1–3 above; the bridge
+  never computes a raster placement. Same field, same semantics, two
+  owners, matching the routing split that already exists for
+  `annotation_mode`.
+- **Audit trail**: `native` mode records the outcome in the payload's
+  `blank_zone` block (`requested` / `resolved` / `verified_clear` /
+  `placement`). `raster` mode has no payload — the outcome is one line in
+  this flow's delivery report (step 5): `blank_zone: right_third —
+  honoured` / `— fallback (zone not clear)`.
+
+Design doc: `docs/superpowers/plans/2026-07-23-annotate-blank-zone.md`.
 
 The 2026-07-17 benchmark (docs/spikes/2026-07-17-mlx-model-benchmark/) showed exact labels + pointer placement is the universal weakness — best local 5.8/10, cloud ceiling 8.7/10 on technical figures. This flow's PoC scored a blind 10/10 on the same rubric at $0: spelling cannot fail, and pointer accuracy became a vision-coordinate problem with a verification loop. External-image support extends the pipeline to imagery it did not generate.

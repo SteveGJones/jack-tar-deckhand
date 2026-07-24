@@ -282,6 +282,20 @@ unaffected, so the existing annotations payload stays valid. This does
 replacement, Step 7's `$PB_NEW_FILE`); a headline-only edit just needs
 reassembly (Step 9), no anchor-pass re-run, no payload rewrite.
 
+**Blank-zone variant (issue #142 final scope item, BZ-4).** The guard's
+predicate is unaffected by `blank_zone` — it fires on every
+`annotation_mode: native` image replacement regardless of placement zone.
+But for a slide whose `annotation` object carries `blank_zone`, the plain
+rebuild sketched in step 2 above (no `blank_zone` / `blank_zone_clear`
+kwargs) is a LEGAL v2-shaped payload that silently reverts this slide's
+labels from the reserved zone back to the margin bands — a new base image
+means new anchors AND a fresh zone verdict, so re-run the FULL blank-zone
+sub-steps of imagegen-bridge SKILL.md §4.8 (the amended anchor-pass
+contract including the zone question) and pass `blank_zone` /
+`blank_zone_clear` through to `build_annotation_payload`. See
+`ANNOTATION_REFRESH_INSTRUCTIONS` in `iterate_slide_dispatch.py`, which
+now surfaces this verbatim.
+
 ## Step 8: Update manifest entry
 
 ```bash

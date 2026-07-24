@@ -884,8 +884,10 @@ A slide has `annotation_mode: "native"` on its `strategy-map.json` entry,
 which (per the schema's `allOf` conditional) always comes with a populated
 `annotation` block: `annotation.labels` (array of `{text, target}` — the
 exact label string and what it points at), an optional
-`annotation.source_image_path` (external image, no generation), and an
-optional `annotation.style` override. This is independent of the slide's
+`annotation.source_image_path` (external image, no generation), an
+optional `annotation.style` override, and an optional
+`annotation.blank_zone` (issue #142 final scope item — see the
+**Blank-zone variant** note below). This is independent of the slide's
 base `strategy` — `full_bleed`, `full_render`, `background`, `backdrop`,
 `composed`, and `academic_figure` slides can all carry it. The assembler's
 own routing key is `annotation_mode == native` AND the presence of
@@ -893,10 +895,32 @@ own routing key is `annotation_mode == native` AND the presence of
 strategy, which still governs how the UNLABELLED base image itself is
 produced.
 
+**Blank-zone variant (issue #142, final scope item).** When
+`annotation.blank_zone` is set (`left_third | right_third | top_strip |
+bottom_strip | auto`), this NATIVE flow additionally reserves that region
+of the base image for label placement: a composition directive asks the
+model to keep the region visually quiet (Step 1), the anchor pass verifies
+it actually came back clear (Step 2), and labels prefer that region over
+the standard margin bands when — and only when — it verified clear and has
+capacity (Step 5). Best-effort throughout: on non-compliance, an
+unverified verdict, or a capacity overflow, placement falls back to the
+standard v2 `place_labels` margin-band flow automatically — no block, no
+re-render, no new operator gate (the whole flow stays $0 local unless the
+operator separately escalates the base image). `raster` mode honours the
+SAME field entirely inside the `/jack-tar-deckhand:annotate-figure` flow
+(no bridge involvement) — see that SKILL.md's "Blank-zone variant" section.
+
 1. **Obtain the unlabelled base image.**
    - If `annotation.source_image_path` is set, use it as-is: `source:
      "external"`, no generation, no spend (F10-free — no paid tier is
-     touched by this step at all).
+     touched by this step at all). **Blank-zone variant:** when
+     `annotation.blank_zone` is also set, resolve it against the EXTERNAL
+     image's real aspect via
+     `src.annotation_payload.resolve_blank_zone(requested, image_aspect)`
+     — there is nothing to inject a directive into, but verification
+     (Step 2) and zone-preferred placement (Step 5) still run: the
+     operator may have chosen this image because it already has a clear
+     region.
    - Otherwise, render the base image via the slide's normal strategy path
      (Step 4.5 funnel, Step 4.6 academic_figure dispatch, or the standard
      `composed` routing), but with the prompt put through the **label-free
@@ -904,7 +928,25 @@ produced.
      every quoted-label directive and any "labelled/labeled X" phrasing,
      describe the parts that must be *visible* instead, and append `No
      text, no labels, no leader lines, no annotations of any kind.` `source:
-     "generated"`.
+     "generated"`. **Blank-zone variant:** when `annotation.blank_zone` is
+     set, resolve `auto` FIRST via
+     `src.annotation_payload.resolve_blank_zone(requested, intended_aspect)`
+     (1024×576 default → aspect 1.78; concrete zones pass through
+     unchanged), then append the resolved zone's directive text below to
+     the label-free prompt, AFTER the scene description and BEFORE the
+     no-text negative, so the final prompt tail reads: *scene… + zone
+     directive + "No text, no labels, no leader lines, no annotations of
+     any kind."*
+
+     | Zone | Directive text |
+     |---|---|
+     | `right_third` | `Compose the main subject and all scene detail within the left two-thirds of the frame. Keep the right third of the frame plain and empty — clean, uncluttered background with nothing in it.` |
+     | `left_third` | `Compose the main subject and all scene detail within the right two-thirds of the frame. Keep the left third of the frame plain and empty — clean, uncluttered background with nothing in it.` |
+     | `top_strip` | `Compose the main subject and all scene detail in the lower three-quarters of the frame. Keep the top of the frame plain and empty — clean open sky or flat background with nothing in it.` |
+     | `bottom_strip` | `Compose the main subject and all scene detail in the upper three-quarters of the frame. Keep the bottom of the frame plain and empty — clean, plain foreground with nothing in it.` |
+
+     No `blank_zone` on the slide ⇒ this step is a no-op, prompt unchanged
+     (v2 exactly).
 
 2. **Anchor pass (vision → structured JSON).** Dispatch
    `jack-tar-deckhand:image-reviewer` (or `general-purpose` for complex
@@ -919,9 +961,43 @@ produced.
    > to sanity-check. Output ONLY JSON: `{"description": "...", "anchors":
    > {"<Label>": [x, y], ...}}`
 
+   **Blank-zone variant — amended contract (BZ-10).** When Step 1 resolved
+   a `blank_zone` for this slide (generated OR external image), the SAME
+   dispatch uses this contract instead. The enumerated output shape
+   ITSELF grows a third key on the SAME closing "Output ONLY JSON" line —
+   never a second, appended output instruction (a model that obeys an
+   earlier "Output ONLY JSON" line literally would silently drop an
+   appended field, and a parser-side miss would read as `None` → fallback
+   → a depressed zone-usage rate that pollutes the dogfood compliance
+   signal, §8 of the design doc):
+
+   > […existing anchor instructions…] Additionally: the **<zone phrase>**
+   > was requested to be kept visually quiet for label placement. Judge
+   > whether that region is clear: would white label boxes placed there
+   > sit over any salient object, figure, text, or high-detail structure?
+   > Plain backgrounds, open sky, water, gentle gradients and soft texture
+   > COUNT AS CLEAR; any distinct object, subject part, or busy detail
+   > extending into the region means NOT clear. Output ONLY JSON:
+   > `{"description": "...", "anchors": {"<Label>": [x, y], ...}, "blank_zone": {"clear": true|false, "notes": "one line"}}`
+
+   Zone phrases — kept in lockstep with
+   `src.annotate_figure.BLANK_ZONE_RECTS` (drift-pinned, BZ-9):
+   `right third of the frame (x > 0.67)`, `left third of the frame (x <
+   0.33)`, `top strip of the frame (y < 0.25)`, `bottom strip of the frame
+   (y > 0.75)`.
+
    Validate the response with `src.annotate_figure.validate_anchors`. On a
    validation failure, re-dispatch ONCE with the validation error message
-   included in the prompt.
+   included in the prompt. `validate_anchors` already tolerates the extra
+   `blank_zone` top-level key — it only inspects the `anchors` member.
+   **Blank-zone variant:** after validation succeeds, call
+   `src.annotate_figure.parse_blank_zone_verdict` on the same parsed
+   response — returns `True`, `False`, or `None` (absent / malformed;
+   treated exactly like `False` — the conservative default), never raises.
+   Carry this verdict to Step 5. A failed or absent zone verdict never
+   triggers the F5 anchor-failure path below — anchor validity and zone
+   verification are independent. When no `blank_zone` is in play, this
+   step's contract and behaviour are byte-identical to v2.
 
    **Anchor-pass failure path (F5) — mandatory, no silent fall-through.** If
    the re-dispatch ALSO fails validation, do not proceed automatically.
@@ -977,13 +1053,23 @@ produced.
        anchors=validated_anchors,
        style_overrides=annotation.get("style"),
        style_guide=style_guide,
+       blank_zone=resolved_blank_zone,           # Step 1's resolve_blank_zone result, or None
+       blank_zone_clear=blank_zone_verdict,      # Step 2's parse_blank_zone_verdict result, or None
+       blank_zone_requested=annotation.get("blank_zone"),  # preserves 'auto' in the audit trail
    )
    ```
    This resolves label positions via `place_labels`, computes
    `base_image_hash` (the F4 invalidation contract — see §6.3 of the design
    doc), fills every style field from code-level defaults (F9 — the schema
    has none), and schema-validates the result against
-   `annotations.schema.json` before returning it.
+   `annotations.schema.json` before returning it. **Blank-zone variant:**
+   when `resolved_blank_zone` is set and `blank_zone_verdict is True`,
+   `build_annotation_payload` prefers `place_labels_in_zone` internally —
+   on a busy zone, an unverified verdict, or a capacity overflow it falls
+   back to `place_labels` automatically, and records the outcome (`zone` /
+   `fallback_margin`) in the payload's new `blank_zone` audit block. No
+   slide with `blank_zone` unset gets this block at all — the payload
+   shape is byte-identical to v2/v2.1 otherwise.
 
 6. **Write the payload**:
    ```python
@@ -1059,11 +1145,18 @@ review — they read the PNG into THEIR context and return text.
   read by the assemblers directly off the strategy map; the bridge/payload
   are UNCHANGED for the headline opt-in, since headline text comes from the
   outline, not the payload)
+- Blank-zone variant addendum (issue #142, final scope item):
+  `docs/superpowers/plans/2026-07-23-annotate-blank-zone.md` §6 (this
+  step's NATIVE-only amendments), §3 (directive text), §5 (amended anchor
+  contract). Raster/standalone ownership: `/jack-tar-deckhand:annotate-figure`
+  SKILL.md's "Blank-zone variant" section — the bridge never computes
+  raster placements (BZ-1).
 - Payload module: `plugins/jack-tar-deckhand/src/annotation_payload.py`
   (`build_annotation_payload`, `write_annotation_payload`,
-  `estimate_label_box`, `segment_box_entry`)
+  `estimate_label_box`, `segment_box_entry`, `resolve_blank_zone`)
 - v1 overlay engine: `plugins/jack-tar-deckhand/src/annotate_figure.py`
-  (`validate_anchors`, `place_labels`, `annotate`)
+  (`validate_anchors`, `place_labels`, `annotate`, `place_labels_in_zone`,
+  `parse_blank_zone_verdict`, `BLANK_ZONE_RECTS`)
 - Payload schema: `plugins/jack-tar-deckhand/src/schemas/annotations.schema.json`
 - ImageManifest extension: `plugins/jack-tar-deckhand/src/schemas/image_manifest.schema.json`
   (`annotations_path`, `annotated_full_slide` / `annotated_image_zone` — the

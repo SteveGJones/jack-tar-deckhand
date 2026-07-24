@@ -657,6 +657,17 @@ def test_annotation_refresh_notice_instructions_mention_mandatory_steps():
     assert "F5" in instructions
 
 
+def test_annotation_refresh_instructions_mention_blank_zone():
+    """BZ-4 (issue #142 final scope item): the predicate needs no change,
+    but the surfaced INSTRUCTIONS constant enumerates a plain v2 rebuild
+    -- following it to the letter silently reverts a blank-zone slide's
+    labels to the margin bands on every iteration. This pins that the
+    constant now names the blank-zone re-run + kwargs pass-through."""
+    assert "blank_zone" in ANNOTATION_REFRESH_INSTRUCTIONS
+    assert "blank_zone_clear" in ANNOTATION_REFRESH_INSTRUCTIONS
+    assert "build_annotation_payload" in ANNOTATION_REFRESH_INSTRUCTIONS
+
+
 def test_annotation_refresh_downgrade_choices_match_f5_three_way():
     """Pins the F5 vocabulary (§6.2 step 2 / §13 F5) — retry / raster-with-
     manual-anchors / ship-unlabeled — so this module and the imagegen-bridge
