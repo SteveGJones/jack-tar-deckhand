@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jack-tar.dev/schemas/annotations.json",
+  "title": "SlideAnnotations",
+  "type": "object",
+  "required": ["slide_number", "source", "base_image_path", "base_image_hash",
+               "image_dimensions", "placement_zone", "fit", "labels", "style"],
+  "properties": {
+    "slide_number": {"type": "integer", "minimum": 1},
+    "source": {"type": "string", "enum": ["external", "generated"]},
+    "base_image_path": {"type": "string",
+      "description": "UNLABELLED base image (relative to deck_dir or absolute)."},
+    "base_image_hash": {"type": "string",
+      "description": "sha256 content hash of the base image at payload-build time (process_image.compute_content_hash). Invalidation contract (F4): the assembler and AN-01 verify this against the on-disk image; on mismatch the overlay is REFUSED with a warning — anchors are only valid for the exact image they were derived from."},
+    "image_dimensions": {
+      "type": "object", "required": ["width", "height"],
+      "properties": {"width":  {"type": "integer", "minimum": 1},
+                     "height": {"type": "integer", "minimum": 1}}
+    },
+    "placement_zone": {
+      "type": "string",
+      "enum": ["annotated_full_slide", "annotated_image_zone"],
+      "description": "Which zone the base image occupies. annotated_full_slide for full_bleed/full_render/background/backdrop/academic_figure; annotated_image_zone for composed. Values are deliberately DISTINCT from the image-manifest placement_zone vocabulary already used by Step 4.7 ('full_bleed') and element flows ('background') — no collision (F8)."
+    },
+    "fit": {"type": "string", "enum": ["contain"],
+      "description": "Native annotation ALWAYS contain-fits — see §3.1. cover would crop anchors out of frame."},
+    "labels": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["text", "anchor", "label_pos"],
+        "properties": {
+          "text": {"type": "string", "minLength": 1},
+          "anchor":    {"$ref": "#/$defs/norm_point"},
+          "label_pos": {"$ref": "#/$defs/norm_point"}
+        }
+      }
+    },
+    "style": {"$ref": "#/$defs/style"}
+  },
+  "$defs": {
+    "norm_point": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {"type": "number", "minimum": 0, "maximum": 1},
+      "description": "[x, y] normalized to the IMAGE, 0-1, origin top-left."
+    },
+    "style": {
+      "type": "object",
+      "description": "Vector-path style in POINTS (not v1's pixels). NO schema defaults (F9): build_annotation_payload fills every field in code, so payloads on disk are always fully explicit and the assembler never guesses.",
+      "required": ["leader_width_pt", "casing_width_pt", "casing_color",
+                   "leader_color", "dot_radius_pt", "box_fill", "box_border",
+                   "box_border_width_pt", "text_color", "font_face",
+                   "font_size_pt"],
+      "properties": {
+        "leader_width_pt":      {"type": "number"},
+        "casing_width_pt":      {"type": "number"},
+        "casing_color":         {"type": "string"},
+        "leader_color":         {"type": "string"},
+        "dot_radius_pt":        {"type": "number"},
+        "box_fill":             {"type": "string"},
+        "box_border":           {"type": "string"},
+        "box_border_width_pt":  {"type": "number"},
+        "text_color":           {"type": "string"},
+        "font_face":            {"type": "string"},
+        "font_size_pt":         {"type": "number"}
+      }
+    }
+  }
+}

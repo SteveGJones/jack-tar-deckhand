@@ -128,6 +128,16 @@ If a strategy map exists, check each slide's strategy before routing:
 - **full_render** or **backdrop_render** slides: Use the three-stage render funnel. Dispatch the `prompt-engineer` agent (Haiku model) with a structured brief from `assemble_brief()`, then render through Ollama → cloud_low → cloud_full stages.
 - **academic_figure** slides: Route through the paperbanana CLI subprocess dispatch — see **Step 4.6** below.
 - **composed** slides: Use the standard routing matrix (unchanged).
+- **`annotation_mode: native`** on the strategy-map entry (any base strategy —
+  `full_bleed`, `full_render`, `background`, `backdrop`, `composed`, or
+  `academic_figure`): the annotation channel is **orthogonal to the base
+  strategy**. Route the base image per the bullets above as normal, then hand
+  off to **Step 4.8** below for the vision anchor pass and payload build — the
+  assembler draws the overlay, not this bridge. `annotation_mode: "raster"`
+  stays entirely inside the v1 `/jack-tar-deckhand:annotate-figure` flow
+  (label-free render or external image → anchor pass → `annotate()` bakes the
+  labelled PNG directly into `file_path`); it needs no separate bridge step.
+  `annotation_mode: "none"` or absent is unaffected.
 
 Use the image router to determine which skill handles each slide:
 
@@ -857,6 +867,186 @@ the cascade loop never satisfies that condition.
 - Director's Brief agent: `plugins/jack-tar-deckhand/agents/directors-brief.md`
 - Prompt Reviewer agent: `plugins/jack-tar-deckhand/agents/prompt-reviewer.md`
 - Director's Critic agent: `plugins/jack-tar-deckhand/agents/directors-critic.md`
+
+### Step 4.8: Native Annotation Dispatch (deck-native labels, annotate-figure v2)
+
+For slides whose strategy-map entry has `annotation_mode: "native"`, the
+bridge produces an **unlabelled base image** plus a separate, schema-valid
+**SlideAnnotations payload** — the label text, leader-line anchors, and label
+positions the assembler needs to draw editable text boxes and connectors
+directly over the image at assembly time. Unlike `annotation_mode: "raster"`
+(the v1 flow — labels baked into the PNG pixels), no overlay pixels are ever
+produced here; the image stays clean and the assembler owns the drawing.
+
+#### When to enter this branch
+
+A slide has `annotation_mode: "native"` on its `strategy-map.json` entry,
+which (per the schema's `allOf` conditional) always comes with a populated
+`annotation` block: `annotation.labels` (array of `{text, target}` — the
+exact label string and what it points at), an optional
+`annotation.source_image_path` (external image, no generation), and an
+optional `annotation.style` override. This is independent of the slide's
+base `strategy` — `full_bleed`, `full_render`, `background`, `backdrop`,
+`composed`, and `academic_figure` slides can all carry it. The assembler's
+own routing key is `annotation_mode == native` AND the presence of
+`annotations_path` on the image-manifest entry — orthogonal to the base
+strategy, which still governs how the UNLABELLED base image itself is
+produced.
+
+1. **Obtain the unlabelled base image.**
+   - If `annotation.source_image_path` is set, use it as-is: `source:
+     "external"`, no generation, no spend (F10-free — no paid tier is
+     touched by this step at all).
+   - Otherwise, render the base image via the slide's normal strategy path
+     (Step 4.5 funnel, Step 4.6 academic_figure dispatch, or the standard
+     `composed` routing), but with the prompt put through the **label-free
+     transform** from `/jack-tar-deckhand:annotate-figure` SKILL.md §1: drop
+     every quoted-label directive and any "labelled/labeled X" phrasing,
+     describe the parts that must be *visible* instead, and append `No
+     text, no labels, no leader lines, no annotations of any kind.` `source:
+     "generated"`.
+
+2. **Anchor pass (vision → structured JSON).** Dispatch
+   `jack-tar-deckhand:image-reviewer` (or `general-purpose` for complex
+   scenes) on the base image with the structured contract from
+   `/jack-tar-deckhand:annotate-figure` SKILL.md §2, filling in
+   `annotation.labels`' `text`/`target` pairs:
+
+   > Return NORMALIZED coordinates (x, y as fractions of width/height, 0–1,
+   > origin top-left) for the exact point a leader line should TOUCH for
+   > each of: `<label.text>`: `<label.target>`, … Also give a one-line
+   > description of the depicted subject and any orientation facts needed
+   > to sanity-check. Output ONLY JSON: `{"description": "...", "anchors":
+   > {"<Label>": [x, y], ...}}`
+
+   Validate the response with `src.annotate_figure.validate_anchors`. On a
+   validation failure, re-dispatch ONCE with the validation error message
+   included in the prompt.
+
+   **Anchor-pass failure path (F5) — mandatory, no silent fall-through.** If
+   the re-dispatch ALSO fails validation, do not proceed automatically.
+   Surface the failure to the operator with an explicit **three-way
+   choice**:
+
+   - **(a) retry** — re-dispatch the anchor pass fresh, optionally escalating
+     to the `general-purpose` (Sonnet) subagent for a harder scene;
+   - **(b) fall back to raster with manual anchors** — the operator supplies
+     `{label: [x, y]}` coordinates by hand, and the v1
+     `src.annotate_figure.annotate()` flow bakes them into the PNG directly
+     (the slide effectively downgrades to the `raster` flow for this image);
+   - **(c) ship unlabeled** — the base image goes into the manifest as a
+     plain figure, no annotation at all.
+
+   Whichever choice the operator makes, set the manifest entry's `status` to
+   **at minimum `accepted_with_issues`**, and record the anchor-pass failure
+   in `review_summary`. For choice (c), do NOT write an annotations payload
+   — `annotation_mode` effectively degrades for this slide, and deck-qa's
+   AN-01 check (absent-payload error, §7 of the design doc) is the QA-side
+   tripwire that makes this degradation always operator-acknowledged, never
+   accidental.
+
+3. **Read the base image dimensions**:
+   ```python
+   from src.process_image import get_dimensions
+   width, height = get_dimensions(base_image_path)
+   ```
+
+4. **Build the payload.** Call `src.annotation_payload.build_annotation_payload`
+   with the VALIDATED anchors dict from step 2:
+   ```python
+   from src.annotation_payload import build_annotation_payload
+   payload = build_annotation_payload(
+       slide_number=entry["slide_number"],
+       source="external" if annotation.get("source_image_path") else "generated",
+       base_image_path=base_image_path,
+       image_dimensions={"width": width, "height": height},
+       placement_zone="annotated_full_slide",  # "annotated_image_zone" for composed (deferred, §10 of the design doc — v2 ships full-slide strategies only)
+       anchors=validated_anchors,
+       style_overrides=annotation.get("style"),
+       style_guide=style_guide,
+   )
+   ```
+   This resolves label positions via `place_labels`, computes
+   `base_image_hash` (the F4 invalidation contract — see §6.3 of the design
+   doc), fills every style field from code-level defaults (F9 — the schema
+   has none), and schema-validates the result against
+   `annotations.schema.json` before returning it.
+
+5. **Write the payload**:
+   ```python
+   from src.annotation_payload import write_annotation_payload
+   annotations_path = write_annotation_payload(deck_dir, entry["slide_number"], payload)
+   # -> <deck_dir>/annotations/slide-NN-annotations.json
+   ```
+
+6. **Append the image-manifest entry to the in-memory manifest dict** — the
+   same Step 4.7 precedent (`image_manifest["images"].append({...})`;
+   `manifest_utils` is reserved for post-write surgery, not the bridge's own
+   in-flight writes, per F7):
+   ```python
+   image_manifest["images"].append({
+       "image_id": f"slide-{entry['slide_number']}-annotated",
+       "slide_number": entry["slide_number"],
+       "file_path": base_image_path,          # the UNLABELLED base image
+       "placement_zone": "annotated_full_slide",  # or "annotated_image_zone"
+       "annotations_path": annotations_path,
+       "status": "generated",  # or "accepted_with_issues" — see F5 above
+       "source_prompt": label_free_prompt if annotation_source == "generated" else None,
+       "model_used": model_used if annotation_source == "generated" else None,
+   })
+   ```
+
+7. **Anchor-verification review — pre-assembly raster preview (OQ4).** Before
+   handing off to assembly, render a THROWAWAY raster preview on the SAME
+   anchors used to build the payload:
+   ```python
+   from src.annotate_figure import annotate
+   preview_path = annotate(base_image_path, validated_anchors, "/tmp/annotation-preview.png")
+   ```
+   Dispatch the pointers-only review from `/jack-tar-deckhand:annotate-figure`
+   SKILL.md §4 on `preview_path` ("does each leader line touch the
+   anatomically/semantically correct part?"). One refine loop allowed: on a
+   mispointed label, re-query coordinates for the affected labels and
+   re-run steps 4–5 (rebuild and rewrite the payload), then re-preview. This
+   is cheaper than rasterising the assembled slide and keeps the loop before
+   any OOXML is built — **the preview PNG is a throwaway artefact, never
+   placed in the deck.**
+
+Skip Step 5 (cache lookup) and Step 6 (prompt translation) for the
+annotation channel itself — the base image already went through its own
+strategy's cache/prompt-translation path in step 1 above (or was supplied
+externally), and the anchor pass / payload build have no cache or prompt
+translation of their own.
+
+#### Discipline-hook rule (in force — do not bypass)
+
+Never `Read` the base image or the throwaway preview PNG in this
+orchestration session. Always dispatch the `jack-tar-deckhand:image-reviewer`
+or `general-purpose` subagent for the anchor pass and the anchor-verification
+review — they read the PNG into THEIR context and return text.
+
+> Do not `Read` PNG / JPG / GIF / WEBP / BMP / TIFF files directly.
+> If you need to verify an image, dispatch the
+> `jack-tar-deckhand:image-reviewer` subagent (Haiku, JSON verdict) or
+> the `general-purpose` subagent (Sonnet, higher accuracy). Both
+> subagents pull the image into THEIR context and return text.
+
+#### Reference
+
+- Design doc: `docs/superpowers/plans/2026-07-17-annotate-figure-v2.md` §6.2, §6.3
+- Payload module: `plugins/jack-tar-deckhand/src/annotation_payload.py`
+  (`build_annotation_payload`, `write_annotation_payload`,
+  `estimate_label_box`, `segment_box_entry`)
+- v1 overlay engine: `plugins/jack-tar-deckhand/src/annotate_figure.py`
+  (`validate_anchors`, `place_labels`, `annotate`)
+- Payload schema: `plugins/jack-tar-deckhand/src/schemas/annotations.schema.json`
+- ImageManifest extension: `plugins/jack-tar-deckhand/src/schemas/image_manifest.schema.json`
+  (`annotations_path`, `annotated_full_slide` / `annotated_image_zone`)
+- `/annotate-figure` SKILL.md: `plugins/jack-tar-deckhand/skills/annotate-figure/SKILL.md`
+  (§1 label-free prompt transform, §2 anchor-pass contract, §4 pointers-only
+  verification review)
+- QA checks: `plugins/jack-tar-deckhand/src/qa/checks/annotation_checks.py`
+  (AN-01 contract/hash check — the tripwire for F5 choice (c))
 
 ## Step 5: Check Cache for Each Image
 

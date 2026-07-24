@@ -130,6 +130,46 @@
                 "additionalProperties": {"type": "integer", "minimum": 1}
               }
             }
+          },
+          "annotation_mode": {
+            "type": "string",
+            "enum": ["none", "raster", "native"],
+            "default": "none",
+            "description": "Opt-in figure annotation. 'raster' bakes labels into the PNG (v1). 'native' draws labels as editable PPTX text boxes + connectors over the image. Default 'none'."
+          },
+          "annotation": {
+            "type": "object",
+            "required": ["labels"],
+            "properties": {
+              "labels": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["text", "target"],
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Exact label string to place (perfect by construction)."
+                    },
+                    "target": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "What this label points at — fed to the vision anchor pass."
+                    }
+                  }
+                }
+              },
+              "source_image_path": {
+                "type": "string",
+                "description": "Optional external image (no generation). Absent -> render a label-stripped base image via the funnel."
+              },
+              "style": {
+                "type": "object",
+                "description": "Optional vector-style overrides (see annotations.schema.json $defs.style)."
+              }
+            }
           }
         },
         "allOf": [
@@ -137,6 +177,19 @@
             "if": {"properties": {"strategy": {"const": "creative_vision"}}},
             "then": {"required": ["creative_vision"]},
             "else": {"not": {"required": ["creative_vision"]}}
+          },
+          {
+            "if": {
+              "required": ["annotation_mode"],
+              "properties": {"annotation_mode": {"enum": ["raster", "native"]}}
+            },
+            "then": {
+              "required": ["annotation"],
+              "properties": {
+                "strategy": {"enum": ["full_bleed", "full_render", "background", "backdrop", "composed", "academic_figure"]}
+              }
+            },
+            "else": {"not": {"required": ["annotation"]}}
           }
         ]
       }

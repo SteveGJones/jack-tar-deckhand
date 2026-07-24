@@ -23,13 +23,18 @@ sys.path.insert(0, str(PLUGIN_ROOT))
 import pytest
 
 from src.iterate_slide_dispatch import (  # noqa: E402
+    ANNOTATION_REFRESH_DOWNGRADE_CHOICES,
+    ANNOTATION_REFRESH_INSTRUCTIONS,
     IterateMode,
     IterateSlidePlan,
     IterateSlideRefinementRequest,
+    annotation_refresh_notice,
+    annotation_refresh_required,
     build_enumerate_feedback,
     cli_args_to_argv,
     ensure_run_dir_local,
     find_manifest_entry,
+    find_strategy_map_entry,
     parse_output_path_from_stdout,
     plan_refinement,
     update_manifest_entry,
@@ -529,3 +534,111 @@ def test_plan_dataclass_construction():
     assert plan.mode == IterateMode.AUTO
     assert plan.cli_args == {}
     assert plan.budget_usd == 0.25
+
+
+# --- find_strategy_map_entry ----------------------------------------------
+
+
+def test_find_strategy_map_entry_found():
+    strategy_map = {
+        "slides": [
+            {"slide_number": 1, "strategy": "composed"},
+            {"slide_number": 7, "strategy": "full_render", "annotation_mode": "native"},
+        ]
+    }
+    entry = find_strategy_map_entry(strategy_map, 7)
+    assert entry == {
+        "slide_number": 7,
+        "strategy": "full_render",
+        "annotation_mode": "native",
+    }
+
+
+def test_find_strategy_map_entry_missing_returns_none():
+    strategy_map = {"slides": [{"slide_number": 1}]}
+    assert find_strategy_map_entry(strategy_map, 99) is None
+
+
+def test_find_strategy_map_entry_empty_map_returns_none():
+    assert find_strategy_map_entry({}, 1) is None
+
+
+def test_find_strategy_map_entry_returns_fresh_dict():
+    """Caller mutation must not bleed into the source strategy map."""
+    original = {"slide_number": 1, "annotation_mode": "native"}
+    strategy_map = {"slides": [original]}
+    found = find_strategy_map_entry(strategy_map, 1)
+    found["annotation_mode"] = "MUTATED"
+    assert original["annotation_mode"] == "native"
+
+
+# --- annotation_refresh_required (F4, T12) --------------------------------
+
+
+def test_annotation_refresh_required_true_for_native():
+    assert annotation_refresh_required({"annotation_mode": "native"}) is True
+
+
+def test_annotation_refresh_required_false_for_raster():
+    assert annotation_refresh_required({"annotation_mode": "raster"}) is False
+
+
+def test_annotation_refresh_required_false_for_none_mode():
+    assert annotation_refresh_required({"annotation_mode": "none"}) is False
+
+
+def test_annotation_refresh_required_false_when_mode_key_absent():
+    assert annotation_refresh_required({"strategy": "composed"}) is False
+
+
+def test_annotation_refresh_required_false_when_slide_entry_is_none():
+    """No strategy-map entry for the slide at all -> no-op, not an error."""
+    assert annotation_refresh_required(None) is False
+
+
+def test_annotation_refresh_required_false_for_empty_dict():
+    assert annotation_refresh_required({}) is False
+
+
+def test_annotation_refresh_required_ignores_image_manifest_entry_content():
+    """annotation_mode alone is authoritative (§6.3) — the image-manifest
+    entry's content (or its absence) does not change the verdict."""
+    slide_entry = {"annotation_mode": "native"}
+    assert annotation_refresh_required(slide_entry, image_manifest_entry=None) is True
+    assert annotation_refresh_required(slide_entry, image_manifest_entry={}) is True
+    assert annotation_refresh_required(
+        slide_entry, image_manifest_entry={"annotations_path": "x"}
+    ) is True
+
+
+# --- annotation_refresh_notice (F4, T12) ----------------------------------
+
+
+def test_annotation_refresh_notice_shape_is_pinned():
+    notice = annotation_refresh_notice(7)
+    assert notice == {
+        "slide_number": 7,
+        "annotation_refresh_required": True,
+        "instructions": ANNOTATION_REFRESH_INSTRUCTIONS,
+        "downgrade_choices": list(ANNOTATION_REFRESH_DOWNGRADE_CHOICES),
+    }
+
+
+def test_annotation_refresh_notice_instructions_mention_mandatory_steps():
+    notice = annotation_refresh_notice(1)
+    instructions = notice["instructions"]
+    assert "MANDATORY" in instructions
+    assert "anchor pass" in instructions
+    assert "build_annotation_payload" in instructions
+    assert "F5" in instructions
+
+
+def test_annotation_refresh_downgrade_choices_match_f5_three_way():
+    """Pins the F5 vocabulary (§6.2 step 2 / §13 F5) — retry / raster-with-
+    manual-anchors / ship-unlabeled — so this module and the imagegen-bridge
+    native sub-step never drift apart."""
+    assert ANNOTATION_REFRESH_DOWNGRADE_CHOICES == (
+        "retry",
+        "raster_with_manual_anchors",
+        "ship_unlabeled",
+    )

@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const PptxGenJS = require('pptxgenjs');
+const { segmentBoxEntry, estimateLabelBox } = require('./annotation_geometry');
 
 // Parse CLI args
 const args = process.argv.slice(2);
@@ -169,6 +170,20 @@ async function assembleDeck() {
         const imageData = findImage(imageManifest, slideData.slide_number);
         const chartData = findChart(chartManifest, slideData.slide_number);
         const strategy = slideStrategies[slideData.slide_number] || 'composed';
+
+        // Annotation routing (issue #142 v2, T6) — orthogonal to base
+        // strategy: a native/raster-annotated slide always renders as a
+        // pure figure via its own builder, regardless of which strategy
+        // classified it. Checked BEFORE the strategy-first if-chain below
+        // (design §6.2: "orthogonal to the base strategy").
+        const annotationEntry = strategyMap
+            ? (strategyMap.slides || []).find(e => e.slide_number === slideData.slide_number)
+            : null;
+        const annotationMode = annotationEntry?.annotation_mode || 'none';
+        if ((annotationMode === 'native' || annotationMode === 'raster') && imageData) {
+            buildNativeAnnotatedSlide(pptx, slideData, { palette, layouts, SLIDE_W, SLIDE_H, noteData, imageData, annotationMode });
+            continue;
+        }
 
         // Strategy-first routing: keynote strategies override slide-type routing
         if (strategy === 'full_bleed') {
@@ -980,6 +995,274 @@ function buildFullBleedSlide(pptx, slideData, ctx) {
         slide.background = { color: bgColor };
     }
 
+    if (noteData) {
+        slide.addNotes(noteData.text);
+    }
+}
+
+// =============================================================================
+// NATIVE ANNOTATION (issue #142 v2, T6)
+// =============================================================================
+//
+// Deck-native figure annotation: labels become real PPTX text boxes +
+// connector lines drawn over an UNLABELLED base image, instead of being
+// baked into pixels (the v1 raster flow). Design:
+// docs/superpowers/plans/2026-07-17-annotate-figure-v2.md §3, §4, §6.2.
+//
+// Both `native` and `raster` annotation_mode route here (F11): the image
+// ALWAYS contain-fits (never cover-crops or stretches) so anchors/baked
+// labels stay on-slide. `native` additionally draws the vector overlay
+// from the resolved-coordinates payload; `raster` places the
+// already-labelled PNG with a no-op overlay (labels are already baked in).
+
+const PT_TO_IN = 1 / 72;
+
+/**
+ * Read and parse the slide's SlideAnnotations payload (§2.2) referenced
+ * by the image-manifest entry's `annotations_path`. Per design's JS-path
+ * disposition (§6.2, F4 note): the JS builder trusts the payload's
+ * content — the hash gate is enforced by the python-pptx path and by the
+ * AN-01 QA check — but it must never crash and never silently produce a
+ * "pretty" slide when the contract is broken: any absence or parse
+ * failure logs a warning and skips the overlay entirely.
+ *
+ * @returns {object|null} the parsed payload, or null (with a console.warn)
+ *     when annotations_path is absent, the file is missing, or unparseable.
+ */
+function loadAnnotationPayload(imageData) {
+    if (!imageData || !imageData.annotations_path) {
+        console.warn(
+            `Slide ${imageData?.slide_number}: annotation_mode is 'native' but the ` +
+            'image-manifest entry has no annotations_path -- skipping annotation overlay'
+        );
+        return null;
+    }
+    const payloadPath = resolveImagePath(imageData.annotations_path);
+    if (!fs.existsSync(payloadPath)) {
+        console.warn(`Annotation payload not found: ${payloadPath} -- skipping annotation overlay`);
+        return null;
+    }
+    try {
+        return JSON.parse(fs.readFileSync(payloadPath, 'utf-8'));
+    } catch (err) {
+        console.warn(`Annotation payload unparseable (${payloadPath}): ${err.message} -- skipping annotation overlay`);
+        return null;
+    }
+}
+
+/**
+ * Resolve the placement-zone rect (§3.3) in slide inches. Prefers the
+ * payload's own `placement_zone` (authoritative for native mode); falls
+ * back to the image-manifest entry's `placement_zone` (raster mode has
+ * no payload); defaults to the full slide when neither is present.
+ */
+function resolveAnnotationZoneRect(placementZone, layouts, SLIDE_W, SLIDE_H) {
+    if (placementZone === 'annotated_image_zone') {
+        const zone = layouts?.content_with_image?.image_zone || {
+            x: SLIDE_W * 0.525, y: SLIDE_H * 0.107, w: SLIDE_W * 0.428, h: SLIDE_H * 0.787,
+        };
+        return { x: zone.x, y: zone.y, w: zone.w, h: zone.h };
+    }
+    return { x: 0, y: 0, w: SLIDE_W, h: SLIDE_H };
+}
+
+/**
+ * Contain-fit math (§3.2), shared by the letterbox fill, the base image
+ * placement, and the coordinate mapping used to place annotation shapes.
+ * Identical formula to the aspect-preserving fit already used inline in
+ * buildContentSlide/buildDiagramSlide, generalised to an arbitrary zone.
+ */
+function computeContainFit(zoneRect, imgW, imgH) {
+    const imgRatio = imgW / imgH;
+    const zoneRatio = zoneRect.w / zoneRect.h;
+    if (imgRatio > zoneRatio) {
+        // Image wider than zone -- fit to width, letterbox top/bottom.
+        const fw = zoneRect.w;
+        const fh = zoneRect.w / imgRatio;
+        return { x: zoneRect.x, y: zoneRect.y + (zoneRect.h - fh) / 2, w: fw, h: fh };
+    }
+    // Image taller than (or equal to) zone -- fit to height, letterbox left/right.
+    const fh = zoneRect.h;
+    const fw = zoneRect.h * imgRatio;
+    return { x: zoneRect.x + (zoneRect.w - fw) / 2, y: zoneRect.y, w: fw, h: fh };
+}
+
+/**
+ * Map an image-normalized [nx, ny] point (§2.2) into slide inches, given
+ * the image's contain-fit rect (§3.2: X = fx + nx*fw, Y = fy + ny*fh).
+ */
+function mapNormPoint(point, fitRect) {
+    return { x: fitRect.x + point[0] * fitRect.w, y: fitRect.y + point[1] * fitRect.h };
+}
+
+/**
+ * Draw the native annotation overlay -- leaders, casing, terminus dots,
+ * and label boxes -- over an already-placed contain-fit base image.
+ *
+ * Z-order (§4.4, insertion order == paint order in PptxGenJS):
+ *   2. ALL casing (light) leader lines + ALL casing dot-rings
+ *   3. ALL dark leader cores + ALL terminus dots
+ *   4. ALL label boxes + text (always on top of any leader beneath them)
+ *
+ * Every shape is tagged with the F10 `objectName` prefixes so QA (AN-01)
+ * can select and count them reliably -- `objectName`, never `name`
+ * (Spike 1: PptxGenJS 4.0.1 silently drops `name`).
+ */
+function drawAnnotations(pptx, slide, payload, fitRect, slideNumber) {
+    const style = payload.style;
+    const casingWidthPt = style.casing_width_pt;
+    const dotRadiusIn = style.dot_radius_pt * PT_TO_IN;
+    // No schema field pins the casing ring's radius margin explicitly
+    // (annotations.schema.json's style block has no separate ring field —
+    // §4.3 names "dot_radius_pt + casing_extra" without a number). Ported
+    // from the sibling python-pptx path (_apply_native_annotation, T5):
+    // the ring extends casing_width_pt/2 beyond the dot's own edge -- the
+    // same half-width the casing line extends beyond the leader core --
+    // so the two casing elements read consistently and the margin scales
+    // with an operator's casing_width_pt override instead of being a
+    // fixed pixel constant.
+    const ringRadiusIn = (style.dot_radius_pt + casingWidthPt / 2) * PT_TO_IN;
+
+    // Precompute all geometry first (mirrors annotate_figure.annotate's
+    // own precompute-then-paint-in-passes structure).
+    const geometry = payload.labels.map((label, i) => {
+        const anchor = mapNormPoint(label.anchor, fitRect);
+        const labelCentre = mapNormPoint(label.label_pos, fitRect);
+        const [boxWIn, boxHIn] = estimateLabelBox(label.text, style.font_size_pt);
+        const boxRect = [
+            labelCentre.x - boxWIn / 2, labelCentre.y - boxHIn / 2,
+            labelCentre.x + boxWIn / 2, labelCentre.y + boxHIn / 2,
+        ];
+        // Terminate the leader at the label box's own edge nearest the
+        // anchor (§4.6), not the box centre, so the line never enters it.
+        const leaderEnd = segmentBoxEntry(
+            [anchor.x, anchor.y], [labelCentre.x, labelCentre.y], boxRect,
+        );
+        return { i, text: label.text, anchor, labelCentre, boxWIn, boxHIn, boxRect, leaderEnd };
+    });
+
+    // Leader line as a bounding-box + flipV (§4.1) -- PptxGenJS 4.0.1 has
+    // no begin/end-point line API. Skips the zero-length degenerate case
+    // (anchor already at the box edge) exactly like v1's leader collapse.
+    function addLeaderLine(g, color, widthPt, namePrefix) {
+        const ax = g.anchor.x;
+        const ay = g.anchor.y;
+        const bx = g.leaderEnd[0];
+        const by = g.leaderEnd[1];
+        const w = Math.abs(bx - ax);
+        const h = Math.abs(by - ay);
+        if (w < 1e-6 && h < 1e-6) {
+            return;
+        }
+        const x = Math.min(ax, bx);
+        const y = Math.min(ay, by);
+        const flipV = (ax <= bx) !== (ay <= by);
+        slide.addShape(pptx.ShapeType.line, {
+            x, y, w, h, flipV,
+            line: { color, width: widthPt, beginArrowType: 'none', endArrowType: 'none' },
+            objectName: `${namePrefix}_${slideNumber}_${g.i}`,
+        });
+    }
+
+    // Pass 1: ALL casing underlays first, so one leader's casing never
+    // cuts another leader's dark core.
+    if (casingWidthPt > 0) {
+        for (const g of geometry) {
+            addLeaderLine(g, style.casing_color, casingWidthPt, 'annotation_casing');
+        }
+        for (const g of geometry) {
+            slide.addShape(pptx.ShapeType.ellipse, {
+                x: g.anchor.x - ringRadiusIn, y: g.anchor.y - ringRadiusIn,
+                w: 2 * ringRadiusIn, h: 2 * ringRadiusIn,
+                fill: { color: style.casing_color },
+                line: { type: 'none' },
+                objectName: `annotation_dotring_${slideNumber}_${g.i}`,
+            });
+        }
+    }
+
+    // Pass 2: ALL dark leader cores + terminus dots, over the casing layer.
+    for (const g of geometry) {
+        addLeaderLine(g, style.leader_color, style.leader_width_pt, 'annotation_leader');
+    }
+    for (const g of geometry) {
+        slide.addShape(pptx.ShapeType.ellipse, {
+            x: g.anchor.x - dotRadiusIn, y: g.anchor.y - dotRadiusIn,
+            w: 2 * dotRadiusIn, h: 2 * dotRadiusIn,
+            fill: { color: style.leader_color },
+            line: { type: 'none' },
+            objectName: `annotation_dot_${slideNumber}_${g.i}`,
+        });
+    }
+
+    // Pass 3: ALL label boxes + text, painted over the leader layer.
+    for (const g of geometry) {
+        slide.addText(g.text, {
+            x: g.labelCentre.x - g.boxWIn / 2, y: g.labelCentre.y - g.boxHIn / 2,
+            w: g.boxWIn, h: g.boxHIn,
+            fill: { color: style.box_fill },
+            line: { color: style.box_border, width: style.box_border_width_pt },
+            fontFace: style.font_face,
+            fontSize: style.font_size_pt,
+            color: style.text_color,
+            align: 'center',
+            valign: 'middle',
+            objectName: `annotation_label_${slideNumber}_${g.i}`,
+        });
+    }
+}
+
+/**
+ * Native/raster annotated slide (issue #142 v2): the base image (unlabelled
+ * for native, already-labelled for raster) contain-fits its placement zone
+ * and — for native mode with a valid payload — the vector overlay is drawn
+ * on top. Pure figure (F2): no headline, no body_points, no footer logo,
+ * matching full_bleed's zero-chrome contract. Distinct from full_bleed only
+ * in fit (contain, never cover) and in the optional overlay pass.
+ */
+function buildNativeAnnotatedSlide(pptx, slideData, ctx) {
+    const { palette, layouts, SLIDE_W, SLIDE_H, noteData, imageData, annotationMode } = ctx;
+
+    const slide = pptx.addSlide();
+
+    const payload = annotationMode === 'native' ? loadAnnotationPayload(imageData) : null;
+
+    const placementZone = payload?.placement_zone || imageData?.placement_zone || 'annotated_full_slide';
+    const zoneRect = resolveAnnotationZoneRect(placementZone, layouts, SLIDE_W, SLIDE_H);
+
+    const imgPath = imageData ? resolveImagePath(imageData.file_path) : null;
+    if (imgPath && fs.existsSync(imgPath)) {
+        const nativeW = payload?.image_dimensions?.width || imageData.dimensions?.width || 1024;
+        const nativeH = payload?.image_dimensions?.height || imageData.dimensions?.height || 576;
+        const fitRect = computeContainFit(zoneRect, nativeW, nativeH);
+
+        // Letterbox fill first (§4.4 step 1), so any off-aspect band shows
+        // the brand background rather than the PptxGenJS canvas default.
+        const bgColor = palette?.background || 'FFFFFF';
+        slide.addShape(pptx.ShapeType.rect, {
+            x: zoneRect.x, y: zoneRect.y, w: zoneRect.w, h: zoneRect.h,
+            fill: { color: bgColor }, line: { width: 0 },
+        });
+
+        slide.addImage({
+            path: imgPath,
+            x: fitRect.x, y: fitRect.y, w: fitRect.w, h: fitRect.h,
+            altText: imageData.alt_text || slideData.headline || '',
+        });
+
+        if (payload) {
+            drawAnnotations(pptx, slide, payload, fitRect, slideData.slide_number);
+        }
+        // raster mode (or native with a refused/missing payload): the
+        // image is placed contain-fit with no overlay -- labels are
+        // either already baked into the PNG (raster) or the contract
+        // was refused and a warning was already logged (native).
+    } else {
+        const bgColor = palette?.primary || '1B3A4B';
+        slide.background = { color: bgColor };
+    }
+
+    // Pure figure (F2): no headline, no body_points, no footer logo.
     if (noteData) {
         slide.addNotes(noteData.text);
     }

@@ -476,6 +476,121 @@ def update_manifest_entry(
     return updated
 
 
+# --- annotate-figure v2 native-annotation invalidation guard (F4, T12) ---
+#
+# See docs/superpowers/plans/2026-07-17-annotate-figure-v2.md §6.3: any
+# image replacement on an annotation_mode:native slide invalidates that
+# slide's annotations payload (its base_image_hash no longer matches the
+# on-disk image) and MUST trigger an anchor-pass re-run + build_
+# annotation_payload rewrite before reassembly -- or, if the operator
+# declines / the re-dispatched anchor pass also fails validation, the F5
+# three-way downgrade choice (§6.2 step 2 / §13 F5). Without this, an
+# iterated image ships bound to the PREVIOUS image's anchors; the AN-01
+# hash-gate makes that fail SAFE (overlay refused), but only this guard
+# makes it fail CORRECT (anchors refreshed).
+
+#: Three-way choice surfaced to the operator when the re-dispatched
+#: anchor pass ALSO fails validation (§6.2 step 2, F5). Mirrors the
+#: imagegen-bridge native sub-step's vocabulary (T8) so both call sites
+#: present the operator with the same options.
+ANNOTATION_REFRESH_DOWNGRADE_CHOICES = (
+    "retry",
+    "raster_with_manual_anchors",
+    "ship_unlabeled",
+)
+
+#: Verbatim instructions surfaced to the operator/orchestrator when
+#: ``annotation_refresh_required`` is True. SKILL.md prints this before
+#: allowing reassembly to proceed.
+ANNOTATION_REFRESH_INSTRUCTIONS = (
+    "MANDATORY annotation refresh (F4 invalidation contract, design doc "
+    "§6.3): this slide is contracted annotation_mode: native. Replacing "
+    "the base image invalidates the existing annotations payload's "
+    "base_image_hash -- the assembler / AN-01 refuse a stale payload. "
+    "Before reassembling this slide: "
+    "(1) re-run the anchor pass (image-reviewer / general-purpose vision "
+    "dispatch) against the NEW base image; "
+    "(2) rebuild the payload via "
+    "annotation_payload.build_annotation_payload(...) then "
+    "write_annotation_payload(deck_dir, slide_number, payload); "
+    "(3) if the re-dispatched anchor pass ALSO fails validation, do NOT "
+    "ship stale or absent anchors silently -- apply the F5 three-way "
+    "operator choice (retry / raster_with_manual_anchors / "
+    "ship_unlabeled) and record status: accepted_with_issues on the "
+    "manifest entry."
+)
+
+
+def find_strategy_map_entry(strategy_map: Mapping, slide_number: int) -> dict | None:
+    """Find the strategy-map entry for a given slide_number.
+
+    Mirrors ``find_manifest_entry``'s shape (fresh-dict copy on hit, None
+    on miss) so callers can look up ``annotation_mode`` without a second
+    parsing convention. ``strategy_map`` is the parsed
+    ``strategy-map.json`` dict (``{"slides": [...]}``).
+    """
+    for entry in strategy_map.get("slides", []):
+        if entry.get("slide_number") == slide_number:
+            return dict(entry)
+    return None
+
+
+def annotation_refresh_required(
+    slide_entry: Mapping | None,
+    image_manifest_entry: Mapping | None = None,
+) -> bool:
+    """True when replacing this slide's image invalidates its native
+    annotation payload and MUST trigger an anchor-pass + payload rewrite
+    (F4, §6.3) before the slide is reassembled.
+
+    The strategy-map entry's ``annotation_mode`` is authoritative (§6.2):
+    only ``"native"`` slides draw an assembler-side overlay keyed to the
+    base image's content hash, so only they need the anchor pass +
+    payload rewrite re-run when their image is replaced.
+
+    - ``annotation_mode == "native"`` -> True. ``"raster"`` slides bake
+      labels into the pixels at generation time -- there is no separate
+      payload to invalidate, so a raster re-render just ships a new
+      labelled PNG through the normal flow.
+    - ``annotation_mode == "none"``, absent, or ``slide_entry`` being
+      ``None`` (no strategy-map entry for this slide) -> False, no-op.
+
+    Args:
+        slide_entry: the strategy-map entry dict for this slide (e.g.
+            from ``find_strategy_map_entry``), or None.
+        image_manifest_entry: the manifest entry for the image being
+            replaced. Not part of today's decision -- ``annotation_mode``
+            alone is authoritative per §6.3 -- but accepted so callers
+            already holding the entry (e.g. from ``find_manifest_entry``)
+            don't need a second lookup, and so a future refinement (e.g.
+            skipping when no prior ``annotations_path`` was ever written)
+            can land without a signature change.
+
+    Returns:
+        bool.
+    """
+    if not slide_entry:
+        return False
+    return slide_entry.get("annotation_mode") == "native"
+
+
+def annotation_refresh_notice(slide_number: int) -> dict:
+    """Build the MANDATORY refresh notice for a native-annotated slide.
+
+    Called immediately after ``annotation_refresh_required`` returns True
+    for an image replacement. The SKILL.md surfaces ``instructions``
+    verbatim to the operator/orchestrator and blocks reassembly of the
+    slide until the anchor pass + payload rewrite (or an explicit F5
+    downgrade) has happened.
+    """
+    return {
+        "slide_number": slide_number,
+        "annotation_refresh_required": True,
+        "instructions": ANNOTATION_REFRESH_INSTRUCTIONS,
+        "downgrade_choices": list(ANNOTATION_REFRESH_DOWNGRADE_CHOICES),
+    }
+
+
 # --- creative_vision three-channel branch (#105) ---
 
 from src.creative_vision.manifest import load_manifest, revise_prose, save_manifest  # noqa: E402
