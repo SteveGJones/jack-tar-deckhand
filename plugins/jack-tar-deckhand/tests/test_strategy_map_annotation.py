@@ -158,3 +158,50 @@ def test_schema_rejects_label_missing_target():
     )
     with pytest.raises(ValidationError):
         validate(instance=_base_map(slide), schema=_schema())
+
+
+# --- v2.1: show_headline (issue #142 v2.1) --------------------------------
+
+
+def test_schema_accepts_native_with_show_headline_true():
+    annotation = _valid_annotation()
+    annotation["show_headline"] = True
+    slide = _base_slide(
+        strategy="full_bleed",
+        annotation_mode="native",
+        annotation=annotation,
+    )
+    validate(instance=_base_map(slide), schema=_schema())
+
+
+def test_schema_accepts_annotation_without_show_headline():
+    """Omitted show_headline is valid (default false); backward-compat pin."""
+    slide = _base_slide(
+        strategy="full_bleed",
+        annotation_mode="native",
+        annotation=_valid_annotation(),
+    )
+    assert "show_headline" not in slide["annotation"]
+    validate(instance=_base_map(slide), schema=_schema())
+
+
+def test_schema_rejects_non_boolean_show_headline():
+    annotation = _valid_annotation()
+    annotation["show_headline"] = "yes"
+    slide = _base_slide(
+        strategy="full_bleed",
+        annotation_mode="native",
+        annotation=annotation,
+    )
+    with pytest.raises(ValidationError):
+        validate(instance=_base_map(slide), schema=_schema())
+
+
+def test_schema_accepts_native_on_composed_with_annotation():
+    """Regression pin: composed remains a legal strategy for native annotation."""
+    slide = _base_slide(
+        strategy="composed",
+        annotation_mode="native",
+        annotation=_valid_annotation(),
+    )
+    validate(instance=_base_map(slide), schema=_schema())
