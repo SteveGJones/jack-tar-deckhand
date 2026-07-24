@@ -21,7 +21,7 @@
       "name": "jack-tar-mlx",
       "description": "Local AI image generation on Apple Silicon via the mflux CLI (MLX) \u2014 server-less, operator-installed weights, flag-compatible with jack-tar-ollama",
       "source": "./plugins/jack-tar-mlx",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "jack-tar-advisor",

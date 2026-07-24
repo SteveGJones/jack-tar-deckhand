@@ -676,5 +676,26 @@ class TestCatalogDriftGuard:
                 "default_steps": sdk["default_steps"],
                 "quantize": sdk["quantize"],
                 "timeout": capabilities["timeout_seconds"],
+                "edit_entrypoint": sdk.get("edit_entrypoint"),
+                "edit_steps": capabilities.get("edit_render_steps"),
             }
             assert generate_image.MLX_MODEL_REGISTRY[entry_id] == expected
+
+
+class TestEditRegistryFields:
+    """Issue #143 — edit_entrypoint/edit_steps registry keys, pinned
+    independently of the full-equality drift guard above."""
+
+    @pytest.mark.parametrize("model_id,expected_entrypoint,expected_steps", [
+        ("mlx/flux2-klein-4b", "mflux-generate-flux2-edit", 4),
+        ("mlx/qwen-image", "mflux-generate-qwen-edit", 8),
+    ])
+    def test_edit_capable_models_have_edit_metadata(self, model_id, expected_entrypoint, expected_steps):
+        meta = generate_image.MLX_MODEL_REGISTRY[model_id]
+        assert meta["edit_entrypoint"] == expected_entrypoint
+        assert meta["edit_steps"] == expected_steps
+
+    def test_non_edit_capable_model_has_none_edit_metadata(self):
+        meta = generate_image.MLX_MODEL_REGISTRY["mlx/z-image-turbo"]
+        assert meta["edit_entrypoint"] is None
+        assert meta["edit_steps"] is None

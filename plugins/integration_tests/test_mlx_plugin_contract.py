@@ -90,6 +90,8 @@ def test_mlx_registry_matches_canonical_catalog_full_value():
             "default_steps": sdk["default_steps"],
             "quantize": sdk["quantize"],
             "timeout": capabilities["timeout_seconds"],
+            "edit_entrypoint": sdk.get("edit_entrypoint"),
+            "edit_steps": capabilities.get("edit_render_steps"),
         }
         actual = generate_image.MLX_MODEL_REGISTRY[entry_id]
         assert actual == expected, (
@@ -102,3 +104,48 @@ def test_mlx_registry_default_model_is_a_valid_catalog_entry():
     generate_image = _load_generate_image_module()
     mlx_entries = _canonical_mlx_entries()
     assert generate_image.DEFAULT_MODEL in mlx_entries
+
+
+class TestImageEditSkill:
+    """Issue #143 — the /image-edit skill exists, is a SEPARATE skill
+    from /image (design D3), and its arg-hint reflects the actual edit
+    CLI surface (no dims flags, plural --image-paths)."""
+
+    SKILL_PATH = WORKTREE / "plugins" / "jack-tar-mlx" / "skills" / "image-edit" / "SKILL.md"
+
+    def test_skill_file_exists(self):
+        assert self.SKILL_PATH.is_file(), f"{self.SKILL_PATH} missing"
+
+    def test_skill_has_name_and_arg_hint(self):
+        text = self.SKILL_PATH.read_text()
+        assert 'name: image-edit' in text
+        assert 'argument-hint:' in text
+        arg_hint_line = next(
+            line for line in text.splitlines() if line.startswith('argument-hint:')
+        )
+        assert '--image-paths' in arg_hint_line
+        # D3/S7 — no dims flags on the edit CLI surface itself. (The
+        # skill body legitimately explains WHY they don't exist, so this
+        # only checks the actual argument-hint contract line.)
+        assert '--width' not in arg_hint_line
+        assert '--height' not in arg_hint_line
+
+    def test_skill_documents_failure_modes(self):
+        """S1 text-garbling hard-exclude and S4 reference-leakage must
+        both be documented in the skill body, not just the design doc."""
+        text = self.SKILL_PATH.read_text()
+        assert 'text' in text.lower()
+        assert 'leak' in text.lower()
+
+    def test_skill_references_edit_image_wrapper(self):
+        text = self.SKILL_PATH.read_text()
+        assert 'edit_image.py' in text
+
+
+class TestVerifySkillEditChecks:
+    VERIFY_SKILL_PATH = WORKTREE / "plugins" / "jack-tar-mlx" / "skills" / "verify" / "SKILL.md"
+
+    def test_verify_skill_checks_edit_entrypoints(self):
+        text = self.VERIFY_SKILL_PATH.read_text()
+        assert 'mflux-generate-flux2-edit' in text
+        assert 'mflux-generate-qwen-edit' in text
